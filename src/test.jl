@@ -155,7 +155,36 @@ function get_trial_data(;do_save=true, redo=false)
     lfp, spec, t, pos, freqs
 end
 
-function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2};fs=1000.0, β=1.5) where T <: Real where T2 <: Real
+"""
+    get_trial_data(data::Vector{T}, t::AbstractVector{T2}, triggers::Matrix{T2})
+
+Align `data` to trials using triggers. Both `t` and `triggers` should be in the same units
+"""
+function get_trial_data(data::VectorOrMatrix{T}, t::AbstractVector{T2}, triggers::Matrix{T3};pre_buffer=1.0, post_buffer=1.0) where T <: Real where T2 <: Real where T3 <: Real
+    ntrials = size(triggers,1)
+    aligned_data = Vector{typeof(data)}(undef, ntrials)
+    aligned_t = Vector{Vector{T2}}(undef, ntrials)
+    for tidx in 1:ntrials
+        idx0 = searchsortedfirst(t, triggers[tidx,1]-pre_buffer)
+        idx1 = searchsortedlast(t, triggers[tidx,end]+post_buffer)
+        aligned_data[tidx] = get_time_slice(data,idx0:idx1)
+        aligned_t[tidx] = t[idx0:idx1]
+    end
+    aligned_data, aligned_t
+end
+
+function get_trial_data(data::VectorOrMatrix{T}, triggers::Matrix{Int64}) where T <: Real
+    ntrials = size(triggers,1)
+    aligned_data = Vector{typeof(data)}(undef, ntrials)
+    for tidx in 1:ntrials
+        idx0 = triggers[tidx,1]
+        idx1 = triggers[tidx,end]
+        aligned_data[tidx] = get_time_slice(data,idx0:idx1)
+    end
+    aligned_data    
+end
+
+function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_data::Matrix{Float32}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2}, eyelink_triggers::Matrix{T3};fs=1000.0, β=1.5) where T <: Real where T2 <: Real where T3 <: Real
     ntrials = size(lfp_triggers,1)
     nu = size(unity_data,1)
     nl = length(lfp_data)
