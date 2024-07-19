@@ -1,5 +1,7 @@
 using GLMakie
 using ContinuousWavelets
+using DataProcessingHierarchyTools
+using ProgressMeter
 
 
 function get_time_slice(x::AbstractVector{T}, idx) where T
@@ -134,6 +136,7 @@ function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_trigg
     spec = Vector{Matrix{ComplexF64}}(undef, ntrials)
     t = Vector{Vector{Float64}}(undef, ntrials)
     freqs = Vector{Vector{Float64}}(undef, ntrials)
+    prog = Progress(ntrials, desc="Computing per trial spectrogram...")
     for tidx in 1:ntrials
         uidx0 = max(round(Int64, unity_triggers[tidx, 1]), -1, 1)
         uidx1 = min(round(Int64, unity_triggers[tidx, 3])+1, nu)
@@ -145,6 +148,7 @@ function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_trigg
         t[tidx] = range(idx0/1000.0, stop=idx1/1000, length=idx1-idx0+1)
         # compute power spectrum using wavelets
         spec[tidx],freqs[tidx] = get_spectrum(lfp[tidx],fs;β=β)
+        next!(prog)
     end
     lfp,spec,t,pos,freqs
 end
