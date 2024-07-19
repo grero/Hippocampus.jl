@@ -205,3 +205,69 @@ function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers:
     tidx[] = 1
     fig
 end
+
+function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector{Matrix{ComplexF64}}, freqs::Vector{Vector{T}},t::Vector{Vector{T}};
+                                                        arena_size::Union{Nothing, NTuple{4,Float64}}=nothing) where T <: Real
+    ntrials = length(pos)
+    tidx = Observable(1)
+    p_pos = Observable([Point2f(pos[tidx[]][i,:]...) for i in 1:size(pos[tidx[]],1)])
+    p_lfp = Observable([Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]], lfp[tidx[]])])
+    p_spec = Observable(abs.(spec[tidx[]]))
+    p_freqs = Observable(freqs[tidx[]])
+    p_t = Observable(t[tidx[]])
+    trial_start_unity = Observable(Point2f[])
+
+    fig = Figure()
+    axes = [Axis(fig[i,1]) for i in 1:3]
+    linkxaxes!(axes[2], axes[3])
+    if arena_size !== nothing
+        xlims!(axes[1], arena_size[1:2]...)
+        ylims!(axes[1], arena_size[3:4]...)
+    end
+
+    on(tidx) do _tidx
+        # hack
+        _t = t[_tidx]
+        if length(_t) > 16383
+            qidx = round.(Int64,range(1, stop=length(_t), length=16383))
+        else
+            qidx = 1:length(_t)
+        end
+        p_pos[] =[Point2f(pos[_tidx][i,:]...) for i in 1:size(pos[_tidx],1)] 
+        trial_start_unity[] = p_pos[][1:1]
+        p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], lfp[tidx[]][qidx])]
+        p_t[] = t[_tidx][qidx]
+        p_freqs[] = freqs[_tidx]
+        p_spec[] = abs.(spec[_tidx][qidx,:])
+    end
+
+    on(events(fig.scene).keyboardbutton) do event
+        if event.action == Keyboard.press
+            do_update = false
+            if event.key == Keyboard.left
+                if tidx[] > 1 
+                    tidx[] = tidx[] - 1 
+                    do_update = true
+                end
+            elseif event.key == Keyboard.right
+                if tidx[] < ntrials 
+                    tidx[] = tidx[] + 1 
+                    do_update = true
+                end
+            end
+            if do_update
+                autolimits!(axes[2])
+                autolimits!(axes[3])
+            end
+        end
+    end
+
+    lines!(axes[1], p_pos)
+    scatter!(axes[1], trial_start_unity, color=:red)
+    heatmap!(axes[2], p_t, p_freqs, p_spec)
+    axes[2].xticklabelsvisible = false
+    lines!(axes[3], p_lfp)
+
+    tidx[] = 1
+    fig
+end
