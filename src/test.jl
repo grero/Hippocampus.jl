@@ -207,8 +207,21 @@ function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers:
 end
 
 function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector{Matrix{ComplexF64}}, freqs::Vector{Vector{T}},t::Vector{Vector{T}};
-                                                        arena_size::Union{Nothing, NTuple{4,Float64}}=nothing) where T <: Real
+                                                        arena_size::Union{Nothing, NTuple{4,Float64}}=nothing,max_freq=Inf) where T <: Real
     ntrials = length(pos)
+    if max_freq < Inf
+        _spec = Vector{Matrix{ComplexF64}}(undef, length(spec))
+        _freqs = Vector{Vector{T}}(undef, length(spec))
+        for i in 1:ntrials
+            fidx = searchsortedlast(freqs[i], max_freq)
+            _spec[i] = spec[i][:,1:fidx]
+            _freqs[i] = freqs[i][1:fidx]
+        end
+    else
+        _spec = spec
+        _freqs = freqs
+    end
+
     tidx = Observable(1)
     p_pos = Observable([Point2f(pos[tidx[]][i,:]...) for i in 1:size(pos[tidx[]],1)])
     p_lfp = Observable([Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]], lfp[tidx[]])])
