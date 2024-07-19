@@ -127,6 +127,34 @@ function get_reward_aligned_spectrum(;window=(-500,500), β=1.5, maxfreq=100.0)
     P, Ps, range(window[1], stop=window[2], length=n), freqs
 end
 
+"""
+    get_trial_data()
+
+Get trial aligned LFP, Spectrogram and trajectories for the current channel
+"""
+function get_trial_data(;do_save=true, redo=false)
+    fname = "trial_aligned_lfp.mat"
+    if isfile(fname) && !redo
+        qdata = MAT.matread(fname)
+        lfp = qdata["lfp"]
+        spec = qdata["spec"]
+        t = qdata["t"]
+        pos = qdata["pos"]
+        freqs = qdata["freqs"]
+    else
+        # go down to the session directory to get the unity maze triggers
+        udata = cd(DataProcessingHierarchyTools.process_level("session")) do
+            MAT.matread("unitymaze.mat")          
+        end
+        vdata = MAT.matread("vmlfp.mat")  
+        lfp,spec,t,pos,freqs = get_trial_data(udata["um"]["data"]["unityData"], vdata["vp"]["data"]["analogData"][:], udata["um"]["data"]["unityTriggers"], vdata["vp"]["data"]["timeStamps"])
+        if do_save
+            MAT.matwrite(fname, Dict("lfp"=>lfp, "spec"=>spec, "t"=>t, "pos"=>pos, "freqs"=>freqs))
+        end
+    end
+    lfp, spec, t, pos, freqs
+end
+
 function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2};fs=1000.0, β=1.5) where T <: Real where T2 <: Real
     ntrials = size(lfp_triggers,1)
     nu = size(unity_data,1)
