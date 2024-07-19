@@ -225,13 +225,27 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
     tidx = Observable(1)
     p_pos = Observable([Point2f(pos[tidx[]][i,:]...) for i in 1:size(pos[tidx[]],1)])
     p_lfp = Observable([Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]], lfp[tidx[]])])
-    p_spec = Observable(abs.(spec[tidx[]]))
-    p_freqs = Observable(freqs[tidx[]])
+
+
+    p_spec = Observable(abs.(_spec[tidx[]]))
+    p_freqs = Observable(_freqs[tidx[]])
+
     p_t = Observable(t[tidx[]])
     trial_start_unity = Observable(Point2f[])
+    current_time = Observable(p_t[][1])
+    current_pos = Observable([Point2f(p_pos[][1])])
 
     fig = Figure()
     axes = [Axis(fig[i,1]) for i in 1:3]
+    for ax in axes[2:end]
+        ax.xgridvisible = false
+        ax.ygridvisible = false
+        ax.topspinevisible = false
+        ax.rightspinevisible = false
+    end
+    # override scroll zoom
+    deregister_interaction!(axes[2], :scrollzoom)
+    deregister_interaction!(axes[3], :scrollzoom)
     linkxaxes!(axes[2], axes[3])
     if arena_size !== nothing
         xlims!(axes[1], arena_size[1:2]...)
@@ -247,11 +261,27 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
             qidx = 1:length(_t)
         end
         p_pos[] =[Point2f(pos[_tidx][i,:]...) for i in 1:size(pos[_tidx],1)] 
+        current_pos[] = [p_pos[][1]]
         trial_start_unity[] = p_pos[][1:1]
         p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], lfp[tidx[]][qidx])]
         p_t[] = t[_tidx][qidx]
-        p_freqs[] = freqs[_tidx]
-        p_spec[] = abs.(spec[_tidx][qidx,:])
+        current_time[] = p_t[][1]
+
+        p_freqs[] = _freqs[_tidx]
+        p_spec[] = abs.(_spec[_tidx][qidx,:])
+    end
+
+    #handle scroll event
+    on(events(fig.scene).scroll) do (dx,dy)
+        tmax = p_t[][end]
+        n_pos = length(p_pos[])
+        if 0 < current_time[] < tmax
+            current_time[] = current_time[] + dx
+            #TODO: Update current pos
+            # convert from ms to s
+            pidx = min(max(1, round(Int64,n_pos*current_time[]/tmax)),n_pos) 
+            current_pos[] = [p_pos[][pidx]]
+        end
     end
 
     on(events(fig.scene).keyboardbutton) do event
@@ -277,9 +307,12 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
 
     lines!(axes[1], p_pos)
     scatter!(axes[1], trial_start_unity, color=:red)
+    scatter!(axes[1], current_pos, color=:green)
     heatmap!(axes[2], p_t, p_freqs, p_spec)
+    vlines!(axes[2], current_time, color=:green)
     axes[2].xticklabelsvisible = false
     lines!(axes[3], p_lfp)
+    vlines!(axes[3], current_time, color=:green)
 
     tidx[] = 1
     fig
