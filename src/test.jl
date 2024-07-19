@@ -125,6 +125,30 @@ function get_reward_aligned_spectrum(;window=(-500,500), β=1.5, maxfreq=100.0)
     P, Ps, range(window[1], stop=window[2], length=n), freqs
 end
 
+function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2};fs=1000.0, β=1.5) where T <: Real where T2 <: Real
+    ntrials = size(lfp_triggers,1)
+    nu = size(unity_data,1)
+    nl = length(lfp_data)
+    pos = Vector{Matrix{Float64}}(undef, ntrials)
+    lfp = Vector{Vector{Float64}}(undef, ntrials)
+    spec = Vector{Matrix{ComplexF64}}(undef, ntrials)
+    t = Vector{Vector{Float64}}(undef, ntrials)
+    freqs = Vector{Vector{Float64}}(undef, ntrials)
+    for tidx in 1:ntrials
+        uidx0 = max(round(Int64, unity_triggers[tidx, 1]), -1, 1)
+        uidx1 = min(round(Int64, unity_triggers[tidx, 3])+1, nu)
+        pos[tidx] = unity_data[uidx0:uidx1,3:4] 
+
+        idx0 = max(round(Int64, lfp_triggers[tidx, 1]*1000)-1000,1)
+        idx1 = min(round(Int64, lfp_triggers[tidx, 3]*1000)+1000,nl)
+        lfp[tidx] = lfp_data[idx0:idx1]
+        t[tidx] = range(idx0/1000.0, stop=idx1/1000, length=idx1-idx0+1)
+        # compute power spectrum using wavelets
+        spec[tidx],freqs[tidx] = get_spectrum(lfp[tidx],fs;β=β)
+    end
+    lfp,spec,t,pos,freqs
+end
+
 function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2}) where T <: Real where T2 <: Real
     ntrials = size(lfp_triggers,1)
     nu = size(unity_data,1)
