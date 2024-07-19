@@ -82,8 +82,8 @@ end
 function get_spectrum(x::Vector{T},fs::T2;β=2) where T <: Real where T2 <: Real
     n = length(x)
     c = wavelet(Morlet(π), averagingType=NoAve(), β=β)
-    daughers, ω = computeWavelets(n,c)
-    freqs = getMeanFreq(daughers,fs)
+    daughters, ω = computeWavelets(n,c)
+    freqs = getMeanFreq(daughters,fs)
     res = cwt(x, c, daughters)
     res, freqs
 end
