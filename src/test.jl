@@ -332,31 +332,47 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
         p_spec[] = abs.(_spec[_tidx][qidx,:])
     end
 
-    #handle scroll event
-    on(events(fig.scene).scroll) do (dx,dy)
+    function handle_scroll(dx)
         tmax = p_t[][end]
+        tmin = p_t[][1]
+        Δt = tmax - tmin
         n_pos = length(p_pos[])
-        if 0 < current_time[] < tmax
+        if tmin < current_time[]+dx < tmax
             current_time[] = current_time[] + dx
-            #TODO: Update current pos
-            # convert from ms to s
-            pidx = min(max(1, round(Int64,n_pos*current_time[]/tmax)),n_pos) 
+            pidx = min(max(1, round(Int64,n_pos*(current_time[]-tmin)/Δt)),n_pos) 
             current_pos[] = [p_pos[][pidx]]
         end
     end
 
+    #handle scroll event
+    on(events(fig.scene).scroll) do (dx,dy)
+        handle_scroll(dx)
+    end
+
     on(events(fig.scene).keyboardbutton) do event
         if event.action == Keyboard.press
+            do_scroll = false
+            if Keyboard.left_shift in events(fig.scene).keyboardstate
+                do_scroll = true
+            end
             do_update = false
             if event.key == Keyboard.left
-                if tidx[] > 1 
-                    tidx[] = tidx[] - 1 
-                    do_update = true
+                if do_scroll
+                    handle_scroll(-0.1)
+                else
+                    if tidx[] > 1 
+                        tidx[] = tidx[] - 1 
+                        do_update = true
+                    end
                 end
             elseif event.key == Keyboard.right
-                if tidx[] < ntrials 
-                    tidx[] = tidx[] + 1 
-                    do_update = true
+                if do_scroll
+                    handle_scroll(0.1)
+                else
+                    if tidx[] < ntrials 
+                        tidx[] = tidx[] + 1 
+                        do_update = true
+                    end
                 end
             end
             if do_update
