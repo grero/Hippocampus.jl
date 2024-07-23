@@ -494,3 +494,52 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     tidx[] = 1
     fig
 end
+
+function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Vector{Float64}}, lfp::Vector{Vector{Float64}}, lfp_time::Vector{Vector{Float64}})
+    xmin,xmax,ymin,ymax = (Inf,-Inf,Inf,-Inf)
+    for mpos in maze_pos
+        for pos in eachrow(mpos)
+            xmin = min(xmin, pos[1])
+            xmax = max(xmax, pos[1])
+            ymin = min(ymin, pos[2])
+            ymax = max(ymax, pos[2])
+        end
+    end
+
+    xbins = range(xmin, stop=xmax, length=20)
+    ybins = range(ymin, stop=ymax, length=20)
+
+    # get occupancy
+    nn = 0
+    img = fill(0.0, length(xbins), length(ybins))
+    for mpos in maze_pos
+        for pos in eachrow(mpos)
+            xidx = searchsortedfirst(xbins, pos[1])
+            yidx = searchsortedfirst(ybins, pos[2])
+            img[xidx,yidx] += 1.0
+            nn += 1.0
+        end
+    end
+    img ./= nn
+
+    # get lfp power weighted spatial map
+    pp = 0.0
+    img2 = fill(0.0, length(xbins), length(ybins))
+    for i in 1:length(lfp_time)
+        u_t = maze_time[i]
+        u_pos = maze_pos[i]
+        for (_t,d) in zip(lfp_time[i], lfp[i])
+            # match time between unity and lfp
+            tidx = searchsortedfirst(u_t, _t)
+            if 0 < tidx <= length(u_t)
+                pos = u_pos[tidx,:] 
+                xidx = searchsortedfirst(xbins, pos[1])
+                yidx = searchsortedfirst(ybins, pos[2])
+                img2[xidx, yidx] += abs(d)
+                pp += abs(d)
+            end
+        end
+    end
+    img2 ./= pp
+    img, img2, xbins, ybins
+end
