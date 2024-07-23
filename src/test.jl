@@ -302,8 +302,8 @@ function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers:
     fig
 end
 
-function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector{Matrix{ComplexF64}}, freqs::Vector{Vector{T}},t::Vector{Vector{T}};
-                                                        arena_size::Union{Nothing, NTuple{4,Float64}}=nothing,max_freq=Inf) where T <: Real
+function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Vector{Vector{T}}, spec::Vector{Matrix{ComplexF64}}, freqs::Vector{Vector{T}},t::Vector{Vector{T}};
+                                                        arena_size::Union{Nothing, NTuple{4,Float64}}=nothing,max_freq=Inf) where T <: Real where T2 <: Real
     ntrials = length(pos)
     if max_freq < Inf
         _spec = Vector{Matrix{ComplexF64}}(undef, length(spec))
@@ -320,6 +320,8 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
 
     tidx = Observable(1)
     p_pos = Observable([Point2f(pos[tidx[]][i,:]...) for i in 1:size(pos[tidx[]],1)])
+    p_eyepos = Observable([Point2f(eye_pos[tidx[]][i,:]...) for i in 1:size(eye_pos[tidx[]],1)])
+
     p_lfp = Observable([Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]], lfp[tidx[]])])
 
 
@@ -330,22 +332,27 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
     trial_start_unity = Observable(Point2f[])
     current_time = Observable(p_t[][1])
     current_pos = Observable([Point2f(p_pos[][1])])
+    current_eyepos = Observable([Point2f(p_eyepos[][1])])
+
 
     fig = Figure()
-    axes = [Axis(fig[i,1]) for i in 1:3]
-    for ax in axes[2:end]
+    lg = GridLayout(fig[1,1])
+    ax1 = Axis(lg[1,1])
+    ax2 = Axis(lg[1,2])
+    axes = [Axis(fig[i+1,1]) for i in 1:2]
+    for ax in axes[1:end]
         ax.xgridvisible = false
         ax.ygridvisible = false
         ax.topspinevisible = false
         ax.rightspinevisible = false
     end
     # override scroll zoom
+    deregister_interaction!(axes[1], :scrollzoom)
     deregister_interaction!(axes[2], :scrollzoom)
-    deregister_interaction!(axes[3], :scrollzoom)
-    linkxaxes!(axes[2], axes[3])
+    linkxaxes!(axes[1], axes[2])
     if arena_size !== nothing
-        xlims!(axes[1], arena_size[1:2]...)
-        ylims!(axes[1], arena_size[3:4]...)
+        xlims!(ax1, arena_size[1:2]...)
+        ylims!(ax1, arena_size[3:4]...)
     end
 
     on(tidx) do _tidx
@@ -357,7 +364,9 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
             qidx = 1:length(_t)
         end
         p_pos[] =[Point2f(pos[_tidx][i,:]...) for i in 1:size(pos[_tidx],1)] 
+        p_eyepos[] =[Point2f(eye_pos[_tidx][i,:]...) for i in 1:size(eye_pos[_tidx],1)] 
         current_pos[] = [p_pos[][1]]
+        current_eyepos[] = [p_eyepos[][1]]
         trial_start_unity[] = p_pos[][1:1]
         p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], lfp[tidx[]][qidx])]
         p_t[] = t[_tidx][qidx]
@@ -372,10 +381,13 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
         tmin = p_t[][1]
         Δt = tmax - tmin
         n_pos = length(p_pos[])
+        n_eyepos = length(p_eyepos[])
         if tmin < current_time[]+dx < tmax
             current_time[] = current_time[] + dx
             pidx = min(max(1, round(Int64,n_pos*(current_time[]-tmin)/Δt)),n_pos) 
             current_pos[] = [p_pos[][pidx]]
+            pidx = min(max(1, round(Int64,n_eyepos*(current_time[]-tmin)/Δt)),n_eyepos) 
+            current_eyepos[] = [p_eyepos[][pidx]]
         end
     end
 
@@ -411,8 +423,8 @@ function plot_trial(pos::Vector{Matrix{T}}, lfp::Vector{Vector{T}}, spec::Vector
                 end
             end
             if do_update
+                autolimits!(axes[1])
                 autolimits!(axes[2])
-                autolimits!(axes[3])
             end
         end
     end
