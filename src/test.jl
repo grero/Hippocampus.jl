@@ -192,12 +192,12 @@ Align `data` to trials using triggers. Both `t` and `triggers` should be in the 
 function get_trial_data(data::T4, t::AbstractVector{T2}, triggers::Matrix{T3};pre_buffer=1.0, post_buffer=1.0) where T4 <: VectorOrMatrix{T} where T <: Real where T2 <: Real where T3 <: Real 
     ntrials = size(triggers,1)
     aligned_data = Vector{T4}(undef, ntrials)
-    aligned_t = Vector{Vector{T2}}(undef, ntrials)
+    aligned_t = Vector{Vector{Float64}}(undef, ntrials)
     for tidx in 1:ntrials
         idx0 = searchsortedfirst(t, triggers[tidx,1]-pre_buffer)
         idx1 = searchsortedlast(t, triggers[tidx,end]+post_buffer)
         aligned_data[tidx] = get_time_slice(data,idx0:idx1)
-        aligned_t[tidx] = t[idx0:idx1]
+        aligned_t[tidx] = Float64.(t[idx0:idx1]) .- Float64(triggers[tidx,1])
     end
     aligned_data, aligned_t
 end
