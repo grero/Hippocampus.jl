@@ -319,6 +319,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     end
 
     tidx = Observable(1)
+    fidx = Observable(0)
     p_pos = Observable([Point2f(pos[tidx[]][i,:]...) for i in 1:size(pos[tidx[]],1)])
     p_eyepos = Observable([Point2f(eye_pos[tidx[]][i,:]...) for i in 1:size(eye_pos[tidx[]],1)])
 
@@ -333,6 +334,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     current_time = Observable(p_t[][1])
     current_pos = Observable([Point2f(p_pos[][1])])
     current_eyepos = Observable([Point2f(p_eyepos[][1])])
+    current_freq = Observable(NaN)
 
 
     fig = Figure()
@@ -368,12 +370,35 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         current_pos[] = [p_pos[][1]]
         current_eyepos[] = [p_eyepos[][1]]
         trial_start_unity[] = p_pos[][1:1]
-        p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], lfp[tidx[]][qidx])]
+        if fidx[] == 0
+            # show entire lfp
+            p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], lfp[_tidx][qidx])]
+        else
+            p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], real.(spec[_tidx][qidx,fidx[]]))]
+        end
         p_t[] = t[_tidx][qidx]
         current_time[] = p_t[][1]
 
         p_freqs[] = _freqs[_tidx]
         p_spec[] = abs.(_spec[_tidx][qidx,:])
+    end
+
+    on(fidx) do _fidx
+        _tidx = tidx[]
+        _t = t[_tidx]
+        if length(_t) > 16383
+            qidx = round.(Int64,range(1, stop=length(_t), length=16383))
+        else
+            qidx = 1:length(_t)
+        end
+        if _fidx > 0 
+            p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[_tidx][qidx], real.(spec[_tidx][qidx,_fidx]))]
+            current_freq[] = freqs[_tidx][_fidx]
+        else
+            p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[_tidx][qidx], real.(lfp[_tidx]))]
+            current_freq[] = NaN 
+        end
+        autolimits!(axes[2])
     end
 
     function handle_scroll(dx)
@@ -434,14 +459,32 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     scatter!(ax1, trial_start_unity, color=:red)
     scatter!(ax1, current_pos, color=:green)
     scatter!(ax2, current_eyepos, color=:green)
-    heatmap!(axes[1], p_t, p_freqs, p_spec)
+    h = heatmap!(axes[1], p_t, p_freqs, p_spec)
     vlines!(axes[1], current_time, color=:green)
+    hlines!(axes[1], current_freq, color=:white)
     axes[1].ylabel = "Frequency [Hz]"
     axes[1].xticklabelsvisible = false
     lines!(axes[2], p_lfp)
     vlines!(axes[2], current_time, color=:green)
     axes[2].xlabel = "Time [s]"
     axes[2].ylabel = "LFP"
+
+    mouseevents = addmouseevents!(fig.scene, h)
+
+    onmouseleftdoubleclick(mouseevents, priority=4) do event
+        plt, i = pick(fig.scene)
+        fidx[] = 0
+        Consume(true)
+    end
+
+     # handle click
+     onmouseleftclick(mouseevents, priority=3) do event
+        plt, i = pick(fig.scene)
+        _pos = mouseposition(axes[1])
+        # find the clicked frequency
+        fidx[] = searchsortedfirst(p_freqs[], _pos[2])
+        Consume(true)
+    end
 
     tidx[] = 1
     fig
