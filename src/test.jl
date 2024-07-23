@@ -165,9 +165,12 @@ function get_trial_data(;do_save=true, redo=false)
         end
         aligned_maze_pos = get_trial_data(udata["um"]["data"]["unityData"][:,3:4], round.(Int64,udata["um"]["data"]["unityTriggers"]))
 
-        aligned_eyepos, aligned_eye_t = get_trial_data(edata["el"]["data"]["eye_pos"], edata["el"]["data"]["timestamps"][:], edata["el"]["data"]["trial_timestamps"])
+        #eye link data are in units of miliseconds
+        aligned_eyepos, aligned_eye_t = get_trial_data(edata["el"]["data"]["eye_pos"], edata["el"]["data"]["timestamps"][:], edata["el"]["data"]["trial_timestamps"];
+        pre_buffer=1000.0, post_buffer=1000.0)
 
         vdata = MAT.matread("vmlfp.mat")  
+        #lfp data are in units of seconds
         aligned_lfp, aligned_lfp_time = get_trial_data(vdata["vp"]["data"]["analogData"][:], vdata["vp"]["data"]["analogTime"][:], vdata["vp"]["data"]["timeStamps"])
         fs = vdata["vp"]["data"]["analogInfo"]["SampleRate"]
         aligned_res, aligned_freqs = get_spectrum(aligned_lfp, fs;β=1.5)
