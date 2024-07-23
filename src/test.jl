@@ -202,15 +202,19 @@ function get_trial_data(data::T4, t::AbstractVector{T2}, triggers::Matrix{T3};pr
     aligned_data, aligned_t
 end
 
-function get_trial_data(data::VectorOrMatrix{T}, triggers::Matrix{Int64}) where T <: Real
+function get_trial_data(data::VectorOrMatrix{T}, t::AbstractVector{T2}, triggers::Matrix{Int64};pre_buffer=1.0, post_buffer=1.0) where T <: Real where T2 <: Real
     ntrials = size(triggers,1)
     aligned_data = Vector{typeof(data)}(undef, ntrials)
+    aligned_t = Vector{Vector{Float64}}(undef, ntrials)
     for tidx in 1:ntrials
         idx0 = triggers[tidx,1]
+        idx0 = searchsortedfirst(t, t[idx0]-pre_buffer)
         idx1 = triggers[tidx,end]
+        idx1 = searchsortedfirst(t, t[idx1]+post_buffer)
         aligned_data[tidx] = get_time_slice(data,idx0:idx1)
+        aligned_t[tidx] = Float64.(t[idx0:idx1]) .- Float64(t[triggers[tidx,1]])
     end
-    aligned_data    
+    aligned_data, aligned_t    
 end
 
 function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_data::Matrix{Float32}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2}, eyelink_triggers::Matrix{T3};fs=1000.0, β=1.5) where T <: Real where T2 <: Real where T3 <: Real
