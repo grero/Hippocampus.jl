@@ -163,7 +163,7 @@ function get_trial_data(;do_save=true, redo=false)
         udata,edata = cd(DataProcessingHierarchyTools.process_level("session")) do
             MAT.matread("unitymaze.mat"), MAT.matread("eyelink.mat")
         end
-        aligned_maze_pos = get_trial_data(udata["um"]["data"]["unityData"][:,3:4], round.(Int64,udata["um"]["data"]["unityTriggers"]))
+        aligned_maze_pos,aligned_maze_time = get_trial_data(udata["um"]["data"]["unityData"][:,3:4], udata["um"]["data"]["unityTime"][:], round.(Int64,udata["um"]["data"]["unityTriggers"]))
 
         #eye link data are in units of miliseconds
         aligned_eyepos, aligned_eye_t = get_trial_data(edata["el"]["data"]["eye_pos"], edata["el"]["data"]["timestamps"][:], edata["el"]["data"]["trial_timestamps"];
@@ -177,11 +177,12 @@ function get_trial_data(;do_save=true, redo=false)
 
         if do_save
             MAT.matwrite(fname, Dict("aligned_lfp"=>aligned_lfp, "aligned_spec"=>aligned_res, "aligned_lfp_time"=>aligned_lfp_time,
-                                    "aligned_maze_pos"=>aligned_maze_pos, "aligned_freqs"=>aligned_freqs,
+                                    "aligned_maze_pos"=>aligned_maze_pos, "aligned_maze_time" => aligned_maze_time,
+                                    "aligned_freqs"=>aligned_freqs,
                                     "aligned_eye_pos"=>aligned_eyepos, "aligned_eye_time"=>aligned_eye_t))
         end
     end
-    aligned_lfp, aligned_lfp_time, aligned_res, aligned_freqs, aligned_eyepos, aligned_eye_t, aligned_maze_pos
+    aligned_lfp, aligned_lfp_time, aligned_res, aligned_freqs, aligned_eyepos, aligned_eye_t, aligned_maze_pos, aligned_maze_time
 end
 
 """
