@@ -429,14 +429,19 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         end
     end
 
-    lines!(axes[1], p_pos)
-    scatter!(axes[1], trial_start_unity, color=:red)
-    scatter!(axes[1], current_pos, color=:green)
-    heatmap!(axes[2], p_t, p_freqs, p_spec)
+    lines!(ax1, p_pos)
+    lines!(ax2, p_eyepos)
+    scatter!(ax1, trial_start_unity, color=:red)
+    scatter!(ax1, current_pos, color=:green)
+    scatter!(ax2, current_eyepos, color=:green)
+    heatmap!(axes[1], p_t, p_freqs, p_spec)
+    vlines!(axes[1], current_time, color=:green)
+    axes[1].ylabel = "Frequency [Hz]"
+    axes[1].xticklabelsvisible = false
+    lines!(axes[2], p_lfp)
     vlines!(axes[2], current_time, color=:green)
-    axes[2].xticklabelsvisible = false
-    lines!(axes[3], p_lfp)
-    vlines!(axes[3], current_time, color=:green)
+    axes[2].xlabel = "Time [s]"
+    axes[2].ylabel = "LFP"
 
     tidx[] = 1
     fig
