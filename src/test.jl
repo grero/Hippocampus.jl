@@ -2,7 +2,10 @@ using GLMakie
 using ContinuousWavelets
 using DataProcessingHierarchyTools
 using ProgressMeter
+using MAT
 
+VectorOrMatrix{T} = Union{Matrix{T}, Vector{T}}
+is_int64(x) = round(Int64, x) == x
 
 function get_time_slice(x::AbstractVector{T}, idx) where T
     x[idx]
@@ -88,6 +91,18 @@ function get_spectrum(x::Vector{T},fs::T2;β=2) where T <: Real where T2 <: Real
     res, freqs
 end
 
+function get_spectrum(x::Vector{Vector{Float64}},fs;kvs...)
+    n = length(x)
+    res = Vector{Matrix{ComplexF64}}(undef, n)
+    freqs = Vector{Vector{Float64}}(undef, n)
+    prog = Progress(n, desc="Computing spectrogram...")
+    for (i,_x) in enumerate(x)
+        res[i], freqs[i] = get_spectrum(_x, fs;kvs...)
+        next!(prog)
+    end
+    res, freqs
+end
+
 function get_reward_aligned_spectrum(;window=(-500,500), β=1.5, maxfreq=100.0)
     data = MAT.matread("vmlfp.mat")
     fs = data["vp"]["data"]["analogInfo"]["SampleRate"]
@@ -136,23 +151,34 @@ function get_trial_data(;do_save=true, redo=false)
     fname = "trial_aligned_lfp.mat"
     if isfile(fname) && !redo
         qdata = MAT.matread(fname)
-        lfp = qdata["lfp"]
-        spec = qdata["spec"]
-        t = qdata["t"]
-        pos = qdata["pos"]
-        freqs = qdata["freqs"]
+        aligned_lfp = qdata["aligned_lfp"]
+        aligned_lfp_time = qdata["aligned_lfp_time"]
+        aligned_res = qdata["aligned_spec"]
+        aligned_freqs = qdata["aligned_freqs"]
+        aligned_eyepos = qdata["aligned_eye_pos"]
+        aligned_eye_t = qdata["aligned_eye_time"]
+        aligned_maze_pos = qdata["aligned_maze_pos"]
     else
         # go down to the session directory to get the unity maze triggers
-        udata = cd(DataProcessingHierarchyTools.process_level("session")) do
-            MAT.matread("unitymaze.mat")          
+        udata,edata = cd(DataProcessingHierarchyTools.process_level("session")) do
+            MAT.matread("unitymaze.mat"), MAT.matread("eyelink.mat")
         end
+        aligned_maze_pos = get_trial_data(udata["um"]["data"]["unityData"][:,3:4], round.(Int64,udata["um"]["data"]["unityTriggers"]))
+
+        aligned_eyepos, aligned_eye_t = get_trial_data(edata["el"]["data"]["eye_pos"], edata["el"]["data"]["timestamps"][:], edata["el"]["data"]["trial_timestamps"])
+
         vdata = MAT.matread("vmlfp.mat")  
-        lfp,spec,t,pos,freqs = get_trial_data(udata["um"]["data"]["unityData"], vdata["vp"]["data"]["analogData"][:], udata["um"]["data"]["unityTriggers"], vdata["vp"]["data"]["timeStamps"])
+        aligned_lfp, aligned_lfp_time = get_trial_data(vdata["vp"]["data"]["analogData"][:], vdata["vp"]["data"]["analogTime"][:], vdata["vp"]["data"]["timeStamps"])
+        fs = vdata["vp"]["data"]["analogInfo"]["SampleRate"]
+        aligned_res, aligned_freqs = get_spectrum(aligned_lfp, fs;β=1.5)
+
         if do_save
-            MAT.matwrite(fname, Dict("lfp"=>lfp, "spec"=>spec, "t"=>t, "pos"=>pos, "freqs"=>freqs))
+            MAT.matwrite(fname, Dict("aligned_lfp"=>aligned_lfp, "aligned_spec"=>aligned_res, "aligned_lfp_time"=>aligned_lfp_time,
+                                    "aligned_maze_pos"=>aligned_maze_pos, "aligned_freqs"=>aligned_freqs,
+                                    "aligned_eye_pos"=>aligned_eyepos, "aligned_eye_time"=>aligned_eye_t))
         end
     end
-    lfp, spec, t, pos, freqs
+    aligned_lfp, aligned_lfp_time, aligned_res, aligned_freqs, aligned_eyepos, aligned_eye_t, aligned_maze_pos
 end
 
 """
@@ -160,9 +186,9 @@ end
 
 Align `data` to trials using triggers. Both `t` and `triggers` should be in the same units
 """
-function get_trial_data(data::VectorOrMatrix{T}, t::AbstractVector{T2}, triggers::Matrix{T3};pre_buffer=1.0, post_buffer=1.0) where T <: Real where T2 <: Real where T3 <: Real
+function get_trial_data(data::T4, t::AbstractVector{T2}, triggers::Matrix{T3};pre_buffer=1.0, post_buffer=1.0) where T4 <: VectorOrMatrix{T} where T <: Real where T2 <: Real where T3 <: Real 
     ntrials = size(triggers,1)
-    aligned_data = Vector{typeof(data)}(undef, ntrials)
+    aligned_data = Vector{T4}(undef, ntrials)
     aligned_t = Vector{Vector{T2}}(undef, ntrials)
     for tidx in 1:ntrials
         idx0 = searchsortedfirst(t, triggers[tidx,1]-pre_buffer)
@@ -189,15 +215,21 @@ function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_dat
     nu = size(unity_data,1)
     nl = length(lfp_data)
     pos = Vector{Matrix{Float64}}(undef, ntrials)
+    eye_pos = Vector{Matrix{Float64}}(undef, ntrials)
     lfp = Vector{Vector{Float64}}(undef, ntrials)
     spec = Vector{Matrix{ComplexF64}}(undef, ntrials)
     t = Vector{Vector{Float64}}(undef, ntrials)
     freqs = Vector{Vector{Float64}}(undef, ntrials)
     prog = Progress(ntrials, desc="Computing per trial spectrogram...")
     for tidx in 1:ntrials
+        # unity
         uidx0 = max(round(Int64, unity_triggers[tidx, 1]), -1, 1)
         uidx1 = min(round(Int64, unity_triggers[tidx, 3])+1, nu)
         pos[tidx] = unity_data[uidx0:uidx1,3:4] 
+
+        # eyelink
+        uidx0 = max(round(Int64, unity_triggers[tidx, 1]), -1, 1)
+        uidx1 = min(round(Int64, unity_triggers[tidx, 3])+1, nu)
 
         idx0 = max(round(Int64, lfp_triggers[tidx, 1]*1000)-1000,1)
         idx1 = min(round(Int64, lfp_triggers[tidx, 3]*1000)+1000,nl)
