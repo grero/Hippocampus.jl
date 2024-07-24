@@ -192,13 +192,14 @@ function get_trial_data(;do_save=true, redo=false)
     fname = "trial_aligned_lfp.mat"
     if isfile(fname) && !redo
         qdata = MAT.matread(fname)
-        aligned_lfp = qdata["aligned_lfp"]
-        aligned_lfp_time = qdata["aligned_lfp_time"]
-        aligned_res = qdata["aligned_spec"]
-        aligned_freqs = qdata["aligned_freqs"]
-        aligned_eyepos = qdata["aligned_eye_pos"]
-        aligned_eye_t = qdata["aligned_eye_time"]
-        aligned_maze_pos = qdata["aligned_maze_pos"]
+        aligned_lfp = convert(Vector{Vector{Float64}} ,qdata["aligned_lfp"])
+        aligned_lfp_time = convert(Vector{Vector{Float64}}, qdata["aligned_lfp_time"])
+        aligned_res = convert(Vector{Matrix{ComplexF64}}, qdata["aligned_spec"])
+        aligned_freqs = convert(Vector{Vector{Float64}}, qdata["aligned_freqs"])
+        aligned_eyepos = convert(Vector{Matrix{Float32}}, qdata["aligned_eye_pos"])
+        aligned_eye_t = convert(Vector{Vector{Float64}}, qdata["aligned_eye_time"])
+        aligned_maze_pos = convert(Vector{Matrix{Float64}}, qdata["aligned_maze_pos"])
+        aligned_maze_time = convert(Vector{Vector{Float64}}, qdata["aligned_maze_time"])
     else
         # go down to the session directory to get the unity maze triggers
         udata,edata = cd(DataProcessingHierarchyTools.process_level("session")) do
