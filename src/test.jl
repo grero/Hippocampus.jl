@@ -495,6 +495,10 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     fig
 end
 
+"""
+Create a spatial map weighted by LFP power. This is essentially a map showing which parts of the arena elicit that highest
+LFP response.
+"""
 function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Vector{Float64}}, lfp::Vector{Vector{Float64}}, lfp_time::Vector{Vector{Float64}})
     xmin,xmax,ymin,ymax = (Inf,-Inf,Inf,-Inf)
     for mpos in maze_pos
