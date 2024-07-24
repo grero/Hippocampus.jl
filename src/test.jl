@@ -1,9 +1,16 @@
+module SpatialAnalyses
 using GLMakie
 using ContinuousWavelets
 using DataProcessingHierarchyTools
 using ProgressMeter
 using MAT
 
+struct SpatialPreferenceMap
+    xbins::AbstractVector{Float64}
+    ybins::AbstractVector{Float64}
+    occupancy::Matrix{Float64}
+    preference::Matrix{Float64}
+end
 VectorOrMatrix{T} = Union{Matrix{T}, Vector{T}}
 is_int64(x) = round(Int64, x) == x
 
@@ -545,5 +552,6 @@ function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Ve
         end
     end
     img2 ./= pp
-    img, img2, xbins, ybins
+    SpatialPreferenceMap(xbins, ybins, img, img2)
+end
 end
