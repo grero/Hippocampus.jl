@@ -15,7 +15,7 @@ struct SpatialPreferenceMap
     preference::Matrix{Float64}
 end
 
-MakieCore.convert_arguments(::Type{<:Heatmap}, x::SpatialPreferenceMap) = x.xbins, x.ybins, x.preference./x.occupancy
+MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::SpatialPreferenceMap) = PlotSpec(Heatmap, x.xbins, x.ybins, x.preference./x.occupancy)
 
 """
 Spectrogram aligned to trial events, computed using Morlet wavelets with the specified β
