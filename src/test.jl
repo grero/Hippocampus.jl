@@ -139,6 +139,21 @@ function get_spectrum(x::Vector{Vector{Float64}},fs;kvs...)
     res, freqs
 end
 
+"""
+    get_frequency_band(X::Vector{Matrix{ComplexF64}},freqs::Vector{Vector{Float64}}, freq::Float64)
+
+Extract the real part of `X` asociated with the specified frequency
+"""
+function get_frequency_band(X::Vector{Matrix{ComplexF64}},freqs::Vector{Vector{Float64}}, freq::Float64)
+    nn = length(X)
+    y = Vector{Vector{Float64}}(undef,nn)
+    for (i,(x,ff)) in enumerate(zip(X,freqs))
+        fidx = searchsortedfirst(ff, freq)
+        y[i] = real.(x[:,fidx])
+    end
+    y
+end
+
 function TrialAlignedSpectrogram(x::Vector{Vector{Float64}}, t::Vector{Vector{Float64}},fs;β=1.5)
     res,freqs = get_spectrum(x, fs;β=β)
     TrialAlignedSpectrogram(t, res, freqs, fs,β)
