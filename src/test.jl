@@ -1,9 +1,12 @@
 module SpatialAnalyses
+using MakieCore
 using GLMakie
 using ContinuousWavelets
 using DataProcessingHierarchyTools
 using ProgressMeter
 using MAT
+
+import Base.show
 
 struct SpatialPreferenceMap
     xbins::AbstractVector{Float64}
@@ -11,6 +14,32 @@ struct SpatialPreferenceMap
     occupancy::Matrix{Float64}
     preference::Matrix{Float64}
 end
+
+MakieCore.convert_arguments(::Type{<:Heatmap}, x::SpatialPreferenceMap) = x.xbins, x.ybins, x.preference./x.occupancy
+
+"""
+Spectrogram aligned to trial events, computed using Morlet wavelets with the specified β
+"""
+struct TrialAlignedSpectrogram
+    t::Vector{Vector{Float64}}
+    spec::Vector{Matrix{ComplexF64}}
+    freqs::Vector{Vector{Float64}}
+    sampling_rate::Float64
+    β::Float64
+end
+
+get_sampling_rate(x::TrialAlignedSpectrogram) = x.sampling_rate
+
+function Base.show(io::IO, spec::TrialAlignedSpectrogram)
+    print(io, "Morlet-based spectrogram")
+end
+
+Base.length(x::TrialAlignedSpectrogram) = length(x.spec) 
+
+#function Base.show(io,  ::MIME"text/plain", spec::TrialAlignedSpectrogram)
+ #   print(io, "Morlet-based spectrogram\n")
+#end
+
 VectorOrMatrix{T} = Union{Matrix{T}, Vector{T}}
 is_int64(x) = round(Int64, x) == x
 
@@ -108,6 +137,11 @@ function get_spectrum(x::Vector{Vector{Float64}},fs;kvs...)
         next!(prog)
     end
     res, freqs
+end
+
+function TrialAlignedSpectrogram(x::Vector{Vector{Float64}}, t::Vector{Vector{Float64}},fs;β=1.5)
+    res,freqs = get_spectrum(x, fs;β=β)
+    TrialAlignedSpectrogram(t, res, freqs, fs,β)
 end
 
 function get_reward_aligned_spectrum(;window=(-500,500), β=1.5, maxfreq=100.0)
