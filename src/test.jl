@@ -589,4 +589,10 @@ function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Ve
     img2 ./= pp
     SpatialPreferenceMap(xbins, ybins, img, img2)
 end
+
+function get_spatial_map(;redo=false)
+    aligned_lfp, aligned_lfp_time, ~,~,~,~,aligned_maze_pos, aligned_maze_time = SpatialAnalyses.get_trial_data(;redo=redo)
+    get_spatial_map(aligned_maze_pos, aligned_maze_time, aligned_lfp, aligned_lfp_time)
+end
+
 end
