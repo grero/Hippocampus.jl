@@ -552,6 +552,48 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     fig
 end
 
+function pan_through(X::Vector{NTuple{N,T}}) where T where N
+    fig = Figure()
+    axes = [Axis(fig[i,1]) for i in 1:N]
+
+    ntrials = length(X)
+    tidx = Observable(1)
+    xs = [Observable(X[tidx[]][i])  for i in 1:N]
+    on(tidx) do _tidx
+        for i in 1:length(xs)
+            xs[i][] = X[_tidx][i]
+        end
+        axes[1].title[] = "Index $(_tidx)"
+    end
+
+    on(events(fig.scene).keyboardbutton) do event
+        if event.action == Keyboard.press
+            do_update = false
+            if event.key == Keyboard.left
+                if tidx[] > 1 
+                    tidx[] = tidx[] - 1 
+                    do_update = true
+                end
+            elseif event.key == Keyboard.right
+                if tidx[] < ntrials 
+                    tidx[] = tidx[] + 1 
+                    do_update = true
+                end
+            end
+            if do_update
+                for ax in axes
+                    autolimits!(ax)
+                end
+            end
+        end
+    end 
+    for (ax,x) in zip(axes, xs)
+        plot!(ax, x)
+    end
+    tidx[] = 1
+    fig
+end
+
 """
 Create a spatial map weighted by LFP power. This is essentially a map showing which parts of the arena elicit that highest
 LFP response.
