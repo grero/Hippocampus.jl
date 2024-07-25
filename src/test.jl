@@ -552,7 +552,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     fig
 end
 
-function pan_through(X::Vector{NTuple{N,T}}) where T where N
+function pan_through(X::Vector{NTuple{N,T}};label::NTuple{N,String}=("","")) where T where N
     fig = Figure()
     axes = [Axis(fig[i,1]) for i in 1:N]
 
@@ -587,7 +587,8 @@ function pan_through(X::Vector{NTuple{N,T}}) where T where N
             end
         end
     end 
-    for (ax,x) in zip(axes, xs)
+    for (ax,x,l) in zip(axes, xs,label)
+        ax.ylabel = l
         plot!(ax, x)
     end
     tidx[] = 1
