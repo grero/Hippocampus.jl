@@ -387,9 +387,9 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
 
     p_lfp = Observable([Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]], lfp[tidx[]])])
 
-
     p_spec = Observable(abs.(_spec[tidx[]]))
     p_freqs = Observable(_freqs[tidx[]])
+    p_phase = Observable(fill(Point2f(NaN), length(t[tidx[]])))
 
     p_t = Observable(t[tidx[]])
     trial_start_unity = Observable(Point2f[])
@@ -403,7 +403,12 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     lg = GridLayout(fig[1,1])
     ax1 = Axis(lg[1,1])
     ax2 = Axis(lg[1,2])
-    axes = [Axis(fig[i+1,1]) for i in 1:2]
+    axes = [Axis(fig[i+1,1]) for i in 1:3]
+    rowsize!(fig.layout, 3, Relative(0.05))
+    hidedecorations!(axes[2])
+    axes[2].bottomspinevisible = false
+    axes[2].ylabelvisible = true
+    axes[2].ylabel = "Phase"
     for ax in axes[1:end]
         ax.xgridvisible = false
         ax.ygridvisible = false
@@ -411,9 +416,9 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         ax.rightspinevisible = false
     end
     # override scroll zoom
-    deregister_interaction!(axes[1], :scrollzoom)
-    deregister_interaction!(axes[2], :scrollzoom)
-    linkxaxes!(axes[1], axes[2])
+        deregister_interaction!(ax, :scrollzoom)
+    end
+    linkxaxes!(axes...)
     if arena_size !== nothing
         xlims!(ax1, arena_size[1:2]...)
         ylims!(ax1, arena_size[3:4]...)
@@ -434,8 +439,10 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         trial_start_unity[] = p_pos[][1:1]
         if fidx[] == 0
             # show entire lfp
+            p_phase[] = fill(Point2f(NaN), length(t[tidx[]]))
             p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], lfp[_tidx][qidx])]
         else
+            p_phase[] = [Point2f(_t,a) for (_t,a) in zip(t[tidx[]][qidx], angle.(spec[_tidx][qidx,fidx[]]))]
             p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]][qidx], real.(spec[_tidx][qidx,fidx[]]))]
         end
         p_t[] = t[_tidx][qidx]
@@ -454,13 +461,17 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
             qidx = 1:length(_t)
         end
         if _fidx > 0 
+            #TODO: Fix the code dupication between this and the tidx update
+            p_phase[] = [Point2f(_t,a) for (_t,a) in zip(t[tidx[]][qidx], angle.(spec[_tidx][qidx,fidx[]]))]
             p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[_tidx][qidx], real.(spec[_tidx][qidx,_fidx]))]
             current_freq[] = freqs[_tidx][_fidx]
         else
+            p_phase[] = fill(Point2f(NaN), length(t[tidx[]]))
             p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[_tidx][qidx], real.(lfp[_tidx]))]
             current_freq[] = NaN 
         end
         autolimits!(axes[2])
+        autolimits!(axes[3])
     end
 
     function handle_scroll(dx)
@@ -512,6 +523,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
             if do_update
                 autolimits!(axes[1])
                 autolimits!(axes[2])
+                autolimits!(axes[3])
             end
         end
     end
@@ -526,10 +538,12 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     hlines!(axes[1], current_freq, color=:white)
     axes[1].ylabel = "Frequency [Hz]"
     axes[1].xticklabelsvisible = false
-    lines!(axes[2], p_lfp)
+    lines!(axes[2], p_phase)
+    lines!(axes[3], p_lfp)
     vlines!(axes[2], current_time, color=:green)
-    axes[2].xlabel = "Time [s]"
-    axes[2].ylabel = "LFP"
+    vlines!(axes[3], current_time, color=:green)
+    axes[3].xlabel = "Time [s]"
+    axes[3].ylabel = "LFP"
 
     mouseevents = addmouseevents!(fig.scene, h)
 
