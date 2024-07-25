@@ -127,11 +127,11 @@ function get_spectrum(x::Vector{T},fs::T2;β=2) where T <: Real where T2 <: Real
     res, freqs
 end
 
-function get_spectrum(x::Vector{Vector{Float64}},fs;kvs...)
+function get_spectrum(x::Vector{Vector{Float64}},fs;offset=0, kvs...)
     n = length(x)
     res = Vector{Matrix{ComplexF64}}(undef, n)
     freqs = Vector{Vector{Float64}}(undef, n)
-    prog = Progress(n, desc="Computing spectrogram...")
+    prog = Progress(n, desc="Computing spectrogram...",offset=offset)
     for (i,_x) in enumerate(x)
         res[i], freqs[i] = get_spectrum(_x, fs;kvs...)
         next!(prog)
