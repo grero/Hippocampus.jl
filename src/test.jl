@@ -517,7 +517,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     end
 
     lines!(ax1, p_pos)
-    lines!(ax2, p_eyepos)
+    lines!(ax2, p_eyepos;color=:lightgray)
     scatter!(ax1, trial_start_unity, color=:red)
     scatter!(ax1, current_pos, color=:green)
     scatter!(ax2, current_eyepos, color=:green)
