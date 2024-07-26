@@ -566,18 +566,21 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     fig
 end
 
-function pan_through(X::Vector{NTuple{N,T}};label::NTuple{N,String}=("","")) where T where N
+function pan_through(X::Vector{Matrix{T}};label::Union{Vector{String},Nothing}=nothing) where T
     fig = Figure()
-    axes = [Axis(fig[i,1]) for i in 1:N]
+    # TODO: Ensure that all elements of `X` have the same dimensions
+    axes = [Axis(fig[i,j]) for i in 1:size(X[1],1), j in 1:size(X[1],2)]
 
     ntrials = length(X)
     tidx = Observable(1)
-    xs = [Observable(X[tidx[]][i])  for i in 1:N]
+    xs = [Observable(X[tidx[]][i])  for i in 1:length(X[1])]
+    header = Label(fig[0, 1:size(axes,2)], "Index $(tidx[])")
     on(tidx) do _tidx
         for i in 1:length(xs)
             xs[i][] = X[_tidx][i]
         end
-        axes[1].title[] = "Index $(_tidx)"
+        #axes[1].title[] = "Index $(_tidx)"
+        header.text[] = "Index $(_tidx)"
     end
 
     on(events(fig.scene).keyboardbutton) do event
@@ -600,10 +603,21 @@ function pan_through(X::Vector{NTuple{N,T}};label::NTuple{N,String}=("","")) whe
                 end
             end
         end
-    end 
-    for (ax,x,l) in zip(axes, xs,label)
+    end
+    if label !== nothing
+        _label = label
+    else
+        _label = ["" for i in 1:length(xs)]
+    end
+    for (ax,x,l) in zip(axes, xs,_label)
         ax.ylabel = l
         plot!(ax, x)
+        ax.xgridvisible = false
+        ax.ygridvisible = false
+        ax.xticklabelsvisible = false
+        ax.xticksvisible = false
+        ax.yticklabelsvisible = false
+        ax.yticksvisible = false
     end
     tidx[] = 1
     fig
