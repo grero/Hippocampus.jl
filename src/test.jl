@@ -676,9 +676,15 @@ function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Ve
     SpatialPreferenceMap(xbins, ybins, img, img2)
 end
 
-function get_spatial_map(;redo=false)
-    aligned_lfp, aligned_lfp_time, ~,~,~,~,aligned_maze_pos, aligned_maze_time = SpatialAnalyses.get_trial_data(;redo=redo)
-    get_spatial_map(aligned_maze_pos, aligned_maze_time, aligned_lfp, aligned_lfp_time)
+function get_spatial_map(;freq::Union{Nothing, Float64}=nothing, redo=false)
+    aligned_lfp, aligned_lfp_time, aligned_spec,aligned_freqs,~,~,aligned_maze_pos, aligned_maze_time = SpatialAnalyses.get_trial_data(;redo=redo)
+    if freq === nothing
+        spatial_map = get_spatial_map(aligned_maze_pos, aligned_maze_time, aligned_lfp, aligned_lfp_time)
+    else
+        X = get_frequency_band(aligned_spec, aligned_freqs, freq)
+        spatial_map = get_spatial_map(aligned_maze_pos, aligned_maze_time, X, aligned_lfp_time)
+    end
+    spatial_map
 end
 
 end
