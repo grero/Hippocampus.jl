@@ -63,6 +63,35 @@ function get_time_slice(X::Matrix{T},idx) where T
     X[idx,:]
 end
 
+
+struct UnityData
+    time::Vector{Float64}
+    position::Matrix{Float64}
+    head_direction::Vector{Float64}
+    triggers::Matrix{Int64}
+    timestamps::Matrix{Float64}
+    header::Dict
+end
+
+function UnityData(fname::String)
+    data, header, column_names = read_unity_file(fname)
+    _time = cumsum(data[:,2])
+
+    # organize triggers into a trial structure
+    # triggers 1x indicate trial start, where x indicates the poster number
+    trial_start_idx = findall(10.0 .< data[:,1] .< 20.0)
+
+    # an additional marker indicates when cue for the monkey to start navigating
+    trial_start_nav = findall(20 .<= data[:,1] .< 30)
+    # trial end is either 3x, or 4x, where 3 indicates success and 4 indicates time out
+    trial_end_idx = findall(30.0 .< data[:,1] .< 50.0)
+    length(trial_start_idx) == length(trial_start_nav) == length(trial_end_idx) || error("Inconsitent number of triggers")
+    nt = length(trial_start_idx)
+    triggers = [data[trial_start_idx,1] data[trial_start_nav,1] data[trial_end_idx,1]]
+    timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
+    UnityData(_time, data[:,3:4], data[:,5], triggers, timestamps, header)
+end
+
 """
 Read the file `fname`, assuming each column is separated by a single space, and
 the first 14 rows contain header information
