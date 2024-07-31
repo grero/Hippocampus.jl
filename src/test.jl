@@ -5,6 +5,8 @@ using ContinuousWavelets
 using DataProcessingHierarchyTools
 using ProgressMeter
 using MAT
+using DrWatson
+using DelimitedFiles
 
 import Base.show
 
@@ -57,6 +59,30 @@ end
 
 function get_time_slice(X::Matrix{T},idx) where T
     X[idx,:]
+end
+
+"""
+Read the file `fname`, assuming each column is separated by a single space, and
+the first 14 rows contain header information
+"""
+function read_unity_file(fname::String;header_rows=14)
+    # TODO: Return the config as well
+    column_names = ["marker","Δt","xpos","ypos","direction"]  
+    data = readdlm(fname, ' ', skipstart=header_rows) 
+    # check if first column should be skipped
+    if size(data,2) == 6 # should only be 5 columns
+        data = data[:,2:end]
+    end
+    header = Dict()
+    open(fname) do fid
+        for i in 1:header_rows
+            _line = readline(fid)
+            k,v = split(_line, ':')
+            header[k] = v
+        end
+    end
+    data = convert(Matrix{Float64}, data)
+    data, header, column_names
 end
 
 function plot_heatmap(x::Vector{T1}, X::Matrix{T2},M::Integer;t=1:size(X,1),freqs=1:size(X,2),freq_bands::Union{Nothing, Vector{Tuple{Float64,Float64}}}=nothing) where T1 where T2
