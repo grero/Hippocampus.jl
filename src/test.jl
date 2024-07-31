@@ -231,7 +231,7 @@ end
 
 Get trial aligned LFP, Spectrogram and trajectories for the current channel
 """
-function get_trial_data(;do_save=true, redo=false)
+function get_trial_data(;do_save=true, redo=false,kvs...)
     fname = "trial_aligned_lfp.mat"
     if isfile(fname) && !redo
         qdata = MAT.matread(fname)
