@@ -1,8 +1,10 @@
 module SpatialAnalyses
 using MakieCore
 using GLMakie
+using Colors
 using ContinuousWavelets
 using DataProcessingHierarchyTools
+const DPHT = DataProcessingHierarchyTools
 using ProgressMeter
 using MAT
 using DrWatson
