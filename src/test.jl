@@ -118,6 +118,127 @@ function read_unity_file(fname::String;header_rows=14)
     data, header, column_names
 end
 
+struct RippleData
+    triggers::Matrix{Int64}
+    timestamps::Matrix{Float64}
+    header::Dict
+end
+
+function RippleData(fname::String)
+    markers,timestamps = RippleTools.extract_markers(fname)
+    RippleData(markers,timestamps)
+end
+
+function RippleData(markers::Vector{UInt16}, timestamps::Vector{Float64})
+    # ignore markers with value 0
+    idx = markers.>0
+    new_markers = Int64.(markers[idx])
+    new_timestamps = timestamps[idx]
+    # the first marker is a session start; the remaining come in trios
+    nn = length(new_markers)
+    rem(nn-1,3) == 0 || error("Inconsistent number of markers")
+    nt = div(nn,3)
+    trial_markers = permutedims(reshape(new_markers[2:end], 3, nt))
+    trial_timestamps = permutedims(reshape(new_timestamps[2:end],3,nt))
+
+    # sanity check; make sure that the last number digit is the same for each trial
+    # and that the succession is 1,2,3 or 1,2,4.
+    main_marker = floor.(trial_markers/10.0)
+    p1 =sum(sum(main_marker .≈ [1.0 2.0 3.0],dims=2).==3)
+    p2 =sum(sum(main_marker .≈ [1.0 2.0 4.0],dims=2).==3)
+
+    p1+p2 == nt || error("Inconsistent main markers")
+
+    # check the the minor markers are the same
+    minor_marker = trial_markers - 10.0*main_marker
+    p3 = sum(sum(minor_marker .== minor_marker[:,1:1],dims=2).==3)
+    p3 == nt || error("Inconsistent cue markers")
+    RippleData(trial_markers, trial_timestamps,Dict())
+end
+
+struct EyelinkData
+    triggers::Matrix{Int64}
+    timestamps::Matrix{UInt64}
+    analogtime::Vector{UInt64}
+    gazex::Matrix{Float32}
+    gazey::Matrix{Float32}
+    saccade_start_time::Vector{UInt64}
+    saccade_end_time::Vector{UInt64}
+    saccade_start_pos::Matrix{Float32}
+    saccade_end_pos::Matrix{Float32}
+    header::Dict
+end
+
+function EyelinkData(fname::String)
+    eyelinkdata = Eyelink.load(fname)
+
+    #process saccade events
+    saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
+    nsacc = length(saccades)
+    saccade_start_time = Vector{UInt64}(undef, nsacc)
+    saccade_end_time = Vector{UInt64}(undef, nsacc)
+    saccade_start_pos = Matrix{Float32}(undef, 2, nsacc)
+    saccade_end_pos = Matrix{Float32}(undef, 2, nsacc)
+
+    for (i,saccade) in enumerate(saccades)
+        saccade_start_time[i] = saccade.sttime
+        saccade_end_time[i] = saccade.entime
+        saccade_start_pos[:,i] = [saccade.gstx, saccade.gsty]
+        saccade_end_pos[:,i] = [saccade.genx, saccade.geny]
+    end
+
+    # get the messages
+    messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
+
+    triggers = Int64[]
+    timestamps = UInt64[]
+    for msg in messages
+        if startswith(msg.message, "Start Trial") ||
+           startswith(msg.message, "End Trial") || 
+           startswith(msg.message, "Cue Offset") ||
+           startswith(msg.message, "Timeout")
+                trigger = parse(Int64, split(msg.message)[end])
+                push!(triggers, trigger)
+                push!(timestamps, msg.sttime)
+        end
+    end
+    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+    EyelinkData(trial_markers, trial_timestamps, eyelinkdata.samples.time, eyelinkdata.samples.gx, eyelinkdata.samples.gy, 
+                 saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, Dict())
+end
+
+function reshape_triggers(markers, timestamps)
+    # the first marker is a session start; the remaining come in trios
+    nn = length(markers)
+    if markers[1] == 84
+        nn -= 1
+        _markers = markers[2:end]
+        _timestamps = timestamps[2:end]
+        _
+    else
+        _markers = markers
+        _timestamps = timestamps
+    end
+    rem(nn,3) == 0 || error("Inconsistent number of markers")
+    nt = div(nn,3)
+    trial_markers = permutedims(reshape(_markers, 3, nt))
+    trial_timestamps = permutedims(reshape(_timestamps,3,nt))
+
+    # sanity check; make sure that the last number digit is the same for each trial
+    # and that the succession is 1,2,3 or 1,2,4.
+    main_marker = floor.(trial_markers/10.0)
+    p1 =sum(sum(main_marker .≈ [1.0 2.0 3.0],dims=2).==3)
+    p2 =sum(sum(main_marker .≈ [1.0 2.0 4.0],dims=2).==3)
+
+    p1+p2 == nt || error("Inconsistent main markers")
+
+    # check the the minor markers are the same
+    minor_marker = trial_markers - 10.0*main_marker
+    p3 = sum(sum(minor_marker .== minor_marker[:,1:1],dims=2).==3)
+    p3 == nt || error("Inconsistent cue markers")
+    trial_markers, trial_timestamps
+end
+
 function plot_heatmap(x::Vector{T1}, X::Matrix{T2},M::Integer;t=1:size(X,1),freqs=1:size(X,2),freq_bands::Union{Nothing, Vector{Tuple{Float64,Float64}}}=nothing) where T1 where T2
     fig = Figure()
     axes = [Axis(fig[i,1]) for i in 1:3]
