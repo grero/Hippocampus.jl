@@ -198,6 +198,9 @@ function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData)
     PlotSpec(Lines, x.analogtime, gy)]
 end
 
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
+    PlotSpec(Lines, x.position[:,1], x.position[:,2])
+end
 
 function reshape_triggers(markers, timestamps)
     # the first marker is a session start; the remaining come in trios
