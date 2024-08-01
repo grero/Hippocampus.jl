@@ -214,7 +214,6 @@ function reshape_triggers(markers, timestamps)
         nn -= 1
         _markers = markers[2:end]
         _timestamps = timestamps[2:end]
-        _
     else
         _markers = markers
         _timestamps = timestamps
