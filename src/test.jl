@@ -188,6 +188,17 @@ function EyelinkData(fname::String)
                  saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, Dict())
 end
 
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData) 
+    gx = x.gazex[1,:]
+    gy = x.gazey[1,:]
+    idx = findall((abs.(gx) .>= 32768).|(abs.(gy) .>= 32768))
+    gx[idx] .= NaN
+    gy[idx] .= NaN
+    [PlotSpec(Lines, x.analogtime, gx),
+    PlotSpec(Lines, x.analogtime, gy)]
+end
+
+
 function reshape_triggers(markers, timestamps)
     # the first marker is a session start; the remaining come in trios
     nn = length(markers)
