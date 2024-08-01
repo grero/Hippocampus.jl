@@ -92,6 +92,8 @@ function UnityData(fname::String)
     UnityData(_time, data[:,3:4], data[:,5], triggers, timestamps, header)
 end
 
+numtrials(x::UnityData) = size(x.triggers,1)
+
 """
 Read the file `fname`, assuming each column is separated by a single space, and
 the first 14 rows contain header information
