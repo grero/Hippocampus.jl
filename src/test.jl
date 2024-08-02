@@ -63,6 +63,9 @@ function get_time_slice(X::Matrix{T},idx) where T
     X[idx,:]
 end
 
+struct Trial
+    i::UInt64
+end
 
 struct UnityData
     time::Vector{Float64}
