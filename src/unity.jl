@@ -26,6 +26,10 @@ function plot_arena!(ax)
     poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
 end
 
+"""
+Check whether the point `pos` intersects with any of the pillars, or the walls
+of the arena.
+"""
 function impacts(pos)
     x,y = pos
     b1 = -7.5 <= x <= -2.5 && 2.5 <= y <= 7.5
