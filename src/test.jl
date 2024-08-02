@@ -92,7 +92,8 @@ function UnityData(fname::String)
     nt = length(trial_start_idx)
     triggers = [data[trial_start_idx,1] data[trial_start_nav,1] data[trial_end_idx,1]]
     timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
-    UnityData(_time, data[:,3:4], data[:,5], triggers, timestamps, header)
+    # the unity coordinate system swaps x and y
+    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, header)
 end
 
 numtrials(x::UnityData) = size(x.triggers,1)
