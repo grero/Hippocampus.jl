@@ -10,10 +10,22 @@ x4Bound = [2.5, 7.5, 7.5, 2.5, 2.5]  # green pillar
 z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 
 function plot_arena()
-    fig,ax = poly(Point2f.(zip(xBound, zBound)),color=:grey)
-    poly!(ax, Point2f.(zip(x1Bound, z1Bound)), color=:yellow)
-    poly!(ax, Point2f.(zip(x2Bound, z2Bound)), color=:red)
-    poly!(ax, Point2f.(zip(x3Bound, z3Bound)), color=:blue)
-    poly!(ax, Point2f.(zip(x4Bound, z4Bound)), color=:green)
-    fig
+    fig,ax = poly(Point2f.(zip(zBound, xBound)),color=:grey)
+    ax.aspect = 1.0 
+    poly!(ax, Point2f.(zip(z1Bound, x1Bound)), color=:yellow)
+    poly!(ax, Point2f.(zip(z2Bound, x2Bound)), color=:red)
+    poly!(ax, Point2f.(zip(z3Bound, x3Bound)), color=:blue)
+    poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
+    fig,ax
+end
+
+function impacts(pos)
+    x,y = pos
+    b1 = -7.5 <= x <= -2.5 && 2.5 <= y <= 7.5
+    b2 = -7.5 <= x <= -2.5 && -7.5 <= y <= -2.5
+    b3 = 2.5 <= x <= 7.5 && -7.5 <= y <= -2.5
+    b4 = 2.5 <= x <= 7.5 && 2.5 <= y <= 7.5
+    b5 = x < -12.5 || x > 12.5
+    b6 = y < -12.5 || y > 12.5
+    b1 || b2 || b3 || b4 || b5 || b6
 end
