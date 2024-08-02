@@ -169,6 +169,13 @@ struct EyelinkData
     header::Dict
 end
 
+function Base.show(io::IO, x::EyelinkData)
+    n = length(x.analogtime)
+    m = length(x.saccade_start_time)
+    nt = size(x.triggers,1)
+    print(io, "Eyelink data with $n samples and $m saccade events over $(nt) trials")
+end
+
 DPHT.filename(::Type{EyelinkData}) = "eyelink.mat"
 
 function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
