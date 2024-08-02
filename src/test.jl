@@ -576,6 +576,48 @@ function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_dat
     lfp,spec,t,pos,freqs
 end
 
+function plot_trial(udata::UnityData, trial)
+    fig = Figure()
+    ax = Axis(fig[1,1])
+    plot_trial!(ax, udata, trial)
+    fig
+end
+
+function plot_trial!(ax, udata::UnityData, trial)
+    xmin,ymin, xmax, ymax = (-12.5, -12.5, 12.5, 12,5)
+    t, posx, posy,direction = get_trial(udata, trial)
+    tmin,tmax = extrema(t)
+
+    xlims!(ax, xmin, xmax)
+    ylims!(ax, ymin, ymax)
+    deregister_interaction!(ax, :scrollzoom)
+
+    current_time = Observable(t[1])
+    tidx = lift(current_time) do ct
+        idx = searchsortedfirst(t, ct)
+        idx
+    end
+
+    current_pos = lift(tidx) do _tidx
+        [Point2f(posx[_tidx], posy[_tidx])]
+    end
+    current_dir = lift(tidx) do _tidx
+        θ = π*direction[_tidx]/180 # convert to radians
+        [Point2f(cos(θ),sin(θ))]
+    end
+    #handle scroll event
+    on(events(ax).scroll) do (dx,dy)
+        if tmin < current_time[]+dx < tmax 
+            current_time[] = current_time[] + dx
+        end
+    end
+
+    scatter!(ax, current_pos)
+    arrows!(ax, current_pos, current_dir)
+    current_time[] = t[1]
+    nothing
+end
+
 function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2}) where T <: Real where T2 <: Real
     ntrials = size(lfp_triggers,1)
     nu = size(unity_data,1)
