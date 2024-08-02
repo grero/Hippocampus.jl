@@ -203,6 +203,30 @@ function get_trial(edata::EyelinkData, i)
     edata.analogtime[idx0:idx1], edata.gazex[:,idx0:idx1], edata.gazey[:,idx0:idx1]
 end
 
+struct Spiketrain
+    timestamps::Vector{Float64}
+    reference::String
+    components::Int64
+end
+
+function Spiketrain(fname::String)
+    q = MAT.matread(fname)
+    Spiketrain(q["timestamps"][:], q["reference"], q["components"])
+end
+
+function Spiketrain()
+    if isfile("spiketrain.mat")
+        return Spiketrain("spiketrain.mat")
+    else
+        return Spiketrain(Float64[], "",0)
+    end
+end
+
+function Base.show(io::IO, x::Spiketrain)
+    nspikes = length(x.timestamps)
+    print(io, "Spiketrain with $(nspikes) spikes")
+end
+
 function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData) 
     gx = x.gazex[1,:]
     gy = x.gazey[1,:]
