@@ -133,18 +133,28 @@ struct RippleData
     header::Dict
 end
 
-function RippleData(fname::String)
-    markers,timestamps = RippleTools.extract_markers(fname)
-    RippleData(markers,timestamps)
+DPHT.filename(::Type{RippleData}) = "rplparallel.mat"
+
+function RippleData(fname::String;do_save=true, redo=false, kvs...)
+    outfile = DPHT.filename(RippleData)
+    if isfile(outfile) && !redo
+        qdata = MAT.matread(outfile)
+        trial_markers, trial_timestamps = (qdata["trial_markers"], qdata["trial_timestamps"])
+        meta = qdata["metadata"]
+    else
+        markers,timestamps = RippleTools.extract_markers(fname)
+        idx = markers.>0
+        trial_markers, trial_timestamps = reshape_triggers(Int64.(markers[idx]), timestamps[idx])
+        if do_save
+            meta = Dict{String,Any}()
+            tag!(meta;storepatch=true)
+            qdata = Dict("trial_markers"=>trial_markers, "trial_timestamps"=>trial_timestamps, "metadata"=>meta)
+            MAT.matwrite(outfile, qdata)
+        end
+    end
+    RippleData(trial_markers,trial_timestamps,Dict())
 end
 
-function RippleData(markers::Vector{UInt16}, timestamps::Vector{Float64})
-    # ignore markers with value 0
-    idx = markers.>0
-    trial_markers, trial_timestamps = reshape_triggers(Int64.(markers[idx]), timestamps[idx])
-   
-    RippleData(trial_markers, trial_timestamps,Dict())
-end
 
 struct EyelinkData
     triggers::Matrix{Int64}
