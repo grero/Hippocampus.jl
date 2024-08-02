@@ -97,8 +97,8 @@ end
 
 numtrials(x::UnityData) = size(x.triggers,1)
 
-function get_trial(data::UnityData, i)
-    idx0 = searchsortedfirst(data.time, data.timestamps[i,1])
+function get_trial(data::UnityData, i;trial_start=1)
+    idx0 = searchsortedfirst(data.time, data.timestamps[i,trial_start])
     idx1 = searchsortedfirst(data.time, data.timestamps[i,3])
     data.time[idx0:idx1], data.position[idx0:idx1, 1], data.position[idx0:idx1, 2]
 end
