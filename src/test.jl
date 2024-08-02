@@ -97,6 +97,12 @@ end
 
 numtrials(x::UnityData) = size(x.triggers,1)
 
+function get_trial(data::UnityData, i)
+    idx0 = searchsortedfirst(data.time, data.timestamps[i,1])
+    idx1 = searchsortedfirst(data.time, data.timestamps[i,3])
+    data.time[idx0:idx1], data.position[idx0:idx1, 1], data.position[idx0:idx1, 2]
+end
+
 """
 Read the file `fname`, assuming each column is separated by a single space, and
 the first 14 rows contain header information
