@@ -931,8 +931,8 @@ function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::Rippl
     nn = 0
     img2 = fill!(similar(img), 0.0)
     for i in 1:nt
-        idx0 = searchsortedfirst(spiketrain.timestamps, timestamps_rp[i,2]) # start of navigation
-        idx1 = searchsortedfirst(spiketrain.timestamps, timestamps_rp[i,3])
+        idx0 = searchsortedfirst(spiketrain.timestamps, 1000*timestamps_rp[i,2]) # start of navigation
+        idx1 = searchsortedlast(spiketrain.timestamps, 1000*timestamps_rp[i,3])
         _spiketrain = spiketrain.timestamps[idx0:idx1]/1000.0 # convert to seconds
 
         # get the corresponding position
