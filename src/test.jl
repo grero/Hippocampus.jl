@@ -607,10 +607,56 @@ function plot_trial!(ax, udata::UnityData, trial)
     current_pos = lift(tidx) do _tidx
         [Point2f(posx[_tidx], posy[_tidx])]
     end
+    current_pos2 = lift(tidx) do _tidx
+        repeat([Point2f(posx[_tidx], posy[_tidx])],2)
+    end
+
     current_dir = lift(tidx) do _tidx
         θ = π*direction[_tidx]/180 # convert to radians
-        [Point2f(cos(θ),sin(θ))]
+        θ
     end
+
+    current_arrow = lift(current_dir) do θ
+        [Point2f(cos(θ), sin(θ))]
+    end
+
+    _fov = π*50.0/180
+    l = 30.0
+    # TODO: Calculate the intersection with other objects
+    fov = lift(current_dir, current_pos) do θ, _pos
+        pos = _pos[1]
+        θ0 = θ-0.5*_fov
+        θ1 = θ+0.5*_fov
+        #l0x = (12.5-pos[1])
+        #l0y = (12.5-pos[2])
+        #l1x = (12.5-pos[1])
+        #l1y = (12.5-pos[2])
+
+        # brute force raycasting
+        l0 = 0.0
+        dx = 0.01
+        while true
+            l0 += dx 
+            x0 = pos[1] + l0*cos(θ0)
+            y0 = pos[2] + l0*sin(θ0)
+            if impacts([x0,y0])
+                break
+            end
+        end
+
+        l1 = 0.0
+        while true
+            l1 += dx 
+            x1 = pos[1] + l1*cos(θ1)
+            y1 = pos[2] + l1*sin(θ1)
+            if impacts([x1,y1])
+                break
+            end
+        end
+
+        [Point2f(l0*cos(θ0), l0*sin(θ0)), Point2f(l1*cos(θ1), l1*sin(θ1))]
+    end
+
     #handle scroll event
     on(events(ax).scroll) do (dx,dy)
         if tmin < current_time[]+dx < tmax 
@@ -619,7 +665,8 @@ function plot_trial!(ax, udata::UnityData, trial)
     end
 
     scatter!(ax, current_pos)
-    arrows!(ax, current_pos, current_dir)
+    arrows!(ax, current_pos, current_arrow)
+    arrows!(ax, current_pos2, fov)
     current_time[] = t[1]
     nothing
 end
