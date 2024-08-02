@@ -902,6 +902,56 @@ function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Ve
     SpatialPreferenceMap(xbins, ybins, img, img2)
 end
 
+function get_spatial_map(udata::UnityData; grid_limits=(-12.0, -12.0, 12.0, 12.0), nbins=(20,20))
+    nt = size(udata.timestamps,1)
+
+    xmin,ymin,xmax,ymax = grid_limits
+    xbins = range(xmin, stop=xmax, length=nbins[1])
+    ybins = range(ymin, stop=ymax, length=nbins[2])
+    nn = 0
+    img = fill(0.0, length(xbins), length(ybins))
+    for i in 1:nt
+        _,mposx,mposy = get_trial(udata, i;trial_start=2) # start of navigation
+        for (posx,posy) in zip(mposx, mposy)
+            xidx = searchsortedfirst(xbins, posx)
+            yidx = searchsortedfirst(ybins, posy)
+            img[xidx,yidx] += 1.0
+            nn += 1.0
+        end
+    end
+    img ./= nn
+    xbins,ybins, img
+end
+
+function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::RippleData; grid_limits=(-12.0, -12.0, 12.0, 12.0), nbins=(20,20))
+    xbins,ybins,img = get_spatial_map(udata;grid_limits=grid_limits, nbins=nbins)
+    # use the ripple markers to get trial structure
+    timestamps_rp = rpdata.timestamps
+    nt = size(timestamps_rp,1)
+    nn = 0
+    img2 = fill!(similar(img), 0.0)
+    for i in 1:nt
+        idx0 = searchsortedfirst(spiketrain.timestamps, timestamps_rp[i,2]) # start of navigation
+        idx1 = searchsortedfirst(spiketrain.timestamps, timestamps_rp[i,3])
+        _spiketrain = spiketrain.timestamps[idx0:idx1]/1000.0 # convert to seconds
+
+        # get the corresponding position
+        t,mposx, mposy = get_trial(udata,i;trial_start=2)
+        for sp in _spiketrain
+            idx = searchsortedfirst(t, sp)
+            _posx = mposx[idx]
+            _posy = mposy[idx]
+            xidx = searchsortedfirst(xbins, _posx)
+            yidx = searchsortedfirst(ybins, _posy)
+            img2[xidx, yidx] += 1.0
+            nn += 1.0
+        end
+    end
+    img2 ./= nn
+    img2./img, xbins, ybins
+end
+
+
 function get_spatial_map(;freq::Union{Nothing, Float64}=nothing, redo=false)
     aligned_lfp, aligned_lfp_time, aligned_spec,aligned_freqs,~,~,aligned_maze_pos, aligned_maze_time = SpatialAnalyses.get_trial_data(;redo=redo)
     if freq === nothing
