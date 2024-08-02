@@ -923,7 +923,8 @@ function get_spatial_map(udata::UnityData; grid_limits=(-12.0, -12.0, 12.0, 12.0
     xbins,ybins, img
 end
 
-function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::RippleData; grid_limits=(-12.0, -12.0, 12.0, 12.0), nbins=(20,20))
+function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::RippleData; grid_limits=(-12.0, -12.0, 12.0, 12.0), nbins=(20,20), 
+                                                                                       normalize_by_occupancy=true)
     xbins,ybins,img = get_spatial_map(udata;grid_limits=grid_limits, nbins=nbins)
     # use the ripple markers to get trial structure
     timestamps_rp = rpdata.timestamps
@@ -952,7 +953,10 @@ function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::Rippl
         end
     end
     img2 ./= nn
-    img2./img, xbins, ybins
+    if normalize_by_occupancy
+        img2 ./= img
+    end
+    img2, xbins, ybins
 end
 
 
