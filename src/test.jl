@@ -159,42 +159,67 @@ struct EyelinkData
     header::Dict
 end
 
-function EyelinkData(fname::String)
-    eyelinkdata = Eyelink.load(fname)
+DPHT.filename(::Type{EyelinkData}) = "eyelink.mat"
 
-    #process saccade events
-    saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
-    nsacc = length(saccades)
-    saccade_start_time = Vector{UInt64}(undef, nsacc)
-    saccade_end_time = Vector{UInt64}(undef, nsacc)
-    saccade_start_pos = Matrix{Float32}(undef, 2, nsacc)
-    saccade_end_pos = Matrix{Float32}(undef, 2, nsacc)
-
-    for (i,saccade) in enumerate(saccades)
-        saccade_start_time[i] = saccade.sttime
-        saccade_end_time[i] = saccade.entime
-        saccade_start_pos[:,i] = [saccade.gstx, saccade.gsty]
-        saccade_end_pos[:,i] = [saccade.genx, saccade.geny]
-    end
-
-    # get the messages
-    messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
-
-    triggers = Int64[]
-    timestamps = UInt64[]
-    for msg in messages
-        if startswith(msg.message, "Start Trial") ||
-           startswith(msg.message, "End Trial") || 
-           startswith(msg.message, "Cue Offset") ||
-           startswith(msg.message, "Timeout")
-                trigger = parse(Int64, split(msg.message)[end])
-                push!(triggers, trigger)
-                push!(timestamps, msg.sttime)
+function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
+    outfile = DPHT.filename(EyelinkData)
+    if isfile(outfile) && !redo
+        qdata = MAT.matread(outfile)
+        meta = qdata["metadata"]
+        # TODO: Check code version here
+        args = Any[]
+        for k in fieldnames(EyelinkData)
+            push!(args, qdata[string(k)])
         end
-    end
-    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
-    EyelinkData(trial_markers, trial_timestamps, eyelinkdata.samples.time, eyelinkdata.samples.gx, eyelinkdata.samples.gy, 
+        edata = EyelinkData(args...)
+    else
+        eyelinkdata = Eyelink.load(fname)
+
+        #process saccade events
+        saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
+        nsacc = length(saccades)
+        saccade_start_time = Vector{UInt64}(undef, nsacc)
+        saccade_end_time = Vector{UInt64}(undef, nsacc)
+        saccade_start_pos = Matrix{Float32}(undef, 2, nsacc)
+        saccade_end_pos = Matrix{Float32}(undef, 2, nsacc)
+
+        for (i,saccade) in enumerate(saccades)
+            saccade_start_time[i] = saccade.sttime
+            saccade_end_time[i] = saccade.entime
+            saccade_start_pos[:,i] = [saccade.gstx, saccade.gsty]
+            saccade_end_pos[:,i] = [saccade.genx, saccade.geny]
+        end
+
+        # get the messages
+        messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
+
+        triggers = Int64[]
+        timestamps = UInt64[]
+        for msg in messages
+            if startswith(msg.message, "Start Trial") ||
+            startswith(msg.message, "End Trial") || 
+            startswith(msg.message, "Cue Offset") ||
+            startswith(msg.message, "Timeout")
+                    trigger = parse(Int64, split(msg.message)[end])
+                    push!(triggers, trigger)
+                    push!(timestamps, msg.sttime)
+            end
+        end
+        trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+        if do_save
+            meta = Dict{String,Any}()
+            tag!(meta;storepatch=true)
+            qdata = Dict{String,Any}()
+            merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
+                  "gazex"=>eyelinkdata.samples.gx,"gazey"=>eyelinkdata.samples.gy, "saccade_start_time"=>saccade_start_time,
+                  "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
+            qdata["metadata"] = meta
+            qdata["header"] = Dict()
+            MAT.matwrite(outfile, qdata)
+        end
+        edata = EyelinkData(trial_markers, trial_timestamps, eyelinkdata.samples.time, eyelinkdata.samples.gx, eyelinkdata.samples.gy, 
                  saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, Dict())
+    end
 end
 
 function get_trial(edata::EyelinkData, i)
