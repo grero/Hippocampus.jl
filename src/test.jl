@@ -934,17 +934,21 @@ function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::Rippl
         idx0 = searchsortedfirst(spiketrain.timestamps, 1000*timestamps_rp[i,2]) # start of navigation
         idx1 = searchsortedlast(spiketrain.timestamps, 1000*timestamps_rp[i,3])
         _spiketrain = spiketrain.timestamps[idx0:idx1]/1000.0 # convert to seconds
-
         # get the corresponding position
         t,mposx, mposy = get_trial(udata,i;trial_start=2)
+        # re-reference to ripple time
+        trp = timestamps_rp[i,2]
+        t = t .- t[1] .+ trp[1]
         for sp in _spiketrain
             idx = searchsortedfirst(t, sp)
-            _posx = mposx[idx]
-            _posy = mposy[idx]
-            xidx = searchsortedfirst(xbins, _posx)
-            yidx = searchsortedfirst(ybins, _posy)
-            img2[xidx, yidx] += 1.0
-            nn += 1.0
+            if idx < length(t)
+                _posx = mposx[idx]
+                _posy = mposy[idx]
+                xidx = searchsortedfirst(xbins, _posx)
+                yidx = searchsortedfirst(ybins, _posy)
+                img2[xidx, yidx] += 1.0
+                nn += 1.0
+            end
         end
     end
     img2 ./= nn
