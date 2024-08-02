@@ -9,6 +9,12 @@ using ProgressMeter
 using MAT
 using DrWatson
 using DelimitedFiles
+import StatsBase
+using RippleTools
+using Eyelink
+using Distributions
+
+include("unity.jl")
 
 import Base.show
 
