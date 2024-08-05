@@ -480,6 +480,7 @@ Get trial aligned LFP, Spectrogram and trajectories for the current channel
 """
 function get_trial_data(;do_save=true, redo=false,kvs...)
     fname = "trial_aligned_lfp.mat"
+    args = Dict(kvs)
     if isfile(fname) && !redo
         qdata = MAT.matread(fname)
         aligned_lfp = convert(Vector{Vector{Float64}} ,qdata["aligned_lfp"])
@@ -492,29 +493,33 @@ function get_trial_data(;do_save=true, redo=false,kvs...)
         aligned_maze_time = convert(Vector{Vector{Float64}}, qdata["aligned_maze_time"])
     else
         # go down to the session directory to get the unity maze triggers
-        udata,edata = cd(DataProcessingHierarchyTools.process_level("session")) do
-            MAT.matread("unitymaze.mat"), MAT.matread("eyelink.mat")
+        udata,edata,rdata = cd(DataProcessingHierarchyTools.process_level("session")) do
+            MAT.matread("unitymaze.mat"), MAT.matread("eyelink.mat"), MAT.matread("rplparallel.mat")
         end
-        aligned_maze_pos,aligned_maze_time = get_trial_data(udata["um"]["data"]["unityData"][:,3:4], udata["um"]["data"]["unityTime"][:], round.(Int64,udata["um"]["data"]["unityTriggers"]))
+        aligned_maze_pos_and_head_direction, aligned_maze_time = get_trial_data(udata["um"]["data"]["unityData"][:,3:5], udata["um"]["data"]["unityTime"][:], round.(Int64,udata["um"]["data"]["unityTriggers"]))
+        aligned_maze_pos = [a[:,1:2] for a in aligned_maze_pos_and_head_direction]
+        aligned_maze_head_direction = [a[:,3] for a in aligned_maze_pos_and_head_direction]
 
         #eye link data are in units of miliseconds
         aligned_eyepos, aligned_eye_t = get_trial_data(edata["el"]["data"]["eye_pos"], edata["el"]["data"]["timestamps"][:], edata["el"]["data"]["trial_timestamps"];
         pre_buffer=1000.0, post_buffer=1000.0)
 
-        vdata = MAT.matread("vmlfp.mat")  
+        vdata = MAT.matread("rpllfp.mat")
+
         #lfp data are in units of seconds
-        aligned_lfp, aligned_lfp_time = get_trial_data(vdata["vp"]["data"]["analogData"][:], vdata["vp"]["data"]["analogTime"][:], vdata["vp"]["data"]["timeStamps"])
-        fs = vdata["vp"]["data"]["analogInfo"]["SampleRate"]
+        aligned_lfp, aligned_lfp_time = get_trial_data(vdata["df"]["data"]["analogData"][:], vdata["df"]["data"]["analogTime"][:], rdata["rp"]["data"]["timeStamps"])
+        fs = vdata["df"]["data"]["analogInfo"]["SampleRate"]
         aligned_res, aligned_freqs = get_spectrum(aligned_lfp, fs;β=1.5)
 
         if do_save
+            DrWatson.tag!(args, storepatch=true)
             MAT.matwrite(fname, Dict("aligned_lfp"=>aligned_lfp, "aligned_spec"=>aligned_res, "aligned_lfp_time"=>aligned_lfp_time,
                                     "aligned_maze_pos"=>aligned_maze_pos, "aligned_maze_time" => aligned_maze_time,
-                                    "aligned_freqs"=>aligned_freqs,
-                                    "aligned_eye_pos"=>aligned_eyepos, "aligned_eye_time"=>aligned_eye_t))
+                                    "aligned_maze_head_direction"=>aligned_maze_head_direction[:,3], "aligned_freqs"=>aligned_freqs,
+                                    "aligned_eye_pos"=>aligned_eyepos, "aligned_eye_time"=>aligned_eye_t, "args"=>args))
         end
     end
-    aligned_lfp, aligned_lfp_time, aligned_res, aligned_freqs, aligned_eyepos, aligned_eye_t, aligned_maze_pos, aligned_maze_time
+    aligned_lfp, aligned_lfp_time, aligned_res, aligned_freqs, aligned_eyepos, aligned_eye_t, aligned_maze_pos, aligned_maze_head_direction, aligned_maze_time
 end
 
 """
