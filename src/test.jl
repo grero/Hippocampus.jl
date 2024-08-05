@@ -210,6 +210,18 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
         edata = EyelinkData(args...)
     else
         eyelinkdata = Eyelink.load(fname)
+        header = Dict()
+        #get gaze coordinates
+        for ee in eyelinkdata.events
+            if ee.eventtype == :messageevent
+                if startswith(ee.message, "GAZE_COORDS")
+                    qs = split(ee.message)
+                    gaze_coords = parse.(Float64, qs[2:end])
+                    header["gaze_coords"] = gaze_coords
+                    break
+                end
+            end
+        end
 
         #process saccade events
         saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
@@ -250,11 +262,11 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
                   "gazex"=>eyelinkdata.samples.gx,"gazey"=>eyelinkdata.samples.gy, "saccade_start_time"=>saccade_start_time,
                   "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
             qdata["metadata"] = meta
-            qdata["header"] = Dict()
+            qdata["header"] = header 
             MAT.matwrite(outfile, qdata)
         end
         edata = EyelinkData(trial_markers, trial_timestamps, eyelinkdata.samples.time, eyelinkdata.samples.gx, eyelinkdata.samples.gy, 
-                 saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, Dict())
+                 saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, header)
     end
 end
 
