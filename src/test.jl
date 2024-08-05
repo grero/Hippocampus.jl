@@ -611,16 +611,88 @@ function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_dat
     lfp,spec,t,pos,freqs
 end
 
-function plot_trial(udata::UnityData, trial)
-    fig = Figure()
+function plot_trial(udata::UnityData, edata::EyelinkData, trial)
+    fig = Figure(size=(1000,750))
     ax = Axis(fig[1,1])
-    plot_trial!(ax, udata, trial)
+    current_time = plot_trial!(ax, udata, edata, trial)
+    ax2 = Axis(fig[1,2])
+    plot_trial!(ax2, edata, trial, current_time)
     fig
 end
 
-function plot_trial!(ax, udata::UnityData, trial)
-    xmin,ymin, xmax, ymax = (-12.5, -12.5, 12.5, 12,5)
+"""
+Plot eye link positions
+"""
+function plot_trial!(ax, edata::EyelinkData, trial, current_time)
+    gx0, gy0, gxm, gym = edata.header["gaze_coords"]
+    ax.aspect = gxm/gym
+    xlims!(ax, gx0, gxm)
+    ylims!(ax, gy0, gym)
+    te, gazex, gazey = get_trial(edata, trial)
+    # TODO: Fix at source, eyelink flips the y-coordinate
+    gazey = gym .- gazey
+    te = (te .- te[1])/1000.0 # s
+    tidx_e = lift(current_time) do ct
+        idx = searchsortedfirst(te, ct)
+        idx
+    end
+    current_eyepos = lift(tidx_e) do _tidxe
+        gx = gazex[1,_tidxe]
+        gy = gazey[1,_tidxe]
+        [Point2f(gx,gy)]
+    end
+    scatter!(ax, current_eyepos, color=:black)
+end
+
+function get_focal_plane_width(fov, focal_length)
+    w = 2*focal_length*tan(fov/2)
+    w
+end
+
+"""
+Convert `x` from pixel coordinates to sensor coordinates
+"""
+function scale_to_camera(x, sensor_width, screen_width)
+    x = sensor_width*(x -0.5*screen_width)/screen_width
+end
+
+function raytrace(x, y, pos,direction, focal_length;camera_height=2.5, ceiling_height=5.0)
+    # find the angle of the point
+    θ = atan(x, focal_length)
+    ϕ = atan(y, focal_length)
+    θ += direction
+    # now cast along the line θ
+    l = 0.0
+    dl = 0.01
+    xp,yp,zp = (0.0, 0.0,0.0)
+    while true
+        l += dl
+        xp = pos[1] + l*cos(θ)
+        yp = pos[2] + l*sin(θ)
+        zp = camera_height + l*sin(ϕ)
+        if impacts([xp,yp,zp])
+            break
+        end
+    end
+    xp,yp
+end
+
+function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial)
+    # TODO: Get this from data
+    xmin,ymin, xmax, ymax = (-13.0, -13.0, 13.0, 13.0)
+    room_height = 5.0
+    camera_height = 2.5
+    # 
+    screen_width = edata.header["gaze_coords"][3] - edata.header["gaze_coords"][1]
+    screen_height = edata.header["gaze_coords"][4] - edata.header["gaze_coords"][2]
+    gx0 = edata.header["gaze_coords"][1]
+    gy0 = edata.header["gaze_coords"][2]
     t, posx, posy,direction = get_trial(udata, trial)
+    t .-= t[1] # start at zero
+    te, gazex, gazey = get_trial(edata, trial)
+    # TODO: Fix at source, eyelink flips the y-coordinate
+    gazey = screen_height .- gazey
+    te = (te .- te[1])./1000.0 # convert to seconds start at zero
     tmin,tmax = extrema(t)
 
     xlims!(ax, xmin, xmax)
@@ -630,6 +702,11 @@ function plot_trial!(ax, udata::UnityData, trial)
     current_time = Observable(t[1])
     tidx = lift(current_time) do ct
         idx = searchsortedfirst(t, ct)
+        idx
+    end
+
+    tidx_e = lift(current_time) do ct
+        idx = searchsortedfirst(te, ct)
         idx
     end
 
@@ -649,6 +726,18 @@ function plot_trial!(ax, udata::UnityData, trial)
         [Point2f(cos(θ), sin(θ))]
     end
 
+    current_eyepos = lift(tidx_e) do _tidxe
+        gx = gazex[1,_tidxe]
+        if gx < 0.0 || gx > screen_width
+            gx = NaN
+        end
+        gy = gazey[1,_tidxe]
+        if gy < 0.0 || gy > screen_height
+            gy = NaN
+        end
+        [Point2f(gx,gy)]
+    end
+
     _fov = π*50.0/180
     l = 30.0
     fov = lift(current_dir, current_pos) do θ, _pos
@@ -664,7 +753,8 @@ function plot_trial!(ax, udata::UnityData, trial)
             l0 += dx 
             x0 = pos[1] + l0*cos(θ0)
             y0 = pos[2] + l0*sin(θ0)
-            if impacts([x0,y0])
+            if impacts([x0,y0, 0.0])
+                # the ray hit something, so we stop here
                 break
             end
         end
@@ -674,12 +764,31 @@ function plot_trial!(ax, udata::UnityData, trial)
             l1 += dx 
             x1 = pos[1] + l1*cos(θ1)
             y1 = pos[2] + l1*sin(θ1)
-            if impacts([x1,y1])
+            if impacts([x1,y1, 0.0])
                 break
             end
         end
 
         [Point2f(l0*cos(θ0), l0*sin(θ0)), Point2f(l1*cos(θ1), l1*sin(θ1))]
+    end
+
+    projected_eyepos = lift(current_dir, current_pos, current_eyepos) do _dir, _pos, _epos
+        # convert to sensor coordinates
+        gx = _epos[1][1]
+        gy = _epos[1][2]
+        if isfinite(gx) && isfinite(gy)
+            # Unity camera sensor size: (36,24)
+            x = scale_to_camera(gx-gx0, 36.0, screen_width)
+            y = scale_to_camera(gy-gy0, 24.0, screen_height)
+
+            #TODO: We need to know the height of the camera (and the distance to the ceiling)
+            # to correctly project onto the floor or the ceiling
+            #ray trace
+            xp,yp = raytrace(-x, -y, _pos[1], _dir, 50.0)
+        else
+            xp,yp = (NaN,NaN)
+        end
+        [Point2(xp,yp)]
     end
 
     #handle scroll event
@@ -693,8 +802,9 @@ function plot_trial!(ax, udata::UnityData, trial)
     scatter!(ax, current_pos)
     arrows!(ax, current_pos, current_arrow)
     arrows!(ax, current_pos2, fov)
+    scatter!(ax, projected_eyepos, color=:black)
     current_time[] = t[1]
-    nothing
+    current_time
 end
 
 function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2}) where T <: Real where T2 <: Real
