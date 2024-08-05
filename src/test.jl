@@ -18,11 +18,23 @@ include("unity.jl")
 
 import Base.show
 
-struct SpatialPreferenceMap
+export numtrials
+
+abstract type AbstractSpatialPreferenceMap end
+
+struct SpatialPreferenceMap <: AbstractSpatialPreferenceMap
     xbins::AbstractVector{Float64}
     ybins::AbstractVector{Float64}
     occupancy::Matrix{Float64}
     preference::Matrix{Float64}
+end
+
+struct LFPBandSpatialPreferenceMap <: AbstractSpatialPreferenceMap 
+    xbins::AbstractVector{Float64}
+    ybins::AbstractVector{Float64}
+    occupancy::Matrix{Float64}
+    preference::Matrix{Float64}
+    central_freq::Float64
 end
 
 MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::SpatialPreferenceMap) = PlotSpec(Heatmap, x.xbins, x.ybins, x.preference./x.occupancy)
@@ -669,6 +681,7 @@ function plot_trial!(ax, udata::UnityData, trial)
         end
     end
 
+    plot_arena!(ax)
     scatter!(ax, current_pos)
     arrows!(ax, current_pos, current_arrow)
     arrows!(ax, current_pos2, fov)
