@@ -680,7 +680,7 @@ function plot_trial!(ax, udata::UnityData, trial)
             current_time[] = current_time[] + dx
         end
     end
-
+    ax.aspect = 1.0
     plot_arena!(ax)
     scatter!(ax, current_pos)
     arrows!(ax, current_pos, current_arrow)
