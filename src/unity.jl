@@ -11,6 +11,10 @@ z3Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 x4Bound = [2.5, 7.5, 7.5, 2.5, 2.5]  # green pillar
 z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 
+# TODO: Use actual values here
+camera_height = 2.5
+ceiling_height = 5.0
+
 function plot_arena()
     fig = Figure()
     ax = Axis(fig[1,1])
