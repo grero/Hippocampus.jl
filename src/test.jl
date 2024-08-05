@@ -639,17 +639,13 @@ function plot_trial!(ax, udata::UnityData, trial)
 
     _fov = π*50.0/180
     l = 30.0
-    # TODO: Calculate the intersection with other objects
     fov = lift(current_dir, current_pos) do θ, _pos
         pos = _pos[1]
         θ0 = θ-0.5*_fov
         θ1 = θ+0.5*_fov
-        #l0x = (12.5-pos[1])
-        #l0y = (12.5-pos[2])
-        #l1x = (12.5-pos[1])
-        #l1y = (12.5-pos[2])
 
         # brute force raycasting
+        # extent lines until they hit something
         l0 = 0.0
         dx = 0.01
         while true
