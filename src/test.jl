@@ -611,6 +611,37 @@ function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_dat
     lfp,spec,t,pos,freqs
 end
 
+
+function plot_trial(udata::UnityData, edata::EyelinkData)
+    ntrials = numtrials(udata)
+    fig = Figure(size=(1000,750))
+    ax = Axis(fig[1,1])
+
+    trial = Observable(1)
+    current_time = plot_trial!(ax, udata, edata, trial)
+    ax2 = Axis(fig[1,2])
+    plot_trial!(ax2, edata, trial, current_time)
+
+    # trial selection via keys
+    on(events(fig.scene).keyboardbutton) do event
+        if event.action == Keyboard.press
+            do_upate = false
+            if event.key == Keyboard.left
+                if trial[] > 0 
+                    trial[] = trial[] - 1 
+                    do_update = true
+                end
+            elseif event.key == Keyboard.right
+                if trial[] < ntrials 
+                    trial[] = trial[] + 1 
+                    do_update = true
+                end
+            end
+        end
+    end
+    fig
+end
+
 function plot_trial(udata::UnityData, edata::EyelinkData, trial)
     fig = Figure(size=(1000,750))
     ax = Axis(fig[1,1])
@@ -620,23 +651,33 @@ function plot_trial(udata::UnityData, edata::EyelinkData, trial)
     fig
 end
 
+function plot_trial!(ax, edata::EyelinkData, trial::Int64, current_time)
+    plot_trial!(ax, edata,Observable(trial),current_time)
+end
 """
 Plot eye link positions
 """
-function plot_trial!(ax, edata::EyelinkData, trial, current_time)
+function plot_trial!(ax, edata::EyelinkData, trial::Observable{Int64}, current_time)
     gx0, gy0, gxm, gym = edata.header["gaze_coords"]
     ax.aspect = gxm/gym
     xlims!(ax, gx0, gxm)
     ylims!(ax, gy0, gym)
-    te, gazex, gazey = get_trial(edata, trial)
+    _edata = lift(trial) do _trial
+        te, gazex, gazey = get_trial(edata, trial[])
+        te = (te .- te[1])/1000.0 # s
+        gazey = gym .- gazey
+        te,gazex, gazey 
+    end
+
     # TODO: Fix at source, eyelink flips the y-coordinate
-    gazey = gym .- gazey
-    te = (te .- te[1])/1000.0 # s
     tidx_e = lift(current_time) do ct
+        te = _edata[][1]
         idx = searchsortedfirst(te, ct)
         idx
     end
     current_eyepos = lift(tidx_e) do _tidxe
+        gazex = _edata[][2]
+        gazey = _edata[][3]
         gx = gazex[1,_tidxe]
         gy = gazey[1,_tidxe]
         [Point2f(gx,gy)]
@@ -677,7 +718,11 @@ function raytrace(x, y, pos,direction, focal_length;camera_height=2.5, ceiling_h
     xp,yp
 end
 
-function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial)
+function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Int64)
+    plot_trial!(ax, udata, edata, Observable(trial))
+end
+
+function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Observable{Int64})
     # TODO: Get this from data
     xmin,ymin, xmax, ymax = (-13.0, -13.0, 13.0, 13.0)
     room_height = 5.0
@@ -687,37 +732,55 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial)
     screen_height = edata.header["gaze_coords"][4] - edata.header["gaze_coords"][2]
     gx0 = edata.header["gaze_coords"][1]
     gy0 = edata.header["gaze_coords"][2]
-    t, posx, posy,direction = get_trial(udata, trial)
-    t .-= t[1] # start at zero
-    te, gazex, gazey = get_trial(edata, trial)
-    # TODO: Fix at source, eyelink flips the y-coordinate
-    gazey = screen_height .- gazey
-    te = (te .- te[1])./1000.0 # convert to seconds start at zero
-    tmin,tmax = extrema(t)
+    t, posx, posy,direction = get_trial(udata, trial[])
+    _udata = lift(trial) do _trial
+        t, posx, posy,direction = get_trial(udata, _trial)
+        t .-= t[1] # start at zero
+        t, posx, posy, direction
+    end
+    _edata = lift(trial) do _trial
+        te, gazex, gazey = get_trial(edata, _trial)
+        # TODO: Fix at source, eyelink flips the y-coordinate
+        gazey = screen_height .- gazey
+        te = (te .- te[1])./1000.0 # convert to seconds start at zero
+        te, gazex, gazey
+    end
+
+    tlims = lift(_udata) do _ud
+        extrema(_ud[1])
+    end
 
     xlims!(ax, xmin, xmax)
     ylims!(ax, ymin, ymax)
     deregister_interaction!(ax, :scrollzoom)
 
-    current_time = Observable(t[1])
+    current_time = lift(_udata) do _ud
+        _ud[1][1]
+    end
+
     tidx = lift(current_time) do ct
+        t = _udata[][1]
         idx = searchsortedfirst(t, ct)
         idx
     end
 
     tidx_e = lift(current_time) do ct
+        te = _edata[][1]
         idx = searchsortedfirst(te, ct)
         idx
     end
 
     current_pos = lift(tidx) do _tidx
+        posx,posy = _udata[][2:3]
         [Point2f(posx[_tidx], posy[_tidx])]
     end
     current_pos2 = lift(tidx) do _tidx
+        posx,posy = _udata[][2:3]
         repeat([Point2f(posx[_tidx], posy[_tidx])],2)
     end
 
     current_dir = lift(tidx) do _tidx
+        direction = _udata[][4]
         θ = π*direction[_tidx]/180 # convert to radians
         θ
     end
@@ -727,6 +790,8 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial)
     end
 
     current_eyepos = lift(tidx_e) do _tidxe
+        gazex = _edata[][2]
+        gazey = _edata[][3]
         gx = gazex[1,_tidxe]
         if gx < 0.0 || gx > screen_width
             gx = NaN
@@ -793,6 +858,7 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial)
 
     #handle scroll event
     on(events(ax).scroll) do (dx,dy)
+        tmin,tmax = tlims[]
         if tmin < current_time[]+dx < tmax 
             current_time[] = current_time[] + dx
         end
