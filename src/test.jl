@@ -209,11 +209,6 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
         qdata = MAT.matread(outfile)
         meta = qdata["metadata"]
         # TODO: Check code version here
-        args = Any[]
-        for k in fieldnames(EyelinkData)
-            push!(args, qdata[string(k)])
-        end
-        edata = EyelinkData(args...)
     else
         eyelinkdata = Eyelink.load(fname)
         header = Dict()
@@ -228,7 +223,7 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
                 end
             end
         end
-
+        screen_height = header["gaze_coords"][4]
         #process saccade events
         saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
         nsacc = length(saccades)
@@ -240,8 +235,8 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
         for (i,saccade) in enumerate(saccades)
             saccade_start_time[i] = saccade.sttime
             saccade_end_time[i] = saccade.entime
-            saccade_start_pos[:,i] = [saccade.gstx, saccade.gsty]
-            saccade_end_pos[:,i] = [saccade.genx, saccade.geny]
+            saccade_start_pos[:,i] = [saccade.gstx, screen_height-saccade.gsty]
+            saccade_end_pos[:,i] = [saccade.genx, screen_height-saccade.geny]
         end
 
         # get the messages
@@ -260,20 +255,23 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
             end
         end
         trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+        meta = Dict{String,Any}()
+        tag!(meta;storepatch=true)
+        qdata = Dict{String,Any}()
+        merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
+                "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "saccade_start_time"=>saccade_start_time,
+                "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
+        qdata["metadata"] = meta
+        qdata["header"] = header 
         if do_save
-            meta = Dict{String,Any}()
-            tag!(meta;storepatch=true)
-            qdata = Dict{String,Any}()
-            merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
-                  "gazex"=>eyelinkdata.samples.gx,"gazey"=>eyelinkdata.samples.gy, "saccade_start_time"=>saccade_start_time,
-                  "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
-            qdata["metadata"] = meta
-            qdata["header"] = header 
             MAT.matwrite(outfile, qdata)
         end
-        edata = EyelinkData(trial_markers, trial_timestamps, eyelinkdata.samples.time, eyelinkdata.samples.gx, eyelinkdata.samples.gy, 
-                 saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, header)
     end
+    args = Any[]
+    for k in fieldnames(EyelinkData)
+        push!(args, qdata[string(k)])
+    end
+    EyelinkData(args...)
 end
 
 function get_trial(edata::EyelinkData, i)
