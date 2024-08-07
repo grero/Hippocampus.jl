@@ -158,19 +158,25 @@ function RippleData(fname::String;do_save=true, redo=false, kvs...)
     outfile = DPHT.filename(RippleData)
     if isfile(outfile) && !redo
         qdata = MAT.matread(outfile)
-        trial_markers, trial_timestamps = (qdata["trial_markers"], qdata["trial_timestamps"])
+        trial_markers, trial_timestamps, header = (qdata["triggers"], qdata["timestamps"], get(qdata, "header", Dict()))
+        rp = RippleData(trial_markers, trial_timestamps, header)
         meta = qdata["metadata"]
     else
         markers,timestamps = RippleTools.extract_markers(fname)
-        idx = markers.>0
-        trial_markers, trial_timestamps = reshape_triggers(Int64.(markers[idx]), timestamps[idx])
+        rp = RippleData(markers, timestamps)
         if do_save
             meta = Dict{String,Any}()
             tag!(meta;storepatch=true)
-            qdata = Dict("trial_markers"=>trial_markers, "trial_timestamps"=>trial_timestamps, "metadata"=>meta)
+            qdata = Dict("triggers"=>rp.triggers, "timestamps"=>rp.timestamps, "header"=>rp.header, "metadata"=>meta)
             MAT.matwrite(outfile, qdata)
         end
     end
+    rp
+end
+
+function RippleData(markers::Vector{T}, timestamps::Vector{Float64}) where T <: Real
+    idx = markers.>0
+    trial_markers, trial_timestamps = reshape_triggers(Int64.(markers[idx]), timestamps[idx])
     RippleData(trial_markers,trial_timestamps,Dict())
 end
 
