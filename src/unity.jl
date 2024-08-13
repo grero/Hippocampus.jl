@@ -207,9 +207,10 @@ function compute_histogram!(counts, pos::Matrix{Float64},bins)
     counts
 end
 
-function show_maze(bins,counts,normals)
+function show_maze(bins,counts,normals;explore=false)
     fig = Figure()
-    ax = Axis3(fig[1,1],aspect=:data)
+    #ax = Axis3(fig[1,1],aspect=:data)
+    lscene = LScene(fig[1,1], show_axis=true)
     for (c,bin,n) in zip(counts,bins,normals)
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
         # we want to color only the inside
@@ -223,7 +224,42 @@ function show_maze(bins,counts,normals)
                 _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
             end
         end
-        viz!(ax, m, color=_color[:],colormap=:Blues)
+        viz!(lscene, m, color=_color[:],colormap=:Blues)
+    end
+    if explore
+        # set up camera inside of the maze
+        cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
+        #cc.eyeposition[] = Point3f(0.0, 0.0, 2.5)
+        eyepos = Point3f(0.0, 0.0, 2.5)
+        lookat = Point3f(1.0, 0.0, 2.5)
+        v = lookat - eyepos 
+        v = v./norm(v)
+        @show v
+        #translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0,2.5))
+        update_cam!(lscene.scene, eyepos, lookat)
+        @show cc.eyeposition[] cc.lookat[]
+        on(events(lscene.scene).keyboardbutton, priority=20) do event
+            if ispressed(lscene.scene, Keyboard.up)
+                pos = cc.eyeposition[]
+                dx = 0.1*v
+                npos = pos + dx
+                translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, -0.1))
+                if impacts(cc.eyeposition[])
+                    # move back
+                    # TODO: This doesn't quite work, but maybe we don't care
+                    translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, 0.1))
+                    # last coordinate if foward movement (for some inexplicable reason))
+                end
+            end
+            if ispressed(lscene.scene, Keyboard.right)
+                rotate_cam!(lscene.scene, cc, Point3f(0.0, -0.1, 0.0))
+                return Consume()
+            end
+            if ispressed(lscene.scene, Keyboard.left)
+                rotate_cam!(lscene.scene,cc, Point3f(0.0, 0.1, 0.0))
+                return Consume()
+            end
+        end
     end
     fig
 end
