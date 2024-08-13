@@ -31,6 +31,12 @@ function plot_arena!(ax)
     poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
 end
 
+function soft_range(start::T, stop::T,step::T) where T <: Real
+    nn = round(Int64,(start-stop)/step)
+    Δ = (start-stop)/nn
+    range(start,stop=stop,step=Δ)
+end
+
 """
 Check whether the point `pos` intersects with any of the pillars, or the walls
 of the arena.
@@ -51,6 +57,10 @@ end
 Return the meshes representing the maze
 """
 function create_maze(;kvs...)
+    # unity uses 40x40 bins on the floor
+    floor_bins = range(-12.5, stop=12.5, length=40)
+    Δb = step(floor_bins)
+    @show Δb
     bins = Matrix{NTuple{3,AbstractVector{Float64}}}(undef, 4,4)
     wall_bins = Vector{NTuple{3,AbstractVector{Float64}}}(undef, 4)
     zbins = range(0.0, stop=5.0, length=10)
@@ -58,7 +68,7 @@ function create_maze(;kvs...)
     normals_walls = Vector{Vector{Float64}}(undef, 4)
     Δ = get(kvs, :Δz, 0.1)
     # pillar 1
-    xbins = range(-7.5, stop=-2.5, length=10)
+    xbins = soft_range(-7.5, -2.5, Δb)
     y0 = 2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,1] = (xbins, ybins, zbins)
@@ -69,7 +79,7 @@ function create_maze(;kvs...)
     bins[2,1] = (xbins, ybins, zbins)
     normals_bins[2,1] = [0.0, 1.0, 0.0]
 
-    ybins = range(2.5, stop=7.5, length=10)
+    ybins = soft_range(2.5, 7.5,Δb) 
     x0 = -7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[3,1] = (xbins, ybins, zbins)
@@ -80,7 +90,7 @@ function create_maze(;kvs...)
     normals_bins[4,1] = [1.0, 0.0, 0.0]
 
     # pillar 2
-    xbins = range(2.5, stop=7.5, length=10)
+    xbins = soft_range(2.5, 7.5, Δb)
     y0 = 2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,2] = (xbins,ybins, zbins)
@@ -90,7 +100,7 @@ function create_maze(;kvs...)
     bins[2,2] = (xbins, ybins, zbins)
     normals_bins[2,2] = [0.0, 1.0, 0.0]
 
-    ybins = range(2.5, stop=7.5,length=10)
+    ybins = soft_range(2.5, 7.5,Δb)
     x0 = 2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[3,2] = (xbins, ybins, zbins)
@@ -101,7 +111,7 @@ function create_maze(;kvs...)
     normals_bins[4,2] = [1.0, 0.0, 0.0]
 
     # pillar 3
-    xbins = range(2.5, stop=7.5, length=10)
+    xbins = soft_range(2.5, 7.5, Δb)
     y0 = -2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,3] = (xbins, ybins, zbins)
@@ -110,7 +120,7 @@ function create_maze(;kvs...)
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[2,3] = (xbins, ybins, zbins)
     normals_bins[2,3] = [0.0 , -1.0, 0.0] 
-    ybins = range(-7.5, stop=-2.5,length=10)
+    ybins = soft_range(-7.5, -2.5,Δb)
     x0 = 2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[3,3] = (xbins, ybins, zbins)
@@ -121,7 +131,7 @@ function create_maze(;kvs...)
     normals_bins[4,3] = [1.0, 0.0, 0.0]
 
     # pillar 4
-    xbins = range(-7.5, stop=-2.5, length=10)
+    xbins = soft_range(-7.5, -2.5, Δb)
     y0 = -2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,4] = (xbins, ybins, zbins)
@@ -130,9 +140,9 @@ function create_maze(;kvs...)
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[2,4] = (xbins, ybins, zbins)
     normals_bins[2,4] = [0.0, -1.0, 0.0]
-    ybins = range(-7.5, stop=-2.5,length=10)
+    ybins = soft_range(-7.5, -2.5,Δb)
     x0 = -2.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=3)
+    xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[3,4] = (xbins, ybins, zbins)
     normals_bins[3,4] = [1.0, 0.0, 0.0]
     x0 = -7.5
@@ -141,7 +151,7 @@ function create_maze(;kvs...)
     normals_bins[4,4] = [-1.0, 0.0, 0.0]
 
     # walls
-    xbins = range(-12.5, stop=12.5, length=10)
+    xbins = soft_range(-12.5, 12.5, Δb)
     y0 = -12.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     wall_bins[1] = (xbins,ybins,zbins)
@@ -151,7 +161,7 @@ function create_maze(;kvs...)
     wall_bins[2] = (xbins,ybins,zbins)
     normals_walls[2] = [0.0, -1.0, 0.0]
 
-    ybins = range(-12.5, stop=12.5, length=10)
+    ybins = soft_range(-12.5, 12.5, Δb)
     x0 = -12.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     wall_bins[3] = (xbins, ybins, zbins)
