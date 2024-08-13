@@ -223,6 +223,15 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
                 end
             end
         end
+        # figure out which eye we are recording from
+        min_gaze_value = minimum(eyelinkdata.samples.gx,dims=2)
+        eye_recorded = fill(true,2)
+        for k in [1,2]
+            if all(min_gaze_value[k] == typemin(Int16))
+                eye_recorded[k] = false
+            end
+        end
+        header["eye_recorded"] = findall(eye_recorded)
         screen_height = header["gaze_coords"][4]
         #process saccade events
         saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
