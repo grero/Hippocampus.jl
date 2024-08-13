@@ -209,7 +209,7 @@ end
 
 function show_maze(bins,counts,normals)
     fig = Figure()
-    ax = Axis3(fig[1,1])
+    ax = Axis3(fig[1,1],aspect=:data)
     for (c,bin,n) in zip(counts,bins,normals)
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
         # we want to color only the inside
