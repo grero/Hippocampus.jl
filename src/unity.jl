@@ -54,89 +54,113 @@ function create_maze(;kvs...)
     bins = Matrix{NTuple{3,AbstractVector{Float64}}}(undef, 4,4)
     wall_bins = Vector{NTuple{3,AbstractVector{Float64}}}(undef, 4)
     zbins = range(0.0, stop=5.0, length=10)
+    normals_bins = Matrix{Vector{Float64}}(undef, 4,4)
+    normals_walls = Vector{Vector{Float64}}(undef, 4)
     Δ = get(kvs, :Δz, 0.1)
     # pillar 1
     xbins = range(-7.5, stop=-2.5, length=10)
     y0 = 2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,1] = (xbins, ybins, zbins)
+    normals_bins[1,1] = [0.0, -1.0, 0.0]
+
     y0 = 7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[2,1] = (xbins, ybins, zbins)
+    normals_bins[2,1] = [0.0, 1.0, 0.0]
+
     ybins = range(2.5, stop=7.5, length=10)
     x0 = -7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[3,1] = (xbins, ybins, zbins)
+    normals_bins[3,1] = [-1.0, 0.0, 0.0]
     x0 = -2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[4,1] = (xbins, ybins, zbins)
+    normals_bins[4,1] = [1.0, 0.0, 0.0]
 
     # pillar 2
     xbins = range(2.5, stop=7.5, length=10)
     y0 = 2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,2] = (xbins,ybins, zbins)
+    normals_bins[1,2] = [0.0, -1.0, 0.0]
     y0 = 7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[2,2] = (xbins, ybins, zbins)
+    normals_bins[2,2] = [0.0, 1.0, 0.0]
 
     ybins = range(2.5, stop=7.5,length=10)
     x0 = 2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[3,2] = (xbins, ybins, zbins)
+    normals_bins[3,2] = [-1.0, 0.0, 0.0]
     x0 = 7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[4,2] = (xbins, ybins, zbins)
+    normals_bins[4,2] = [1.0, 0.0, 0.0]
 
     # pillar 3
     xbins = range(2.5, stop=7.5, length=10)
     y0 = -2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,3] = (xbins, ybins, zbins)
+    normals_bins[1,3] = [0.0, 1.0, 0.0]
     y0 = -7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[2,3] = (xbins, ybins, zbins)
+    normals_bins[2,3] = [0.0 , -1.0, 0.0] 
     ybins = range(-7.5, stop=-2.5,length=10)
     x0 = 2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[3,3] = (xbins, ybins, zbins)
+    normals_bins[3,3] = [-1.0, 0.0, 0.0]
     x0 = 7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[4,3] = (xbins, ybins, zbins)
+    normals_bins[4,3] = [1.0, 0.0, 0.0]
 
     # pillar 4
     xbins = range(-7.5, stop=-2.5, length=10)
     y0 = -2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[1,4] = (xbins, ybins, zbins)
+    normals_bins[1,4] = [0.0, 1.0, 0.0]
     y0 = -7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[2,4] = (xbins, ybins, zbins)
+    normals_bins[2,4] = [0.0, -1.0, 0.0]
     ybins = range(-7.5, stop=-2.5,length=10)
     x0 = -2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=3)
     bins[3,4] = (xbins, ybins, zbins)
+    normals_bins[3,4] = [1.0, 0.0, 0.0]
     x0 = -7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[4,4] = (xbins, ybins, zbins)
+    normals_bins[4,4] = [-1.0, 0.0, 0.0]
 
     # walls
     xbins = range(-12.5, stop=12.5, length=10)
     y0 = -12.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     wall_bins[1] = (xbins,ybins,zbins)
+    normals_walls[1] = [0.0, 1.0,0.0]
     y0 = 12.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     wall_bins[2] = (xbins,ybins,zbins)
+    normals_walls[2] = [0.0, -1.0, 0.0]
 
     ybins = range(-12.5, stop=12.5, length=10)
     x0 = -12.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     wall_bins[3] = (xbins, ybins, zbins)
+    normals_walls[3] = [1.0, 0.0, 0.0]
     x0 = 12.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     wall_bins[4] = (xbins, ybins, zbins)
-   (pillars=bins, walls=wall_bins)
+    normals_walls[4] = [-1.0, 0.0, 0.0]
+   (pillars=bins, walls=wall_bins), (pillars=normals_bins, walls=normals_walls)
 end
 
 """
@@ -183,13 +207,23 @@ function compute_histogram!(counts, pos::Matrix{Float64},bins)
     counts
 end
 
-# TODO: Currently the counts are sometimes shown on the wrong side of the wall
-function show_maze(bins,counts)
+function show_maze(bins,counts,normals)
     fig = Figure()
     ax = Axis3(fig[1,1])
-    for (c,bin) in zip(counts,bins)
+    for (c,bin,n) in zip(counts,bins,normals)
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        viz!(ax, m, color=c[:],colormap=:Blues)
+        # we want to color only the inside
+        _color = fill!(similar(c), 0.0)
+        for d in 1:length(n)
+            if n[d] < 0
+                idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
+                _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+            elseif n[d] > 0
+                idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
+                _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+            end
+        end
+        viz!(ax, m, color=_color[:],colormap=:Blues)
     end
     fig
 end
