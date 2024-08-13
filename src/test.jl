@@ -286,7 +286,114 @@ end
 function get_trial(edata::EyelinkData, i)
     idx0 = searchsortedfirst(edata.analogtime, edata.timestamps[i,1])
     idx1 = searchsortedfirst(edata.analogtime, edata.timestamps[i,3])
-    edata.analogtime[idx0:idx1], edata.gazex[:,idx0:idx1], edata.gazey[:,idx0:idx1]
+    er = edata.header["eye_recorded"]
+    edata.analogtime[idx0:idx1], edata.gazex[er,idx0:idx1], edata.gazey[er,idx0:idx1]
+end
+
+struct GazeOnMaze
+    time::Vector{Vector{Float64}}
+    gaze::Vector{Matrix{Float64}}
+    triggers::Matrix{Int64}
+    timestamps::Matrix{Float64}
+    header::Dict
+end
+
+DPHT.filename(::Type{GazeOnMaze}) = "maze_raytrace.mat"
+
+function GazeOnMaze(;do_save=true, redo=false)
+    fname = DPHT.filename(GazeOnMaze)
+    if !redo && isfile(fname)
+        qdata = MAT.matread(fname)
+        args = Any[]
+        for k in fieldnames(GazeOnMaze)
+            push!(args, qdata[string(k)])
+        end
+        gdata = GazeOnMaze(args...)
+    else
+        edata = EyelinkData()
+        udata = UnityData()
+        gdata = GazeOnMaze(edata, udata)
+        if do_save
+            DPHT.save(gdata)
+        end
+    end
+    gdata
+end
+
+function DPHT.save(gdata::GazeOnMaze)
+    fname = DPHT.filename(typeof(gdata))
+    qdata = Dict{String,Any}()
+    metadata = Dict{String,Any}() 
+    tag!(metadata, storepatch=true)
+    for k in fieldnames(GazeOnMaze)
+        v = getfield(gdata, k)
+        qdata[string(k)] = v
+    end
+    qdata["meta"] = metadata
+    MAT.matwrite(fname, qdata)
+end
+
+function DPHT.load(::Type{GazeOnMaze})
+    fname = DPHT.filename(GazeOnMaze)
+    qdata = MAT.matread(fname)
+    metadata = qdata["meta"]
+    args = Any[]
+    for k in fieldnames(GazeOnMaze)
+        push!(args, qdata[string(k)])
+    end
+    GazeOnMaze(args...)
+end
+
+"""
+Return the 3D eye position on objects in the maze
+"""
+function GazeOnMaze(edata::EyelinkData, udata::UnityData)
+    # we an only align edata and udata using events, so we need to operate on trials
+    # the most compact representation
+    nt = size(edata.triggers,1)
+    gaze = Vector{Matrix{Float64}}(undef, nt)
+    gtime = Vector{Vector{Float64}}(undef,nt)
+    prog = Progress(nt,desc="Raytracing...")
+    for i in 1:nt
+        # get the time index of the eyelink data triggers
+        t_e,gx,gy = get_trial(edata, i)
+        t_u,posx,posy,dir = get_trial(udata,i)
+
+        # use the same reference
+        t_e .= t_e .- t_e[1]
+        t_u .= t_u .- t_u[1]
+
+        _gaze = fill(0.0, 3,length(t_e))
+        gtime[i] = t_e
+        for (j,t) in enumerate(t_e)
+            tidx = searchsortedlast(t_u,t)
+            _gaze[:,j] .= raytrace(gx[j],gy[j],[posx[tidx],posy[tidx]],dir[tidx],50.0)
+        end
+        gaze[i] = _gaze
+        next!(prog)
+    end
+    GazeOnMaze(gtime,gaze,edata.triggers, edata.timestamps, Dict("focal_length"=>50.0,"camera_height"=>2.5))
+end
+
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
+    # 3D scatter plot of all positions
+    ax3 = S.Axis3(plots=[S.Scatter(gaze[1,:], gaze[2,:], gaze[3,:]) for gaze in gdata.gaze])
+    # TODO: Use the "exploded view here", that is indicate the pillars, as well as the floor
+    # and ceiling
+    S.GridLayout(ax3)
+end
+
+
+function plot_histogram(gdata::GazeOnMaze)
+    fig = Figure()
+    ax = Axis3(fig[1,1])
+
+    counts,bins = compute_pillar_histograms(gdata.gaze[1])
+    for (count,bin) in zip(counts,bins)
+        m = CartesianGrid(first.(bin),last.(bin), length.(bin))
+        viz!(ax, m, color=count[:])
+    end
+    fig
 end
 
 struct Spiketrain
