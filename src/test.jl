@@ -789,7 +789,6 @@ function plot_trial!(ax, edata::EyelinkData, trial::Observable{Int64}, current_t
         te,gazex, gazey 
     end
 
-    # TODO: Fix at source, eyelink flips the y-coordinate
     tidx_e = lift(current_time) do ct
         te = _edata[][1]
         idx = searchsortedfirst(te, ct)
@@ -798,8 +797,8 @@ function plot_trial!(ax, edata::EyelinkData, trial::Observable{Int64}, current_t
     current_eyepos = lift(tidx_e) do _tidxe
         gazex = _edata[][2]
         gazey = _edata[][3]
-        gx = gazex[1,_tidxe]
-        gy = gazey[1,_tidxe]
+        gx = gazex[_tidxe]
+        gy = gazey[_tidxe]
         [Point2f(gx,gy)]
     end
     scatter!(ax, current_eyepos, color=:black)
