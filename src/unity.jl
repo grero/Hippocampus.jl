@@ -217,7 +217,7 @@ function compute_histogram!(counts, pos::Matrix{Float64},bins)
     counts
 end
 
-function show_maze(bins,counts,normals;explore=false)
+function show_maze(bins,counts,normals;explore=false, position::Union{Nothing, Matrix{Float64}}=nothing, head_direction::Union{Nothing, Vector{Float64}}=nothing)
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
     lscene = LScene(fig[1,1], show_axis=true)
@@ -236,7 +236,32 @@ function show_maze(bins,counts,normals;explore=false)
         end
         viz!(lscene, m, color=_color[:],colormap=:Blues)
     end
-    if explore
+
+    lookat = Point3f(1.0, 0.0, 2.5)
+    if position !== nothing
+        # replay experiment with the supplied position
+        #cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
+        cc = cameracontrols(lscene.scene)
+        ii = Observable(1)
+
+        on(ii) do i
+            pos = Point3f(position[1,i], position[2,i], 2.5)
+            θ = π*head_direction[i]/180
+            cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
+            cc.eyeposition[] = pos
+            update_cam!(lscene.scene, cc)
+        end
+        θ = π*head_direction[1]/180
+        _pos  = Point3f(position[1,1], position[2,1], 2.5)
+        _lookat = Point3f(cos(θ),sin(θ), 0.0) + _pos
+        update_cam!(lscene.scene, _pos, _lookat)
+
+        @async for j in 1:size(position,2)
+            ii[] = j
+            yield()
+            sleep(0.01)
+        end
+    elseif explore
         # set up camera inside of the maze
         cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
         #cc.eyeposition[] = Point3f(0.0, 0.0, 2.5)
