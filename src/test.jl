@@ -326,6 +326,7 @@ end
 struct GazeOnMaze
     time::Vector{Vector{Float64}}
     gaze::Vector{Matrix{Float64}}
+    fixation::Vector{Vector{Bool}}
     triggers::Matrix{Int64}
     timestamps::Matrix{Float64}
     header::Dict
@@ -386,10 +387,16 @@ function GazeOnMaze(edata::EyelinkData, udata::UnityData)
     nt = size(edata.triggers,1)
     gaze = Vector{Matrix{Float64}}(undef, nt)
     gtime = Vector{Vector{Float64}}(undef,nt)
+    fixation = Vector{Vector{Bool}}(undef, nt)
+    screen_width = edata.header["gaze_coords"][3] - edata.header["gaze_coords"][1]
+    screen_height = edata.header["gaze_coords"][4] - edata.header["gaze_coords"][2]
+    gx0, gy0, gxm, gym = edata.header["gaze_coords"]
     prog = Progress(nt,desc="Raytracing...")
     for i in 1:nt
         # get the time index of the eyelink data triggers
-        t_e,gx,gy = get_trial(edata, i)
+        _t_e,gx,gy,fixation[i] = get_trial(edata, i)
+
+        # Unity camera sensor size: (36,24)
         t_u,posx,posy,dir = get_trial(udata,i)
 
         # use the same reference
@@ -419,7 +426,7 @@ function GazeOnMaze(edata::EyelinkData, udata::UnityData)
         gaze[i] = _gaze
         next!(prog)
     end
-    GazeOnMaze(gtime,gaze,edata.triggers, edata.timestamps, Dict("focal_length"=>50.0,"camera_height"=>2.5))
+    GazeOnMaze(gtime,gaze,fixation, edata.triggers, edata.timestamps, Dict("focal_length"=>50.0,"camera_height"=>2.5))
 end
 
 function MakieCore.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
