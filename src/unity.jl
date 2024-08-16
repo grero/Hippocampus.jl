@@ -218,7 +218,7 @@ function compute_histogram!(counts, pos::Matrix{Float64},bins)
     counts
 end
 
-function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, position::Union{Nothing, Matrix{Float64}}=nothing, head_direction::Union{Nothing, Vector{Float64}}=nothing) where T <: Real
+function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, position::Union{Nothing, Matrix{Float64}}=nothing, head_direction::Union{Nothing, Vector{Float64}}=nothing,tp::Union{Nothing,Vector{Float64}}=nothing, gaze::Union{Nothing, Matrix{Float64}}=nothing, tg::Union{Nothing,Vector{Float64}}=nothing,fixmask::Union{Nothing,Vector{Bool}}=nothing) where T <: Real
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
     lscene = LScene(fig[1,1], show_axis=false)
@@ -245,15 +245,30 @@ function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothin
     end
 
     lookat = Point3f(1.0, 0.0, 2.5)
-    if position !== nothing
+    if fixmask === nothing
+        fixmask = fill(true, length(tg))
+    end
+    if head_direction !== nothing
         # replay experiment with the supplied position
         #cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
         cc = cameracontrols(lscene.scene)
+        cc.fov[] = 39.6
         ii = Observable(1)
 
+        gaze_pos = Observable([Point3f(NaN)])
+        current_j = 1
         on(ii) do i
+            _tp = tp[i]
+            # grab the points 
+            j = searchsortedfirst(tg, _tp)
             pos = Point3f(position[1,i], position[2,i], 2.5)
             θ = π*head_direction[i]/180
+
+            # only use fixation points
+            _fixmask = fixmask[current_j:j]
+            #gaze_pos[] = [Point3f(dropdims(mean(gaze[:,current_j+1:j][:,_fixmask],dims=2),dims=2))]
+            gaze_pos[] = Point3f.(eachcol(gaze[:,current_j:j][:,_fixmask]))
+            current_j = j
             cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
             cc.eyeposition[] = pos
             update_cam!(lscene.scene, cc)
@@ -262,11 +277,12 @@ function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothin
         _pos  = Point3f(position[1,1], position[2,1], 2.5)
         _lookat = Point3f(cos(θ),sin(θ), 0.0) + _pos
         update_cam!(lscene.scene, _pos, _lookat)
+        scatter!(lscene, gaze_pos, color=:red)
 
-        @async for j in 1:size(position,2)
+        @async for j in 1:length(tp)
             ii[] = j
             yield()
-            sleep(0.01)
+            sleep(0.03)
         end
     elseif explore
         # set up camera inside of the maze
@@ -299,6 +315,29 @@ function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothin
                 return Consume()
             end
         end
+    else
+        if gaze !== nothing
+            scatter!(lscene, gaze[1,fixmask], gaze[2,fixmask], gaze[3,fixmask],color=:red)
+        end
+        if position !== nothing
+            lines!(lscene, position[1,:], position[2,:], fill(0.0, size(position,2)),color=:black)
+        end
+        # show current position
+        ii = Observable(1)
+        current_pos = lift(ii) do i
+            pos = Point3f(position[1,i],position[2,i],0.0)
+            @show pos i
+            [pos]
+        end
+
+        on(events(lscene.scene).keyboardbutton, priority=20) do event
+            if ispressed(lscene.scene, Keyboard.up)
+                ii[] = min(ii[]+1,size(position,2))
+            elseif ispressed(lscene.scene, Keyboard.down)
+                ii[] = max(ii[]-1,1)
+            end
+        end
+        scatter!(lscene, current_pos, color=:blue)
     end
     fig
 end
