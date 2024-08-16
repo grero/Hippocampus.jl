@@ -189,6 +189,8 @@ struct EyelinkData
     analogtime::Vector{UInt64}
     gazex::Matrix{Float32}
     gazey::Matrix{Float32}
+    fixation_start::Vector{UInt64}
+    fixation_end::Vector{UInt64}
     saccade_start_time::Vector{UInt64}
     saccade_end_time::Vector{UInt64}
     saccade_start_pos::Matrix{Float32}
@@ -235,6 +237,15 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
         end
         header["eye_recorded"] = findall(eye_recorded)
         screen_height = header["gaze_coords"][4]
+        # process fixation events
+        fixations = filter(ee->ee.eventtype==:endfix, eyelinkdata.events)
+        nfix = length(fixations)
+        fixation_start = Vector{UInt64}(undef, nfix)
+        fixation_end = Vector{UInt64}(undef, nfix)
+        for (i,fixation) in enumerate(fixations)
+            fixation_start[i] = fixation.sttime
+            fixation_end[i] = fixation.entime
+        end
         #process saccade events
         saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
         nsacc = length(saccades)
@@ -270,7 +281,8 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
         tag!(meta;storepatch=true)
         qdata = Dict{String,Any}()
         merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
-                "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "saccade_start_time"=>saccade_start_time,
+                "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "fixation_start"=>fixation_start,
+                "fixation_end"=>fixation_end, "saccade_start_time"=>saccade_start_time,
                 "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
         qdata["metadata"] = meta
         qdata["header"] = header 
@@ -288,8 +300,27 @@ end
 function get_trial(edata::EyelinkData, i)
     idx0 = searchsortedfirst(edata.analogtime, edata.timestamps[i,1])
     idx1 = searchsortedfirst(edata.analogtime, edata.timestamps[i,3])
+    trial_time = edata.analogtime[idx0:idx1]
     er = edata.header["eye_recorded"]
-    edata.analogtime[idx0:idx1], edata.gazex[er,idx0:idx1], edata.gazey[er,idx0:idx1]
+
+    fixation_mask = fill(false, idx1-idx0+1)
+    for i in 1:length(edata.fixation_start)
+        fix_start = edata.fixation_start[i]
+        fix_end = edata.fixation_end[i]
+        fidx0 = searchsortedfirst(trial_time, fix_start)
+        fidx1 = searchsortedfirst(trial_time, fix_end)
+        fidx1 = min(fidx1, length(trial_time))
+        fixation_mask[fidx0:fidx1] .= true
+        if fidx1 >= length(trial_time)
+            break
+        end
+    end
+    gx = edata.gazex[er,idx0:idx1]
+    gx[gx.==1.0f8] .= NaN32
+    gy = edata.gazey[er,idx0:idx1]
+    gy[gy.==1.0f8] .= NaN32
+
+    trial_time, gx, gy,fixation_mask
 end
 
 struct GazeOnMaze
