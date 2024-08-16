@@ -871,7 +871,11 @@ function scale_to_camera(x, sensor_width, screen_width)
     x = sensor_width*(x -0.5*screen_width)/screen_width
 end
 
-function raytrace(x, y, pos,direction, focal_length;camera_height=2.5, ceiling_height=5.0)
+"""
+Trace a ray from position `x,y` through the camera with focal length `focal_length` until it
+impacts something in the arena
+"""
+function raytrace(x, y, pos,direction, focal_length;camera_height=2.5)
     # find the angle of the point
     θ = atan(x, focal_length)
     ϕ = atan(y, focal_length)
