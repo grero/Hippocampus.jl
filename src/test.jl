@@ -1,6 +1,8 @@
 module SpatialAnalyses
 using MakieCore
 using GLMakie
+using Meshes
+import Makie.SpecApi as S
 using Colors
 using ContinuousWavelets
 using DataProcessingHierarchyTools
