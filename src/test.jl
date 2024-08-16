@@ -976,11 +976,11 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Observable
     current_eyepos = lift(tidx_e) do _tidxe
         gazex = _edata[][2]
         gazey = _edata[][3]
-        gx = gazex[1,_tidxe]
+        gx = gazex[_tidxe]
         if gx < 0.0 || gx > screen_width
             gx = NaN
         end
-        gy = gazey[1,_tidxe]
+        gy = gazey[_tidxe]
         if gy < 0.0 || gy > screen_height
             gy = NaN
         end
