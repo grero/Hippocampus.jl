@@ -881,19 +881,25 @@ function raytrace(x, y, pos,direction, focal_length;camera_height=2.5)
     ϕ = atan(y, focal_length)
     θ += direction
     # now cast along the line θ
-    l = 0.0
+
     dl = 0.01
-    xp,yp,zp = (0.0, 0.0,0.0)
+    xp,yp,zp = (pos[1], pos[2],camera_height)
+    sθ = sin(θ)
+    cθ = cos(θ)
+    sϕ = sin(ϕ)
     while true
-        l += dl
-        xp = pos[1] + l*cos(θ)
-        yp = pos[2] + l*sin(θ)
-        zp = camera_height + l*sin(ϕ)
+        dx,dy,dz = (dl*cθ, dl*sθ,dl*sϕ)
+        xp += dx
+        yp += dy 
+        zp += dz 
         if impacts([xp,yp,zp])
+            xp -= dx
+            yp -= dy
+            zp -= dz
             break
         end
     end
-    xp,yp
+    xp,yp,zp
 end
 
 function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Int64)
