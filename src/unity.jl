@@ -1,4 +1,5 @@
 using Makie
+using Colors
 using Meshes
 
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
@@ -217,24 +218,30 @@ function compute_histogram!(counts, pos::Matrix{Float64},bins)
     counts
 end
 
-function show_maze(bins,counts,normals;explore=false, position::Union{Nothing, Matrix{Float64}}=nothing, head_direction::Union{Nothing, Vector{Float64}}=nothing)
+function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, position::Union{Nothing, Matrix{Float64}}=nothing, head_direction::Union{Nothing, Vector{Float64}}=nothing) where T <: Real
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
-    lscene = LScene(fig[1,1], show_axis=true)
-    for (c,bin,n) in zip(counts,bins,normals)
+    lscene = LScene(fig[1,1], show_axis=false)
+    for (i,(bin,n)) in enumerate(zip(bins,normals))
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        # we want to color only the inside
-        _color = fill!(similar(c), 0.0)
-        for d in 1:length(n)
-            if n[d] < 0
-                idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
-                _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-            elseif n[d] > 0
-                idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
-                _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+        if counts !== nothing
+            # we want to color only the inside
+            c = counts[i]
+            _color = fill!(similar(c), 0.0)
+            for d in 1:length(n)
+                if n[d] < 0
+                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
+                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                elseif n[d] > 0
+                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
+                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                end
             end
+            _color = _color[:]
+        else
+            _color = RGB(0.8, 0.8, 0.8) 
         end
-        viz!(lscene, m, color=_color[:],colormap=:Blues)
+        viz!(lscene, m, color=_color,colormap=:Blues)
     end
 
     lookat = Point3f(1.0, 0.0, 2.5)
@@ -266,13 +273,10 @@ function show_maze(bins,counts,normals;explore=false, position::Union{Nothing, M
         cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
         #cc.eyeposition[] = Point3f(0.0, 0.0, 2.5)
         eyepos = Point3f(0.0, 0.0, 2.5)
-        lookat = Point3f(1.0, 0.0, 2.5)
         v = lookat - eyepos 
         v = v./norm(v)
-        @show v
         #translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0,2.5))
         update_cam!(lscene.scene, eyepos, lookat)
-        @show cc.eyeposition[] cc.lookat[]
         on(events(lscene.scene).keyboardbutton, priority=20) do event
             if ispressed(lscene.scene, Keyboard.up)
                 pos = cc.eyeposition[]
