@@ -400,7 +400,8 @@ function GazeOnMaze(edata::EyelinkData, udata::UnityData)
         t_u,posx,posy,dir = get_trial(udata,i)
 
         # use the same reference
-        t_e .= t_e .- t_e[1]
+        # convert eyelink time to seconds
+        t_e = (_t_e .- _t_e[1])/1000.0
         t_u .= t_u .- t_u[1]
 
         _gaze = fill(0.0, 3,length(t_e))
