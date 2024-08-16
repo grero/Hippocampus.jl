@@ -367,7 +367,21 @@ function GazeOnMaze(edata::EyelinkData, udata::UnityData)
         gtime[i] = t_e
         for (j,t) in enumerate(t_e)
             tidx = searchsortedlast(t_u,t)
-            _gaze[:,j] .= raytrace(gx[j],gy[j],[posx[tidx],posy[tidx]],dir[tidx],50.0)
+            outofbounds = false
+            if gx[j] < 0.0 || gx[j] > screen_width
+               _gaze[1,j] = NaN
+               outofbounds = true
+            end
+            if gy[j] < 0.0 || gy[j] > screen_width
+               _gaze[2,j] = NaN
+               outofbounds=true
+            end
+            if !outofbounds
+                x = scale_to_camera(gx[j]-gx0, 36.0, screen_width)
+                y = scale_to_camera(gy[j]-gy0, 24.0, screen_height)
+                # use negative gx and gy here since the camera flips these
+                _gaze[:,j] .= raytrace(-x,-y,[posx[tidx],posy[tidx]],π*dir[tidx]/180,50.0)
+            end
         end
         gaze[i] = _gaze
         next!(prog)
