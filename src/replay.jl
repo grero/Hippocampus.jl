@@ -133,7 +133,7 @@ function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
     counts,bins,normals
 end
 
-function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1) where T <: Real
+function show_maze(bins,counts::Union{Vector{Array{T,3}},Nothing}=nothing,normals::Union{Vector{Vector{Float64}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1) where T <: Real
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
     lscene = LScene(fig[1,1], show_axis=false)
