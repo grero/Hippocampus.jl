@@ -118,11 +118,19 @@ function MakieCore.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
 end
 
 
-function plot_histogram(gdata::GazeOnMaze)
-    bins = create_maze(;Δz=0.01)
-    all_bins = [bins.pillars[:];bins.walls]
-    counts = compute_pillar_histograms(gdata.gaze,all_bins)
-    fig = show_maze(all_bins, counts)
+function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
+    bins,normals = create_maze(;Δz=0.01)
+    all_bins = [bins.pillars[:];bins.walls;bins.ceiling;bins.floor]
+    if fixations_only 
+        gaze = Vector{Matrix{Float64}}(undef, length(gdata.gaze))
+        for i in eachindex(gaze)
+            gaze[i] = gdata.gaze[i][:,gdata.fixation[i]]
+        end
+    else
+        gaze = gdata.gaze
+    end
+    counts = compute_histogram(gaze,all_bins)
+    counts,bins,normals
 end
 
 function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1) where T <: Real
