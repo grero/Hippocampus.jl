@@ -120,7 +120,6 @@ end
 
 function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
     bins,normals = create_maze(;Δz=0.01)
-    all_bins = [bins.pillars[:];bins.walls;bins.ceiling;bins.floor]
     if fixations_only 
         gaze = Vector{Matrix{Float64}}(undef, length(gdata.gaze))
         for i in eachindex(gaze)
@@ -129,34 +128,43 @@ function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
     else
         gaze = gdata.gaze
     end
-    counts = compute_histogram(gaze,all_bins)
+    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
+    for k in keys(bins)
+        counts[k] = compute_histogram(gaze,bins[k])
+    end
     counts,bins,normals
 end
 
-function show_maze(bins,counts::Union{Vector{Array{T,3}},Nothing}=nothing,normals::Union{Vector{Vector{Float64}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1) where T <: Real
+function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing) where T <: Real
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
     lscene = LScene(fig[1,1], show_axis=false)
-    for (i,(bin,n)) in enumerate(zip(bins,normals))
-        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        if counts !== nothing
-            # we want to color only the inside
-            c = counts[i]
-            _color = fill!(similar(c), 0.0)
-            for d in 1:length(n)
-                if n[d] < 0
-                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-                elseif n[d] > 0
-                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-                end
+    for k in keys(bins)
+        for (i,bin) in enumerate(bins[k])
+            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+            if k in keys(offsets)
+                m = Translate(offsets[k][i]...)(m)
             end
-            _color = _color[:]
-        else
-            _color = RGB(0.8, 0.8, 0.8) 
+            if counts !== nothing
+                n = normals[k][i]
+                # we want to color only the inside
+                c = counts[k][i]
+                _color = fill!(similar(c), 0.0)
+                for d in 1:length(n)
+                    if n[d] < 0
+                        idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
+                        _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                    elseif n[d] > 0
+                        idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
+                        _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                    end
+                end
+                _color = _color[:]
+            else
+                _color = RGB(0.8, 0.8, 0.8) 
+            end
+            viz!(lscene, m, color=_color,colormap=:Blues)
         end
-        viz!(lscene, m, color=_color,colormap=:Blues)
     end
 
     lookat = Point3f(1.0, 0.0, 2.5)
@@ -253,7 +261,11 @@ function show_maze(bins,counts::Union{Vector{Array{T,3}},Nothing}=nothing,normal
         # show current position
         ii = Observable(1)
         current_pos = lift(ii) do i
-            pos = Point3f(position[1,i],position[2,i],0.0)
+            if udata !== nothing
+                pos = Point3f(position[1,i],position[2,i],0.0)
+            else
+                pos = Point3f(NaN)
+            end
             [pos]
         end
 

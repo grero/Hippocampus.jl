@@ -124,117 +124,143 @@ function create_maze(;kvs...)
     # unity uses 40x40 bins on the floor
     floor_bins = range(-12.5, stop=12.5, length=40)
     Δb = step(floor_bins)
-    @show Δb
-    bins = Matrix{NTuple{3,AbstractVector{Float64}}}(undef, 4,4)
-    wall_bins = Vector{NTuple{3,AbstractVector{Float64}}}(undef, 4)
+
+    bins = Dict{Symbol,Vector{NTuple{3,AbstractVector{Float64}}}}()
+    normals = Dict{Symbol,Vector{Vector{Float64}}}()
+
     zbins = range(0.0, stop=5.0, length=10)
-    normals_bins = Matrix{Vector{Float64}}(undef, 4,4)
-    normals_walls = Vector{Vector{Float64}}(undef, 4)
     Δ = get(kvs, :Δz, 0.1)
     # pillar 1
+    bins[:pillar_1] = Vector{AbstractVector{Float64}}(undef, 4)
+    normals[:pillar_1] = Vector{Vector{Float64}}(undef, 4)
     xbins = soft_range(-7.5, -2.5, Δb)
     y0 = 2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[1,1] = (xbins, ybins, zbins)
-    normals_bins[1,1] = [0.0, -1.0, 0.0]
+    bins[:pillar_1][1] = (xbins,ybins,zbins)
+    normals[:pillar_1][1] = [0.0, -1.0,0.0]
 
     y0 = 7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[2,1] = (xbins, ybins, zbins)
-    normals_bins[2,1] = [0.0, 1.0, 0.0]
+    bins[:pillar_1][2] = (xbins,ybins,zbins)
+    normals[:pillar_1][2] = [0.0, 1.0, 0.0]
 
     ybins = soft_range(2.5, 7.5,Δb) 
     x0 = -7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[3,1] = (xbins, ybins, zbins)
-    normals_bins[3,1] = [-1.0, 0.0, 0.0]
+    bins[:pillar_1][3] = (xbins,ybins,zbins)
+    normals[:pillar_1][3] = [-1.0, 0.0, 0.0]
     x0 = -2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[4,1] = (xbins, ybins, zbins)
-    normals_bins[4,1] = [1.0, 0.0, 0.0]
+    bins[:pillar_1][4] = (xbins,ybins,zbins)
+    normals[:pillar_1][4] = [1.0, 0.0, 0.0]
 
     # pillar 2
+    bins[:pillar_2] = Vector{AbstractVector{Float64}}(undef, 4)
+    normals[:pillar_2] = Vector{Vector{Float64}}(undef, 4)
     xbins = soft_range(2.5, 7.5, Δb)
     y0 = 2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[1,2] = (xbins,ybins, zbins)
-    normals_bins[1,2] = [0.0, -1.0, 0.0]
+    bins[:pillar_2][1] = (xbins,ybins,zbins)
+    normals[:pillar_2][1] = [0.0, -1.0, 0.0]
     y0 = 7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[2,2] = (xbins, ybins, zbins)
-    normals_bins[2,2] = [0.0, 1.0, 0.0]
+    bins[:pillar_2][2] = (xbins,ybins,zbins)
+    normals[:pillar_2][2] = [0.0, 1.0, 0.0]
 
     ybins = soft_range(2.5, 7.5,Δb)
     x0 = 2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[3,2] = (xbins, ybins, zbins)
-    normals_bins[3,2] = [-1.0, 0.0, 0.0]
+    bins[:pillar_2][3] = (xbins,ybins,zbins)
+    normals[:pillar_2][3] = [-1.0, 0.0, 0.0]
     x0 = 7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[4,2] = (xbins, ybins, zbins)
-    normals_bins[4,2] = [1.0, 0.0, 0.0]
+    bins[:pillar_2][4] = (xbins, ybins,zbins)
+    normals[:pillar_2][4] = [1.0, 0.0, 0.0]
 
     # pillar 3
+    bins[:pillar_3] = Vector{AbstractVector{Float64}}(undef, 4)
+    normals[:pillar_3] = Vector{Vector{Float64}}(undef, 4)
     xbins = soft_range(2.5, 7.5, Δb)
     y0 = -2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[1,3] = (xbins, ybins, zbins)
-    normals_bins[1,3] = [0.0, 1.0, 0.0]
+    bins[:pillar_3][1] = (xbins,ybins,zbins)
+    normals[:pillar_3][1] = [0.0, 1.0, 0.0]
     y0 = -7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[2,3] = (xbins, ybins, zbins)
-    normals_bins[2,3] = [0.0 , -1.0, 0.0] 
+    bins[:pillar_3][2] = (xbins, ybins,zbins)
+    normals[:pillar_3][2] = [0.0, -1.0, 0.0]
     ybins = soft_range(-7.5, -2.5,Δb)
     x0 = 2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[3,3] = (xbins, ybins, zbins)
-    normals_bins[3,3] = [-1.0, 0.0, 0.0]
+    bins[:pillar_3][3] = (xbins, ybins,zbins)
+    normals[:pillar_3][3] = [-1.0, 0.0, 0.0]
     x0 = 7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[4,3] = (xbins, ybins, zbins)
-    normals_bins[4,3] = [1.0, 0.0, 0.0]
+    bins[:pillar_3][4] = (xbins, ybins, zbins)
+    normals[:pillar_3][4] = [1.0, 0.0, 0.0]
 
     # pillar 4
+    bins[:pillar_4] = Vector{AbstractVector{Float64}}(undef,4)
+    normals[:pillar_4] = Vector{Vector{Float64}}(undef, 4)
     xbins = soft_range(-7.5, -2.5, Δb)
     y0 = -2.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[1,4] = (xbins, ybins, zbins)
-    normals_bins[1,4] = [0.0, 1.0, 0.0]
+    bins[:pillar_4][1] = (xbins, ybins, zbins)
+    normals[:pillar_4][1] = [0.0, 1.0, 0.0]
     y0 = -7.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[2,4] = (xbins, ybins, zbins)
-    normals_bins[2,4] = [0.0, -1.0, 0.0]
+    bins[:pillar_4][2] = (xbins, ybins, zbins)
+    normals[:pillar_4][2] = [0.0, -1.0, 0.0]
     ybins = soft_range(-7.5, -2.5,Δb)
     x0 = -2.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[3,4] = (xbins, ybins, zbins)
-    normals_bins[3,4] = [1.0, 0.0, 0.0]
+    bins[:pillar_4][3] = (xbins, ybins, zbins)
+    normals[:pillar_4][3] = [1.0, 0.0, 0.0]
     x0 = -7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[4,4] = (xbins, ybins, zbins)
-    normals_bins[4,4] = [-1.0, 0.0, 0.0]
+    bins[:pillar_4][4] = (xbins, ybins, zbins)
+    normals[:pillar_4][4] = [-1.0, 0.0, 0.0]
 
     # walls
+    bins[:walls] = Vector{AbstractVector{Float64}}(undef, 4)
+    normals[:walls] = Vector{Vector{Float64}}(undef, 4)
     xbins = soft_range(-12.5, 12.5, Δb)
     y0 = -12.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    wall_bins[1] = (xbins,ybins,zbins)
-    normals_walls[1] = [0.0, 1.0,0.0]
+    bins[:walls][1] = (xbins,ybins,zbins)
+    normals[:walls][1] = [0.0, 1.0,0.0]
     y0 = 12.5
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    wall_bins[2] = (xbins,ybins,zbins)
-    normals_walls[2] = [0.0, -1.0, 0.0]
+    bins[:walls][2] = (xbins,ybins,zbins)
+    normals[:walls][2] = [0.0, -1.0, 0.0]
 
     ybins = soft_range(-12.5, 12.5, Δb)
     x0 = -12.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    wall_bins[3] = (xbins, ybins, zbins)
-    normals_walls[3] = [1.0, 0.0, 0.0]
+    bins[:walls][3] = (xbins, ybins, zbins)
+    normals[:walls][3] = [1.0, 0.0, 0.0]
     x0 = 12.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    wall_bins[4] = (xbins, ybins, zbins)
-    normals_walls[4] = [-1.0, 0.0, 0.0]
-   (pillars=bins, walls=wall_bins), (pillars=normals_bins, walls=normals_walls)
+    bins[:walls][4] = (xbins, ybins, zbins)
+    normals[:walls][4] = [-1.0, 0.0, 0.0]
+
+    # floor
+    xbins = floor_bins
+    ybins = floor_bins
+    z0 = 0.0
+    zbins = range(z0-Δ, stop=z0+Δ, length=2)
+    bins[:floor] = [(xbins, ybins, zbins)]
+    normals[:floor] = [[0.0, 0.0, 1.0]]
+
+    # ceiling
+    xbins = range(-12.5, stop=12.5, step=Δb)
+    ybins = range(-12.5, stop=12.5, step=Δb)
+    z0 = 5.0
+    zbins = range(z0-Δ, stop=z0+Δ, length=2)
+    bins[:ceiling] = [(xbins, ybins, zbins)]
+    normals[:ceiling]=[[0.0, 0.0 -1.0]]
+
+    bins, normals
 end
 
 """
