@@ -125,7 +125,7 @@ function plot_histogram(gdata::GazeOnMaze)
     fig = show_maze(all_bins, counts)
 end
 
-function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, replay=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1) where T <: Real
+function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1) where T <: Real
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
     lscene = LScene(fig[1,1], show_axis=false)
@@ -157,7 +157,6 @@ function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothin
         #cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
         cc = cameracontrols(lscene.scene)
         cc.fov[] = 39.6
-        ii = Observable(1)
         tg,gaze,fixmask = (gdata.time[trial], gdata.gaze[trial],gdata.fixation[trial])
         tg .-= tg[1]
 
@@ -166,6 +165,8 @@ function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothin
         position = permutedims([posx posy])
         gaze_pos = Observable([Point3f(NaN)])
         current_j = 1
+        ii = Observable(1)
+
         on(ii) do i
             _tp = tp[i]
             # grab the points 
@@ -182,16 +183,23 @@ function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothin
             cc.eyeposition[] = pos
             update_cam!(lscene.scene, cc)
         end
-        θ = π*head_direction[1]/180
-        _pos  = Point3f(position[1,1], position[2,1], 2.5)
-        _lookat = Point3f(cos(θ),sin(θ), 0.0) + _pos
-        update_cam!(lscene.scene, _pos, _lookat)
         scatter!(lscene, gaze_pos, color=:red)
 
-       @async for j in 1:length(tp)
-            ii[] = j
-            yield()
-            sleep(0.03)
+        on(events(lscene.scene).scroll, priority=20) do (dx,dy)
+            i_new = round(Int64,ii[] + 5*dx)
+            if 0 < i_new <= size(position,2)
+                ii[] = i_new
+            end
+        end
+
+        if !interactive
+            @async for j in 1:length(tp)
+                ii[] = j
+                yield()
+                sleep(0.03)
+            end
+        else
+            ii[] = 1 
         end
     elseif explore
         # set up camera inside of the maze
