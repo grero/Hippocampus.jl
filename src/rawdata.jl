@@ -16,10 +16,6 @@ function NeuralData(fname::String)
 end
 
 
-function MakieCore.convert_arguments(::Type{<:AbstractPlot},data::NeuralData)
-    
-end
-
 function plot_data(data::NeuralData;kvs...)
     fig = Figure()
     ax = Axis(fig[1,1])
