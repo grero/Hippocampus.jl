@@ -1,6 +1,8 @@
 using Makie
 using Colors
 using Meshes
+using LinearAlgebra
+using DelimitedFiles
 
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
 zBound = [12.5, 12.5, -12.5, -12.5, 12.5]
@@ -16,6 +18,67 @@ z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 # TODO: Use actual values here
 camera_height = 2.5
 ceiling_height = 5.0
+
+struct UnityData
+    time::Vector{Float64}
+    position::Matrix{Float64}
+    head_direction::Vector{Float64}
+    triggers::Matrix{Int64}
+    timestamps::Matrix{Float64}
+    header::Dict
+end
+
+function UnityData(fname::String)
+    data, header, column_names = read_unity_file(fname)
+    _time = cumsum(data[:,2])
+
+    # organize triggers into a trial structure
+    # triggers 1x indicate trial start, where x indicates the poster number
+    trial_start_idx = findall(10.0 .< data[:,1] .< 20.0)
+
+    # an additional marker indicates when cue for the monkey to start navigating
+    trial_start_nav = findall(20 .<= data[:,1] .< 30)
+    # trial end is either 3x, or 4x, where 3 indicates success and 4 indicates time out
+    trial_end_idx = findall(30.0 .< data[:,1] .< 50.0)
+    length(trial_start_idx) == length(trial_start_nav) == length(trial_end_idx) || error("Inconsitent number of triggers")
+    nt = length(trial_start_idx)
+    triggers = [data[trial_start_idx,1] data[trial_start_nav,1] data[trial_end_idx,1]]
+    timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
+    # the unity coordinate system swaps x and y
+    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, header)
+end
+
+numtrials(x::UnityData) = size(x.triggers,1)
+
+function get_trial(data::UnityData, i;trial_start=1)
+    idx0 = searchsortedfirst(data.time, data.timestamps[i,trial_start])
+    idx1 = searchsortedfirst(data.time, data.timestamps[i,3])
+    data.time[idx0:idx1], data.position[idx0:idx1, 1], data.position[idx0:idx1, 2], data.head_direction[idx0:idx1]
+end
+
+"""
+Read the file `fname`, assuming each column is separated by a single space, and
+the first 14 rows contain header information
+"""
+function read_unity_file(fname::String;header_rows=14)
+    # TODO: Return the config as well
+    column_names = ["marker","Δt","xpos","ypos","direction"]  
+    data = readdlm(fname, ' ', skipstart=header_rows) 
+    # check if first column should be skipped
+    if size(data,2) == 6 # should only be 5 columns
+        data = data[:,2:end]
+    end
+    header = Dict()
+    open(fname) do fid
+        for i in 1:header_rows
+            _line = readline(fid)
+            k,v = split(_line, ':')
+            header[k] = v
+        end
+    end
+    data = convert(Matrix{Float64}, data)
+    data, header, column_names
+end
 
 function plot_arena()
     fig = Figure()
@@ -218,126 +281,3 @@ function compute_histogram!(counts, pos::Matrix{Float64},bins)
     counts
 end
 
-function show_maze(bins,normals,counts::Union{Vector{Array{T,3}},Nothing}=nothing;explore=false, position::Union{Nothing, Matrix{Float64}}=nothing, head_direction::Union{Nothing, Vector{Float64}}=nothing,tp::Union{Nothing,Vector{Float64}}=nothing, gaze::Union{Nothing, Matrix{Float64}}=nothing, tg::Union{Nothing,Vector{Float64}}=nothing,fixmask::Union{Nothing,Vector{Bool}}=nothing) where T <: Real
-    fig = Figure()
-    #ax = Axis3(fig[1,1],aspect=:data)
-    lscene = LScene(fig[1,1], show_axis=false)
-    for (i,(bin,n)) in enumerate(zip(bins,normals))
-        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        if counts !== nothing
-            # we want to color only the inside
-            c = counts[i]
-            _color = fill!(similar(c), 0.0)
-            for d in 1:length(n)
-                if n[d] < 0
-                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-                elseif n[d] > 0
-                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-                end
-            end
-            _color = _color[:]
-        else
-            _color = RGB(0.8, 0.8, 0.8) 
-        end
-        viz!(lscene, m, color=_color,colormap=:Blues)
-    end
-
-    lookat = Point3f(1.0, 0.0, 2.5)
-    if fixmask === nothing
-        fixmask = fill(true, length(tg))
-    end
-    if head_direction !== nothing
-        # replay experiment with the supplied position
-        #cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
-        cc = cameracontrols(lscene.scene)
-        cc.fov[] = 39.6
-        ii = Observable(1)
-
-        gaze_pos = Observable([Point3f(NaN)])
-        current_j = 1
-        on(ii) do i
-            _tp = tp[i]
-            # grab the points 
-            j = searchsortedfirst(tg, _tp)
-            pos = Point3f(position[1,i], position[2,i], 2.5)
-            θ = π*head_direction[i]/180
-
-            # only use fixation points
-            _fixmask = fixmask[current_j:j]
-            #gaze_pos[] = [Point3f(dropdims(mean(gaze[:,current_j+1:j][:,_fixmask],dims=2),dims=2))]
-            gaze_pos[] = Point3f.(eachcol(gaze[:,current_j:j][:,_fixmask]))
-            current_j = j
-            cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
-            cc.eyeposition[] = pos
-            update_cam!(lscene.scene, cc)
-        end
-        θ = π*head_direction[1]/180
-        _pos  = Point3f(position[1,1], position[2,1], 2.5)
-        _lookat = Point3f(cos(θ),sin(θ), 0.0) + _pos
-        update_cam!(lscene.scene, _pos, _lookat)
-        scatter!(lscene, gaze_pos, color=:red)
-
-        @async for j in 1:length(tp)
-            ii[] = j
-            yield()
-            sleep(0.03)
-        end
-    elseif explore
-        # set up camera inside of the maze
-        cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
-        #cc.eyeposition[] = Point3f(0.0, 0.0, 2.5)
-        eyepos = Point3f(0.0, 0.0, 2.5)
-        v = lookat - eyepos 
-        v = v./norm(v)
-        #translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0,2.5))
-        update_cam!(lscene.scene, eyepos, lookat)
-        on(events(lscene.scene).keyboardbutton, priority=20) do event
-            if ispressed(lscene.scene, Keyboard.up)
-                pos = cc.eyeposition[]
-                dx = 0.1*v
-                npos = pos + dx
-                translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, -0.1))
-                if impacts(cc.eyeposition[])
-                    # move back
-                    # TODO: This doesn't quite work, but maybe we don't care
-                    translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, 0.1))
-                    # last coordinate if foward movement (for some inexplicable reason))
-                end
-            end
-            if ispressed(lscene.scene, Keyboard.right)
-                rotate_cam!(lscene.scene, cc, Point3f(0.0, -0.1, 0.0))
-                return Consume()
-            end
-            if ispressed(lscene.scene, Keyboard.left)
-                rotate_cam!(lscene.scene,cc, Point3f(0.0, 0.1, 0.0))
-                return Consume()
-            end
-        end
-    else
-        if gaze !== nothing
-            scatter!(lscene, gaze[1,fixmask], gaze[2,fixmask], gaze[3,fixmask],color=:red)
-        end
-        if position !== nothing
-            lines!(lscene, position[1,:], position[2,:], fill(0.0, size(position,2)),color=:black)
-        end
-        # show current position
-        ii = Observable(1)
-        current_pos = lift(ii) do i
-            pos = Point3f(position[1,i],position[2,i],0.0)
-            @show pos i
-            [pos]
-        end
-
-        on(events(lscene.scene).keyboardbutton, priority=20) do event
-            if ispressed(lscene.scene, Keyboard.up)
-                ii[] = min(ii[]+1,size(position,2))
-            elseif ispressed(lscene.scene, Keyboard.down)
-                ii[] = max(ii[]-1,1)
-            end
-        end
-        scatter!(lscene, current_pos, color=:blue)
-    end
-    fig
-end
