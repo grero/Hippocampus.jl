@@ -135,14 +135,17 @@ function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
     counts,bins,normals
 end
 
-function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing) where T <: Real
+function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true) where T <: Real
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
     lscene = LScene(fig[1,1], show_axis=false)
     for k in keys(bins)
         for (i,bin) in enumerate(bins[k])
+            if k == :ceiling && show_ceiling == false
+                continue
+            end
             m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-            if k in keys(offsets)
+            if offsets !== nothing && k in keys(offsets)
                 m = Translate(offsets[k][i]...)(m)
             end
             if counts !== nothing
