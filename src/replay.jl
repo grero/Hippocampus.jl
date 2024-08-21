@@ -167,7 +167,24 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
         end
     end
 
+    if udata !== nothing
+        tp,posx,posy,dir = get_trial(udata,trial)
+        position = permutedims([posx posy])
+        head_direction = dir
+    else
+        position = fill(0.0, 3, 0)
+        head_direction = Float64[] 
+    end
+
     lookat = Point3f(1.0, 0.0, 2.5)
+    ii = Observable(1)
+    on(events(lscene.scene).scroll, priority=20) do (dx,dy)
+        i_new = round(Int64,ii[] + 5*dx)
+        if 0 < i_new <= size(position,2)
+            ii[] = i_new
+        end
+    end
+
     if replay
         # replay experiment with the supplied position
         #cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
@@ -181,7 +198,6 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
         position = permutedims([posx posy])
         gaze_pos = Observable([Point3f(NaN)])
         current_j = 1
-        ii = Observable(1)
 
         on(ii) do i
             _tp = tp[i]
@@ -200,13 +216,6 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
             update_cam!(lscene.scene, cc)
         end
         scatter!(lscene, gaze_pos, color=:red)
-
-        on(events(lscene.scene).scroll, priority=20) do (dx,dy)
-            i_new = round(Int64,ii[] + 5*dx)
-            if 0 < i_new <= size(position,2)
-                ii[] = i_new
-            end
-        end
 
         if !interactive
             @async for j in 1:length(tp)
@@ -253,30 +262,28 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
             tg,gaze,fixmask = (gdata.time[trial], gdata.gaze[trial],gdata.fixation[trial])
             scatter!(lscene, gaze[1,fixmask], gaze[2,fixmask], gaze[3,fixmask],color=:red)
         end
-        if udata !== nothing
-            tp,posx,posy,dir = get_trial(udata,trial)
-            position = permutedims([posx posy])
-            lines!(lscene, position[1,:], position[2,:], fill(0.0, size(position,2)),color=:black)
-        end
+        lines!(lscene, position[1,:], position[2,:], fill(0.5, size(position,2)),color=:black)
         # show current position
         ii = Observable(1)
         current_pos = lift(ii) do i
             if udata !== nothing
-                pos = Point3f(position[1,i],position[2,i],0.0)
+                pos = Point3f(position[1,i],position[2,i],0.5)
             else
                 pos = Point3f(NaN)
             end
             [pos]
         end
 
-        on(events(lscene.scene).keyboardbutton, priority=20) do event
-            if ispressed(lscene.scene, Keyboard.up)
-                ii[] = min(ii[]+1,size(position,2))
-            elseif ispressed(lscene.scene, Keyboard.down)
-                ii[] = max(ii[]-1,1)
+        current_dir = lift(ii) do i
+            if udata !== nothing
+                θ = π*head_direction[i]/180
+                return [Point3f(cos(θ), sin(θ), 0.0)]
             end
+            return [Poin3f(NaN)]
         end
+       
         scatter!(lscene, current_pos, color=:blue)
+        arrows!(lscene, current_pos, current_dir,color=:blue)
     end
     fig
 end
