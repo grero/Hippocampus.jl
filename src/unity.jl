@@ -15,6 +15,8 @@ z3Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 x4Bound = [2.5, 7.5, 7.5, 2.5, 2.5]  # green pillar
 z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 
+pillar_color = Dict(:pillar_1=>:yellow, :pillar_2=>:red, :pillar_3=>:blue, :pillar_4=>:green)
+
 poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [5, 2.45], [-5, -2.45]]
 # for some reason x and y appear to be flipped
 poster_pos = reverse.(poster_pos)
