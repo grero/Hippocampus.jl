@@ -1,6 +1,7 @@
 module Hippocampus
 using Makie
 using Glob
+using DrWatson
 using DataProcessingHierarchyTools
 const DPHT = DataProcessingHierarchyTools
 include("utils.jl")
