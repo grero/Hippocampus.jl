@@ -36,6 +36,20 @@ struct UnityData
     header::Dict
 end
 
+DPHT.level(::Type{UnityData}) = "session"
+
+function UnityData()
+    # attempt to find data file
+    # assume we are at the sesison level
+    if isdir("RawData_T1-100")
+        ff = glob("session_*.txt", "RawData_T1-100")
+        if !isempty(ff)
+            return UnityData(first(ff))
+        end
+    end
+    error("No unity data found")
+end
+
 function UnityData(fname::String)
     data, header, column_names = read_unity_file(fname)
     _time = cumsum(data[:,2])

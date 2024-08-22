@@ -1,5 +1,6 @@
 module Hippocampus
 using Makie
+using Glob
 using DataProcessingHierarchyTools
 const DPHT = DataProcessingHierarchyTools
 include("eyelink.jl")
