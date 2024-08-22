@@ -78,7 +78,7 @@ function UnityData(fname::String)
         if m !== nothing
             # first is the poster number
             j = parse(Int64, m.captures[1])
-            poster_loc[j] = parse.(Float64, m.captures[2:end])
+            poster_loc[j] = parse.(Float64, reverse(m.captures[2:end]))
         end
     end
     UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, poster_loc, header)
