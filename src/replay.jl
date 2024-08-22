@@ -174,9 +174,15 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
         end
     end
     if posters !== nothing
+        # use the positions from the udata header
+        if udata !== nothing
+            _poster_pos = udata.poster_pos
+        else
+            _poster_pos = poster_pos 
+        end
         wall_idx = assign_posters(bins, normals)
         rot = LinearMap(RotX(3π/2))   
-        for (ii,(pp,img)) in enumerate(zip(poster_pos,posters))
+        for (ii,(pp,img)) in enumerate(zip(_poster_pos,posters))
             sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
             sp2 = rot(sp)
             trans = LinearMap(Translation(pp[1],pp[2], 2.5))
