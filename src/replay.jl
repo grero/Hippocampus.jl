@@ -135,10 +135,10 @@ function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
     counts,bins,normals
 end
 
-function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true) where T <: Real
+function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true,posters=nothing,show_axis=false) where T <: Real
     fig = Figure()
     #ax = Axis3(fig[1,1],aspect=:data)
-    lscene = LScene(fig[1,1], show_axis=false)
+    lscene = LScene(fig[1,1], show_axis=show_axis)
     for k in keys(bins)
         for (i,bin) in enumerate(bins[k])
             if k == :ceiling && show_ceiling == false
@@ -167,6 +167,19 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
                 _color = RGB(0.8, 0.8, 0.8) 
             end
             viz!(lscene, m, color=_color,colormap=:Blues)
+        end
+    end
+    if posters !== nothing
+        wall_idx = assign_posters(bins, normals)
+        rot = LinearMap(RotX(3π/2))   
+        for (ii,(pp,img)) in enumerate(zip(poster_pos,posters))
+            sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+            sp2 = rot(sp)
+            trans = LinearMap(Translation(pp[1],pp[2], 2.5))
+            θ = acos(sp2.normals[1]'*normals[wall_idx[ii][1]][wall_idx[ii][2]])
+            rot2 = LinearMap(RotZ(θ))
+            sp3 = trans(rot2(sp2))
+            plot!(lscene, sp3)
         end
     end
 
