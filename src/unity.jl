@@ -299,6 +299,24 @@ function create_maze(;kvs...)
     bins, normals
 end
 
+function assign_posters(bins, normals)
+    wall_idx = Vector{Tuple{Symbol,Int64}}(undef, length(poster_pos))
+    for (i,pp) in enumerate(poster_pos)
+        d = Inf
+        for pillar in [:pillar_1, :pillar_2, :pillar_3, :pillar_4]
+            for (j,pq) in enumerate(bins[pillar])
+                _d = (pp[1] - mean(pq[1]))^2 + (pp[2] - mean(pq[2]))^2
+                if _d < d
+                    d = _d
+                    wall_idx[i] = (pillar,j)
+                end
+            end
+        end
+    end
+    wall_idx
+end
+
+# TODO: The Unity raytracer uses 40x40 bins on the floor as the baseline
 """
 Compute a histogram of `pos` projected onto the plane at `z0`
 """
