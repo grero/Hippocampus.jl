@@ -32,6 +32,7 @@ struct UnityData
     head_direction::Vector{Float64}
     triggers::Matrix{Int64}
     timestamps::Matrix{Float64}
+    poster_pos::Vector{Vector{Float64}}
     header::Dict
 end
 
@@ -52,7 +53,21 @@ function UnityData(fname::String)
     triggers = [data[trial_start_idx,1] data[trial_start_nav,1] data[trial_end_idx,1]]
     timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
     # the unity coordinate system swaps x and y
-    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, header)
+
+    # parse the poster locations
+    poster_position = header["PosterLocations"]
+    loc = split(poster_position)
+    rr = r"P([\d+.])\(([-\d\.]+),[-\d.]+,([-\d.]+)\)"
+    poster_loc = Vector{Vector{Float64}}(undef, length(loc))
+    for (i,_loc) in enumerate(loc)
+        m = match(rr, _loc)
+        if m !== nothing
+            # first is the poster number
+            j = parse(Int64, m.captures[1])
+            poster_loc[j] = parse.(Float64, m.captures[2:end])
+        end
+    end
+    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, poster_loc, header)
 end
 
 numtrials(x::UnityData) = size(x.triggers,1)
