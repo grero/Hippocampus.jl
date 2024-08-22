@@ -1,3 +1,4 @@
+using Eyelink
 struct EyelinkData
     triggers::Matrix{Int64}
     timestamps::Matrix{UInt64}
