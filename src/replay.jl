@@ -136,10 +136,15 @@ function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
 end
 
 #TODO: Add "follow" mode
-function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true,posters=nothing,show_axis=false) where T <: Real
+function show_maze(args...;show_axis=false, kwargs...)
     fig = Figure()
-    #ax = Axis3(fig[1,1],aspect=:data)
     lscene = LScene(fig[1,1], show_axis=show_axis)
+    show_maze!(lscene, args...;kwargs...)
+    fig
+end
+
+function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true,posters=nothing,show_axis=false) where T <: Real
+    #ax = Axis3(fig[1,1],aspect=:data)
     for k in keys(bins)
         for (i,bin) in enumerate(bins[k])
             if k == :ceiling && show_ceiling == false
@@ -316,5 +321,4 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
         scatter!(lscene, current_pos, color=:blue)
         arrows!(lscene, current_pos, current_dir,color=:blue)
     end
-    fig
 end
