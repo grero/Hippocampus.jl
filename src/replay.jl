@@ -143,7 +143,7 @@ function show_maze(args...;show_axis=false, kwargs...)
     fig
 end
 
-function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Int64=1,offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true,posters=nothing,show_axis=false) where T <: Real
+function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Observable{Int64}=Observable(1),offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true,posters=nothing) where T <: Real
     #ax = Axis3(fig[1,1],aspect=:data)
     for k in keys(bins)
         for (i,bin) in enumerate(bins[k])
@@ -199,20 +199,24 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         end
     end
 
-    if udata !== nothing
-        tp,posx,posy,dir = get_trial(udata,trial)
-        position = permutedims([posx posy])
-        head_direction = dir
-    else
-        position = fill(0.0, 3, 0)
-        head_direction = Float64[] 
+    udata_trial = lift(trial) do _trial
+        if udata !== nothing
+            tp,posx,posy,dir = get_trial(udata,_trial)
+            return tp .- tp[1], permutedims([posx posy]),dir
+        else
+            return Float64[], fill(0.0, 3, 0), Float64[]
+        end
+    end
+    
+    position = lift(udata_trial) do _udata
+        [Point3f(pos[1], pos[2], 0.5) for pos in eachcol(_udata[2])]
     end
 
     lookat = Point3f(1.0, 0.0, 2.5)
     ii = Observable(1)
     on(events(lscene.scene).scroll, priority=20) do (dx,dy)
         i_new = round(Int64,ii[] + 5*dx)
-        if 0 < i_new <= size(position,2)
+        if 0 < i_new <= length(position[])
             ii[] = i_new
         end
     end
@@ -223,19 +227,20 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         cc = cameracontrols(lscene.scene)
         cc.fov[] = 39.6
         if gdata !== nothing
-            tg,gaze,fixmask = (gdata.time[trial], gdata.gaze[trial],gdata.fixation[trial])
+            tg,gaze,fixmask = (gdata.time[trial[]], gdata.gaze[trial[]],gdata.fixation[trial[]])
             tg .-= tg[1]
         end
 
-        tp,posx,posy,head_direction = get_trial(udata,trial)
-        tp .-= tp[1]
-        position = permutedims([posx posy])
+        #tp,posx,posy,head_direction = get_trial(udata,trial[])
+        #tp .-= tp[1]
+        #position = permutedims([posx posy])
         gaze_pos = Observable([Point3f(NaN)])
         current_j = 1
 
         on(ii) do i
-            _tp = tp[i]
             # grab the points 
+            tp, position, head_direction = udata_trial[]
+            _tp = tp[i]
             pos = Point3f(position[1,i], position[2,i], 2.5)
             θ = π*head_direction[i]/180
 
@@ -295,15 +300,14 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         end
     else
         if gdata !== nothing
-            tg,gaze,fixmask = (gdata.time[trial], gdata.gaze[trial],gdata.fixation[trial])
+            tg,gaze,fixmask = (gdata.time[trial[]], gdata.gaze[trial[]],gdata.fixation[trial[]])
             scatter!(lscene, gaze[1,fixmask], gaze[2,fixmask], gaze[3,fixmask],color=:red)
         end
-        lines!(lscene, position[1,:], position[2,:], fill(0.5, size(position,2)),color=:black)
         # show current position
         ii = Observable(1)
         current_pos = lift(ii) do i
             if udata !== nothing
-                pos = Point3f(position[1,i],position[2,i],0.5)
+                pos = position[][i]
             else
                 pos = Point3f(NaN)
             end
@@ -311,6 +315,7 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         end
 
         current_dir = lift(ii) do i
+            head_direction = udata_trial[][3]
             if udata !== nothing
                 θ = π*head_direction[i]/180
                 return [Point3f(cos(θ), sin(θ), 0.0)]
@@ -318,6 +323,7 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
             return [Poin3f(NaN)]
         end
        
+        lines!(lscene, position,color=:black)
         scatter!(lscene, current_pos, color=:blue)
         arrows!(lscene, current_pos, current_dir,color=:blue)
     end
