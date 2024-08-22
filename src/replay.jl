@@ -164,7 +164,11 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
                 end
                 _color = _color[:]
             else
-                _color = RGB(0.8, 0.8, 0.8) 
+                if k in keys(pillar_color)
+                    _color = pillar_color[k]
+                else
+                    _color = RGB(0.8, 0.8, 0.8) 
+                end
             end
             viz!(lscene, m, color=_color,colormap=:Blues)
         end
