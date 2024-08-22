@@ -217,8 +217,10 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
         #cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
         cc = cameracontrols(lscene.scene)
         cc.fov[] = 39.6
-        tg,gaze,fixmask = (gdata.time[trial], gdata.gaze[trial],gdata.fixation[trial])
-        tg .-= tg[1]
+        if gdata !== nothing
+            tg,gaze,fixmask = (gdata.time[trial], gdata.gaze[trial],gdata.fixation[trial])
+            tg .-= tg[1]
+        end
 
         tp,posx,posy,head_direction = get_trial(udata,trial)
         tp .-= tp[1]
@@ -229,15 +231,17 @@ function show_maze(bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=n
         on(ii) do i
             _tp = tp[i]
             # grab the points 
-            j = searchsortedfirst(tg, _tp)
             pos = Point3f(position[1,i], position[2,i], 2.5)
             θ = π*head_direction[i]/180
 
             # only use fixation points
-            _fixmask = fixmask[current_j:j]
             #gaze_pos[] = [Point3f(dropdims(mean(gaze[:,current_j+1:j][:,_fixmask],dims=2),dims=2))]
-            gaze_pos[] = Point3f.(eachcol(gaze[:,current_j:j][:,_fixmask]))
-            current_j = j
+            if gdata !== nothing
+                j = searchsortedfirst(tg, _tp)
+                gaze_pos[] = Point3f.(eachcol(gaze[:,current_j:j][:,_fixmask]))
+                current_j = j
+                _fixmask = fixmask[current_j:j]
+            end
             cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
             cc.eyeposition[] = pos
             update_cam!(lscene.scene, cc)
