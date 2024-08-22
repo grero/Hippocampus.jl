@@ -3,6 +3,7 @@ using Makie
 using Glob
 using DataProcessingHierarchyTools
 const DPHT = DataProcessingHierarchyTools
+include("utils.jl")
 include("eyelink.jl")
 include("rawdata.jl")
 include("unity.jl")
