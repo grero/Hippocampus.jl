@@ -22,6 +22,15 @@ function Base.show(io::IO, x::EyelinkData)
 end
 
 DPHT.filename(::Type{EyelinkData}) = "eyelink.mat"
+DPHT.level(::Type{EyelinkData}) = "day"
+
+function EyelinkData(;kwargs...)
+    edffiles = glob("*.edf")
+    if isempty(edffiles)
+        error("No EDF files found")
+    end
+    EyelinkData(first(edffiles);kwargs...)
+end
 
 function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     outfile = DPHT.filename(EyelinkData)
