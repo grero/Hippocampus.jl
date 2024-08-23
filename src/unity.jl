@@ -364,6 +364,32 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
     end
 end
 
+struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
+    sprite::Vector{Sprite{T, T2, T3, T4, T5}}
+end
+
+function Posters(img_files::Vector{String}, position, mm::MazeModel)
+    wall_pillar_idx = assign_posters(mm,position)
+    wall_idx = wall_pillar_idx.pillar_wall_idx
+    pillar_idx = wall_pillar_idx.pillar_idx
+    rot = LinearMap(RotX(3π/2))   
+    images = [load(f) for f in img_files] 
+    # hack just to figure out the type
+    sp = sprite(images[1], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+
+    sprites = Vector{typeof(sp)}(undef, length(images))
+    for (ii,(pp,img)) in enumerate(zip(position,images))
+        sp2 = rot(sp)
+        trans = LinearMap(Translation(pp[1],pp[2], 2.5))
+        nn = mm.pillars[pillar_idx[ii]][wall_idx[ii]].normal
+        θ = acos(sp2.normals[1]'*nn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        sprites[ii] = sp3
+    end
+    Posters(sprites)
+end
+
 function show_posters(args...;kwargs...)
     fig = Figure()
     lscene = LScene(fig[1,1])
@@ -371,19 +397,8 @@ function show_posters(args...;kwargs...)
     fig
 end
 
-function show_posters!(lscene, posters,mm::MazeModel;position=poster_pos)
-    wall_pillar_idx = assign_posters(mm,position)
-    wall_idx = wall_pillar_idx.pillar_wall_idx
-    pillar_idx = wall_pillar_idx.pillar_idx
-    rot = LinearMap(RotX(3π/2))   
-    for (ii,(pp,img)) in enumerate(zip(position,posters))
-        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
-        sp2 = rot(sp)
-        trans = LinearMap(Translation(pp[1],pp[2], 2.5))
-        nn = mm.pillars[pillar_idx[ii]][wall_idx[ii]].normal
-        θ = acos(sp2.normals[1]'*nn)
-        rot2 = LinearMap(RotZ(θ))
-        sp3 = trans(rot2(sp2))
+function visualize!(lscene, posters::Posters;kwargs...)
+    for sp3 in posters.sprite
         plot!(lscene, sp3)
     end
 end
