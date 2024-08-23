@@ -155,9 +155,39 @@ function MakieCore.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
     S.GridLayout(ax3)
 end
 
+function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
+    nt = numtrials(gdata)
+    current_gaze = Observable([Point3f(NaN)])
+    gdata_trial = lift(trial) do _trial
+        if 0 < _trial.i <= nt
+            return gdata.time[_trial.i], gdata.gaze[_trial.i],gdata.fixation[_trial.i]
+        else
+            return Float64[], fill(0.0, 3, 0), Bool[]
+        end
+    end
 
-function compute_histogram(gdata::GazeOnMaze;fixations_only=true)
-    bins,normals = create_maze(;Δz=0.01)
+    current_j = 1
+    onany(gdata_trial, current_time) do _gdt, _ct
+        tg = _gdt[1] 
+        gaze = _gdt[2]
+        fixmask = _gdt[3]
+        j = searchsortedfirst(tg, _ct) 
+        if 0 < j <= length(fixmask)
+            _fixmask = fixmask[current_j:j]
+            _current_j = current_j
+            current_j = j
+            current_gaze[] = Point3f.(eachcol(gaze[:,_current_j:j][:,_fixmask]))
+        else
+            current_gaze[] = [Point3f(NaN)]
+        end
+    end
+
+    scatter!(lscene, current_gaze, color=RGB(0.8, 0.8, 0.8))
+end
+
+
+function compute_histogram(gdata::GazeOnMaze,mm::MazeModel;fixations_only=true)
+    bins = get_bins(mm)
     if fixations_only 
         gaze = Vector{Matrix{Float64}}(undef, length(gdata.gaze))
         for i in eachindex(gaze)
