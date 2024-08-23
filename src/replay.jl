@@ -366,3 +366,35 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         arrows!(lscene, current_pos, current_dir,color=:blue)
     end
 end
+
+
+# TODO: It would be more elegant to make use of Makie recipe here
+function visualize(args...;kwargs...)
+    fig = Figure()
+    lscene = LScene(fig[1,1], show_axis=false)
+    # attach events
+    current_time = Observable(0.0)
+    on(events(lscene.scene).scroll, priority=20) do (dx,dy)
+        current_time[] = current_time[] + dx
+    end
+    current_trial = Observable(Trial(1))
+    on(events(lscene.scene).keyboardbutton, priority=20) do event
+        has_changed = false
+        if ispressed(lscene.scene, Keyboard.up)
+            current_trial[] = Trial(current_trial[].i+1)
+            # TODO: Is there a meaninful way to check whether we have reached the end here?
+            has_changed = true
+        elseif ispressed(lscene.scene, Keyboard.down)
+            nc  = current_trial[].i+1
+            if i > 0
+                current_trial[] = Trial(nc)
+                has_changed = true
+            end
+        end
+        if has_changed
+            current_time[] = 0.0
+        end
+    end
+    visualize!(lscene, args...;current_time=current_time, trial=current_trial, kwargs...)
+    fig
+end
