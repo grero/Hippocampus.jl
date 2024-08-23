@@ -207,6 +207,21 @@ function get_bins(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <: Re
     bins
 end
 
+"""
+Return a dictionary containg the normal vector for each element of the maze `mm`.
+"""
+function get_normals(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <: Real
+    normals = Dict{Symbol, Vector{Vector{Float64}}}()
+    normals[:walls]  = [w.normal for w in mm.walls]
+    normals[:pillar_1] = [p.normal for p in mm.pillars[1]]
+    normals[:pillar_2] = [p.normal for p in mm.pillars[2]]
+    normals[:pillar_3] = [p.normal for p in mm.pillars[3]]
+    normals[:pillar_4] = [p.normal for p in mm.pillars[4]] 
+    normals[:ceiling] = [mm.ceiling.normal]
+    normals[:floor] = [mm.floor.normal]
+    normals
+end
+
 function get_physical_size(mm::MazeModel)
    # floor size 
    (xmin,xmax),(ymin,ymax),_ = extrema.(mm.floor.bins)
