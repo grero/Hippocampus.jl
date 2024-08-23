@@ -192,6 +192,21 @@ function MazeModel(;Δz=0.01)
     MazeModel(bins,normals)
 end
 
+"""
+Return a dictionary containg the 3D bins for each element of the maze `mm`.
+"""
+function get_bins(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <: Real
+    bins = Dict{Symbol, Vector{NTuple{3,T}}}()
+    bins[:walls] = [w.bins for w in mm.walls]
+    bins[:pillar_1] = [p.bins for p in mm.pillars[1]]
+    bins[:pillar_2] = [p.bins for p in mm.pillars[2]]
+    bins[:pillar_3] = [p.bins for p in mm.pillars[3]]
+    bins[:pillar_4] = [p.bins for p in mm.pillars[4]]
+    bins[:ceiling] = [mm.ceiling.bins]
+    bins[:floor] = [mm.floor.bins]
+    bins
+end
+
 function get_physical_size(mm::MazeModel)
    # floor size 
    (xmin,xmax),(ymin,ymax),_ = extrema.(mm.floor.bins)
