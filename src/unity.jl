@@ -217,7 +217,6 @@ function visualize(args...;kwargs...)
 end
 
 function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false)
-     
     #floor
     bin = mm.floor.bins
     m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
