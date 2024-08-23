@@ -369,7 +369,8 @@ end
 
 
 # TODO: It would be more elegant to make use of Makie recipe here
-function visualize(args...;kwargs...)
+
+function visualize(objects...;kwargs...)
     fig = Figure()
     lscene = LScene(fig[1,1], show_axis=false)
     # attach events
@@ -386,7 +387,7 @@ function visualize(args...;kwargs...)
             has_changed = true
         elseif ispressed(lscene.scene, Keyboard.down)
             nc  = current_trial[].i+1
-            if i > 0
+            if nc > 0
                 current_trial[] = Trial(nc)
                 has_changed = true
             end
@@ -395,6 +396,8 @@ function visualize(args...;kwargs...)
             current_time[] = 0.0
         end
     end
-    visualize!(lscene, args...;current_time=current_time, trial=current_trial, kwargs...)
+    for obj in objects
+        visualize!(lscene,obj;current_time=current_time, trial=current_trial, kwargs...)
+    end
     fig
 end
