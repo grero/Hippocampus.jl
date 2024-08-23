@@ -16,12 +16,13 @@ function (tt::CoordinateTransformations.LinearMap{T})(sp::Sprite) where T <: Rot
     mp = mean(sp.points)
     new_points = tt.(sp.points .- mp)
     new_points .+= convert(eltype(new_points), mp)
-    new_normals = tt.(sp.normals)
+    new_points = eltype(sp.points).(new_points)
+    new_normals = eltype(sp.normals).(tt.(sp.normals))
     Sprite(new_points, sp.faces, new_normals, sp.uv, sp.img)
 end
 
 function (tt::CoordinateTransformations.LinearMap{T})(sp::Sprite) where T <: Translation 
-    new_points = [point + tt.linear.translation for point in sp.points]
+    new_points = eltype(sp.points).([point + tt.linear.translation for point in sp.points])
     Sprite(new_points, sp.faces, sp.normals, sp.uv, sp.img)
 end
 
