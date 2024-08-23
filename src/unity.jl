@@ -125,6 +125,47 @@ function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::UnityData, trial
     PlotSpec(Lines, posx, posy)
 end
 
+function angle2arrow(a::Float64)
+    θ = π*a/180
+    cos(θ), sin(θ)
+end
+
+function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
+    udata_trial = lift(trial) do _trial
+        @show _trial
+        tp,posx,posy,dir = get_trial(udata, _trial.i)
+        position = [Point3f(px,py, 0.1) for (px,py) in zip(posx,posy)]
+        tp, position, dir
+    end
+
+    position = lift(udata_trial) do _udt
+        _udt[2]
+    end
+
+    head_direction = lift(udata_trial) do _udt
+        _udt[3]
+    end
+
+    current_pos = Observable(position[][1:1])
+    current_head_direction = Observable([Point3f(angle2arrow(head_direction[][1])...,0.0)])
+
+    # trigger curent_pos both on trial and time change
+    onany(position, current_time) do _position, _ct
+        # figure out which position to use
+        tp = udata_trial[][1]
+        j = searchsortedfirst(tp, _ct)
+        if 0 < j <= length(tp)
+            current_pos[] = _position[j:j]
+            aa = angle2arrow(head_direction[][j])
+            current_head_direction[] = [Point3f(aa...,0.0)]
+        end
+    end
+
+    lines!(lscene, position, color=:black)
+    scatter!(lscene, current_pos, color=:blue)
+    arrows!(lscene, current_pos, current_head_direction, color=:blue)
+end
+
 function plot_arena()
     fig = Figure()
     ax = Axis(fig[1,1])
