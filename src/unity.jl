@@ -283,11 +283,17 @@ function visualize(args...;kwargs...)
     fig
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false)
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false)
     #floor
     bin = mm.floor.bins
     m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-    viz!(lscene, m, color=color[:floor],colormap=:Blues) 
+    #hackish
+    if ndims(color[:floor]) > 0
+        _color = color[:floor][1]
+    else
+        _color = color[:floor]
+    end
+    viz!(lscene, m, color=_color[:],colormap=:Blues) 
 
     if show_ceiling
         bin = mm.ceiling.bins
@@ -296,18 +302,18 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,Any}=get_maze_color
     end
     
     #pillars
-    for (oms,cc) in zip(mm.pillars,color[:pillars])
-        for om in oms
+    for (oms,ccs) in zip(mm.pillars,color[:pillars])
+        for (om,cc) in zip(oms,ccs)
             bin = om.bins
             m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
             viz!(lscene, m, color=cc,colormap=:Blues) 
         end
     end
     #walls
-    for om in mm.walls
+    for (ii,om) in enumerate(mm.walls)
         bin = om.bins
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        viz!(lscene, m, color=color[:walls],colormap=:Blues) 
+        viz!(lscene, m, color=color[:walls][ii],colormap=:Blues) 
     end
 end
 
