@@ -148,14 +148,6 @@ function Base.show(io::IO, x::Spiketrain)
 end
 
 
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
-    PlotSpec(Lines, x.position[:,1], x.position[:,2])
-end
-
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::UnityData, trial::Trial) 
-    t,posx,posy = get_trial(x, trial.i)
-    PlotSpec(Lines, posx, posy)
-end
 
 function plot_heatmap(x::Vector{T1}, X::Matrix{T2},M::Integer;t=1:size(X,1),freqs=1:size(X,2),freq_bands::Union{Nothing, Vector{Tuple{Float64,Float64}}}=nothing) where T1 where T2
     fig = Figure()

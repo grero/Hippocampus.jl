@@ -116,6 +116,15 @@ function read_unity_file(fname::String;header_rows=14)
     data, header, column_names
 end
 
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
+    PlotSpec(Lines, x.position[:,1], x.position[:,2])
+end
+
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::UnityData, trial::Trial) 
+    t,posx,posy = get_trial(x, trial.i)
+    PlotSpec(Lines, posx, posy)
+end
+
 function plot_arena()
     fig = Figure()
     ax = Axis(fig[1,1])
