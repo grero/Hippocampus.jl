@@ -58,6 +58,44 @@ function DPHT.load(::Type{GazeOnMaze})
 end
 
 """
+Convert `x` from pixel coordinates to sensor coordinates
+"""
+function scale_to_camera(x, sensor_width, screen_width)
+    x = sensor_width*(x -0.5*screen_width)/screen_width
+end
+
+"""
+Trace a ray from position `x,y` through the camera with focal length `focal_length` until it
+impacts something in the arena
+"""
+function raytrace(x, y, pos,direction, focal_length;camera_height=2.5)
+    # find the angle of the point
+    θ = atan(x, focal_length)
+    ϕ = atan(y, focal_length)
+    θ += direction
+    # now cast along the line θ
+
+    dl = 0.01
+    xp,yp,zp = (pos[1], pos[2],camera_height)
+    sθ = sin(θ)
+    cθ = cos(θ)
+    sϕ = sin(ϕ)
+    while true
+        dx,dy,dz = (dl*cθ, dl*sθ,dl*sϕ)
+        xp += dx
+        yp += dy 
+        zp += dz 
+        if impacts([xp,yp,zp])
+            xp -= dx
+            yp -= dy
+            zp -= dz
+            break
+        end
+    end
+    xp,yp,zp
+end
+
+"""
 Return the 3D eye position on objects in the maze
 """
 function GazeOnMaze(edata::EyelinkData, udata::UnityData)
