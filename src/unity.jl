@@ -179,6 +179,49 @@ function get_maze_colors(mm::MazeModel)
     colors
 end
 
+"""
+Convert the histogram counts on each surface of `mm` to a color
+"""
+function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}) where T <: Real
+    # TODO: This can probably be done more efficiently and robustly
+    base_colors = get_maze_colors(mm)
+    colors = Dict{Symbol,Union{Vector{Vector{T}}, Vector{Vector{Vector{T}}}}}()
+    normals = get_normals(mm)
+    for k in keys(normals)
+        colors[k] = Vector{Vector{T}}(undef, length(normals[k]))
+        for (i,n) in enumerate(normals[k])
+            # we want to color only the inside
+            c = counts[k][i]
+            _color = fill!(similar(c), 0.0)
+            for d in 1:length(n)
+                if n[d] < 0
+                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
+                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                elseif n[d] > 0
+                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
+                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                end
+            end
+            colors[k][i] = _color[:]
+        end
+        if k == :pillars
+            # reshape
+            npillars = length(mm.pillars)
+            n_pillar_walls = length.(mm.pillars)
+            nn = length(colors[k])
+            _colors = colors[k]
+            colors[k] = Vector{Vector{Vector{T}}}(undef, npillars)
+            offset = 0
+            @show typeof(_colors) typeof(colors[k])
+            for (i,j) in enumerate(n_pillar_walls)
+                colors[k][i] = _colors[offset+1:offset+j]
+                offset += j
+            end
+        end
+    end
+    colors
+end
+
 function MazeModel(bins::Dict{Symbol,T}, normals) where T
     walls = [OrientedMesh(m,n) for (m,n) in zip(bins[:walls], normals[:walls])]
     pillars = [[OrientedMesh(m,n) for (m,n) in zip(bins[k],normals[k])] for k in [:pillar_1, :pillar_2, :pillar_3, :pillar_4]]
