@@ -28,3 +28,7 @@ function reshape_triggers(markers, timestamps)
     p3 == nt || error("Inconsistent cue markers")
     trial_markers, trial_timestamps
 end
+
+struct Trial
+    i::UInt64
+end
