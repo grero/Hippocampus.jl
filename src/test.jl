@@ -147,23 +147,6 @@ function Base.show(io::IO, x::Spiketrain)
     print(io, "Spiketrain with $(nspikes) spikes")
 end
 
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData) 
-    gx = x.gazex[1,:]
-    gy = x.gazey[1,:]
-    idx = findall((abs.(gx) .>= 32768).|(abs.(gy) .>= 32768))
-    gx[idx] .= NaN
-    gy[idx] .= NaN
-    [PlotSpec(Lines, x.analogtime, gx),
-    PlotSpec(Lines, x.analogtime, gy)]
-end
-
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData, trial::Trial)
-    t,gx,gy = get_trial(x, trial.i)
-    idx = findall((abs.(gx[1,:]) .>= 32768).|(abs.(gy[1,:]) .>= 32768))
-    gx[1,idx] .= NaN
-    gy[1,idx] .= NaN
-    PlotSpec(Lines, gx[1,:], gy[1,:])
-end
 
 function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
     PlotSpec(Lines, x.position[:,1], x.position[:,2])
