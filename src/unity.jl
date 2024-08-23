@@ -409,7 +409,7 @@ function create_maze(;kvs...)
     z0 = 5.0
     zbins = range(z0-Δ, stop=z0+Δ, length=2)
     bins[:ceiling] = [(xbins, ybins, zbins)]
-    normals[:ceiling]=[[0.0, 0.0 -1.0]]
+    normals[:ceiling]=[[0.0, 0.0, -1.0]]
 
     bins, normals
 end
