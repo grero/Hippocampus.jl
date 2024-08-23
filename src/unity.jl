@@ -187,6 +187,27 @@ function MazeModel(bins::Dict{Symbol,T}, normals) where T
     MazeModel(walls, pillars, _floor, _ceiling)
 end
 
+function MazeModel(;Δz=0.01)
+    bins,normals = create_maze(;Δz=Δz)
+    MazeModel(bins,normals)
+end
+
+function get_physical_size(mm::MazeModel)
+   # floor size 
+   (xmin,xmax),(ymin,ymax),_ = extrema.(mm.floor.bins)
+   _,_,(zmin,zmax) = extrema.(mm.walls[1].bins)
+   Δx = xmax-xmin
+   Δy = ymax-ymin
+   Δz = zmax-zmin
+   Δx,Δy,Δz
+end
+
+function Base.show(io::IO, mm::MazeModel)
+    npillars = length(mm.pillars)
+    Δx,Δy,Δz = get_physical_size(mm)
+    print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
+end
+
 # TODO: It would be more elegant to make use of Makie recipe here
 function visualize(args...;kwargs...)
     fig = Figure()
