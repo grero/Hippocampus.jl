@@ -29,7 +29,7 @@ Map `img` onto a flat 3D surface
 """
 function sprite(img,rect=Rect2(-0.5, -0.5, 1.0, 1.0))
     points = decompose(Point3f, rect)
-    normals = decompose(Normal(Vec3f), rect)
+    normals = decompose(GeometryBasics.Normal(Vec3f), rect)
     faces = decompose(GLTriangleFace, rect)
     uv = decompose(UV(Point2f), rect)
 
