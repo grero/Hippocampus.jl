@@ -136,7 +136,7 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
         if 0 < _trial.i <= _ntrials
             tp,posx,posy,dir = get_trial(udata, _trial.i)
             position = [Point3f(px,py, 0.1) for (px,py) in zip(posx,posy)]
-            return tp, position, dir
+            return tp .- tp[1], position, dir
         else
             return Float64[], fill(0.0, 3, 0), Float64
         end
