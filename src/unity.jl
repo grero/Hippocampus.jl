@@ -241,10 +241,7 @@ Return a dictionary containg the 3D bins for each element of the maze `mm`.
 function get_bins(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <: Real
     bins = Dict{Symbol, Vector{NTuple{3,T}}}()
     bins[:walls] = [w.bins for w in mm.walls]
-    bins[:pillar_1] = [p.bins for p in mm.pillars[1]]
-    bins[:pillar_2] = [p.bins for p in mm.pillars[2]]
-    bins[:pillar_3] = [p.bins for p in mm.pillars[3]]
-    bins[:pillar_4] = [p.bins for p in mm.pillars[4]]
+    bins[:pillars] = cat([[p.bins for p in pp] for pp in mm.pillars]...,dims=1)
     bins[:ceiling] = [mm.ceiling.bins]
     bins[:floor] = [mm.floor.bins]
     bins
@@ -256,10 +253,7 @@ Return a dictionary containg the normal vector for each element of the maze `mm`
 function get_normals(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <: Real
     normals = Dict{Symbol, Vector{Vector{Float64}}}()
     normals[:walls]  = [w.normal for w in mm.walls]
-    normals[:pillar_1] = [p.normal for p in mm.pillars[1]]
-    normals[:pillar_2] = [p.normal for p in mm.pillars[2]]
-    normals[:pillar_3] = [p.normal for p in mm.pillars[3]]
-    normals[:pillar_4] = [p.normal for p in mm.pillars[4]] 
+    normals[:pillars] = cat([[p.normal for p in pp] for pp in mm.pillars]...,dims=1)
     normals[:ceiling] = [mm.ceiling.normal]
     normals[:floor] = [mm.floor.normal]
     normals
