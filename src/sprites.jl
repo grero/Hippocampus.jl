@@ -1,6 +1,7 @@
 using Makie
 using GeometryBasics
 using Rotations
+using Colors
 using CoordinateTransformations
 
 struct Sprite{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
