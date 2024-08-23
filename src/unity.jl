@@ -172,7 +172,7 @@ end
 
 function get_maze_colors(mm::MazeModel)
     colors = Dict{Symbol, Any}()
-    colors[:walls] = RGB(0.3f0, 0.21470589f0, 0.21470589f0)
+    colors[:walls] = fill(RGB(0.3f0, 0.21470589f0, 0.21470589f0), 4)
     colors[:floor] = to_color(:gray)
     colors[:ceiling] = to_color(:gray)
     colors[:pillars] = to_color.([:yellow, :red, :blue, :green])
