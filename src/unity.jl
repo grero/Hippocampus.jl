@@ -379,6 +379,7 @@ function Posters(img_files::Vector{String}, position, mm::MazeModel)
 
     sprites = Vector{typeof(sp)}(undef, length(images))
     for (ii,(pp,img)) in enumerate(zip(position,images))
+        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
         sp2 = rot(sp)
         trans = LinearMap(Translation(pp[1],pp[2], 2.5))
         nn = mm.pillars[pillar_idx[ii]][wall_idx[ii]].normal
