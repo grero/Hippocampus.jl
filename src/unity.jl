@@ -131,11 +131,15 @@ function angle2arrow(a::Float64)
 end
 
 function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
+    _ntrials = numtrials(udata)
     udata_trial = lift(trial) do _trial
-        @show _trial
-        tp,posx,posy,dir = get_trial(udata, _trial.i)
-        position = [Point3f(px,py, 0.1) for (px,py) in zip(posx,posy)]
-        tp, position, dir
+        if 0 < _trial.i <= _ntrials
+            tp,posx,posy,dir = get_trial(udata, _trial.i)
+            position = [Point3f(px,py, 0.1) for (px,py) in zip(posx,posy)]
+            return tp, position, dir
+        else
+            return Float64[], fill(0.0, 3, 0), Float64
+        end
     end
 
     position = lift(udata_trial) do _udt
