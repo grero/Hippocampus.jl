@@ -154,6 +154,101 @@ function impacts(pos)
 end
 
 """
+A mesh with an attached normal
+"""
+struct OrientedMesh{T<:AbstractVector{<: Real}}
+    bins::NTuple{3,T}
+    normal::Vec3f
+end
+
+OrientedMesh(bins, normal::AbstractVector{T}) where T <: Real = OrientedMesh(bins, Vec3f(normal))
+
+struct MazeModel{T<:AbstractVector{<: Real}}
+    walls::Vector{OrientedMesh{T}}
+    pillars::Vector{Vector{OrientedMesh{T}}}
+    floor::OrientedMesh{T}
+    ceiling::OrientedMesh{T}
+end
+
+function get_maze_colors(mm::MazeModel)
+    colors = Dict{Symbol, Any}()
+    colors[:walls] = RGB(0.3f0, 0.21470589f0, 0.21470589f0)
+    colors[:floor] = to_color(:gray)
+    colors[:ceiling] = to_color(:gray)
+    colors[:pillars] = to_color.([:yellow, :red, :blue, :green])
+    colors
+end
+
+function MazeModel(bins::Dict{Symbol,T}, normals) where T
+    walls = [OrientedMesh(m,n) for (m,n) in zip(bins[:walls], normals[:walls])]
+    pillars = [[OrientedMesh(m,n) for (m,n) in zip(bins[k],normals[k])] for k in [:pillar_1, :pillar_2, :pillar_3, :pillar_4]]
+    _floor = OrientedMesh(first(bins[:floor]), first(normals[:floor]))
+    _ceiling = OrientedMesh(first(bins[:ceiling]), first(normals[:ceiling]))
+    MazeModel(walls, pillars, _floor, _ceiling)
+end
+
+# TODO: It would be more elegant to make use of Makie recipe here
+function visualize(args...;kwargs...)
+    fig = Figure()
+    lscene = LScene(fig[1,1], show_axis=false)
+    visualize!(lscene, args...;kwargs...)
+    fig
+end
+
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false)
+     
+    #floor
+    bin = mm.floor.bins
+    m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+    viz!(lscene, m, color=color[:floor],colormap=:Blues) 
+
+    if show_ceiling
+        bin = mm.ceiling.bins
+        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+        viz!(lscene, m, color=color[:ceiling],colormap=:Blues) 
+    end
+    
+    #pillars
+    for (oms,cc) in zip(mm.pillars,color[:pillars])
+        for om in oms
+            bin = om.bins
+            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+            viz!(lscene, m, color=cc,colormap=:Blues) 
+        end
+    end
+    #walls
+    for om in mm.walls
+        bin = om.bins
+        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+        viz!(lscene, m, color=color[:walls],colormap=:Blues) 
+    end
+end
+
+function show_posters(args...;kwargs...)
+    fig = Figure()
+    lscene = LScene(fig[1,1])
+    show_posters!(lscene, args...;kwargs...)
+    fig
+end
+
+function show_posters!(lscene, posters,mm::MazeModel;position=poster_pos)
+    wall_pillar_idx = assign_posters(mm,position)
+    wall_idx = wall_pillar_idx.pillar_wall_idx
+    pillar_idx = wall_pillar_idx.pillar_idx
+    rot = LinearMap(RotX(3π/2))   
+    for (ii,(pp,img)) in enumerate(zip(position,posters))
+        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+        sp2 = rot(sp)
+        trans = LinearMap(Translation(pp[1],pp[2], 2.5))
+        nn = mm.pillars[pillar_idx[ii]][wall_idx[ii]].normal
+        θ = acos(sp2.normals[1]'*nn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        plot!(lscene, sp3)
+    end
+end
+
+"""
 Return the meshes representing the maze
 """
 function create_maze(;kvs...)
@@ -314,6 +409,26 @@ function assign_posters(bins, normals)
         end
     end
     wall_idx
+end
+
+function assign_posters(mm::MazeModel, poster_pos::Vector{Vector{T}}=poster_pos) where T <: Real
+    pillar_idx = fill(0, length(poster_pos))
+    wall_idx = fill(0, length(poster_pos))
+    for (i,pp) in enumerate(poster_pos)
+        d = Inf
+        for (k,pillar) in enumerate(mm.pillars)
+            for (j,_wall) in enumerate(pillar)
+                pq = _wall.bins
+                _d = (pp[1] - mean(pq[1]))^2 + (pp[2] - mean(pq[2]))^2
+                if _d < d
+                    d = _d
+                    pillar_idx[i] = k
+                    wall_idx[i] = j
+                end
+            end
+        end
+    end
+    (pillar_idx=pillar_idx, pillar_wall_idx=wall_idx)
 end
 
 # TODO: The Unity raytracer uses 40x40 bins on the floor as the baseline
