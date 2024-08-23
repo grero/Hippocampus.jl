@@ -329,17 +329,18 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false)
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, kwargs...)
     #floor
     bin = mm.floor.bins
     m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
     #hackish
-    if ndims(color[:floor]) > 0
-        _color = color[:floor][1]
+    # only do this if color[:floor] is a vector of something
+    if typeof(color[:floor]) <: AbstractVector
+        _color = color[:floor][1][:]
     else
         _color = color[:floor]
     end
-    viz!(lscene, m, color=_color[:],colormap=:Blues) 
+    viz!(lscene, m, color=_color,colormap=:Blues) 
 
     if show_ceiling
         bin = mm.ceiling.bins
