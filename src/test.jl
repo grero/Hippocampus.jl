@@ -15,8 +15,6 @@ using RippleTools
 using Eyelink
 using Distributions
 
-include("unity.jl")
-
 import Base.show
 
 export numtrials
