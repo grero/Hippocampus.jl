@@ -329,14 +329,6 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-# TODO: It would be more elegant to make use of Makie recipe here
-function visualize(args...;kwargs...)
-    fig = Figure()
-    lscene = LScene(fig[1,1], show_axis=false)
-    visualize!(lscene, args...;kwargs...)
-    fig
-end
-
 function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false)
     #floor
     bin = mm.floor.bins
