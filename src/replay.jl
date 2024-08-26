@@ -431,3 +431,74 @@ function visualize(objects...;kwargs...)
     end
     fig
 end
+
+struct ViewRepresentation
+    position::Vector{Vector{Point3f}}
+    event::Vector{Vector{Float64}}
+end
+
+function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::GazeOnMaze)
+    nt = numtrials(gdata)
+    position = Vector{Vector{Point3f}}(undef, nt)
+    events = Vector{Vector{Float64}}(undef, nt)
+    sp = spikes.timestamps/1000.0 #convert to seconds
+    for i in 1:nt
+        tg,gaze,fixmask = get_trial(gdata,i)
+
+        timestamps = rp.timestamps[i,:]
+        idx0 = searchsortedfirst(sp, timestamps[1])
+        idx1 = searchsortedlast(sp, timestamps[3])
+        # align to trial start
+        sp_trial = sp[idx0:idx1] .- timestamps[1]
+        nspikes = idx1-idx0+1
+        position[i] = Vector{Point3f}(undef, nspikes)
+        events[i] = Vector{Float64}(undef, nspikes)
+        js = 1
+        for j in 1:nspikes
+            k = searchsortedfirst(tg,sp_trial[j])
+            if 0 < k <= size(gaze,2) && fixmask[k]
+                position[i][js] = Point3f(gaze[:,k])
+                events[i][js] = sp_trial[j]
+                js += 1
+            end
+        end
+        position[i] = position[i][1:js-1]
+        events[i] = events[i][1:js-1]
+    end
+    ViewRepresentation(position, events)
+end
+
+numtrials(vrp::ViewRepresentation) = length(vrp.position)
+
+function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Observable(Trial(1)),kwargs...)
+    nt = numtrials(vrp)
+    gaze_pos = lift(trial) do _trial
+        if 0 < _trial.i <= nt
+            return vrp.position[_trial.i]
+        else
+            return [Point3f(NaN)]
+        end
+    end
+    scatter!(lscene, gaze_pos, color=:green)
+end
+
+struct ViewMap{T<:Real}
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    zbins::AbstractVector{T}
+    weights::Array{T,3}
+end
+
+function ViewMap(vrp::ViewRepresentation, xbins::AbstractVector{T}, ybins::AbstractVector{T}, zbins::AbstractVector{T}) where T <: Real
+    view_count = fill(0.0, length(xbins)-1, length(ybins)-1, length(zbins)-1)
+    nt = numtrials(vrp)
+    for i in 1:nt
+        position = vrp.position[i]
+        xpos = [pos[1] for pos in position] 
+        ypos = [pos[2] for pos in position] 
+        zpos = [pos[3] for pos in position] 
+        h = fit(Histogram, (xpos,ypos,zpos), (xbins, ybins,zbins))
+        view_count .+= h.weights
+    end
+    ViewMap(xbins,ybins, zbins, view_count)
+end
