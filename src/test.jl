@@ -1115,6 +1115,71 @@ function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Ve
     SpatialPreferenceMap(xbins, ybins, img, img2)
 end
 
+struct SpatialMap{T<:Real}
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    weight::Matrix{T}
+    occupancy::Matrix{T}
+end
+
+DPHT.level(::Type{SpatialMap}) = "cell"
+
+function SpatialMap(spr::SpatialRepresentation, xbins::AbstractVector{T}, ybins::AbstractVector{T},spoc::SpatialOccupancy;kwargs...) where T <: Real
+    spatial_count = fill(0.0, length(xbins)-1, length(ybins)-1)
+    nt = numtrials(spr) 
+    for i in 1:nt
+        position = spr.position[i]
+        xpos = [pos[1] for pos in position] 
+        ypos = [pos[2] for pos in position] 
+        h = fit(Histogram, (xpos,ypos), (xbins, ybins))
+        spatial_count .+= h.weights
+    end
+    SpatialMap(xbins,ybins, spatial_count, spoc.weight)
+end
+
+function SpatialMap(xbins, ybins;redo=false, do_save=false,kwargs...)
+    sp = Spiketrain()
+    rp = cd(DPHT.process_level(RippleData;kwargs...)) do
+        RippleData()
+    end
+    udata = cd(DPHT.process_level(UnityData;kwargs...)) do
+        UnityData()
+    end
+    spoc = SpatialOccupancy(udata, xbins, ybins)
+    spr = SpatialRepresentation(sp, rp, udata;kwargs...);
+    SpatialMap(spr, xbins, ybins, spoc)
+end
+
+function visualize!(lscene, spm::SpatialMap;kwargs...)
+    heatmap!(lscene, spm.xbins, spm.ybins, spm.weight,colormap=:Blues)
+end
+
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,normalize=true)
+    if normalize
+        weight = spm.weight./spm.occupancy
+    else
+        weight = spm.weight
+    end
+    PlotSpec(Heatmap, spm.xbins, spm.ybins, weight)
+end
+
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap, spoc::SpatialOccupancy)
+    PlotSpec(Heatmap, spm.xbins, spm.ybins, spm.weight./spoc.weight)
+end
+
+
+function compute_sic(spm::SpatialMap)
+
+    x = spm.weight./spm.occupancy
+    idx = isfinite.(x)
+    p = spm.occupancy[idx]./sum(spm.occupancy[idx])
+    r = sum(p.*x[idx])
+    xr = x[idx]./r
+    ll = log2.(xr)
+    lidx = isfinite.(ll)
+    sic = sum((p.*xr.*ll)[lidx])
+end
+
 function get_spatial_map(udata::UnityData; grid_limits=(-12.0, -12.0, 12.0, 12.0), nbins=(20,20))
     nt = size(udata.timestamps,1)
 
