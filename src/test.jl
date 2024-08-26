@@ -239,6 +239,16 @@ end
 
 numtrials(spr::SpatialRepresentation) = length(spr.position)
 
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, spr::SpatialRepresentation)
+    nt = numtrials(spr)
+    points = cat(spr.position..., dims=1)
+    PlotSpec(Scatter, points)
+end
+
+function MakieCore.convert_arguments(::Type{<:AbstractPlot}, spr::SpatialRepresentation, trial::Trial)
+    PlotSpec(Scatter, spr.position[trial.i])
+end
+
 function visualize!(lscene, spr::SpatialRepresentation;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
     nt = numtrials(spr)
     trial_events = lift(trial) do _trial
