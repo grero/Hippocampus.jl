@@ -135,6 +135,8 @@ struct Spiketrain
     components::Int64
 end
 
+DPHT.level(::Type{Spiketrain}) = "cell"
+
 function Spiketrain(fname::String)
     q = MAT.matread(fname)
     Spiketrain(q["timestamps"][:], q["reference"], q["components"])
