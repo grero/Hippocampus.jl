@@ -88,7 +88,8 @@ struct RippleData
     header::Dict
 end
 
-DPHT.filename(::Type{RippleData}) = "rplparallel.mat"
+DPHT.filename(::Type{RippleData}) = "rplmarkers.mat"
+DPHT.level(::Type{RippleData}) = "session"
 
 function RippleData(fname::String;do_save=true, redo=false, kvs...)
     outfile = DPHT.filename(RippleData)
