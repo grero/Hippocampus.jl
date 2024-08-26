@@ -139,7 +139,10 @@ DPHT.level(::Type{Spiketrain}) = "cell"
 
 function Spiketrain(fname::String)
     q = MAT.matread(fname)
-    Spiketrain(q["timestamps"][:], q["reference"], q["components"])
+    timestamps = get(q, "timestamps", Float64[])
+    reference = get(q, "refernce", "")
+    components = get(q, "components", 0)
+    Spiketrain(timestamps[:], reference, components)
 end
 
 function Spiketrain()
