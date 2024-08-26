@@ -193,30 +193,48 @@ struct SpatialRepresentation
     events::Vector{Vector{Float64}}
 end
 
-function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData)
+function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData;trial_start=1)
     nt = numtrials(udata)
     position = Vector{Vector{Point2f}}(undef, nt)
     events = Vector{Vector{Float64}}(undef, nt)
     sp = spikes.timestamps/1000.0 #convert to seconds
     for i in 1:nt
-        tp,posx,posy,_ = get_trial(udata,i)
+        tp,posx,posy,_ = get_trial(udata,i;trial_start=trial_start)
         tp .-= tp[1]
         timestamps = rp.timestamps[i,:]
-        idx0 = searchsortedfirst(sp, timestamps[1])
+        idx0 = searchsortedfirst(sp, timestamps[trial_start])
         idx1 = searchsortedlast(sp, timestamps[3])
         # align to trial start
-        sp_trial = sp[idx0:idx1] .- timestamps[1]
+        sp_trial = sp[idx0:idx1] .- timestamps[trial_start]
         nspikes = idx1-idx0+1
         events[i] = sp_trial
         position[i] = Vector{Point2f}(undef, nspikes)
+        js = 1
         for j in 1:nspikes
-            k = searchsortedfirst(tp,sp_trial[j])
+            k = searchsortedlast(tp,sp_trial[j])
             if 0 < k <= length(posx)
-                position[i][j] = Point2f(posx[k],posy[k])
+                position[i][js] = Point2f(posx[k],posy[k])
+                events[i][js] = sp_trial[j]
+                js += 1
             end
         end
+        position[i] = position[i][1:js-1]
+        events[i] = events[i][1:js-1]
     end
     SpatialRepresentation(position,events)
+end
+
+function SpatialRepresentation(;kwargs...)
+    rp = cd(DPHT.process_level(DPHT.level(RippleData))) do
+        RippleData()
+    end
+
+    udata = cd(DPHT.process_level(DPHT.level(UnityData))) do
+        UnityData()
+    end
+
+    sp = Spiketrain()
+    SpatialRepresentation(sp, rp, udata;kwargs...)
 end
 
 numtrials(spr::SpatialRepresentation) = length(spr.position)
