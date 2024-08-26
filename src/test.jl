@@ -615,8 +615,6 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Observable
     end
     _edata = lift(trial) do _trial
         te, gazex, gazey = get_trial(edata, _trial)
-        # TODO: Fix at source, eyelink flips the y-coordinate
-        gazey = screen_height .- gazey
         te = (te .- te[1])./1000.0 # convert to seconds start at zero
         te, gazex, gazey
     end
