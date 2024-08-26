@@ -1,3 +1,4 @@
+using Printf
 function reshape_triggers(markers, timestamps)
     # the first marker is a session start; the remaining come in trios
     nn = length(markers)
@@ -31,4 +32,17 @@ end
 
 struct Trial
     i::UInt64
+end
+
+function parse_cellname(cellname::String)
+    re = r"(\d{8,8})ch(\d{1,3})c(\d+)"
+    m = match(re, cellname)
+    channel = @sprintf("%03d", parse(Int64, m[2]))
+    cell = @sprintf("%02d", parse(Int64, m[3]))
+    pth = glob(joinpath(m[1], "session*","array*","channel$(channel)","cell$(cell)"))
+    if !isempty(pth)
+        return first(pth)
+    else
+        return nothing
+    end
 end
