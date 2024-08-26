@@ -158,6 +158,33 @@ function Base.show(io::IO, x::Spiketrain)
     print(io, "Spiketrain with $(nspikes) spikes")
 end
 
+struct SpatialOccupancy{T<:Real}
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    weight::Matrix{T}
+end
+
+function SpatialOccupancy(udata::UnityData, xbins::AbstractVector{T}, ybins::AbstractVector{T};trial_start=1) where T <: Real
+    nt = numtrials(udata)
+    weight = fill(0.0, length(xbins)-1, length(ybins)-1)
+    for i in 1:nt
+        tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
+        for j in 2:length(tu)
+            Δt = tu[j]-tu[j-1]
+            xidx = searchsortedlast(xbins, posx[j-1])
+            yidx = searchsortedlast(ybins, posy[j-1])
+            if 0 < xidx <= size(weight,1) && 0 < yidx <= size(weight,2)
+                weight[xidx,yidx] += Δt
+            end
+        end
+    end
+    SpatialOccupancy(xbins, ybins, weight)
+end
+
+function SpatialOccupancy(xbins,ybins=xbins;kwargs...)
+    udata = UnitData()
+    SpatialOccupancy(udata, xbins, ybins;kwargs...)
+end
 """
 A spatial representation of events
 """
