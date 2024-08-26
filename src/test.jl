@@ -111,6 +111,14 @@ function RippleData(fname::String;do_save=true, redo=false, kvs...)
     rp
 end
 
+function RippleData(;kwargs...)
+    nev_files = glob("*.nev")
+    if isempty(nev_files)
+        error("No nev files found")
+    end
+    RippleData(nev_files[1];kwargs...)
+end
+
 function RippleData(markers::Vector{T}, timestamps::Vector{Float64}) where T <: Real
     idx = markers.>0
     trial_markers, trial_timestamps = reshape_triggers(Int64.(markers[idx]), timestamps[idx])
