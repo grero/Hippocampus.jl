@@ -405,7 +405,7 @@ function create_axis(AxisType,fig;kwargs...)
     if AxisType <: LScene
         axis_args = (show_axis=get(kwargs, :show_axis,false),)
     else
-        axis_args = ()
+        axis_args = (backgroundcolor=get(kwargs, :backgroundcolor, :white),)
     end
     lscene = AxisType(fig[1,1];axis_args...)
 end
