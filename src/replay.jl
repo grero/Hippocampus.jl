@@ -498,6 +498,13 @@ function visualize(objects...;AxisType=LScene, kwargs...)
             current_time[] = 0.0
         end
     end
+    visualize(fig, objects...;current_time=current_time, trial=current_trial, kwargs...)
+    current_trial[] = Trial(1)
+    current_time[] = 0.0
+    fig
+end
+
+function visualize(fig::Figure, objects...;AxisType=LScene,kwargs...)
     # allow overlapping axes
     #hackish
     # check whether the number of axes match the number of objects
@@ -512,10 +519,7 @@ function visualize(objects...;AxisType=LScene, kwargs...)
         scenes = [lscene for _ in 1:length(objects)]
     end
     #@show typeof(scenes) <: AbstractVector
-    visualize!(scenes, objects...;current_time=current_time, trial=current_trial, kwargs...)
-    current_trial[] = Trial(1)
-    current_time[] = 0.0
-    fig
+    visualize!(scenes, objects...;kwargs...)
 end
 
 function visualize!(scenes::AbstractVector, objects...;kwargs...)
