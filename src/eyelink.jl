@@ -165,3 +165,29 @@ function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData, tri
     gy[1,idx] .= NaN
     PlotSpec(Lines, gx[1,:], gy[1,:])
 end
+
+function visualize!(ax, edata::EyelinkData;trial::Observable{Trial}=Observable{Trial(1)},current_time::Observable{Float64}=Observable(0.0))
+   
+    edata_trial = lift(trial) do _trial
+        te, gx, gy,fixmask = get_trial(edata, _trial.i)
+    end
+    # set the limits
+    x0,y0,x1,y1 = edata.header["gaze_coords"]
+    xlims!(ax, x0,x1)
+    ylims!(ax, y0,y1)
+    ax.xgridvisible = false
+    ax.ygridvisible = false
+    gaze_pos = Observable([Point2f(NaN)])
+    current_j = 1
+    onany(edata_trial, current_time) do _edt, ct
+        te = _edt[1]
+        tef = (te .- te[1])/1000.0
+        j = searchsortedfirst(tef, ct)
+        if 0 < j <= length(tef)
+            gaze = permutedims([_edt[2] _edt[3]])
+            gaze_pos[] = Point2f.(eachcol(gaze[:,current_j:j]))
+            current_j = j
+        end
+    end
+    scatter!(ax, gaze_pos;color=:red)
+end
