@@ -460,21 +460,9 @@ function create_axis(AxisType,fig;kwargs...)
     lscene = AxisType(fig[1,1];axis_args...)
 end
 
-function visualize(objects...;AxisType=LScene, kwargs...)
+function visualize(objects;kwargs...)
     fig = Figure()
-    # allow overlapping axes
-    #hackish
-    # check whether the number of axes match the number of objects
-    if isa(AxisType, AbstractVector)
-        scenes = Any[]
-        for _AxisType in AxisType
-            lscene = create_axis(_AxisType, fig;kwargs...)
-            push!(scenes, lscene)
-        end
-    else
-        lscene = create_axis(AxisType, fig;kwargs...)
-        scenes = [lscene for _ in 1:length(objects)]
-    end
+    
     # attach events
     current_time = Observable(0.0)
     on(events(fig.scene).scroll, priority=20) do (dx,dy)
@@ -498,16 +486,13 @@ function visualize(objects...;AxisType=LScene, kwargs...)
             current_time[] = 0.0
         end
     end
-    visualize(fig, objects...;current_time=current_time, trial=current_trial, kwargs...)
+    visualize(fig, objects;current_time=current_time, trial=current_trial, kwargs...)
     current_trial[] = Trial(1)
     current_time[] = 0.0
     fig
 end
 
-function visualize(fig::Figure, objects...;AxisType=LScene,kwargs...)
-    # allow overlapping axes
-    #hackish
-    # check whether the number of axes match the number of objects
+function visualize(fig::Figure, objects::Tuple{Any, Vararg{Any}};AxisType=LScene, kwargs...)
     if isa(AxisType, AbstractVector)
         scenes = Any[]
         for _AxisType in AxisType
@@ -518,11 +503,32 @@ function visualize(fig::Figure, objects...;AxisType=LScene,kwargs...)
         lscene = create_axis(AxisType, fig;kwargs...)
         scenes = [lscene for _ in 1:length(objects)]
     end
-    #@show typeof(scenes) <: AbstractVector
-    visualize!(scenes, objects...;kwargs...)
+    visualize!(scenes, objects;kwargs...)
 end
 
-function visualize!(scenes::AbstractVector, objects...;kwargs...)
+function visualize(fig::Figure, objects::Vector{Any};AxisType=[LScene for _ in length(objects)],kwargs...)
+    scenes = Any[]
+    lg = GridLayout(fig[1,1])
+    for (i,(obj,_AxisType)) in enumerate(zip(objects,AxisType))
+        if isa(obj, Tuple)
+            n = length(obj)
+        else
+            n = 1
+        end
+        if isa(_AxisType, NTuple{n,Any})
+            lscene = [create_axis(_AT, lg[1,i];kwargs...) for _AT in _AxisType]
+        else
+            lscene = create_axis(_AxisType, lg[1,i];kwargs...)
+        end
+        push!(scenes, lscene)
+    end
+    for (objs,scene) in zip(objects, scenes)
+        @show typeof(objs) typeof(scene)
+        visualize!(scene, objs;kwargs...)
+    end
+end
+
+function visualize!(scenes::AbstractVector, objects;kwargs...)
     for (lscene,obj) in zip(scenes,objects)
         visualize!(lscene, obj;kwargs...)
     end
