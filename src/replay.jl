@@ -400,9 +400,15 @@ end
 
 # TODO: It would be more elegant to make use of Makie recipe here
 
-function visualize(objects...;kwargs...)
+function visualize(objects...;show_axis=false, AxisType=LScene, kwargs...)
     fig = Figure()
-    lscene = LScene(fig[1,1], show_axis=false)
+    #hackish
+    if AxisType <: LScene
+        axis_args = (show_axis=show_axis,)
+    else
+        axis_args = ()
+    end
+    lscene = AxisType(fig[1,1], axis_args...)
     # attach events
     current_time = Observable(0.0)
     on(events(lscene.scene).scroll, priority=20) do (dx,dy)
