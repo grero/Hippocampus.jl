@@ -426,10 +426,14 @@ function visualize(objects...;kwargs...)
             current_time[] = 0.0
         end
     end
-    for obj in objects
-        visualize!(lscene,obj;current_time=current_time, trial=current_trial, kwargs...)
-    end
+    visualize!(lscene, objects...;current_time=current_time, trial=current_trial, kwargs...)
     fig
+end
+
+function visualize!(lscene, objects...;kwargs...)
+    for obj in objects
+        visualize!(lscene, obj;kwargs...)
+    end
 end
 
 struct ViewRepresentation
