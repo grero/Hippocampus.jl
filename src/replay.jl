@@ -190,17 +190,67 @@ function compute_histogram(gdata::GazeOnMaze,mm::MazeModel;fixations_only=true)
     bins = get_bins(mm)
     if fixations_only 
         gaze = Vector{Matrix{Float64}}(undef, length(gdata.gaze))
+        weight = Vector{Vector{Float64}}(undef, length(gdata.gaze))
         for i in eachindex(gaze)
-            gaze[i] = gdata.gaze[i][:,gdata.fixation[i]]
+            Δt = diff(gdata.time[i])
+            fix = gdata.fixation[i]
+            fix[end] = false
+            weight[i] = Δt[fix[1:end-1]]
+            gaze[i] = gdata.gaze[i][:,fix]
         end
     else
-        gaze = gdata.gaze
+        gaze = Vector{Matrix{Float64}}(undef, length(gdata.gaze))
+        weight = Vector{Vector{Floaft64}}(undef, length(gdata.gaze))
+        for i in eachindex(gaze)
+            Δt = diff(gdata.time[i])
+            weight[i] = Δt
+            gaze[i] = gdata.gaze[i][:,1:end-1]
+        end
     end
     counts = Dict{Symbol,Vector{Array{Float64,3}}}()
     for k in keys(bins)
-        counts[k] = compute_histogram(gaze,bins[k])
+        counts[k] = compute_histogram(gaze,bins[k],weight)
     end
-    counts,bins,normals
+    counts,bins
+end
+
+"""
+Type to indicate that we want to replay the maze as the subject experienced it.
+"""
+struct MazeReplayer
+    mm::MazeModel
+    udata::UnityData
+end
+
+function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Float64}=Observable(0.0), trial::Observable{Trial}=Observarble(Trial(1)), kwargs...)
+
+    visualize!(lscene,mp.mm)
+    cc = cameracontrols(lscene.scene)
+    cc.fov[] = 39.6
+
+    udata = mp.udata
+    nt = numtrials(udata)
+    udata_trial = lift(trial) do _trial
+        if 0 < _trial.i <= nt
+            return tp,posx,posy,dir = get_trial(udata,_trial.i)
+        else
+            return Float64[], Float64[], Float64[], Float[]
+        end
+    end
+
+    onany(udata_trial, current_time) do _udt, _ct
+        tp = _udt[1]
+        tp .-= tp[1]
+        j = searchsortedfirst(tp, _ct)
+        px,py,dir = _udt[2:end]
+        if 0 < j <= length(tp)
+            pos = Point3f(px[j],py[j], 2.5)
+            θ = π*dir[j]/180.0 # convert to radians
+            cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
+            cc.eyeposition[] = pos
+            update_cam!(lscene.scene, cc)
+        end
+    end
 end
 
 #TODO: Add "follow" mode
