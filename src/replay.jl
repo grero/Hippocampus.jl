@@ -427,6 +427,8 @@ function visualize(objects...;kwargs...)
         end
     end
     visualize!(lscene, objects...;current_time=current_time, trial=current_trial, kwargs...)
+    current_trial[] = Trial(1)
+    current_time[] = 0.0
     fig
 end
 
