@@ -400,28 +400,44 @@ end
 
 # TODO: It would be more elegant to make use of Makie recipe here
 
-function visualize(objects...;show_axis=false, AxisType=LScene, kwargs...)
-    fig = Figure()
-    #hackish
+# I feel like this is duplicating functionality that must be in Makie somwhere...
+function create_axis(AxisType,fig;kwargs...)
     if AxisType <: LScene
-        axis_args = (show_axis=show_axis,)
+        axis_args = (show_axis=get(kwargs, :show_axis,false),)
     else
         axis_args = ()
     end
-    lscene = AxisType(fig[1,1], axis_args...)
+    lscene = AxisType(fig[1,1];axis_args...)
+end
+
+function visualize(objects...;AxisType=LScene, kwargs...)
+    fig = Figure()
+    # allow overlapping axes
+    #hackish
+    # check whether the number of axes match the number of objects
+    if isa(AxisType, AbstractVector)
+        scenes = Any[]
+        for _AxisType in AxisType
+            lscene = create_axis(_AxisType, fig;kwargs...)
+            push!(scenes, lscene)
+        end
+    else
+        lscene = create_axis(AxisType, fig;kwargs...)
+        scenes = [lscene for _ in 1:length(objects)]
+    end
     # attach events
     current_time = Observable(0.0)
-    on(events(lscene.scene).scroll, priority=20) do (dx,dy)
+    on(events(fig.scene).scroll, priority=20) do (dx,dy)
         current_time[] = current_time[] + dx
     end
     current_trial = Observable(Trial(1))
-    on(events(lscene.scene).keyboardbutton, priority=20) do event
+    on(events(fig.scene).keyboardbutton, priority=20) do event
         has_changed = false
-        if ispressed(lscene.scene, Keyboard.up)
+        if ispressed(fig.scene, Keyboard.up)
             current_trial[] = Trial(current_trial[].i+1)
             # TODO: Is there a meaninful way to check whether we have reached the end here?
             has_changed = true
-        elseif ispressed(lscene.scene, Keyboard.down)
+        elseif ispressed(fig.scene, Keyboard.down)
             nc  = current_trial[].i+1
             if nc > 0
                 current_trial[] = Trial(nc)
@@ -432,14 +448,15 @@ function visualize(objects...;show_axis=false, AxisType=LScene, kwargs...)
             current_time[] = 0.0
         end
     end
-    visualize!(lscene, objects...;current_time=current_time, trial=current_trial, kwargs...)
+    #@show typeof(scenes) <: AbstractVector
+    visualize!(scenes, objects...;current_time=current_time, trial=current_trial, kwargs...)
     current_trial[] = Trial(1)
     current_time[] = 0.0
     fig
 end
 
-function visualize!(lscene, objects...;kwargs...)
-    for obj in objects
+function visualize!(scenes::AbstractVector, objects...;kwargs...)
+    for (lscene,obj) in zip(scenes,objects)
         visualize!(lscene, obj;kwargs...)
     end
 end
