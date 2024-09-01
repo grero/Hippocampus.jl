@@ -1,4 +1,6 @@
 using MAT
+using CSV
+using ProgressMeter
 
 struct GazeOnMaze
     time::Vector{Vector{Float64}}
@@ -9,8 +11,11 @@ struct GazeOnMaze
     header::Dict
 end
 
+numtrials(gdata::GazeOnMaze) = length(gdata.gaze)
+
 DPHT.filename(::Type{GazeOnMaze}) = "maze_raytrace.mat"
 
+get_trial(gdata, i) = (gdata.time[i], gdata.gaze[i], gdata.fixation[i])
 
 # TODO: Make sure that this actually works
 function GazeOnMaze(;do_save=true, redo=false)
