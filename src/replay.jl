@@ -29,8 +29,12 @@ function GazeOnMaze(;do_save=true, redo=false)
         end
         gdata = GazeOnMaze(args...)
     else
-        edata = EyelinkData()
-        udata = UnityData()
+        edata = cd(DPHT.process_level(EyelinkData)) do
+            EyelinkData()
+        end
+        udata = cd(DPHT.process_level(UnityData)) do
+            UnityData()
+        end
         gdata = GazeOnMaze(edata, udata)
         if do_save
             DPHT.save(gdata)
