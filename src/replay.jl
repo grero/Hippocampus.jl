@@ -165,7 +165,7 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
     S.GridLayout(ax3)
 end
 
-function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
+function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),fixation_only=true, kwargs...)
     nt = numtrials(gdata)
     current_gaze = Observable([Point3f(NaN)])
     gdata_trial = lift(trial) do _trial
@@ -180,12 +180,16 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
     onany(gdata_trial, current_time) do _gdt, _ct
         tg = _gdt[1] 
         gaze = _gdt[2]
-        fixmask = _gdt[3]
+        if fixation_only
+            fixmask = _gdt[3]
+        else
+            fixmask = fill(true, length(tg))
+        end
         j = searchsortedfirst(tg, _ct) 
         if 0 < j <= length(fixmask)
-            _fixmask = fixmask[current_j:j]
             _current_j = current_j
             current_j = j
+            _fixmask = fixmask[_current_j:j]
             current_gaze[] = Point3f.(eachcol(gaze[:,_current_j:j][:,_fixmask]))
         else
             current_gaze[] = [Point3f(NaN)]
