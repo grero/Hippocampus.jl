@@ -199,6 +199,94 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
     scatter!(lscene, current_gaze, color=RGB(0.8, 0.8, 0.8))
 end
 
+struct UnityRaytraceData
+    gaze::Vector{Matrix{Float64}}
+    position::Vector{Matrix{Float64}}
+    head_direction::Vector{Vector{Float64}}
+    timestamps::Vector{Vector{Float64}}
+end
+
+function UnityRaytraceData()
+    edata = cd(DPHT.process_level(EyelinkData)) do
+        EyelinkData()
+    end
+    fname = "unityfile_eyelink.csv"
+    if !ispath(fname)
+        error("No raytracing data found")
+    end
+    unity_eyelinkfile = CSV.File(fname, header=0)
+    n = length(unity_eyelinkfile)
+    fixated_points = fill(NaN, 3, n)
+    position = fill(0.0, 3, n)
+    direction = fill(0.0, n)
+    timestamps = zeros(UInt64,n)
+    i = 1
+    for row in unity_eyelinkfile
+        # TODO: Grab more data here
+        px,py,pz,a = (row[6],row[7],row[8],row[9])
+        θ = π*a/180.0
+        position[:,i] = (px,pz,py)
+        direction[i] = θ
+        timestamps[i] = row[2]
+        gx,gy,gz = (row[10],row[11],row[12])
+        if (gx !== missing) && (gy !== missing) && (gz !== missing)
+            # gx,gy,gz is relative to player ?
+
+            fixated_points[:,i] .= (gx,gz,gy) # unity has the z-axis into the scene
+            i += 1
+        end
+    end
+
+    # break up into trials using edata
+    nt = numtrials(edata)
+    trial_fixations = Vector{Matrix{Float64}}(undef,nt)
+    trial_position = Vector{Matrix{Float64}}(undef, nt)
+    trial_head_direction = Vector{Vector{Float64}}(undef, nt)
+    trial_times = Vector{Vector{Float64}}(undef,nt)
+    for i in 1:nt
+        te,_,_, = get_trial(edata, i)
+        idx0 = searchsortedfirst(timestamps, te[1])
+        idx1 = searchsortedlast(timestamps,te[end])
+        trial_fixations[i] = fixated_points[:,idx0:idx1]
+        trial_position[i] = position[:,idx0:idx1]
+        trial_head_direction[i] = diration[idx0:idx1]
+        trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
+    end
+    UnityRaytraceData(trial_fixations, trial_position, trial_head_diraction, trial_times)
+end
+
+function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
+    ugdata_trial = lift(trial) do _trial
+        #Point3f.(eachcol(unitygaze.gaze[_trial.i]))
+        gaze = unitygaze.gaze[_trial.i]
+        pos = unitygaze.position[_trial.i]
+        dir = unitygaze.head_direction[_trial.i]
+        tu = unitygaze.timestamps[_trial.i]
+        tu .-= tu[1]
+        tg = [Point3f(gaze[[1,2,3],i]) for i in 1:size(gaze,2)]
+        tp = [Point3f(pos[[1,2,3],i]) for i in 1:size(gaze,2)]
+        td = dir
+        tu,tg,tp,td 
+    end
+
+    current_pos = Observable(ugdata_trial[][2][1:1])
+    current_path = Obserable(ugdata_trial[][3])
+    current_dir = Observable(ugdata_trial[][4][1:1])
+    current_arrow = lift(current_dir) do θ
+        [Point3f(cos(θ), sin(θ), 0.0)]
+    end
+    current_j = 1
+
+    onany(ugdata_trial, current_time) do _ugt, _ct
+        _tu, _points = (_ugt[1], _ugt[2])
+        j = searchsortedfirst(_tu, _ct) 
+        current_pos[] = _points[current_j:j]
+        current_j = j
+    end
+    lines!(lscene, current_path)
+    scatter!(lscene,current_pos, color=:black)
+    arrows!(lscene, current_pos, current_arrow, color=:black)
+end
 
 function compute_histogram(gdata::GazeOnMaze,mm::MazeModel;fixations_only=true)
     bins = get_bins(mm)
