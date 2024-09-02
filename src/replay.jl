@@ -78,10 +78,19 @@ end
 Trace a ray from position `x,y` through the camera with focal length `focal_length` until it
 impacts something in the arena
 """
-function raytrace(x, y, pos,direction, focal_length;camera_height=2.5)
+function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,frustrum_ratio=1.78)
+    # TODO: It looks like the raytracing function in Unity just uses the viewport. In other words,
+    # what the camera 'sees' is a normalized coordinate system (not the physical sensor.)
     # find the angle of the point
-    θ = atan(x, focal_length)
-    ϕ = atan(y, focal_length)
+    # height of frustrum at near clip
+    fovr = π*fov/180
+    fheight = 2*tan(fovr/2)*near_clip
+    fwidth = frustrum_ratio*fheight
+    xc = (x-0.5)*fwidth
+    yc = (y-0.5)y*fheight
+    # flip x since x-values left-of-center should be associated with a positive angle
+    θ = atan(-xc, near_clip)
+    ϕ = atan(yc,near_clip) 
     θ += direction
     # now cast along the line θ
 
@@ -145,10 +154,12 @@ function GazeOnMaze(edata::EyelinkData, udata::UnityData)
                outofbounds=true
             end
             if !outofbounds
-                x = scale_to_camera(gx[j]-gx0, 36.0, screen_width)
-                y = scale_to_camera(gy[j]-gy0, 24.0, screen_height)
-                # use negative gx and gy here since the camera flips these
-                _gaze[:,j] .= raytrace(-x,-y,[posx[tidx],posy[tidx]],π*dir[tidx]/180,50.0)
+                #x = scale_to_camera(gx[j]-gx0, 36.0, screen_width)
+                #y = scale_to_camera(gy[j]-gy0, 24.0, screen_height)
+                # scale to viewport coordinates
+                x = (gx[j] - gx0)/screen_width
+                y = (gy[j] - gy0)/screen_height
+                _gaze[:,j] .= raytrace(x,y,[posx[tidx],posy[tidx]],π*dir[tidx]/180,60.0, 0.3)
             end
         end
         gaze[i] = _gaze
