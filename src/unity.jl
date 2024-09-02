@@ -329,38 +329,52 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, kwargs...)
-    #floor
-    bin = mm.floor.bins
-    m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-    #hackish
-    # only do this if color[:floor] is a vector of something
-    if typeof(color[:floor]) <: AbstractVector
-        _color = color[:floor][1][:]
-    else
-        _color = color[:floor]
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, kwargs...)
+    if show_floor
+        #floor
+        bin = mm.floor.bins
+        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+        #hackish
+        # only do this if color[:floor] is a vector of something
+        if typeof(color[:floor]) <: AbstractVector
+            _color = color[:floor][1][:]
+        else
+            _color = color[:floor]
+        end
+        viz!(lscene, m, color=_color,colormap=:Blues)
     end
-    viz!(lscene, m, color=_color,colormap=:Blues) 
 
     if show_ceiling
+        if typeof(color[:ceiling]) <: AbstractVector
+            _color = color[:ceiling][1][:]
+        else
+            _color = color[:ceiling]
+        end
         bin = mm.ceiling.bins
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        viz!(lscene, m, color=color[:ceiling],colormap=:Blues) 
+        if offsets !== nothing && :ceiling in keys(offsets)
+            m = Translate(offsets[:ceiling][1]...)(m)
+        end
+        viz!(lscene, m, color=_color,colormap=:Blues)
     end
-    
+
     #pillars
-    for (oms,ccs) in zip(mm.pillars,color[:pillars])
-        for (om,cc) in zip(oms,ccs)
-            bin = om.bins
-            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-            viz!(lscene, m, color=cc,colormap=:Blues) 
+    if show_pillars
+        for (oms,ccs) in zip(mm.pillars,color[:pillars])
+            for (om,cc) in zip(oms,ccs)
+                bin = om.bins
+                m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+                viz!(lscene, m, color=cc,colormap=:Blues)
+            end
         end
     end
-    #walls
-    for (ii,om) in enumerate(mm.walls)
-        bin = om.bins
-        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        viz!(lscene, m, color=color[:walls][ii],colormap=:Blues) 
+    if show_walls
+        #walls
+        for (ii,om) in enumerate(mm.walls)
+            bin = om.bins
+            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+            viz!(lscene, m, color=color[:walls][ii],colormap=:Blues)
+        end
     end
 end
 
