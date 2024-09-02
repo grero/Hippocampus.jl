@@ -3,6 +3,7 @@ using Colors
 using Meshes
 using LinearAlgebra
 using DelimitedFiles
+using FileIO
 
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
 zBound = [12.5, 12.5, -12.5, -12.5, 12.5]
@@ -106,7 +107,7 @@ the first 14 rows contain header information
 """
 function read_unity_file(fname::String;header_rows=14)
     # TODO: Return the config as well
-    column_names = ["marker","Δt","xpos","ypos","direction"]  
+    column_names = ["marker","Δt","xpos","ypos","direction"]
     data = readdlm(fname, ' ', skipstart=header_rows) 
     # check if first column should be skipped
     if size(data,2) == 6 # should only be 5 columns
@@ -138,7 +139,7 @@ function angle2arrow(a::Float64)
     cos(θ), sin(θ)
 end
 
-function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), kwargs...)
+function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=true, kwargs...)
     _ntrials = numtrials(udata)
     udata_trial = lift(trial) do _trial
         if 0 < _trial.i <= _ntrials
@@ -172,7 +173,10 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
             current_head_direction[] = [Point3f(aa...,0.0)]
         end
     end
-
+    if show_maze
+        mm = MazeModel()
+        visualize!(lscene,mm;kwargs...)
+    end
     lines!(lscene, position, color=:black)
     scatter!(lscene, current_pos, color=:blue)
     arrows!(lscene, current_pos, current_head_direction, color=:blue)
@@ -394,8 +398,8 @@ function Posters(img_files::Vector{String}, position, mm::MazeModel)
     wall_pillar_idx = assign_posters(mm,position)
     wall_idx = wall_pillar_idx.pillar_wall_idx
     pillar_idx = wall_pillar_idx.pillar_idx
-    rot = LinearMap(RotX(3π/2))   
-    images = [load(f) for f in img_files] 
+    rot = LinearMap(RotX(3π/2))
+    images = [load(f) for f in img_files]
     # hack just to figure out the type
     sp = sprite(images[1], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
 
