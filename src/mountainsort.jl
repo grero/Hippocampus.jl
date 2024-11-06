@@ -213,6 +213,19 @@ function downsample(x::Vector{T}, window::Integer) where T <: Real
     y,idx
 end
 
+"""
+    plot_sorting()
+
+Attempt to automatically load sorting result and the underlying continuous data from the current directory.
+This assumes that the sorting results is stored is stored as firinngs.mda and templates.mda for the extracted
+and sorting spikes and the spike templates, respectively, and that the underyling continuous data is stored as pre2.mda.
+"""
+function plot_sorting()
+    mda_result = MountainSortResult()
+    hdata = NeuralData("pre2.mda")
+    plot_sorting(mda_result, hdata)
+end
+
 function plot_sorting(x::MountainSortResult, y::NeuralData)
     waveforms,spiketrains = extract_spikes(x, y)
     # look at spike difference up to 500ms with 5 ms step
