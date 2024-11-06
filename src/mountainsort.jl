@@ -249,10 +249,17 @@ function plot_sorting(x::MountainSortResult, y::NeuralData)
             push!(sc, scatter!(axf, features[ii][1,1,:], features[ii][1,2,:], features[ii][1,3,:], color=colors[ii]))
         end
         # setup spike pick for axf
+        spike_line = Observable(NaN)
+        spike_color = Observable(colors[1])
         a = ilines(fig[2,1:2], y.data[1,:],color=:gray)
+        axs = Axis(fig[3,1:2])
+        linkxaxes!(a.fap.axis, axs)
+        rowsize!(fig.layout, 3, Relative(0.1))
         for ii in 1:length(spiketrains)
-            vlines!(a.fap.axis, spiketrains[ii].*y.sampling_rate,color=colors[ii])
+            vlines!(axs, spiketrains[ii].*y.sampling_rate,color=colors[ii])
         end
+        vlines!(a.fap.axis, spike_line,color=spike_color)
+        a.fap.axis.xticklabelsvisible = false
         on(events(fig).mousebutton, priority=2) do event
             if event.button == Mouse.left && event.action == Mouse.press
                 plt, ik = pick(fig)
@@ -260,6 +267,8 @@ function plot_sorting(x::MountainSortResult, y::NeuralData)
                     pidx = findfirst(sc.==plt)
                     kk = spiketrains[pidx][ik].*y.sampling_rate
                     xlims!(a.fap.axis, kk-1000, kk+1000)
+                    spike_line[] = kk
+                    spike_color[] = colors[pidx]
                 end
             end
         end
