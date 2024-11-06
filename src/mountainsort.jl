@@ -172,7 +172,90 @@ function MakieCore.convert_arguments(::Type{<:Lines}, y::Matrix{T};color=:black)
     PlotSpec(Lines, _x, _y;color=color)
 end
 
-function MakieCore.convert_arguments(::Type{<:Plot{plot}}, x::MountainSortResult, y::NeuralData)
+function downsample(x::Vector{T}) where T <: Real
+    y = zeros(T,3) 
+    idx = zeros(Int64 ,3)
+    downsample!(y,idx,x)
+    y,idx
+end
+
+"""
+Downsample by grabbing the first, the minimum and the maximum
+"""
+function downsample!(y, idx::AbstractVector{Int64}, x::Vector{T}) where T <: Real
+    #y[1] = x[1]
+    y[1] = mean(x)
+    idx[1] = 1
+    mii,idx0 = findmin(x)
+    mxx,idx1 = findmax(x)
+    if idx0 < idx1
+        y[2] = mii
+        idx[2] = idx0
+        y[3] = mxx
+        idx[3] = idx1
+    else
+        y[2] = mxx
+        idx[2] = idx1
+        y[3] = mii
+        idx[3] = idx0
+    end
+end
+
+function downsample(x::Vector{T}, window::Integer) where T <: Real
+    chunks = range(1, step=window, stop=length(x))
+    y = zeros(T, 3*(length(chunks)-1))
+    idx = zeros(Int64, length(y))
+    for (j,(i0,i1)) in enumerate(zip(chunks[1:end-1], chunks[2:end]))
+        qq = ((j-1)*3+1):3*j
+        downsample!(view(y, qq), view(idx,qq), x[i0:i1])
+        idx[qq] .+= i0-1
+    end
+    y,idx
+end
+
+function plot_sorting(x::MountainSortResult, y::NeuralData)
+    waveforms,spiketrains = extract_spikes(x, y)
+    # look at spike difference up to 500ms with 5 ms step
+    bins = range(0.0, step=0.005, stop=0.5)
+    counts,_ = autocorrelogram(spiketrains, bins)
+    features = compute_features.(SVD, waveforms)
+    # firing rate statistics
+    λmax, λmean = compute_firing_rate(spiketrains, y)
+    nspikes = [size(wf,3) for wf in waveforms]
+    if length(features) < 10
+        colors=to_colormap(:tab10)
+    else
+        colors=to_colormap(:tab20)
+    end
+    # one axis for each template
+    n_spikes_plot = min.(1000, nspikes)
+    plot_titles = ["$(nspikes[i]) spikes, f_max=$(round(λmax[i], sigdigits=2))Hz, f_mean=$(round(λmean[i],sigdigits=2))Hz" for i in 1:length(nspikes)]
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg1 = GridLayout(fig[1,1])
+        axes = [Axis(lg1[i,1]) for i in 1:length(waveforms)]
+        lg2 = GridLayout(fig[1,2])
+        axf = Axis3(lg2[1,1])
+        for (ii,ax) in enumerate(axes)
+            lines!(ax, waveforms[ii][1,:,1:n_spikes_plot[ii]],color=colors[ii])
+            ax.xticklabelsvisible = false
+            ax.yticklabelsvisible = false
+            ax.topspinevisible = false
+            ax.xgridvisible = false
+            ax.ygridvisible = false
+            ax.title = plot_titles[ii]
+
+            scatter!(axf, features[ii][1,1,:], features[ii][1,2,:], features[ii][1,3,:], color=colors[ii])
+        end
+        a = ilines(fig[2,1:2], y.data[1,:],color=:gray)
+        for ii in 1:length(spiketrains)
+            vlines!(a.fap.axis, spiketrains[ii].*y.sampling_rate,color=colors[ii])
+        end
+        fig
+    end
+end
+
+function Makie.convert_arguments(::Type{<:Plot{plot}}, x::MountainSortResult, y::NeuralData)
     waveforms,spiketrains = extract_spikes(x, y)
     # look at spike difference up to 500ms with 5 ms step
     bins = range(0.0, step=0.005, stop=0.5)
