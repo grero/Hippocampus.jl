@@ -236,6 +236,7 @@ function plot_sorting(x::MountainSortResult, y::NeuralData)
         axes = [Axis(lg1[i,1]) for i in 1:length(waveforms)]
         lg2 = GridLayout(fig[1,2])
         axf = Axis3(lg2[1,1])
+        sc = Any[] 
         for (ii,ax) in enumerate(axes)
             lines!(ax, waveforms[ii][1,:,1:n_spikes_plot[ii]],color=colors[ii])
             ax.xticklabelsvisible = false
@@ -245,11 +246,22 @@ function plot_sorting(x::MountainSortResult, y::NeuralData)
             ax.ygridvisible = false
             ax.title = plot_titles[ii]
 
-            scatter!(axf, features[ii][1,1,:], features[ii][1,2,:], features[ii][1,3,:], color=colors[ii])
+            push!(sc, scatter!(axf, features[ii][1,1,:], features[ii][1,2,:], features[ii][1,3,:], color=colors[ii]))
         end
+        # setup spike pick for axf
         a = ilines(fig[2,1:2], y.data[1,:],color=:gray)
         for ii in 1:length(spiketrains)
             vlines!(a.fap.axis, spiketrains[ii].*y.sampling_rate,color=colors[ii])
+        end
+        on(events(fig).mousebutton, priority=2) do event
+            if event.button == Mouse.left && event.action == Mouse.press
+                plt, ik = pick(fig)
+                if plt in sc
+                    pidx = findfirst(sc.==plt)
+                    kk = spiketrains[pidx][ik].*y.sampling_rate
+                    xlims!(a.fap.axis, kk-1000, kk+1000)
+                end
+            end
         end
         fig
     end
