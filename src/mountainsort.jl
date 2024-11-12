@@ -289,6 +289,36 @@ function plot_sorting(x::MountainSortResult, y::NeuralData)
     end
 end
 
+function iplot(X::Matrix{T};channel_dim=2) where T <: Real
+    num_channels = size(X,channel_dim)
+    time_dim = channel_dim == 2 ? 1 : 2
+    # compute max/min for each channel
+    mii = zeros(T, num_channels)
+    mxx = zeros(T, num_channels)
+    for i in 1:num_channels
+        mii[i],mxx[i] = extrema(view(X,:,i))
+    end
+    offset = [zero(T);cumsum(mxx[1:end-1] - mii[2:end])]
+    ll = Any[]
+    with_theme(plot_theme) do
+        fig = Figure()
+        ax = Axis(fig[1,1])
+        for i in 1:num_channels
+            push!(ll, ilines!(ax, X[:,i] .+ offset[i]))
+        end
+        on(events(fig).mousebutton, priority=2) do event
+            if event.button == Mouse.left && event.action == Mouse.press
+                xx,yy =  mouseposition(ax.scene)
+                jj = searchsortedfirst(offset, yy)
+                if jj !== nothing
+                    ylims!(ax, offset[jj]+mii[jj],offset[jj]+mxx[jj])
+                end
+            end
+        end
+        fig
+    end
+end
+
 function Makie.convert_arguments(::Type{<:Plot{plot}}, x::MountainSortResult, y::NeuralData)
     waveforms,spiketrains = extract_spikes(x, y)
     # look at spike difference up to 500ms with 5 ms step
