@@ -300,18 +300,24 @@ function iplot(X::Matrix{T};channel_dim=2) where T <: Real
     end
     offset = [zero(T);cumsum(mxx[1:end-1] - mii[2:end])]
     ll = Any[]
+    hidden = fill(false, num_channels)
     with_theme(plot_theme) do
         fig = Figure()
         ax = Axis(fig[1,1])
         for i in 1:num_channels
-            push!(ll, ilines!(ax, X[:,i] .+ offset[i]))
+            _ll =  ilines!(ax, X[:,i] .+ offset[i];color=RGB(0.5, 0.5, 0.5))
+            push!(ll, _ll)
+            #_ll.color[] = RGB(0.5, 0.5, 0.5)
         end
         on(events(fig).mousebutton, priority=2) do event
             if event.button == Mouse.left && event.action == Mouse.press
                 xx,yy =  mouseposition(ax.scene)
                 jj = searchsortedfirst(offset, yy)
-                if jj !== nothing
-                    ylims!(ax, offset[jj]+mii[jj],offset[jj]+mxx[jj])
+                hidden[jj] = !hidden[jj]
+                if hidden[jj]
+                    ll[jj].fap.color[] = RGB(0.8, 0.8, 0.8)
+                else
+                    ll[jj].fap.color[] = RGB(0.5, 0.5, 0.5)
                 end
             end
         end
