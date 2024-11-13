@@ -56,6 +56,10 @@ end
 
 function UnityData(fname::String)
     data, header, column_names = read_unity_file(fname)
+    UnityData(data, header)
+end
+
+function UnityData(data, header)
     _time = cumsum(data[:,2])
 
     # organize triggers into a trial structure
