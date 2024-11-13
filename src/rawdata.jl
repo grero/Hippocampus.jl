@@ -54,3 +54,47 @@ function plot_data!(ax, data::NeuralData;window=1.0)
     lines!(ax, _data)
     current_time
 end
+
+struct RippleData
+    triggers::Matrix{Int64}
+    timestamps::Matrix{Float64}
+    header::Dict
+end
+
+DPHT.level(::Type{RippleData}) = "session"
+
+DPHT.filename(::Type{RippleData}) = "rplparallel.mat"
+
+function RippleData(;do_save=true, redo=false, kvs...)
+    outfile = DPHT.filename(RippleData)
+    if isfile(outfile) && !redo
+        qdata = MAT.matread(outfile)
+        trial_markers, trial_timestamps, header = (qdata["triggers"], qdata["timestamps"], get(qdata, "header", Dict()))
+        rp = RippleData(trial_markers, trial_timestamps, header)
+        meta = qdata["metadata"]
+    else
+        # extract the markers from the raw file
+        nev_files = glob("*.nev")
+        if isempty(nev_files)
+            error("No nev files found")
+        end
+        fname = first(nev_files)
+        markers,timestamps = RippleTools.extract_markers(fname)
+        rp = RippleData(markers, timestamps)
+        if do_save
+            meta = Dict{String,Any}()
+            tag!(meta;storepatch=true)
+            qdata = Dict("triggers"=>rp.triggers, "timestamps"=>rp.timestamps, "header"=>rp.header, "metadata"=>meta)
+            MAT.matwrite(outfile, qdata)
+        end
+    end
+    rp
+end
+
+function RippleData(markers::Vector{T}, timestamps::Vector{Float64}) where T <: Real
+    idx = markers.>0
+    trial_markers, trial_timestamps = reshape_triggers(Int64.(markers[idx]), timestamps[idx])
+    RippleData(trial_markers,trial_timestamps,Dict())
+end
+
+
