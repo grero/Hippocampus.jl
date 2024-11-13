@@ -158,14 +158,14 @@ function compute_features(::Type{TS}, waveforms::Array{T,3};nfeatures=3) where T
     features
 end
 
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::MountainSortResult)
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::MountainSortResult)
     # one axis for the templates, another grid layout for auto-correlation
     [PlotSpec(Lines, x.templates[1,:,i]) for i in 1:size(x.templates,3)]
 end
 
 Makie.used_attributes(::Matrix{T}) where T <: Real = (:color,)
 
-function MakieCore.convert_arguments(::Type{<:Lines}, y::Matrix{T};color=:black) where T <: Real
+function Makie.convert_arguments(::Type{<:Lines}, y::Matrix{T};color=:black) where T <: Real
     # join each row using NaN
     _y = cat(y,fill(NaN,1,size(y,2)),dims=1)[:]
     _x = repeat([1:(size(y,1)+1);], size(y,2))
