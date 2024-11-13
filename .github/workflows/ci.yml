@@ -6,7 +6,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Julia 1.8.0
+      - name: Set up Julia 1.10.0
         uses: julia-actions/setup-julia@v1
         with:
           version: "1.10.0"
