@@ -1,4 +1,5 @@
 using Eyelink
+using Makie
 struct EyelinkData
     triggers::Matrix{Int64}
     timestamps::Matrix{UInt64}
