@@ -41,10 +41,14 @@ DPHT.level(::Type{UnityData}) = "session"
 function UnityData()
     # attempt to find data file
     # assume we are at the sesison level
-    if isdir("RawData_T1-100")
-        ff = glob("session_*.txt", "RawData_T1-100")
-        if !isempty(ff)
-            return UnityData(first(ff))
+    _datadir = glob("RawData-T*")
+    if !isempty(_datadir)
+        datadir = first(_datadir)
+        if isdir(datadir)
+            ff = glob("session_*.txt", datadir)
+            if !isempty(ff)
+                return UnityData(first(ff))
+            end
         end
     end
     error("No unity data found")
