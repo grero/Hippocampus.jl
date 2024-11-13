@@ -1,5 +1,5 @@
 using MDAFiles
-using MakieCore
+using Makie
 import Makie.SpecApi as S
 using StatsBase
 using MultivariateStats

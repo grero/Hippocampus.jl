@@ -1,6 +1,5 @@
 module SpatialAnalyses
-using MakieCore
-using GLMakie
+using Makie
 using Meshes
 import Makie.SpecApi as S
 using Colors

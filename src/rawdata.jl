@@ -1,4 +1,4 @@
-using MakieCore
+using Makie
 
 struct NeuralData
     analogtime::AbstractVector{UInt64}
