@@ -148,7 +148,7 @@ function get_trial(edata::EyelinkData, i)
     trial_time, gx, gy,fixation_mask
 end
 
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData) 
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData) 
     gx = x.gazex[1,:]
     gy = x.gazey[1,:]
     idx = findall((abs.(gx) .>= 32768).|(abs.(gy) .>= 32768))
@@ -158,7 +158,7 @@ function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData)
     PlotSpec(Lines, x.analogtime, gy)]
 end
 
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData, trial::Trial)
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData, trial::Trial)
     t,gx,gy = get_trial(x, trial.i)
     idx = findall((abs.(gx[1,:]) .>= 32768).|(abs.(gy[1,:]) .>= 32768))
     gx[1,idx] .= NaN
