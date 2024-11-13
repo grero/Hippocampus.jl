@@ -147,7 +147,7 @@ function GazeOnMaze(edata::EyelinkData, udata::UnityData)
     GazeOnMaze(gtime,gaze,fixation, edata.triggers, edata.timestamps, Dict("focal_length"=>50.0,"camera_height"=>2.5))
 end
 
-function MakieCore.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
+function Makie.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
     # 3D scatter plot of all positions
     ax3 = S.Axis3(plots=[S.Scatter(gaze[1,:], gaze[2,:], gaze[3,:]) for gaze in gdata.gaze])
     # TODO: Use the "exploded view here", that is indicate the pillars, as well as the floor
