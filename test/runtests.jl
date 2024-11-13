@@ -19,3 +19,12 @@ using Hippocampus
     markers = [84, 11, 21, 31, 12, 22, 42, 23, 23, 33]
     @test_throws "Inconsistent main markers" Hippocampus.reshape_triggers(markers, timestamps)
 end
+
+@testset "Unity" begin
+    udata = cd(@__DIR__) do 
+        Hippocampus.UnityData("unity_data.csv")
+    end
+    @test size(udata.triggers) == size(udata.timestamps) == (1,3)
+    @test udata.triggers == [16 26 36]
+    @test udata.timestamps ≈ [0.04301112 1.04500456 8.226267400000001]
+end
