@@ -4,6 +4,10 @@ using Rotations
 using Colors
 using CoordinateTransformations
 
+plot_theme = Makie.theme_minimal()
+plot_theme.Axis.xticksvisible = true
+plot_theme.Axis.yticksvisible = true
+
 struct Sprite{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
     points::Vector{T3}
     faces::Vector{TriangleFace{T2}}
