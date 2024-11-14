@@ -1,7 +1,5 @@
-<<<<<<< HEAD
 using Test
 using Hippocampus
-
 
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
@@ -33,7 +31,7 @@ end
 @testset "Ripple markers" begin
     markers = UInt16.([84,12,22,32])
     timestamps = [7.0486, 9.1376, 10.1465, 16.457833333333333]
-    rpdata = Hippocampus.SpatialAnalyses.RippleData(markers,timestamps)
+    rpdata = Hippocampus.RippleData(markers,timestamps)
     @test size(rpdata.triggers) == size(rpdata.timestamps)  == (1,3)
     @test rpdata.triggers == permutedims(markers[2:end]) 
     @test rpdata.timestamps ≈ permutedims(timestamps[2:end])
