@@ -457,7 +457,7 @@ function create_maze(;kvs...)
     bins[:pillar_1][2] = (xbins,ybins,zbins)
     normals[:pillar_1][2] = [0.0, 1.0, 0.0]
 
-    ybins = soft_range(2.5, 7.5,Δb) 
+    ybins = soft_range(2.5, 7.5,Δb)
     x0 = -7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[:pillar_1][3] = (xbins,ybins,zbins)
@@ -626,7 +626,7 @@ function compute_histogram(pos::Matrix{Float64}, xbins,ybins,z0=0.0;Δz=0.1)
         if idx_x > 0 && idx_y > 0
             if z0 - Δz <= z <= z0 + Δz
                 counts[idx_x, idx_y] += 1.0
-                nn += 1.0 
+                nn += 1.0
             end
         end
     end
@@ -639,22 +639,39 @@ function compute_histogram(pos::Matrix{Float64},bins)
     compute_histogram!(counts, pos,bins)
 end
 
-function compute_histogram(pos::Vector{Matrix{Float64}},bins)
+function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing)
     counts = [fill(0.0, length.(bin)) for bin in bins]
-    for _pos in pos
-        compute_histogram!(counts, _pos, bins)
+    if weight === nothing
+        weight = [fill(1.0, size(_pos,2)) for _pos in pos]
+    end
+    for (ii,_pos) in enumerate(pos)
+        compute_histogram!(counts, _pos, bins;weight=weight[ii])
     end
     counts
 end
 
-function compute_histogram!(counts, pos::Matrix{Float64},bins)
+function compute_histogram!(counts, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)))
     qpos = ([pos[i,:] for i in 1:size(pos,1)]...,)
+    w = aweights(weight)
     for (bin,count) in zip(bins,counts)
         # hackish; add one bin to the end
         Δs = [step(b) for b in bin]
-        h = fit(Histogram, qpos, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+        h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
         count .+= h.weights
     end
     counts
+end
+
+function compute_histogram(pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N
+    counts = fill(0.0, length.(bins))
+    compute_histogram!(counts, pos, bins)
+    counts
+end
+
+function compute_histogram!(counts::Array{Float64,3}, pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N
+    qpos = eachcol(pos)
+    Δs = [step(b) for b in bins]
+    h = fit(Histogram, qpos, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+    count .+= h.weights
 end
 
