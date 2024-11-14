@@ -1,6 +1,29 @@
 using Eyelink
 using Makie
 
+function zerounless(::Type{Eyelink.Event};kwargs...)
+    args = Any[]
+    for k in fieldnames(Eyelink.Event)
+        if k in keys(kwargs)
+            push!(args, kwargs[k])
+        else
+            tt = fieldtype(Eyelink.Event, k)
+            if tt <: Real
+                push!(args, zero(tt))
+            else
+                if tt <: Symbol
+                    push!(args, :none)
+                elseif tt <: String
+                    push!(args, "")
+                else
+                    push!(args, nothing)
+                end
+            end
+        end
+    end
+    Eyelink.Event(args...)
+end
+
 struct EyelinkData
     triggers::Matrix{Int64}
     timestamps::Matrix{UInt64}
