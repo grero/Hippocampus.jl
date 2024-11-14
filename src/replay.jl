@@ -1,5 +1,6 @@
 using MAT
 using CSV
+using Makie
 using ProgressMeter
 
 struct GazeOnMaze
@@ -170,7 +171,15 @@ end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, gdata::GazeOnMaze)
     # 3D scatter plot of all positions
-    ax3 = S.Axis3(plots=[S.Scatter(gaze[1,:], gaze[2,:], gaze[3,:]) for gaze in gdata.gaze])
+    nn = sum([size(g,2) for g in gdata.gaze])
+    gaze = Vector{Point3f}(undef, nn)
+    offset = 0
+    for (ii,gaze) in enumerate(gdata.gaze)
+        n = size(gaze,2)
+        gaze[offset+1:offset+n] = Point3f.(eachcol(gaze))
+        offset += n
+    end
+    ax3 = S.Axis3(plots=[S.Scatter(gaze)])
     # TODO: Use the "exploded view here", that is indicate the pillars, as well as the floor
     # and ceiling
     S.GridLayout(ax3)
@@ -335,11 +344,13 @@ struct MazeReplayer
     udata::UnityData
 end
 
-function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Float64}=Observable(0.0), trial::Observable{Trial}=Observarble(Trial(1)), kwargs...)
+function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Float64}=Observable(0.0), trial::Observable{Trial}=Observable(Trial(1)), kwargs...)
 
-    visualize!(lscene,mp.mm)
+    visualize!(lscene,mp.mm;show_ceiling=true)
     cc = cameracontrols(lscene.scene)
-    cc.fov[] = 39.6
+    cc.fov[] = 60.0
+    cc.near[] = 0.3
+    cc.far[] = 1000.0
 
     udata = mp.udata
     nt = numtrials(udata)
@@ -357,7 +368,7 @@ function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Fl
         j = searchsortedfirst(tp, _ct)
         px,py,dir = _udt[2:end]
         if 0 < j <= length(tp)
-            pos = Point3f(px[j],py[j], 2.5)
+            pos = Point3f(px[j],py[j], 1.85)
             θ = π*dir[j]/180.0 # convert to radians
             cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
             cc.eyeposition[] = pos
@@ -374,7 +385,7 @@ function show_maze(args...;show_axis=false, kwargs...)
     fig
 end
 
-function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Observable{Int64}=Observable(1),offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true,posters=nothing) where T <: Real
+function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},Nothing}=nothing,normals::Union{Dict{Symbol,Vector{Vector{Float64}}},Nothing}=nothing;explore=false, replay=false, interactive=false, gdata::Union{Nothing, GazeOnMaze}=nothing, udata::Union{Nothing, UnityData}=nothing, trial::Observable{Int64}=Observable(1),trialtime::Observable{Float64} = Observable(0.0), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing,show_ceiling=true,posters=nothing) where T <: Real
     #ax = Axis3(fig[1,1],aspect=:data)
     for k in keys(bins)
         for (i,bin) in enumerate(bins[k])
@@ -438,13 +449,38 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
             return Float64[], fill(0.0, 3, 0), Float64[]
         end
     end
+
+    gdata_trial = lift(trial) do _trial
+        if gdata !== nothing
+            return gdata.time[_trial], gdata.gaze[_trial],gdata.fixation[_trial]
+        else
+            return Float64[], fill(0.0, 3, 0), Bool[]
+        end
+    end
     
     position = lift(udata_trial) do _udata
         [Point3f(pos[1], pos[2], 0.5) for pos in eachcol(_udata[2])]
     end
 
-    lookat = Point3f(1.0, 0.0, 2.5)
     ii = Observable(1)
+
+    gaze_pos = Observable([Point3f(NaN)])
+    current_j = 1
+
+    current_gaze = lift(ii) do i
+        tp = udata_trial[][1]
+        tg = gdata_trial[][1] 
+        gaze = gdata_trial[][2]
+        fixmask = gdata_trial[][3]
+        j = searchsortedfirst(tg, tp[i]) 
+        _fixmask = fixmask[current_j:j]
+        _current_j = current_j
+        current_j = j
+        Point3f.(eachcol(gaze[:,_current_j:j][:,_fixmask]))
+    end
+
+    
+    lookat = Point3f(1.0, 0.0, 2.5)
     on(events(lscene.scene).scroll, priority=20) do (dx,dy)
         i_new = round(Int64,ii[] + 5*dx)
         if 0 < i_new <= length(position[])
@@ -456,7 +492,7 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         # replay experiment with the supplied position
         #cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
         cc = cameracontrols(lscene.scene)
-        cc.fov[] = 39.6
+        cc.fov[] = 60.0 
         if gdata !== nothing
             tg,gaze,fixmask = (gdata.time[trial[]], gdata.gaze[trial[]],gdata.fixation[trial[]])
             tg .-= tg[1]
@@ -465,8 +501,7 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         #tp,posx,posy,head_direction = get_trial(udata,trial[])
         #tp .-= tp[1]
         #position = permutedims([posx posy])
-        gaze_pos = Observable([Point3f(NaN)])
-        current_j = 1
+        
 
         on(ii) do i
             # grab the points 
@@ -478,10 +513,10 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
             # only use fixation points
             #gaze_pos[] = [Point3f(dropdims(mean(gaze[:,current_j+1:j][:,_fixmask],dims=2),dims=2))]
             if gdata !== nothing
+                _fixmask = fixmask[current_j:j]
                 j = searchsortedfirst(tg, _tp)
                 gaze_pos[] = Point3f.(eachcol(gaze[:,current_j:j][:,_fixmask]))
                 current_j = j
-                _fixmask = fixmask[current_j:j]
             end
             cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
             cc.eyeposition[] = pos
@@ -490,7 +525,7 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
         scatter!(lscene, gaze_pos, color=:red)
 
         if !interactive
-            @async for j in 1:length(tp)
+            @async for j in 1:length(udata_trial[][1])
                 ii[] = j
                 yield()
                 sleep(0.03)
@@ -530,12 +565,12 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
             end
         end
     else
-        if gdata !== nothing
-            tg,gaze,fixmask = (gdata.time[trial[]], gdata.gaze[trial[]],gdata.fixation[trial[]])
-            scatter!(lscene, gaze[1,fixmask], gaze[2,fixmask], gaze[3,fixmask],color=:red)
-        end
+        #if gdata !== nothing
+        #   tg,gaze,fixmask = (gdata.time[trial[]], gdata.gaze[trial[]],gdata.fixation[trial[]])
+        #   scatter!(lscene, gaze[1,fixmask], gaze[2,fixmask], gaze[3,fixmask],color=:red)
+        #end
+        
         # show current position
-        ii = Observable(1)
         current_pos = lift(ii) do i
             if udata !== nothing
                 pos = position[][i]
@@ -556,10 +591,13 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
        
         lines!(lscene, position,color=:black)
         scatter!(lscene, current_pos, color=:blue)
+        scatter!(lscene, current_gaze, color=:black)
         arrows!(lscene, current_pos, current_dir,color=:blue)
     end
 end
 
+# these are the types we can visualize
+Visualizables = Union{MazeModel, UnityData}
 
 # TODO: It would be more elegant to make use of Makie recipe here
 
@@ -584,19 +622,21 @@ function visualize(objects;kwargs...)
     current_trial = Observable(Trial(1))
     on(events(fig.scene).keyboardbutton, priority=20) do event
         has_changed = false
+        nc = current_trial[].i
         if ispressed(fig.scene, Keyboard.up)
-            current_trial[] = Trial(current_trial[].i+1)
+            nc += 1
             # TODO: Is there a meaninful way to check whether we have reached the end here?
             has_changed = true
         elseif ispressed(fig.scene, Keyboard.down)
-            nc  = current_trial[].i+1
-            if nc > 0
-                current_trial[] = Trial(nc)
+            nc  = current_trial[].i
+            if nc-1 > 0
                 has_changed = true
+                nc -= 1
             end
         end
         if has_changed
             current_time[] = 0.0
+            current_trial[] = Trial(nc)
         end
     end
     visualize(fig, objects;current_time=current_time, trial=current_trial, kwargs...)
@@ -619,9 +659,10 @@ function visualize(fig::Figure, objects::Tuple{Any, Vararg{Any}};AxisType=LScene
     visualize!(scenes, objects;kwargs...)
 end
 
-function visualize(fig::Figure, objects::Vector{Any};AxisType=[LScene for _ in length(objects)],kwargs...)
+function visualize(fig::Figure, objects::Vector;AxisType=[LScene for _ in length(objects)],kwargs...)
     scenes = Any[]
     lg = GridLayout(fig[1,1])
+    pobjects = Any[]
     for (i,(obj,_AxisType)) in enumerate(zip(objects,AxisType))
         if isa(obj, Tuple)
             n = length(obj)
@@ -630,12 +671,19 @@ function visualize(fig::Figure, objects::Vector{Any};AxisType=[LScene for _ in l
         end
         if isa(_AxisType, NTuple{n,Any})
             lscene = [create_axis(_AT, lg[1,i];kwargs...) for _AT in _AxisType]
+            push!(scenes, lscene)
+            push!(pobjects, obj)
         else
             lscene = create_axis(_AxisType, lg[1,i];kwargs...)
+            if n > 1
+                for j in 1:n
+                    push!(scenes, lscene)
+                    push!(pobjects, obj[j])
+                end
+            end
         end
-        push!(scenes, lscene)
     end
-    for (objs,scene) in zip(objects, scenes)
+    for (objs,scene) in zip(pobjects, scenes)
         @show typeof(objs) typeof(scene)
         visualize!(scene, objs;kwargs...)
     end
@@ -683,6 +731,17 @@ function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::GazeOnMaz
     ViewRepresentation(position, events)
 end
 
+function ViewRepresentation(;kwrgas...)
+    gdata = cd(DPHT.process_level(GazeOnMaze)) do
+        GazeOnMaze()
+    end
+    rp = cd(DPHT.process_level(RippleData)) do
+        RippleData()
+    end
+    sp = Spiketrain()
+    ViewRepresentation(sp,rp,gdata)
+end
+
 numtrials(vrp::ViewRepresentation) = length(vrp.position)
 
 function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Observable(Trial(1)),kwargs...)
@@ -697,11 +756,39 @@ function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Obs
     scatter!(lscene, gaze_pos, color=:green)
 end
 
-struct ViewMap{T<:Real}
-    xbins::AbstractVector{T}
-    ybins::AbstractVector{T}
-    zbins::AbstractVector{T}
-    weights::Array{T,3}
+struct ViewOccupancy
+    counts::Dict
+    bins::Dict
+    mm::MazeModel
+end
+
+DPHT.level(::Type{ViewOccupancy}) = "session"
+
+function ViewOccupancy(gdata::GazeOnMaze, mm::MazeModel)
+    counts,bins = compute_histogram(gdata,mm)
+    ViewOccupancy(counts,bins, mm)
+end
+
+function ViewOccupancy()
+    mm = MazeModel()
+    gdata = GazeOnMaze()
+    ViewOccupancy(gdata,mm)
+end
+
+function Makie.convert_arguments(voc::ViewOccupancy, mm::MazeModel)
+end
+
+function visualize!(lscene, voc::ViewOccupancy;kwargs...)
+    colors = get_maze_colors(voc.mm,voc.counts)
+    visualize!(lscene, voc.mm;color=colors,kwargs...)
+end
+
+
+struct ViewMap
+    counts::Dict
+    bins::Dict
+    occupancy::Dict
+    mm::MazeModel
 end
 
 function ViewMap(vrp::ViewRepresentation, xbins::AbstractVector{T}, ybins::AbstractVector{T}, zbins::AbstractVector{T}) where T <: Real
@@ -716,4 +803,49 @@ function ViewMap(vrp::ViewRepresentation, xbins::AbstractVector{T}, ybins::Abstr
         view_count .+= h.weights
     end
     ViewMap(xbins,ybins, zbins, view_count)
+end
+
+function ViewMap(vrp::ViewRepresentation, mm::MazeModel, voc::ViewOccupancy)
+    bins = get_bins(mm)
+    # convert to matrix
+    gaze_pos = Vector{Matrix{Float64}}(undef, length(vrp.position))
+    for (ii,pos) in enumerate(vrp.position)
+        gaze_pos[ii] = fill(0.0, 3, length(pos))
+        for (jj,p) in enumerate(pos)
+            gaze_pos[ii][:,jj] = p
+        end
+    end
+    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
+    for k in keys(bins)
+        counts[k] = compute_histogram(gaze_pos,bins[k])
+    end
+    ViewMap(counts, bins, voc.counts, mm)
+end
+
+function ViewMap(;kwargs...)
+    mm = MazeModel()
+    voc = cd(DPHT.process_level(ViewOccupancy)) do
+        ViewOccupancy()
+    end
+    vrp = ViewRepresentation()
+    ViewMap(vrp, mm,voc)
+end
+
+function visualize!(lscene, vm::ViewMap;normalize=true, kwargs...)
+    # normalize each component in vm.counts
+    if normalize
+        ncounts = typeof(vm.counts)()
+        for k in keys(vm.counts)
+            cc = vm.counts[k]
+            ncounts[k] = Vector{Array{Float64,3}}(undef, length(cc))
+            for ii in 1:length(cc)
+                ncounts[k][ii] = cc[ii]./vm.occupancy[k][ii]
+            end
+        end
+    else
+        ncounts = vm.counts
+    end
+    colors = get_maze_colors(vm.mm,ncounts)
+    @show typeof(colors[:ceiling]), typeof(colors[:floor])
+    visualize!(lscene, vm.mm;color=colors,kwargs...)
 end
