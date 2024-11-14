@@ -10,6 +10,14 @@ struct MountainSortResult{T<:Real}
     firing::Matrix{Float64}
 end
 
+function process_sorting(mda_file::String)
+    ndata = NeuralData(mda_file)
+    mdata = cd(dirname(mda_file)) do
+        MountainSortResult()
+    end
+    mdata,ndata
+end
+
 function discard_templates(mdata::MountainSortResult, cidx)
     func = (!).(in(cidx))
     keep = setdiff(1:size(mdata.templates,3), cidx)
@@ -23,6 +31,11 @@ function discard_templates(mdata::MountainSortResult, cidx)
     new_templates = mdata.templates[:,:,keep]
     MountainSortResult(new_templates, new_firing)
 
+end
+
+function keep_templates(mdata::MountainSortResult, cidx)
+    to_discard = setdiff(1:size(mdata.templates,3), cidx)
+    discard_templates(mdata, to_discard)
 end
 
 function merge_templates(mdata::MountainSortResult, cidx)
@@ -364,4 +377,11 @@ function Makie.convert_arguments(::Type{<:Plot{plot}}, x::MountainSortResult, y:
 
     ax4 = S.Axis(plots=[S.Lines(bins, counts[i];color=colors[i]) for i in 1:length(counts)];xlabel="Inter-spike-interval [s]")
     return S.GridLayout([S.GridLayout(axes) S.GridLayout(ax3,ax4;rowsizes=[Relative(0.7), Relative(0.3)])];colsizes=[Relative(0.3), Relative(0.7)])
+end
+
+function inspect_sorting(mda_file::String)
+    mdata,ndata = process_sorting(mda_file)
+    with_theme(theme_dark()) do
+        fig = plot(mdata, ndata)
+    end
 end

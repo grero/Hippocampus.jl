@@ -1,7 +1,6 @@
 using Test
 using Hippocampus
 
-
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
     timestamps = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
@@ -27,4 +26,27 @@ end
     @test size(udata.triggers) == size(udata.timestamps) == (1,3)
     @test udata.triggers == [16 26 36]
     @test udata.timestamps ≈ [0.04301112 1.04500456 8.226267400000001]
+
+    # test soft_range
+    rr = Hippocampus.soft_range(0.0, 3.1, 1.1)
+    @test step(rr) ≈ 1.0333333333333334
+end
+
+@testset "Ripple markers" begin
+    markers = UInt16.([84,12,22,32])
+    timestamps = [7.0486, 9.1376, 10.1465, 16.457833333333333]
+    rpdata = Hippocampus.RippleData(markers,timestamps)
+    @test size(rpdata.triggers) == size(rpdata.timestamps)  == (1,3)
+    @test rpdata.triggers == permutedims(markers[2:end]) 
+    @test rpdata.timestamps ≈ permutedims(timestamps[2:end])
+end
+
+@testset "Eyelink" begin
+    ee0 = Hippocampus.zerounless(Hippocampus.Eyelink.Event,message="Start Trial 11",sttime=zero(UInt32))
+    @test ee0.message == "Start Trial 11"
+    @test ee0.sttime == zero(UInt32)
+    ee1 = Hippocampus.zerounless(Hippocampus.Eyelink.Event,message="Cue Offset 21",sttime=UInt32(1000))
+    ee2 = Hippocampus.zerounless(Hippocampus.Eyelink.Event,message="End Trial 31",sttime=UInt32(50000))
+    messages = [ee0,ee1,ee2]
+    trial_markers, trial_timestamps = Hippocampus.get_markers(messages)
 end

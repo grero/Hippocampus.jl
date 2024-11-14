@@ -3,6 +3,7 @@ using Colors
 using Meshes
 using LinearAlgebra
 using DelimitedFiles
+using FileIO
 
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
 zBound = [12.5, 12.5, -12.5, -12.5, 12.5]
@@ -106,7 +107,7 @@ the first 14 rows contain header information
 """
 function read_unity_file(fname::String;header_rows=14)
     # TODO: Return the config as well
-    column_names = ["marker","Δt","xpos","ypos","direction"]  
+    column_names = ["marker","Δt","xpos","ypos","direction"]
     data = readdlm(fname, ' ', skipstart=header_rows) 
     # check if first column should be skipped
     if size(data,2) == 6 # should only be 5 columns
@@ -138,7 +139,7 @@ function angle2arrow(a::Float64)
     cos(θ), sin(θ)
 end
 
-function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), kwargs...)
+function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=true, kwargs...)
     _ntrials = numtrials(udata)
     udata_trial = lift(trial) do _trial
         if 0 < _trial.i <= _ntrials
@@ -172,7 +173,10 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
             current_head_direction[] = [Point3f(aa...,0.0)]
         end
     end
-
+    if show_maze
+        mm = MazeModel()
+        visualize!(lscene,mm;kwargs...)
+    end
     lines!(lscene, position, color=:black)
     scatter!(lscene, current_pos, color=:blue)
     arrows!(lscene, current_pos, current_head_direction, color=:blue)
@@ -193,6 +197,11 @@ function plot_arena!(ax)
     poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
 end
 
+"""
+    soft_range(start::T, stop::T,step::T) where T <: Real
+
+Range where the step is adjusted to match the start and stop
+"""
 function soft_range(start::T, stop::T,step::T) where T <: Real
     nn = round(Int64,(start-stop)/step)
     Δ = (start-stop)/nn
@@ -237,7 +246,7 @@ function get_maze_colors(mm::MazeModel)
     colors[:walls] = fill(RGB(0.3f0, 0.21470589f0, 0.21470589f0), 4)
     colors[:floor] = to_color(:gray)
     colors[:ceiling] = to_color(:gray)
-    colors[:pillars] = to_color.([:yellow, :red, :blue, :green])
+    colors[:pillars] = [[to_color(c) for _ in  1:length(mm.pillars[i])] for (i,c) in enumerate([:yellow, :red, :blue, :green])]
     colors
 end
 
@@ -337,38 +346,52 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, kwargs...)
-    #floor
-    bin = mm.floor.bins
-    m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-    #hackish
-    # only do this if color[:floor] is a vector of something
-    if typeof(color[:floor]) <: AbstractVector
-        _color = color[:floor][1][:]
-    else
-        _color = color[:floor]
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, kwargs...)
+    if show_floor
+        #floor
+        bin = mm.floor.bins
+        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+        #hackish
+        # only do this if color[:floor] is a vector of something
+        if typeof(color[:floor]) <: AbstractVector
+            _color = color[:floor][1][:]
+        else
+            _color = color[:floor]
+        end
+        viz!(lscene, m, color=_color,colormap=:Blues)
     end
-    viz!(lscene, m, color=_color,colormap=:Blues) 
 
     if show_ceiling
+        if typeof(color[:ceiling]) <: AbstractVector
+            _color = color[:ceiling][1][:]
+        else
+            _color = color[:ceiling]
+        end
         bin = mm.ceiling.bins
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        viz!(lscene, m, color=color[:ceiling],colormap=:Blues) 
+        if offsets !== nothing && :ceiling in keys(offsets)
+            m = Translate(offsets[:ceiling][1]...)(m)
+        end
+        viz!(lscene, m, color=_color,colormap=:Blues)
     end
-    
+
     #pillars
-    for (oms,ccs) in zip(mm.pillars,color[:pillars])
-        for (om,cc) in zip(oms,ccs)
-            bin = om.bins
-            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-            viz!(lscene, m, color=cc,colormap=:Blues) 
+    if show_pillars
+        for (oms,ccs) in zip(mm.pillars,color[:pillars])
+            for (om,cc) in zip(oms,ccs)
+                bin = om.bins
+                m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+                viz!(lscene, m, color=cc,colormap=:Blues)
+            end
         end
     end
-    #walls
-    for (ii,om) in enumerate(mm.walls)
-        bin = om.bins
-        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        viz!(lscene, m, color=color[:walls][ii],colormap=:Blues) 
+    if show_walls
+        #walls
+        for (ii,om) in enumerate(mm.walls)
+            bin = om.bins
+            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+            viz!(lscene, m, color=color[:walls][ii],colormap=:Blues)
+        end
     end
 end
 
@@ -380,8 +403,8 @@ function Posters(img_files::Vector{String}, position, mm::MazeModel)
     wall_pillar_idx = assign_posters(mm,position)
     wall_idx = wall_pillar_idx.pillar_wall_idx
     pillar_idx = wall_pillar_idx.pillar_idx
-    rot = LinearMap(RotX(3π/2))   
-    images = [load(f) for f in img_files] 
+    rot = LinearMap(RotX(3π/2))
+    images = [load(f) for f in img_files]
     # hack just to figure out the type
     sp = sprite(images[1], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
 
@@ -439,7 +462,7 @@ function create_maze(;kvs...)
     bins[:pillar_1][2] = (xbins,ybins,zbins)
     normals[:pillar_1][2] = [0.0, 1.0, 0.0]
 
-    ybins = soft_range(2.5, 7.5,Δb) 
+    ybins = soft_range(2.5, 7.5,Δb)
     x0 = -7.5
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[:pillar_1][3] = (xbins,ybins,zbins)
@@ -608,7 +631,7 @@ function compute_histogram(pos::Matrix{Float64}, xbins,ybins,z0=0.0;Δz=0.1)
         if idx_x > 0 && idx_y > 0
             if z0 - Δz <= z <= z0 + Δz
                 counts[idx_x, idx_y] += 1.0
-                nn += 1.0 
+                nn += 1.0
             end
         end
     end
@@ -621,22 +644,39 @@ function compute_histogram(pos::Matrix{Float64},bins)
     compute_histogram!(counts, pos,bins)
 end
 
-function compute_histogram(pos::Vector{Matrix{Float64}},bins)
+function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing)
     counts = [fill(0.0, length.(bin)) for bin in bins]
-    for _pos in pos
-        compute_histogram!(counts, _pos, bins)
+    if weight === nothing
+        weight = [fill(1.0, size(_pos,2)) for _pos in pos]
+    end
+    for (ii,_pos) in enumerate(pos)
+        compute_histogram!(counts, _pos, bins;weight=weight[ii])
     end
     counts
 end
 
-function compute_histogram!(counts, pos::Matrix{Float64},bins)
+function compute_histogram!(counts, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)))
     qpos = ([pos[i,:] for i in 1:size(pos,1)]...,)
+    w = aweights(weight)
     for (bin,count) in zip(bins,counts)
         # hackish; add one bin to the end
         Δs = [step(b) for b in bin]
-        h = fit(Histogram, qpos, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+        h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
         count .+= h.weights
     end
     counts
+end
+
+function compute_histogram(pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N
+    counts = fill(0.0, length.(bins))
+    compute_histogram!(counts, pos, bins)
+    counts
+end
+
+function compute_histogram!(counts::Array{Float64,3}, pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N
+    qpos = eachcol(pos)
+    Δs = [step(b) for b in bins]
+    h = fit(Histogram, qpos, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+    count .+= h.weights
 end
 
