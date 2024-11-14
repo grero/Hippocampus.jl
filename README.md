@@ -4,4 +4,15 @@
 
 Various codes to analyze hippocampus data
 
+## Spatial coding analysis in julia
+
+### Installation
+Add the NeuralCoding repository
+
+```julia
+using Pkg
+Pkg.add_repository(RegistrySpec(url = "https://github.com/grero/NeuralCodingRegistry.git"))
+Pkg.add("Hippocampus")
+```
+
 ## Usage
