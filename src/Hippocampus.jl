@@ -6,6 +6,7 @@ using DataProcessingHierarchyTools
 const DPHT = DataProcessingHierarchyTools
 include("utils.jl")
 include("sprites.jl")
+include("neuropixels.jl")
 include("eyelink.jl")
 include("rawdata.jl")
 include("spikedata.jl")
