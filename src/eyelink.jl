@@ -1,5 +1,6 @@
 using Eyelink
 using Makie
+
 struct EyelinkData
     triggers::Matrix{Int64}
     timestamps::Matrix{UInt64}
@@ -15,6 +16,8 @@ struct EyelinkData
     header::Dict
 end
 
+numtrials(x::EyelinkData) = size(x.triggers,1)
+
 function Base.show(io::IO, x::EyelinkData)
     n = length(x.analogtime)
     m = length(x.saccade_start_time)
@@ -25,102 +28,137 @@ end
 DPHT.filename(::Type{EyelinkData}) = "eyelink.mat"
 DPHT.level(::Type{EyelinkData}) = "day"
 
-function EyelinkData(;kwargs...)
-    edffiles = glob("*.edf")
-    if isempty(edffiles)
-        error("No EDF files found")
+function DPHT.load(::Type{EyelinkData}, fname::String)
+    qdata = MAT.matread(fname)
+    if "metadata" in keys(qdata)
+        meta = qdata["metadata"]
     end
-    EyelinkData(first(edffiles);kwargs...)
+    EyelinkData(qdata)
 end
 
-function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
-    outfile = DPHT.filename(EyelinkData)
-    if isfile(outfile) && !redo
-        qdata = MAT.matread(outfile)
-        meta = qdata["metadata"]
-        # TODO: Check code version here
-    else
-        eyelinkdata = Eyelink.load(fname)
-        header = Dict()
-        #get gaze coordinates
-        for ee in eyelinkdata.events
-            if ee.eventtype == :messageevent
-                if startswith(ee.message, "GAZE_COORDS")
-                    qs = split(ee.message)
-                    gaze_coords = parse.(Float64, qs[2:end])
-                    header["gaze_coords"] = gaze_coords
-                    break
-                end
-            end
-        end
-        # figure out which eye we are recording from
-        min_gaze_value = minimum(eyelinkdata.samples.gx,dims=2)
-        eye_recorded = fill(true,2)
-        for k in [1,2]
-            if all(min_gaze_value[k] == typemin(Int16))
-                eye_recorded[k] = false
-            end
-        end
-        header["eye_recorded"] = findall(eye_recorded)
-        screen_height = header["gaze_coords"][4]
-        # process fixation events
-        fixations = filter(ee->ee.eventtype==:endfix, eyelinkdata.events)
-        nfix = length(fixations)
-        fixation_start = Vector{UInt64}(undef, nfix)
-        fixation_end = Vector{UInt64}(undef, nfix)
-        for (i,fixation) in enumerate(fixations)
-            fixation_start[i] = fixation.sttime
-            fixation_end[i] = fixation.entime
-        end
-        #process saccade events
-        saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
-        nsacc = length(saccades)
-        saccade_start_time = Vector{UInt64}(undef, nsacc)
-        saccade_end_time = Vector{UInt64}(undef, nsacc)
-        saccade_start_pos = Matrix{Float32}(undef, 2, nsacc)
-        saccade_end_pos = Matrix{Float32}(undef, 2, nsacc)
+function DPHT.save(edata::EyelinkData)
+    fname = DPHT.filename(EyelinkData)
+    qdata = convert(Dict{String,Any}, edata)
+    MAT.matwrite(fname, qdata)
+end
 
-        for (i,saccade) in enumerate(saccades)
-            saccade_start_time[i] = saccade.sttime
-            saccade_end_time[i] = saccade.entime
-            saccade_start_pos[:,i] = [saccade.gstx, screen_height-saccade.gsty]
-            saccade_end_pos[:,i] = [saccade.genx, screen_height-saccade.geny]
-        end
-
-        # get the messages
-        messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
-
-        triggers = Int64[]
-        timestamps = UInt64[]
-        for msg in messages
-            if startswith(msg.message, "Start Trial") ||
-            startswith(msg.message, "End Trial") || 
-            startswith(msg.message, "Cue Offset") ||
-            startswith(msg.message, "Timeout")
-                    trigger = parse(Int64, split(msg.message)[end])
-                    push!(triggers, trigger)
-                    push!(timestamps, msg.sttime)
-            end
-        end
-        trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
-        meta = Dict{String,Any}()
-        tag!(meta;storepatch=true)
-        qdata = Dict{String,Any}()
-        merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
-                "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "fixation_start"=>fixation_start,
-                "fixation_end"=>fixation_end, "saccade_start_time"=>saccade_start_time,
-                "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
-        qdata["metadata"] = meta
-        qdata["header"] = header 
-        if do_save
-            MAT.matwrite(outfile, qdata)
-        end
-    end
+function EyelinkData(qdata::Dict)
     args = Any[]
     for k in fieldnames(EyelinkData)
         push!(args, qdata[string(k)])
     end
     EyelinkData(args...)
+end
+
+function EyelinkData(;do_save=true,redo=false)
+    outfile = DPHT.filename(EyelinkData)
+    if !redo && isfile(outfile)
+        return DPHT.load(EyelinkData, outfile)
+    end
+
+    # create the object
+    edffiles = glob("*.edf")
+    if isempty(edffiles)
+        error("No EDF files found")
+    end
+    edata = EyelinkData(first(edffiles))
+    if do_save
+        DPHT.save(edata)
+    end
+    edata
+end
+
+function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
+    eyelinkdata = Eyelink.load(fname)
+    header = Dict()
+    #get gaze coordinates
+    for ee in eyelinkdata.events
+        if ee.eventtype == :messageevent
+            if startswith(ee.message, "GAZE_COORDS")
+                qs = split(ee.message)
+                gaze_coords = parse.(Float64, qs[2:end])
+                header["gaze_coords"] = gaze_coords
+                break
+            end
+        end
+    end
+    # figure out which eye we are recording from
+    min_gaze_value = minimum(eyelinkdata.samples.gx,dims=2)
+    eye_recorded = fill(true,2)
+    for k in [1,2]
+        if all(min_gaze_value[k] == typemin(Int16))
+            eye_recorded[k] = false
+        end
+    end
+    header["eye_recorded"] = findall(eye_recorded)
+    screen_height = header["gaze_coords"][4]
+    # process fixation events
+    fixations = filter(ee->ee.eventtype==:endfix, eyelinkdata.events)
+    nfix = length(fixations)
+    fixation_start = Vector{UInt64}(undef, nfix)
+    fixation_end = Vector{UInt64}(undef, nfix)
+    for (i,fixation) in enumerate(fixations)
+        fixation_start[i] = fixation.sttime
+        fixation_end[i] = fixation.entime
+    end
+    #process saccade events
+    saccades = filter(ee->ee.eventtype==:endsacc, eyelinkdata.events)
+    nsacc = length(saccades)
+    saccade_start_time = Vector{UInt64}(undef, nsacc)
+    saccade_end_time = Vector{UInt64}(undef, nsacc)
+    saccade_start_pos = Matrix{Float32}(undef, 2, nsacc)
+    saccade_end_pos = Matrix{Float32}(undef, 2, nsacc)
+
+    for (i,saccade) in enumerate(saccades)
+        saccade_start_time[i] = saccade.sttime
+        saccade_end_time[i] = saccade.entime
+        saccade_start_pos[:,i] = [saccade.gstx, screen_height-saccade.gsty]
+        saccade_end_pos[:,i] = [saccade.genx, screen_height-saccade.geny]
+    end
+
+    # get the messages
+    messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
+
+    triggers = Int64[]
+    timestamps = UInt64[]
+    for msg in messages
+        if startswith(msg.message, "Start Trial") ||
+        startswith(msg.message, "End Trial") ||
+        startswith(msg.message, "Cue Offset") ||
+        startswith(msg.message, "Timeout")
+                trigger = parse(Int64, split(msg.message)[end])
+                push!(triggers, trigger)
+                push!(timestamps, msg.sttime)
+        end
+    end
+    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+    qdata = Dict{String,Any}()
+    merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
+            "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "fixation_start"=>fixation_start,
+            "fixation_end"=>fixation_end, "saccade_start_time"=>saccade_start_time,
+            "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
+    qdata["header"] = header
+    EyelinkData(qdata)
+end
+
+function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
+    qdata = Dict{String,Any}()
+    qdata["triggers"] = edata.triggers
+    qdata["timestamps"] = edata.timestamps
+    qdata["analogtime"] = edata.analogtime
+    qdata["gazex"] = edata.gazex
+    qdata["gazey"] = edata.gazey
+    qdata["fixation_start"] = edata.fixation_start
+    qdata["fixation_end"] = edata.fixation_end
+    qdata["saccade_start_time"] = edata.saccade_start_time
+    qdata["saccade_end_time"] = edata.saccade_end_time
+    qdata["saccade_start_pos"] = edata.saccade_start_pos
+    qdata["saccade_end_pos"] = edata.saccade_end_pos
+    qdata["header"] = edata.header
+    meta = Dict{String,Any}()
+    tag!(meta;storepatch=true)
+    qdata["metadata"] = meta
+    qdata
 end
 
 function get_trial(edata::EyelinkData, i)
@@ -149,7 +187,7 @@ function get_trial(edata::EyelinkData, i)
     trial_time, gx, gy,fixation_mask
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData) 
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData)
     gx = x.gazex[1,:]
     gy = x.gazey[1,:]
     idx = findall((abs.(gx) .>= 32768).|(abs.(gy) .>= 32768))
@@ -167,8 +205,8 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData, trial::
     PlotSpec(Lines, gx[1,:], gy[1,:])
 end
 
-function visualize!(ax, edata::EyelinkData;trial::Observable{Trial}=Observable{Trial(1)},current_time::Observable{Float64}=Observable(0.0))
-   
+function visualize!(ax::Makie.Block, edata::EyelinkData;trial::Observable{Trial}=Observable(Trial(1)),current_time::Observable{Float64}=Observable(0.0),kwargs...)
+
     edata_trial = lift(trial) do _trial
         te, gx, gy,fixmask = get_trial(edata, _trial.i)
     end
