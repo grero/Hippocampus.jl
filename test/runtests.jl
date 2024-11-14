@@ -26,6 +26,10 @@ end
     @test size(udata.triggers) == size(udata.timestamps) == (1,3)
     @test udata.triggers == [16 26 36]
     @test udata.timestamps ≈ [0.04301112 1.04500456 8.226267400000001]
+
+    # test soft_range
+    rr = Hippocampus.soft_range(0.0, 3.1, 1.1)
+    @test step(rr) ≈ 1.0333333333333334
 end
 
 @testset "Ripple markers" begin
