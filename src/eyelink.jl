@@ -91,6 +91,27 @@ function EyelinkData(;do_save=true,redo=false)
     edata
 end
 
+"""
+    get_markers(messages::Vector{Eyelink.Event})
+
+Extract trial markers from Eyelink message events.
+"""
+function get_markers(messages::Vector{Eyelink.Event})
+    triggers = Int64[]
+    timestamps = UInt64[]
+    for msg in messages
+        if startswith(msg.message, "Start Trial") ||
+        startswith(msg.message, "End Trial") ||
+        startswith(msg.message, "Cue Offset") ||
+        startswith(msg.message, "Timeout")
+                trigger = parse(Int64, split(msg.message)[end])
+                push!(triggers, trigger)
+                push!(timestamps, msg.sttime)
+        end
+    end
+    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+end
+
 function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     eyelinkdata = Eyelink.load(fname)
     header = Dict()
@@ -142,19 +163,7 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     # get the messages
     messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
 
-    triggers = Int64[]
-    timestamps = UInt64[]
-    for msg in messages
-        if startswith(msg.message, "Start Trial") ||
-        startswith(msg.message, "End Trial") ||
-        startswith(msg.message, "Cue Offset") ||
-        startswith(msg.message, "Timeout")
-                trigger = parse(Int64, split(msg.message)[end])
-                push!(triggers, trigger)
-                push!(timestamps, msg.sttime)
-        end
-    end
-    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+    trial_markers, trial_timestamps = get_markers(messages)
     qdata = Dict{String,Any}()
     merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
             "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "fixation_start"=>fixation_start,
