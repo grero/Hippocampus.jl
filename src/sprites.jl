@@ -12,6 +12,11 @@ struct Sprite{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
     img::Matrix{T}
 end
 
+"""
+    (tt::CoordinateTransformations.LinearMap{T})(sp::Sprite) where T <: Rotation
+
+Apply rotation to `sprite`.
+"""
 function (tt::CoordinateTransformations.LinearMap{T})(sp::Sprite) where T <: Rotation
     mp = mean(sp.points)
     new_points = tt.(sp.points .- mp)
