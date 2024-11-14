@@ -27,6 +27,14 @@ end
     @test udata.triggers == [16 26 36]
     @test udata.timestamps ≈ [0.04301112 1.04500456 8.226267400000001]
 
+    tt,pp1,pp2, hh = Hippocampus.get_trial(udata, 1)
+    ll = length(tt)
+    @test ll == 207
+    @test tt[[1,ll]] ≈ [0.04301112, 8.226267400000001]
+    @test pp1[[1,ll]] ≈ [-10.0, -1.5189]
+    @test pp2[[1,ll]] ≈ [0.0, -6.0951]
+    @test hh[[1,ll]] ≈ [0.0, 171.2082]
+
     # test soft_range
     rr = Hippocampus.soft_range(0.0, 3.1, 1.1)
     @test step(rr) ≈ 1.0333333333333334
