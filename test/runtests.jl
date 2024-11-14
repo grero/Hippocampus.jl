@@ -36,3 +36,13 @@ end
     @test rpdata.triggers == permutedims(markers[2:end]) 
     @test rpdata.timestamps ≈ permutedims(timestamps[2:end])
 end
+
+@testset "Eyelink" begin
+    ee0 = Hippocampus.zerounless(Hippocampus.Eyelink.Event,message="Start Trial 11",sttime=zero(UInt32))
+    @test ee0.message == "Start Trial 11"
+    @test ee0.sttime == zero(UInt32)
+    ee1 = Hippocampus.zerounless(Hippocampus.Eyelink.Event,message="Cue Offset 21",sttime=UInt32(1000))
+    ee2 = Hippocampus.zerounless(Hippocampus.Eyelink.Event,message="End Trial 31",sttime=UInt32(50000))
+    messages = [ee0,ee1,ee2]
+    trial_markers, trial_timestamps = Hippocampus.get_markers(messages)
+end
