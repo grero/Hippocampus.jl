@@ -28,7 +28,7 @@ struct SpatialPreferenceMap <: AbstractSpatialPreferenceMap
     preference::Matrix{Float64}
 end
 
-struct LFPBandSpatialPreferenceMap <: AbstractSpatialPreferenceMap 
+struct LFPBandSpatialPreferenceMap <: AbstractSpatialPreferenceMap
     xbins::AbstractVector{Float64}
     ybins::AbstractVector{Float64}
     occupancy::Matrix{Float64}
@@ -55,7 +55,7 @@ function Base.show(io::IO, spec::TrialAlignedSpectrogram)
     print(io, "Morlet-based spectrogram")
 end
 
-Base.length(x::TrialAlignedSpectrogram) = length(x.spec) 
+Base.length(x::TrialAlignedSpectrogram) = length(x.spec)
 
 #function Base.show(io,  ::MIME"text/plain", spec::TrialAlignedSpectrogram)
  #   print(io, "Morlet-based spectrogram\n")
@@ -289,7 +289,7 @@ function plot_heatmap(x::Vector{T1}, X::Matrix{T2},M::Integer;t=1:size(X,1),freq
             if do_update
                 #img[] = X[idx:idx+M-1,:]
                 for (_x,_ob) in zip([x,X], obs)
-                    _ob[] = get_time_slice(_x, idx:idx+M-1) 
+                    _ob[] = get_time_slice(_x, idx:idx+M-1)
                 end
                 tt[] = t[idx:idx+M-1]
                 tend[] = [t[idx+M-1]]
@@ -369,14 +369,14 @@ function get_reward_aligned_spectrum(;window=(-500,500), β=1.5, maxfreq=100.0)
     ridx = findall(30 .< data["vp"]["data"]["markers"][:,3] .< 40)
     # reward onsets in units of ms
     reward_onsets = round.(Int64, ceil.(data["vp"]["data"]["timeStamps"][ridx,3]*1000))
-   
+
     #this is probably massively inefficient
 
     # compute wavelet-bases power-spectrum
     n = window[2]-window[1]
     c = wavelet(Morlet(π), averagingType=NoAve(), β=β)
     daughters, ω = computeWavelets(n,c)
-    freqs = getMeanFreq(daughters,fs) 
+    freqs = getMeanFreq(daughters,fs)
 
     # Average reward aligned power spectrum
     P = fill(0.0, 1000, length(freqs))
@@ -384,7 +384,7 @@ function get_reward_aligned_spectrum(;window=(-500,500), β=1.5, maxfreq=100.0)
     P2 = fill(0.0, 1000, length(freqs))
     for onset in reward_onsets
         x = dd[onset+window[1]:onset+window[2]-1]
-        res = cwt(x, c, daughters) 
+        res = cwt(x, c, daughters)
         res_s = cwt(circshift(x, rand(-n+1:n-1)),c,daughters)
         ll = log.(abs.(res))
         ll_s = log.(abs.(res_s))
@@ -454,7 +454,7 @@ end
 
 Align `data` to trials using triggers. Both `t` and `triggers` should be in the same units
 """
-function get_trial_data(data::T4, t::AbstractVector{T2}, triggers::Matrix{T3};pre_buffer=1.0, post_buffer=1.0) where T4 <: VectorOrMatrix{T} where T <: Real where T2 <: Real where T3 <: Real 
+function get_trial_data(data::T4, t::AbstractVector{T2}, triggers::Matrix{T3};pre_buffer=1.0, post_buffer=1.0) where T4 <: VectorOrMatrix{T} where T <: Real where T2 <: Real where T3 <: Real
     ntrials = size(triggers,1)
     aligned_data = Vector{T4}(undef, ntrials)
     aligned_t = Vector{Vector{Float64}}(undef, ntrials)
@@ -479,7 +479,7 @@ function get_trial_data(data::VectorOrMatrix{T}, t::AbstractVector{T2}, triggers
         aligned_data[tidx] = get_time_slice(data,idx0:idx1)
         aligned_t[tidx] = Float64.(t[idx0:idx1]) .- Float64(t[triggers[tidx,1]])
     end
-    aligned_data, aligned_t    
+    aligned_data, aligned_t
 end
 
 function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_data::Matrix{Float32}, unity_triggers::Matrix{T}, lfp_triggers::Matrix{T2}, eyelink_triggers::Matrix{T3};fs=1000.0, β=1.5) where T <: Real where T2 <: Real where T3 <: Real
@@ -497,7 +497,7 @@ function get_trial_data(unity_data::Matrix{T}, lfp_data::Vector{T2}, eyelink_dat
         # unity
         uidx0 = max(round(Int64, unity_triggers[tidx, 1]), -1, 1)
         uidx1 = min(round(Int64, unity_triggers[tidx, 3])+1, nu)
-        pos[tidx] = unity_data[uidx0:uidx1,3:4] 
+        pos[tidx] = unity_data[uidx0:uidx1,3:4]
 
         # eyelink
         uidx0 = max(round(Int64, unity_triggers[tidx, 1]), -1, 1)
@@ -530,13 +530,13 @@ function plot_trial(udata::UnityData, edata::EyelinkData)
         if event.action == Keyboard.press
             do_upate = false
             if event.key == Keyboard.left
-                if trial[] > 0 
-                    trial[] = trial[] - 1 
+                if trial[] > 0
+                    trial[] = trial[] - 1
                     do_update = true
                 end
             elseif event.key == Keyboard.right
-                if trial[] < ntrials 
-                    trial[] = trial[] + 1 
+                if trial[] < ntrials
+                    trial[] = trial[] + 1
                     do_update = true
                 end
             end
@@ -569,7 +569,7 @@ function plot_trial!(ax, edata::EyelinkData, trial::Observable{Int64}, current_t
         te, gazex, gazey = get_trial(edata, trial[])
         te = (te .- te[1])/1000.0 # s
         gazey = gym .- gazey
-        te,gazex, gazey 
+        te,gazex, gazey
     end
 
     tidx_e = lift(current_time) do ct
@@ -602,7 +602,7 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Observable
     xmin,ymin, xmax, ymax = (-13.0, -13.0, 13.0, 13.0)
     room_height = 5.0
     camera_height = 2.5
-    # 
+    #
     screen_width = edata.header["gaze_coords"][3] - edata.header["gaze_coords"][1]
     screen_height = edata.header["gaze_coords"][4] - edata.header["gaze_coords"][2]
     gx0 = edata.header["gaze_coords"][1]
@@ -688,7 +688,7 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Observable
         l0 = 0.0
         dx = 0.01
         while true
-            l0 += dx 
+            l0 += dx
             x0 = pos[1] + l0*cos(θ0)
             y0 = pos[2] + l0*sin(θ0)
             if impacts([x0,y0, 0.0])
@@ -699,7 +699,7 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Observable
 
         l1 = 0.0
         while true
-            l1 += dx 
+            l1 += dx
             x1 = pos[1] + l1*cos(θ1)
             y1 = pos[2] + l1*sin(θ1)
             if impacts([x1,y1, 0.0])
@@ -732,7 +732,7 @@ function plot_trial!(ax, udata::UnityData, edata::EyelinkData, trial::Observable
     #handle scroll event
     on(events(ax).scroll) do (dx,dy)
         tmin,tmax = tlims[]
-        if tmin < current_time[]+dx < tmax 
+        if tmin < current_time[]+dx < tmax
             current_time[] = current_time[] + dx
         end
     end
@@ -775,13 +775,13 @@ function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers:
         if event.action == Keyboard.press
             do_upate = false
             if event.key == Keyboard.left
-                if tidx[] > 0 
-                    tidx[] = tidx[] - 1 
+                if tidx[] > 0
+                    tidx[] = tidx[] - 1
                     do_update = true
                 end
             elseif event.key == Keyboard.right
-                if tidx[] < ntrials 
-                    tidx[] = tidx[] + 1 
+                if tidx[] < ntrials
+                    tidx[] = tidx[] + 1
                     do_update = true
                 end
             end
@@ -803,7 +803,12 @@ function plot_trial(unity_data::Matrix{T}, lfp_data::Vector{T2}, unity_triggers:
     fig
 end
 
-function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Vector{Vector{T}}, spec::Vector{Matrix{ComplexF64}}, freqs::Vector{Vector{T}},t::Vector{Vector{T}};
+function plot_trial(;kvs...)
+    aligned_lfp, aligned_lfp_time, aligned_res, aligned_freqs, aligned_eyepos, aligned_eye_t, aligned_maze_pos, aligned_maze_time = get_trial_data(;kvs...)
+    plot_trial(aligned_maze_pos, aligned_eyepos, aligned_lfp, aligned_res, aligned_freqs, aligned_lfp_time;kvs...)
+end
+
+function plot_trial(pos::Vector{Matrix{T}}, head_direction::Vector{Vector{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Vector{Vector{T}}, spec::Vector{Matrix{ComplexF64}}, freqs::Vector{Vector{T}},t::Vector{Vector{T}};
                                                         arena_size::Union{Nothing, NTuple{4,Float64}}=nothing,max_freq=Inf) where T <: Real where T2 <: Real
     ntrials = length(pos)
     if max_freq < Inf
@@ -822,6 +827,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     tidx = Observable(1)
     fidx = Observable(0)
     p_pos = Observable([Point2f(pos[tidx[]][i,:]...) for i in 1:size(pos[tidx[]],1)])
+    p_dir = Observable(head_direction[tidx[]])
     p_eyepos = Observable([Point2f(eye_pos[tidx[]][i,:]...) for i in 1:size(eye_pos[tidx[]],1)])
 
     p_lfp = Observable([Point2f(_t,_lfp) for (_t,_lfp) in zip(t[tidx[]], lfp[tidx[]])])
@@ -835,6 +841,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     current_time = Observable(p_t[][1])
     current_pos = Observable([Point2f(p_pos[][1])])
     current_eyepos = Observable([Point2f(p_eyepos[][1])])
+    current_direction = Observable([Point2f(cos(p_dir[][1]), sin(p_dir[][1]))])
     current_freq = Observable(NaN)
 
 
@@ -853,8 +860,9 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         ax.ygridvisible = false
         ax.topspinevisible = false
         ax.rightspinevisible = false
-    end
-    # override scroll zoom
+        ax.xrectzoom = true
+        ax.yzoomlock = true
+        # override scroll zoom
         deregister_interaction!(ax, :scrollzoom)
     end
     linkxaxes!(axes...)
@@ -871,10 +879,12 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         else
             qidx = 1:length(_t)
         end
-        p_pos[] =[Point2f(pos[_tidx][i,:]...) for i in 1:size(pos[_tidx],1)] 
-        p_eyepos[] =[Point2f(eye_pos[_tidx][i,:]...) for i in 1:size(eye_pos[_tidx],1)] 
+        p_pos[] =[Point2f(pos[_tidx][i,:]...) for i in 1:size(pos[_tidx],1)]
+        p_dir[] = Observable(head_direction[_tidx[]])
+        p_eyepos[] =[Point2f(eye_pos[_tidx][i,:]...) for i in 1:size(eye_pos[_tidx],1)]
         current_pos[] = [p_pos[][1]]
         current_eyepos[] = [p_eyepos[][1]]
+        current_direction[] = [Point2f(cos(current_direction[][1]), sin(current_direction[][1]))]
         trial_start_unity[] = p_pos[][1:1]
         if fidx[] == 0
             # show entire lfp
@@ -899,7 +909,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         else
             qidx = 1:length(_t)
         end
-        if _fidx > 0 
+        if _fidx > 0
             #TODO: Fix the code dupication between this and the tidx update
             p_phase[] = [Point2f(_t,a) for (_t,a) in zip(t[tidx[]][qidx], angle.(spec[_tidx][qidx,fidx[]]))]
             p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[_tidx][qidx], real.(spec[_tidx][qidx,_fidx]))]
@@ -907,7 +917,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         else
             p_phase[] = fill(Point2f(NaN), length(t[tidx[]]))
             p_lfp[] = [Point2f(_t,_lfp) for (_t,_lfp) in zip(t[_tidx][qidx], real.(lfp[_tidx]))]
-            current_freq[] = NaN 
+            current_freq[] = NaN
         end
         autolimits!(axes[2])
         autolimits!(axes[3])
@@ -921,10 +931,12 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
         n_eyepos = length(p_eyepos[])
         if tmin < current_time[]+dx < tmax
             current_time[] = current_time[] + dx
-            pidx = min(max(1, round(Int64,n_pos*(current_time[]-tmin)/Δt)),n_pos) 
+            pidx = min(max(1, round(Int64,n_pos*(current_time[]-tmin)/Δt)),n_pos)
             current_pos[] = [p_pos[][pidx]]
-            pidx = min(max(1, round(Int64,n_eyepos*(current_time[]-tmin)/Δt)),n_eyepos) 
+            pidx = min(max(1, round(Int64,n_eyepos*(current_time[]-tmin)/Δt)),n_eyepos)
             current_eyepos[] = [p_eyepos[][pidx]]
+            dir = p_dir[][pidx]
+            current_direction[] = [Point2f(cos(dir), sin(dir))]
         end
     end
 
@@ -944,8 +956,8 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
                 if do_scroll
                     handle_scroll(-0.1)
                 else
-                    if tidx[] > 1 
-                        tidx[] = tidx[] - 1 
+                    if tidx[] > 1
+                        tidx[] = tidx[] - 1
                         do_update = true
                     end
                 end
@@ -953,8 +965,8 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
                 if do_scroll
                     handle_scroll(0.1)
                 else
-                    if tidx[] < ntrials 
-                        tidx[] = tidx[] + 1 
+                    if tidx[] < ntrials
+                        tidx[] = tidx[] + 1
                         do_update = true
                     end
                 end
@@ -971,6 +983,7 @@ function plot_trial(pos::Vector{Matrix{T}}, eye_pos::Vector{Matrix{T2}}, lfp::Ve
     lines!(ax2, p_eyepos;color=:lightgray)
     scatter!(ax1, trial_start_unity, color=:red)
     scatter!(ax1, current_pos, color=:green)
+    arrows!(ax1, current_pos, current_direction, color=:black)
     scatter!(ax2, current_eyepos, color=:green)
     h = heatmap!(axes[1], p_t, p_freqs, p_spec)
     vlines!(axes[1], current_time, color=:green)
@@ -1026,13 +1039,13 @@ function pan_through(X::Vector{Matrix{T}};label::Union{Vector{String},Nothing}=n
         if event.action == Keyboard.press
             do_update = false
             if event.key == Keyboard.left
-                if tidx[] > 1 
-                    tidx[] = tidx[] - 1 
+                if tidx[] > 1
+                    tidx[] = tidx[] - 1
                     do_update = true
                 end
             elseif event.key == Keyboard.right
-                if tidx[] < ntrials 
-                    tidx[] = tidx[] + 1 
+                if tidx[] < ntrials
+                    tidx[] = tidx[] + 1
                     do_update = true
                 end
             end
@@ -1059,6 +1072,48 @@ function pan_through(X::Vector{Matrix{T}};label::Union{Vector{String},Nothing}=n
         ax.yticksvisible = false
     end
     tidx[] = 1
+    fig
+end
+
+function plot_phase(phase::Vector{Float64}, t::Vector{Float64})
+    tmin,tmax = extrema(t)
+    fig = Figure()
+    ax = Axis3(fig[1,1])
+     # override scroll zoom
+     #deregister_interaction!(ax, :scrollzoom)
+     #deregister_interaction!(ax, :scrollzoom)
+
+
+    y = cos.(phase)
+    z = sin.(phase)
+    x0 = Observable([t[1]])
+    u = Observable([y[1]])
+    v = Observable([z[1]])
+
+    current_time = Observable(t[1])
+    register_interaction!(ax, :myscroll) do event::ScrollEvent, axis
+        dx = event.x
+        if tmin < current_time[] + dx < tmax
+            current_time[] = current_time[] + dx
+        end
+     end
+
+    on(events(fig.scene).scroll) do (dx,dy)
+        if tmin < current_time[] + dx < tmax
+            current_time[] = current_time[] + dx
+        end
+    end
+
+    on(current_time) do ct
+        tidx = searchsortedfirst(t, ct)
+        if 0 < tidx <= length(t)
+            u.val = [y[tidx]]
+            v.val = [z[tidx]]
+            x0[] = [t[tidx]]
+        end
+    end
+    lines!(ax, t,y,z;color=RGB(0.9, 0.9, 0.9))
+    scatter!(ax, x0,  u, v,color=:red)
     fig
 end
 
@@ -1103,7 +1158,7 @@ function get_spatial_map(maze_pos::Vector{Matrix{Float64}}, maze_time::Vector{Ve
             # match time between unity and lfp
             tidx = searchsortedfirst(u_t, _t)
             if 0 < tidx <= length(u_t)
-                pos = u_pos[tidx,:] 
+                pos = u_pos[tidx,:]
                 xidx = searchsortedfirst(xbins, pos[1])
                 yidx = searchsortedfirst(ybins, pos[2])
                 img2[xidx, yidx] += abs(d)
@@ -1126,11 +1181,11 @@ DPHT.level(::Type{SpatialMap}) = "cell"
 
 function SpatialMap(spr::SpatialRepresentation, xbins::AbstractVector{T}, ybins::AbstractVector{T},spoc::SpatialOccupancy;kwargs...) where T <: Real
     spatial_count = fill(0.0, length(xbins)-1, length(ybins)-1)
-    nt = numtrials(spr) 
+    nt = numtrials(spr)
     for i in 1:nt
         position = spr.position[i]
-        xpos = [pos[1] for pos in position] 
-        ypos = [pos[2] for pos in position] 
+        xpos = [pos[1] for pos in position]
+        ypos = [pos[2] for pos in position]
         h = fit(Histogram, (xpos,ypos), (xbins, ybins))
         spatial_count .+= h.weights
     end
@@ -1150,8 +1205,34 @@ function SpatialMap(xbins, ybins;redo=false, do_save=false,kwargs...)
     SpatialMap(spr, xbins, ybins, spoc)
 end
 
-function visualize!(lscene, spm::SpatialMap;kwargs...)
-    heatmap!(lscene, spm.xbins, spm.ybins, spm.weight,colormap=:Blues)
+function visualize!(lscene, spm::SpatialMap;normalize=true, kwargs...)
+    if normalize
+        X = spm.weight./spm.occupancy
+    else
+        X = spm.weight
+    end
+    heatmap!(lscene, spm.xbins, spm.ybins, X,colormap=:Blues)
+end
+
+
+function visualize(spm::SpatialMap;kwargs...)
+    fig = Figure()
+    lg = GridLayout(fig[1,1])
+    visualize!(lg, spm;kwargs...)
+    fig
+end
+
+function visualize!(lg::GridLayout, spm::SpatialMap;normalize=true, kwargs...)
+    if normalize
+        X = spm.weight./spm.occupancy
+        label = "Firing rate [Hz]"
+    else
+        X = spm.weight
+        label = "Spike count"
+    end
+    ax = Axis(lg[1,1])
+    h = heatmap!(ax, spm.xbins, spm.ybins,X)
+    ll = Colorbar(lg[1,2],h, label=label)
 end
 
 function MakieCore.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,normalize=true)
@@ -1160,7 +1241,10 @@ function MakieCore.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,nor
     else
         weight = spm.weight
     end
-    PlotSpec(Heatmap, spm.xbins, spm.ybins, weight)
+    h = S.Heatmap(spm.xbins, spm.ybins, weight)
+    ax1 = S.Axis(plots=[h])
+    ll = S.Colorbar(h)
+    S.GridLayout(ax1,ll)
 end
 
 function MakieCore.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap, spoc::SpatialOccupancy)
@@ -1201,7 +1285,7 @@ function get_spatial_map(udata::UnityData; grid_limits=(-12.0, -12.0, 12.0, 12.0
     xbins,ybins, img
 end
 
-function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::RippleData; grid_limits=(-12.0, -12.0, 12.0, 12.0), nbins=(20,20), 
+function get_spatial_map(udata::UnityData, spiketrain::Spiketrain, rpdata::RippleData; grid_limits=(-12.0, -12.0, 12.0, 12.0), nbins=(20,20),
                                                                                        normalize_by_occupancy=true)
     xbins,ybins,img = get_spatial_map(udata;grid_limits=grid_limits, nbins=nbins)
     # use the ripple markers to get trial structure
@@ -1259,7 +1343,7 @@ function model_place_field(udata::UnityData, rpdata::RippleData;λmin=0.1, λmax
         for (t0,posx,posy) in zip(t,mposx, mposy)
             λ = pdf(G, [posx,posy]) # firing rate based on place field
             # scale firing rate
-            λ = λmax*λ/G0 + λmin 
+            λ = λmax*λ/G0 + λmin
             _t = t0
             while _t < t0+Δt
                 r += λ*dt
@@ -1286,4 +1370,25 @@ function get_spatial_map(;freq::Union{Nothing, Float64}=nothing, redo=false)
     spatial_map
 end
 
+function plot_polar_hist(φ, bins)
+    fig = Figure()
+    ax = PolarAxis(fig[1,1])
+    plot_polar_hist!(ax, φ,bins)
+    fig, ax
+end
+
+function plot_polar_hist!(ax, φ, bins)
+    counts = fill(0.0, length(bins))
+    for _φ in φ
+        bidx = searchsortedfirst(bins, _φ)
+        counts[bidx] += 1.0
+    end
+    lines!(ax, bins, counts)
+end
+
+function get_phase_difference(res1::Vector{ComplexF64}, res2::Vector{ComplexF64})
+    φ1 = angle.(res1)
+    φ2 = angle.(res2)
+    acos.(cos.(φ1 - φ2))
+end
 end
