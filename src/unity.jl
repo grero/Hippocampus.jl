@@ -197,6 +197,11 @@ function plot_arena!(ax)
     poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
 end
 
+"""
+    soft_range(start::T, stop::T,step::T) where T <: Real
+
+Range where the step is adjusted to match the start and stop
+"""
 function soft_range(start::T, stop::T,step::T) where T <: Real
     nn = round(Int64,(start-stop)/step)
     Δ = (start-stop)/nn
