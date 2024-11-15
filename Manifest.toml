@@ -2,7 +2,7 @@
 
 julia_version = "1.11.1"
 manifest_format = "2.0"
-project_hash = "d5e6d7cb70e2b264fc2ab626776bba782f2694d8"
+project_hash = "aa4d0f35f6cf3c71c1a359ba52f1bbf5fd4aea2a"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -792,6 +792,12 @@ version = "2024.2.1+0"
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 version = "1.11.0"
+
+[[deps.InteractiveViz]]
+deps = ["FillArrays", "GeometryBasics", "Makie", "Observables", "Statistics"]
+git-tree-sha1 = "cfab9b3989e4e1a024839e7a0b876f1fa3307708"
+uuid = "d14badfc-0adb-4d57-980e-37858d990fa5"
+version = "0.6.1"
 
 [[deps.Interpolations]]
 deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
