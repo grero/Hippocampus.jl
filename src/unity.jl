@@ -333,7 +333,12 @@ function get_maze_colors(mm::MazeModel)
     colors[:walls] = fill(RGB(0.3f0, 0.21470589f0, 0.21470589f0), 4)
     colors[:floor] = to_color(:gray)
     colors[:ceiling] = to_color(:gray)
-    colors[:pillars] = [[to_color(c) for _ in  1:length(mm.pillars[i])] for (i,c) in enumerate([:yellow, :red, :blue, :green])]
+    _colors = [RGB(255/255,195/255,0.0), # yellow
+               RGB(255/255,111/255,120/255),# red
+               RGB(0.0, 118/255,1.0), # blue
+               RGB(5/255,223/255,0.0) # green
+            ]
+    colors[:pillars] = [[to_color(c) for _ in  1:length(mm.pillars[i])] for (i,c) in enumerate(_colors)]
     colors
 end
 
