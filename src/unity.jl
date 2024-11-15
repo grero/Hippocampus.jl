@@ -18,10 +18,28 @@ z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 
 pillar_color = Dict(:pillar_1=>:yellow, :pillar_2=>:red, :pillar_3=>:blue, :pillar_4=>:green)
 
-poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [5, 2.45], [-5, -2.45]]
+pillar_positions = Dict()
+pillar_positions[:blue] = Dict(:lower_left => (-7.5, -7.5),
+                                :upper_right => (-2.5, -2.5))
+pillar_positions[:yellow] = Dict(:lower_left => (-7.5, 2.5),
+                                 :upper_right => (-2.5, 7.5))
+pillar_positions[:green] = Dict(:lower_left => (2.5, -7.5),
+                                :upper_right => (7.5, -2.5))
+pillar_positions[:red] = Dict(:lower_left => (2.5, 2.5),
+                              :upper_right => (7.5, 7.5))
+poster_pos = Dict{Symbol,NTuple{2,Float64}}()
+poster_pos[:camel] = (-7.55, 5.0)
+poster_pos[:cat] = (-5.0, -7.55)
+poster_pos[:pig] = (-5.0, -2.45)
+poster_pos[:donkey] = (5.0, 7.55)
+poster_pos[:croc] = (5.0, 2.45)
+poster_pos[:rabbit] = (7.55, -5.0)
+
+
+#poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
 # for some reason x and y appear to be flipped
-poster_pos = reverse.(poster_pos)
-poster_img = joinpath.("artefacts",  ["camel 1.png","cat 1.png","crocodile.png","donkey 1.png","pig 1.png","rabbit 1.png"])
+#poster_pos = reverse.(poster_pos)
+poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.("artefacts",  ["camel 1.png","cat 1.png","crocodile.png","donkey 1.png","pig 1.png","rabbit 1.png"])))
 
 # TODO: Use actual values here
 camera_height = 2.5
@@ -466,21 +484,23 @@ struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
     sprite::Vector{Sprite{T, T2, T3, T4, T5}}
 end
 
-function Posters(img_files::Vector{String}, position, mm::MazeModel)
+#function Posters(position, mm::MazeModel)
+function Posters(mm::MazeModel,position=poster_pos)
     wall_pillar_idx = assign_posters(mm,position)
     wall_idx = wall_pillar_idx.pillar_wall_idx
     pillar_idx = wall_pillar_idx.pillar_idx
     rot = LinearMap(RotX(3π/2))
-    images = [load(f) for f in img_files]
+    images = Dict(k=>load(v) for (k,v) in poster_img)
     # hack just to figure out the type
-    sp = sprite(images[1], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
-
-    sprites = Vector{typeof(sp)}(undef, length(images))
-    for (ii,(pp,img)) in enumerate(zip(position,images))
+    sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+    sprites = Vector{typeof(sp)}(undef, length(poster_pos))
+    for (ii,pk) in enumerate(keys(poster_pos))
+        pp = poster_pos[pk]
+        img = images[pk]
         sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
         sp2 = rot(sp)
         trans = LinearMap(Translation(pp[1],pp[2], 2.5))
-        nn = mm.pillars[pillar_idx[ii]][wall_idx[ii]].normal
+        nn = mm.pillars[pillar_idx[pk]][wall_idx[pk]].normal
         θ = acos(sp2.normals[1]'*nn)
         rot2 = LinearMap(RotZ(θ))
         sp3 = trans(rot2(sp2))
@@ -551,25 +571,29 @@ function create_maze(;kvs...)
     zbins = range(0.0, stop=5.0, length=10)
     Δ = get(kvs, :Δz, 0.1)
 
-    # pillar 1
-    lower_left = (-7.5, 2.5)
-    upper_right = (-2.5, 7.5)
-    bins[:pillar_1], normals[:pillar_1] = create_mesh(lower_left, upper_right,Δb,5.0, Δ)
+    # pillar 1; yellow pillar
+    #lower_left = (-7.5, 2.5)
+    #upper_right = (-2.5, 7.5)
+    pos = pillar_positions[:yellow]
+    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
 
-    # pillar 2
+    # pillar 2;red 
     lower_left = (2.5, 2.5)
     upper_right = (7.5, 7.5)
-    bins[:pillar_2], normals[:pillar_2] = create_mesh(lower_left, upper_right,Δb,5.0,Δ)
+    pos = pillar_positions[:red]
+    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
 
-    # pillar 3
-    lower_left = (2.5, -7.5)
-    upper_right = (7.5, -2.5)
-    bins[:pillar_3], normals[:pillar_3] = create_mesh(lower_left, upper_right,Δb,5.0,Δ)
-
-    # pillar 4
+    # pillar 3; blue
     lower_left = (-7.5, -7.5)
     upper_right = (-2.5, -2.5)
-    bins[:pillar_4], normals[:pillar_4] = create_mesh(lower_left, upper_right,Δb,5.0, Δ)
+    pos = pillar_positions[:blue]
+    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
+
+    # pillar 4
+    lower_left = (2.5, -7.5)
+    upper_right = (7.5, -2.5)
+    pos = pillar_positions[:green]
+    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
 
     # walls
     bins[:walls] = Vector{Vector{Float64}}(undef, 4)
@@ -613,7 +637,7 @@ function create_maze(;kvs...)
     bins, normals
 end
 
-function assign_posters(bins, normals)
+function assign_posters_old(bins, normals)
     wall_idx = Vector{Tuple{Symbol,Int64}}(undef, length(poster_pos))
     for (i,pp) in enumerate(poster_pos)
         d = Inf
@@ -630,10 +654,10 @@ function assign_posters(bins, normals)
     wall_idx
 end
 
-function assign_posters(mm::MazeModel, poster_pos::Vector{Vector{T}}=poster_pos) where T <: Real
-    pillar_idx = fill(0, length(poster_pos))
-    wall_idx = fill(0, length(poster_pos))
-    for (i,pp) in enumerate(poster_pos)
+function assign_posters(mm::MazeModel, poster_pos::Dict{Symbol,NTuple{2,Float64}}=poster_pos) where T <: Real
+    pillar_idx = Dict{Symbol,Int64}()
+    wall_idx = Dict{Symbol,Int64}()
+    for (kp,pp) in poster_pos
         d = Inf
         for (k,pillar) in enumerate(mm.pillars)
             for (j,_wall) in enumerate(pillar)
@@ -641,8 +665,8 @@ function assign_posters(mm::MazeModel, poster_pos::Vector{Vector{T}}=poster_pos)
                 _d = (pp[1] - mean(pq[1]))^2 + (pp[2] - mean(pq[2]))^2
                 if _d < d
                     d = _d
-                    pillar_idx[i] = k
-                    wall_idx[i] = j
+                    pillar_idx[kp] = k
+                    wall_idx[kp] = j
                 end
             end
         end
