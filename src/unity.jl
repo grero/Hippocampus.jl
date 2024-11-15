@@ -226,7 +226,7 @@ function angle2arrow(a::Float64)
     sin(θ), cos(θ)
 end
 
-function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=true, kwargs...)
+function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=false, kwargs...)
     _ntrials = numtrials(udata)
     udata_trial = lift(trial) do _trial
         if 0 < _trial.i <= _ntrials
