@@ -51,7 +51,7 @@ struct UnityData
     head_direction::Vector{Float64}
     triggers::Matrix{Int64}
     timestamps::Matrix{Float64}
-    poster_pos::Dict{Int64, NTuple{3,Float64}}
+    poster_pos::Dict{Symbol, NTuple{3,Float64}}
     header::Dict
 end
 
