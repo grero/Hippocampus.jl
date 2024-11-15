@@ -20,6 +20,18 @@ using Hippocampus
 end
 
 @testset "Unity" begin
+    # test tuple parsing
+    pos = parse(NTuple{3,Float64}, "(1.0, 1.2, 3.0)")
+    @test pos == (1.0, 1.2, 3.0)
+    # test position parsing
+    j,pos = Hippocampus.parse_poster_location("P1(-5,1.5,-7.55)")
+    @test j == 1
+    @test pos == (-5.0,1.5,-7.55)
+
+    # test poster index
+    pidx = Hippocampus.get_poster_index(" DTL Donk")
+    @test pidx == 4
+
     udata = cd(@__DIR__) do 
         Hippocampus.UnityData("unity_data.csv")
     end
@@ -38,6 +50,25 @@ end
     # test soft_range
     rr = Hippocampus.soft_range(0.0, 3.1, 1.1)
     @test step(rr) ≈ 1.0333333333333334
+
+    # maze building tests
+    bins,normals = Hippocampus.create_mesh((-7.5, 2.5), (-2.5, 7.5), 0.1)
+    @test normals ≈ [[0.0, -1.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0]]
+    @test bins[1][1][[1,51]]  ≈ [-7.5, -2.5]
+    @test bins[1][2] ≈ [2.4,2.6]
+    @test bins[1][3][[1,10]] ≈ [0.0,5.0]
+
+    @test bins[2][1][[1,51]] ≈ [-7.5,-2.5]
+    @test bins[2][2] ≈ [7.4,7.6]
+    @test bins[2][3][[1,10]] ≈ [0.0,5.0]
+
+    @test bins[3][1] ≈ [-7.6,-7.4]
+    @test bins[3][2][[1,51]] ≈ [2.5,7.5]
+    @test bins[3][3][[1,10]] ≈ [0.0, 5.0]
+
+    @test bins[4][1] ≈ [-2.6,-2.4]
+    @test bins[4][2][[1,51]] ≈ [2.5,7.5]
+    @test bins[3][3][[1,10]] ≈ [0.0, 5.0]
 end
 
 @testset "Ripple markers" begin
