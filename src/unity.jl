@@ -503,6 +503,41 @@ function visualize!(lscene, posters::Posters;kwargs...)
     end
 end
 
+
+"""
+    create_pillar(lower_left::T, upper_right::T,Δb::Float64) where T <: NTuple{2,Float64}
+
+Create a mesh representing a pillar with the specified corners, using the specified bin width
+"""
+function create_pillar(lower_left::T, upper_right::T,Δb::Float64, height::Float64=5.0, Δ::Float64=0.1) where T <: NTuple{2,Float64}
+    bins = Vector{NTuple{3,Vector{Float64}}}(undef, 4)
+    normals = Vector{Vector{Float64}}(undef, 4)
+    
+    zbins = range(0.0, stop=height, length=10)
+
+    xbins = soft_range(lower_left[1], upper_right[1], Δb)
+    y0 = lower_left[2] 
+    ybins = range(y0-Δ, stop=y0+Δ,length=2)
+    bins[1] = (xbins,ybins,zbins)
+    normals[1] = [0.0, -1.0,0.0]
+
+    y0 = upper_right[2] 
+    ybins = range(y0-Δ, stop=y0+Δ,length=2)
+    bins[2] = (xbins,ybins,zbins)
+    normals[2] = [0.0, 1.0, 0.0]
+
+    ybins = soft_range(lower_left[2], upper_right[2],Δb)
+    x0 = lower_left[1] 
+    xbins = range(x0-Δ, stop=x0+Δ,length=2)
+    bins[3] = (xbins,ybins,zbins)
+    normals[3] = [-1.0, 0.0, 0.0]
+    x0 = upper_right[1] 
+    xbins = range(x0-Δ, stop=x0+Δ,length=2)
+    bins[4] = (xbins,ybins,zbins)
+    normals[4] = [1.0, 0.0, 0.0]
+    bins, normals
+end
+
 """
 Return the meshes representing the maze
 """
