@@ -387,8 +387,8 @@ function MazeModel(bins::Dict{Symbol,T}, normals) where T
     MazeModel(walls, pillars, _floor, _ceiling)
 end
 
-function MazeModel(;Δz=0.01)
-    bins,normals = create_maze(;Δz=Δz)
+function MazeModel(;kvs...)
+    bins,normals = create_maze(;kvs...)
     MazeModel(bins,normals)
 end
 
