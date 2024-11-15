@@ -16,8 +16,6 @@ z3Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 x4Bound = [2.5, 7.5, 7.5, 2.5, 2.5]  # green pillar
 z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 
-pillar_color = Dict(:pillar_1=>:yellow, :pillar_2=>:red, :pillar_3=>:blue, :pillar_4=>:green)
-
 pillar_positions = Dict()
 pillar_positions[:blue] = Dict(:lower_left => (-7.5, -7.5),
                                 :upper_right => (-2.5, -2.5))
