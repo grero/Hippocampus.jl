@@ -174,7 +174,8 @@ function read_unity_file(fname::String)
                     # older format
                     header["PosterLocations"] = Dict()
                     loc_strings = split(v)
-                    header["PosterLocations"] = Dict(ll[1]=>ll[2] for ll in parse_poster_location.(loc_strings))
+                    _keys = sort(collect(keys(poster_img)),by=k->string(k))
+                    header["PosterLocations"] = Dict(_keys[ll[1]]=>ll[2] for ll in parse_poster_location.(loc_strings))
                 end
             elseif k == "name" || k == "posterPosition"
                 if k == "name" 
