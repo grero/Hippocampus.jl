@@ -33,7 +33,7 @@ struct UnityData
     head_direction::Vector{Float64}
     triggers::Matrix{Int64}
     timestamps::Matrix{Float64}
-    poster_pos::Vector{Vector{Float64}}
+    poster_pos::Dict{Int64, NTuple{3,Float64}}
     header::Dict
 end
 
@@ -77,20 +77,35 @@ function UnityData(data, header)
     timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
     # the unity coordinate system swaps x and y
 
-    # parse the poster locations
-    poster_position = header["PosterLocations"]
-    loc = split(poster_position)
-    rr = r"P([\d+.])\(([-\d\.]+),[-\d.]+,([-\d.]+)\)"
-    poster_loc = Vector{Vector{Float64}}(undef, length(loc))
-    for (i,_loc) in enumerate(loc)
-        m = match(rr, _loc)
-        if m !== nothing
-            # first is the poster number
-            j = parse(Int64, m.captures[1])
-            poster_loc[j] = parse.(Float64, reverse(m.captures[2:end]))
-        end
+    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, header["PosterLocations"], header)
+end
+
+
+"""
+    parse_poster_location(loc::String)
+
+Parse poster location from a string like "P1(-5,1.5,-7.55)"
+"""
+function parse_poster_location(loc::AbstractString)
+    rr = r"P([\d+.])\(([-\d\.]+),([-\d.]+),([-\d\.]+)\)"
+    m = match(rr, loc)
+    if m !== nothing
+        # first is the poster number
+        j = parse(Int64, m.captures[1])
+        poster_loc = tuple(parse.(Float64, m.captures[2:end])...)
+        return j,poster_loc
     end
-    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, poster_loc, header)
+    return 0, (NaN,NaN)
+end
+
+function Base.parse(::Type{NTuple{3,Float64}},s::AbstractString)
+    rr = r"\(([-\d\.]+),[ ]*([-\d\.]+),[ ]*([-\d\.]+)\)"
+    m = match(rr,s)
+    if m !== nothing
+        tt = tuple(parse.(Float64, m.captures)...)
+        return tt
+    end
+    throw(ArgumentError("Unable for parse NTuple{3,Float64} for $s"))
 end
 
 numtrials(x::UnityData) = size(x.triggers,1)
@@ -105,24 +120,77 @@ end
 Read the file `fname`, assuming each column is separated by a single space, and
 the first 14 rows contain header information
 """
-function read_unity_file(fname::String;header_rows=14)
+function read_unity_file(fname::String)
     # TODO: Return the config as well
     column_names = ["marker","Δt","xpos","ypos","direction"]
-    data = readdlm(fname, ' ', skipstart=header_rows) 
     # check if first column should be skipped
+    header = Dict()
+    header_rows = 0
+    lines = open(fname) do fid
+        _lines = String[]
+        while true
+            _line = readline(fid)
+            if isempty(_line)
+                continue
+            end
+            if isdigit(first(strip(_line)))
+                break
+            end
+            push!(_lines, _line)
+            header_rows += 1
+        end
+        _lines
+    end
+    _header = header
+    poster_idx = 0
+    for (i,_line) in enumerate(lines) 
+        if occursin(':', _line)
+            k,v = split(_line, ':')
+            if k == "PosterLocations"
+                # check the next line
+                if startswith(lines[i+1],"name: Poster")
+                    # different format: start 
+                    header["PosterLocations"] = Dict()
+                    _header = header["PosterLocations"]
+                else
+                    # older format
+                    header["PosterLocations"] = Dict()
+                    loc_strings = split(v)
+                    header["PosterLocations"] = Dict(ll[1]=>ll[2] for ll in parse_poster_location.(loc_strings))
+                end
+            elseif k == "name" || k == "posterPosition"
+                if k == "name" 
+                    # grab the next line which shoud be the position
+                    k2,v2 = split(lines[i+1], ':')
+                    _header[poster_idx] = parse(NTuple{3,Float64},v2)
+                elseif k == "posterPosition"
+                    # do nothing since we've already processed this line above
+                end
+            else
+                if k == "MazeName"
+                    poster_idx = get_poster_index(v)
+                end
+                _header = header
+                _header[k] = v
+            end
+        end
+    end
+    # post processing
+    if "MazeName" in keys(header)
+        # figure out the poster index
+        poster_idx = get_poster_index(header["MazeName"])
+    end
+    data = readdlm(fname, ' ', skipstart=header_rows) 
     if size(data,2) == 6 # should only be 5 columns
         data = data[:,2:end]
     end
-    header = Dict()
-    open(fname) do fid
-        for i in 1:header_rows
-            _line = readline(fid)
-            k,v = split(_line, ':')
-            header[k] = v
-        end
-    end
     data = convert(Matrix{Float64}, data)
     data, header, column_names
+end
+
+function get_poster_index(mazename::AbstractString)
+    pp = split(mazename)
+    poster_idx = findfirst(k->occursin(lowercase(pp[end]),k),poster_img) 
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
