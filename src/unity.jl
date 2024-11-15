@@ -351,7 +351,6 @@ function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}
             _colors = colors[k]
             colors[k] = Vector{Vector{Vector{T}}}(undef, npillars)
             offset = 0
-            @show typeof(_colors) typeof(colors[k])
             for (i,j) in enumerate(n_pillar_walls)
                 colors[k][i] = _colors[offset+1:offset+j]
                 offset += j
