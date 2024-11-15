@@ -505,11 +505,11 @@ end
 
 
 """
-    create_pillar(lower_left::T, upper_right::T,Δb::Float64) where T <: NTuple{2,Float64}
+    create_mesh(lower_left::T, upper_right::T,Δb::Float64) where T <: NTuple{2,Float64}
 
-Create a mesh representing a pillar with the specified corners, using the specified bin width
+Create a mesh representing an object (pillar,wall) with the specified corners, using the specified bin width
 """
-function create_pillar(lower_left::T, upper_right::T,Δb::Float64, height::Float64=5.0, Δ::Float64=0.1) where T <: NTuple{2,Float64}
+function create_mesh(lower_left::T, upper_right::T,Δb::Float64, height::Float64=5.0, Δ::Float64=0.1;flip_normals=false) where T <: NTuple{2,Float64}
     bins = Vector{NTuple{3,Vector{Float64}}}(undef, 4)
     normals = Vector{Vector{Float64}}(undef, 4)
     
