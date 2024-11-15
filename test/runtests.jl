@@ -30,7 +30,7 @@ end
 
     # test poster index
     pidx = Hippocampus.get_poster_index(" DTL Donk")
-    @test pidx == 4
+    @test pidx == :donkey 
 
     udata = cd(@__DIR__) do 
         Hippocampus.UnityData("unity_data.csv")
@@ -43,8 +43,8 @@ end
     ll = length(tt)
     @test ll == 207
     @test tt[[1,ll]] ≈ [0.04301112, 8.226267400000001]
-    @test pp1[[1,ll]] ≈ [-10.0, -1.5189]
-    @test pp2[[1,ll]] ≈ [0.0, -6.0951]
+    @test pp2[[1,ll]] ≈ [-10.0, -1.5189]
+    @test pp1[[1,ll]] ≈ [0.0, -6.0951]
     @test hh[[1,ll]] ≈ [0.0, 171.2082]
 
     # test soft_range
