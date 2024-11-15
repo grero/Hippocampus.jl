@@ -95,7 +95,7 @@ function UnityData(data, header)
     timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
     # the unity coordinate system swaps x and y
 
-    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, header["PosterLocations"], header)
+    UnityData(_time, data[:,[3,4]], data[:,5], triggers, timestamps, header["PosterLocations"], header)
 end
 
 
@@ -222,7 +222,7 @@ end
 
 function angle2arrow(a::Float64)
     θ = π*a/180
-    cos(θ), sin(θ)
+    sin(θ), cos(θ)
 end
 
 function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=true, kwargs...)
