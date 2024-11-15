@@ -561,16 +561,15 @@ end
 """
 Return the meshes representing the maze
 """
-function create_maze(;kvs...)
+function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs...)
     # unity uses 40x40 bins on the floor
-    floor_bins = range(-12.5, stop=12.5, length=40)
+    floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
 
     bins = Dict{Symbol,Vector{NTuple{3,Vector{Float64}}}}()
     normals = Dict{Symbol,Vector{Vector{Float64}}}()
 
     zbins = range(0.0, stop=5.0, length=10)
-    Δ = get(kvs, :Δz, 0.1)
 
     # pillar 1; yellow pillar
     #lower_left = (-7.5, 2.5)
@@ -599,22 +598,22 @@ function create_maze(;kvs...)
     # walls
     bins[:walls] = Vector{Vector{Float64}}(undef, 4)
     normals[:walls] = Vector{Vector{Float64}}(undef, 4)
-    xbins = soft_range(-12.5, 12.5, Δb)
-    y0 = -12.5
+    xbins = soft_range(xmin, xmax, Δb)
+    y0 = ymin
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[:walls][1] = (xbins,ybins,zbins)
     normals[:walls][1] = [0.0, 1.0,0.0]
-    y0 = 12.5
+    y0 = ymax 
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[:walls][2] = (xbins,ybins,zbins)
     normals[:walls][2] = [0.0, -1.0, 0.0]
 
-    ybins = soft_range(-12.5, 12.5, Δb)
-    x0 = -12.5
+    ybins = soft_range(ymin, ymax, Δb)
+    x0 = xmin
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[:walls][3] = (xbins, ybins, zbins)
     normals[:walls][3] = [1.0, 0.0, 0.0]
-    x0 = 12.5
+    x0 = xmax 
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[:walls][4] = (xbins, ybins, zbins)
     normals[:walls][4] = [-1.0, 0.0, 0.0]
@@ -628,8 +627,8 @@ function create_maze(;kvs...)
     normals[:floor] = [[0.0, 0.0, 1.0]]
 
     # ceiling
-    xbins = range(-12.5, stop=12.5, step=Δb)
-    ybins = range(-12.5, stop=12.5, step=Δb)
+    xbins = range(xmin, stop=xmax, step=Δb)
+    ybins = range(ymin, stop=ymax, step=Δb)
     z0 = 5.0
     zbins = range(z0-Δ, stop=z0+Δ, length=2)
     bins[:ceiling] = [(xbins, ybins, zbins)]
