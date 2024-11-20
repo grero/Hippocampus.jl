@@ -38,6 +38,7 @@ end
     @test size(udata.triggers) == size(udata.timestamps) == (1,3)
     @test udata.triggers == [16 26 36]
     @test udata.timestamps ≈ [0.04301112 1.04500456 8.226267400000001]
+    @test Hippocampus.numtrials(udata) == 1
 
     tt,pp1,pp2, hh = Hippocampus.get_trial(udata, 1)
     ll = length(tt)
