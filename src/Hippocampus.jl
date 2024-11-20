@@ -13,5 +13,6 @@ include("spikedata.jl")
 include("unity.jl")
 include("spatial.jl")
 include("replay.jl")
+include("models.jl")
 include("mountainsort.jl")
 end
