@@ -67,3 +67,101 @@ function visualize!(lscene, spr::SpatialRepresentation;trial::Observable{Trial}=
     end
     scatter!(lscene, trial_events)
 end
+
+"""
+Contains information about the total time spent in each spatial bin.
+"""
+struct SpatialOccupancy{T<:Real}
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    weight::Matrix{T}
+end
+
+function SpatialOccupancy(udata::UnityData, xbins::AbstractVector{T}, ybins::AbstractVector{T};trial_start=1) where T <: Real
+    nt = numtrials(udata)
+    weight = fill(0.0, length(xbins)-1, length(ybins)-1)
+    for i in 1:nt
+        tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
+        for j in 2:length(tu)
+            Δt = tu[j]-tu[j-1]
+            xidx = searchsortedlast(xbins, posx[j-1])
+            yidx = searchsortedlast(ybins, posy[j-1])
+            if 0 < xidx <= size(weight,1) && 0 < yidx <= size(weight,2)
+                weight[xidx,yidx] += Δt
+            end
+        end
+    end
+    SpatialOccupancy(xbins, ybins, weight)
+end
+
+function SpatialOccupancy(xbins,ybins=xbins;kwargs...)
+    udata = UnitData()
+    SpatialOccupancy(udata, xbins, ybins;kwargs...)
+end
+
+struct SpatialMap{T<:Real}
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    weight::Matrix{T}
+    occupancy::Matrix{T}
+end
+
+DPHT.level(::Type{SpatialMap}) = "cell"
+
+function SpatialMap(spr::SpatialRepresentation, xbins::AbstractVector{T}, ybins::AbstractVector{T},spoc::SpatialOccupancy;kwargs...) where T <: Real
+    spatial_count = fill(0.0, length(xbins)-1, length(ybins)-1)
+    nt = numtrials(spr)
+    for i in 1:nt
+        position = spr.position[i]
+        xpos = [pos[1] for pos in position]
+        ypos = [pos[2] for pos in position]
+        h = fit(Histogram, (xpos,ypos), (xbins, ybins))
+        spatial_count .+= h.weights
+    end
+    SpatialMap(xbins,ybins, spatial_count, spoc.weight)
+end
+
+function SpatialMap(xbins, ybins;redo=false, do_save=false,kwargs...)
+    sp = Spiketrain()
+    rp = cd(DPHT.process_level(RippleData;kwargs...)) do
+        RippleData()
+    end
+    udata = cd(DPHT.process_level(UnityData;kwargs...)) do
+        UnityData()
+    end
+    spoc = SpatialOccupancy(udata, xbins, ybins)
+    spr = SpatialRepresentation(sp, rp, udata;kwargs...);
+    SpatialMap(spr, xbins, ybins, spoc)
+end
+
+function compute_sic(spm::SpatialMap)
+
+    x = spm.weight./spm.occupancy
+    idx = isfinite.(x)
+    p = spm.occupancy[idx]./sum(spm.occupancy[idx])
+    r = sum(p.*x[idx])
+    xr = x[idx]./r
+    ll = log2.(xr)
+    lidx = isfinite.(ll)
+    sic = sum((p.*xr.*ll)[lidx])
+end
+
+function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
+    pp = sp.weight./sum(sp.weight)
+    -sum(filter(isfinite, pp.*log2.(pp)))
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap;normalize=true)
+    if normalize
+        X = spm.weight./spm.occupancy
+        label = "Firing rate"
+    else
+        X = spm.weight
+        label = "Spike count"
+    end
+    h = S.Heatmap(spm.xbins, spm.ybins, X)
+    ax1 = S.Axis(plots=[h])
+    ll = S.Colorbar(h,label=label)
+    S.GridLayout([ax1 ll])
+end
+
