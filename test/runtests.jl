@@ -1,5 +1,6 @@
 using Test
 using Hippocampus
+using StableRNGs
 
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
@@ -89,4 +90,39 @@ end
     ee2 = Hippocampus.zerounless(Hippocampus.Eyelink.Event,message="End Trial 31",sttime=UInt32(50000))
     messages = [ee0,ee1,ee2]
     trial_markers, trial_timestamps = Hippocampus.get_markers(messages)
+end
+
+@testset "Spatial" begin
+    rpdata = cd(@__DIR__) do
+        Hippocampus.RippleData()
+    end
+    unity_file = joinpath(@__DIR__, "session_1_2312018113452.txt")
+    udata = Hippocampus.UnityData(unity_file)
+    # spatial occupancy
+    xbins = range(-12.5, stop=12.5, length=40);
+    ybins = xbins
+    spoc = Hippocampus.SpatialOccupancy(udata, xbins, ybins)
+    @test size(spoc.weight) == (39,39)
+    ee = Hippocampus.compute_entropy(spoc)
+    @test ee ≈ 8.336202756717388
+
+    # test consistency
+    @test Hippocampus.numtrials(rpdata) == Hippocampus.numtrials(udata) == 63
+    @test rpdata.triggers == udata.triggers
+
+    # create a spike train
+    rng = StableRNG(1234)
+    spikes = Hippocampus.model_place_field(udata, rpdata;rng=rng)
+    @test length(spikes) == 216
+
+    # create a spatial representation
+    sptrain = Hippocampus.Spiketrain(1000.0*spikes, "",0)
+    spr = Hippocampus.SpatialRepresentation(sptrain, rpdata, udata)
+    # test some random position
+    @test spr.position[5][1] ≈ [2.0808, -0.5886]
+
+    # create a spatial map
+    spm = Hippocampus.SpatialMap(spr, xbins,ybins, spoc)
+    ee = Hippocampus.compute_entropy(spm)
+    @test ee ≈ 6.361282290710195
 end
