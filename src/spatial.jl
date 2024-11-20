@@ -1,3 +1,4 @@
+using Makie
 """
 A spatial representation of events
 """
@@ -44,6 +45,16 @@ function SpatialRepresentation()
 end
 
 numtrials(spr::SpatialRepresentation) = length(spr.position)
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, spr::SpatialRepresentation)
+    nt = numtrials(spr)
+    points = Point2f[]
+    for pos in spr.position
+        append!(points, Point2f.(pos))
+    end
+    ax = S.Axis(plots=[S.Scatter(points)])
+    S.GridLayout(ax)
+end
 
 function visualize!(lscene, spr::SpatialRepresentation;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
     nt = numtrials(spr)
