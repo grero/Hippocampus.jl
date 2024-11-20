@@ -61,6 +61,7 @@ struct RippleData
     header::Dict
 end
 
+numtrials(rpdata::RippleData) = size(rpdata.triggers,1)
 DPHT.level(::Type{RippleData}) = "session"
 
 DPHT.filename(::Type{RippleData}) = "rplparallel.mat"
