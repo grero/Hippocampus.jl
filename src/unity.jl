@@ -489,7 +489,11 @@ struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
 end
 
 function Posters(mm::MazeModel,udata::UnityData)
-    _poster_pos = Dict(k=>(p[1],p[3]) for (k,p) in udata.header["PosterLocations"])
+    Posters(mm, udata.header["PosterLocations"])
+end
+
+function Posters(mm::MazeModel, _poster_pos::Dict{Symbol, NTuple{3, Float64}})
+    _poster_pos = Dict(k=>(p[1],p[3]) for (k,p) in _poster_pos)
     Posters(mm, _poster_pos)
 end
 
