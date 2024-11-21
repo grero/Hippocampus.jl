@@ -435,7 +435,7 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, kwargs...)
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, kwargs...)
     if show_floor
         #floor
         bin = mm.floor.bins
@@ -471,6 +471,9 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
                 bin = om.bins
                 m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
                 viz!(lscene, m, color=cc,colormap=:Blues)
+                if show_normals
+                    arrows!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
+                end
             end
         end
     end
