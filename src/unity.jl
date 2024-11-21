@@ -511,7 +511,9 @@ function Posters(mm::MazeModel,_poster_pos=poster_pos)
         img = images[pk]
         sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
         sp2 = rot(sp)
-        trans = LinearMap(Translation(pp[1],pp[2], 2.5))
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], 2.5))
         nn = mm.pillars[pillar_idx[pk]][wall_idx[pk]].normal
         θ = acos(sp2.normals[1]'*nn)
         rot2 = LinearMap(RotZ(θ))
