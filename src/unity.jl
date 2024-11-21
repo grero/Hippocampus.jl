@@ -488,18 +488,22 @@ struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
     sprite::Vector{Sprite{T, T2, T3, T4, T5}}
 end
 
-#function Posters(position, mm::MazeModel)
-function Posters(mm::MazeModel,position=poster_pos)
-    wall_pillar_idx = assign_posters(mm,position)
+function Posters(mm::MazeModel,udata::UnityData)
+    _poster_pos = Dict(k=>(p[1],p[3]) for (k,p) in udata.header["PosterLocations"])
+    Posters(mm, _poster_pos)
+end
+
+function Posters(mm::MazeModel,_poster_pos=poster_pos)
+    wall_pillar_idx = assign_posters(mm,_poster_pos)
     wall_idx = wall_pillar_idx.pillar_wall_idx
     pillar_idx = wall_pillar_idx.pillar_idx
     rot = LinearMap(RotX(3π/2))
     images = Dict(k=>load(v) for (k,v) in poster_img)
     # hack just to figure out the type
     sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
-    sprites = Vector{typeof(sp)}(undef, length(poster_pos))
-    for (ii,pk) in enumerate(keys(poster_pos))
-        pp = poster_pos[pk]
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    for (ii,pk) in enumerate(keys(_poster_pos))
+        pp = _poster_pos[pk]
         img = images[pk]
         sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
         sp2 = rot(sp)
