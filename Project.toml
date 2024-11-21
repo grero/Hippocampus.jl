@@ -40,5 +40,5 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 [compat]
 ImageFiltering = "0.7.8"
 InteractiveViz = "0.6.1"
-Random = "1.11.0"
+Random = "1.10.0 - 1.11.0"
 StableRNGs = "1.0.2"
