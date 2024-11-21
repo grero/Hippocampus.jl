@@ -71,6 +71,15 @@ end
     @test bins[4][1] ≈ [-2.6,-2.4]
     @test bins[4][2][[1,51]] ≈ [2.5,7.5]
     @test bins[3][3][[1,10]] ≈ [0.0, 5.0]
+
+    #poster assignment
+    _poster_pos = Dict(:camel => (-5.0, 1.5, -7.55), :cat => (-7.55, 1.5, 5.0), :rabbit => (-5.0, 1.5, -2.45), :donkey => (5.0, 1.5, 7.55), :croc => (7.55, 1.5, -5.0), :pig => (5.0, 1.5, 2.45))
+    mm = Hippocampus.MazeModel()
+    posters = Hippocampus.Posters(mm,_poster_pos)
+    _pos = mean(posters.sprite[1].points)
+    @test _pos[1] ≈ -5.0
+    @test _pos[2] ≈ -7.55
+    @test _pos[3] ≈ 2.4999998
 end
 
 @testset "Ripple markers" begin
