@@ -670,10 +670,15 @@ function assign_posters_old(bins, normals)
     wall_idx
 end
 
-function assign_posters(mm::MazeModel, poster_pos::Dict{Symbol,NTuple{2,Float64}}=poster_pos) where T <: Real
+function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{3,Float64}})
+    # ignore the second coordinate
+    assign_posters(mm, Dict(k=>(p[1],p[3]) for (k,p) in _poster_pos))
+end
+
+function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{2,Float64}}=poster_pos)
     pillar_idx = Dict{Symbol,Int64}()
     wall_idx = Dict{Symbol,Int64}()
-    for (kp,pp) in poster_pos
+    for (kp,pp) in _poster_pos
         d = Inf
         for (k,pillar) in enumerate(mm.pillars)
             for (j,_wall) in enumerate(pillar)
