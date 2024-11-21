@@ -58,7 +58,7 @@ DPHT.level(::Type{UnityData}) = "session"
 function UnityData()
     # attempt to find data file
     # assume we are at the sesison level
-    _datadir = glob("RawData-T*")
+    _datadir = glob("RawData_T*")
     if !isempty(_datadir)
         datadir = first(_datadir)
         if isdir(datadir)
