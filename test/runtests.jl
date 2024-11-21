@@ -1,5 +1,6 @@
 using Test
 using Hippocampus
+using StatsBase
 using StableRNGs
 
 @testset "Utils" begin
