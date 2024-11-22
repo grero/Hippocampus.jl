@@ -16,12 +16,28 @@ z3Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 x4Bound = [2.5, 7.5, 7.5, 2.5, 2.5]  # green pillar
 z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 
-pillar_color = Dict(:pillar_1=>:yellow, :pillar_2=>:red, :pillar_3=>:blue, :pillar_4=>:green)
+pillar_positions = Dict()
+pillar_positions[:blue] = Dict(:lower_left => (-7.5, -7.5),
+                                :upper_right => (-2.5, -2.5))
+pillar_positions[:yellow] = Dict(:lower_left => (-7.5, 2.5),
+                                 :upper_right => (-2.5, 7.5))
+pillar_positions[:green] = Dict(:lower_left => (2.5, -7.5),
+                                :upper_right => (7.5, -2.5))
+pillar_positions[:red] = Dict(:lower_left => (2.5, 2.5),
+                              :upper_right => (7.5, 7.5))
+poster_pos = Dict{Symbol,NTuple{2,Float64}}()
+poster_pos[:camel] = (-7.55, 5.0)
+poster_pos[:cat] = (-5.0, -7.55)
+poster_pos[:pig] = (-5.0, -2.45)
+poster_pos[:donkey] = (5.0, 7.55)
+poster_pos[:croc] = (5.0, 2.45)
+poster_pos[:rabbit] = (7.55, -5.0)
 
-poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [5, 2.45], [-5, -2.45]]
+
+#poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
 # for some reason x and y appear to be flipped
-poster_pos = reverse.(poster_pos)
-poster_img = joinpath.("artefacts",  ["camel 1.png","cat 1.png","crocodile.png","donkey 1.png","pig 1.png","rabbit 1.png"])
+#poster_pos = reverse.(poster_pos)
+poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DIR__, "..","artefacts",  ["camel 1.png","cat 1.png","crocodile.png","donkey 1.png","pig 1.png","rabbit 1.png"])))
 
 # TODO: Use actual values here
 camera_height = 2.5
@@ -33,7 +49,7 @@ struct UnityData
     head_direction::Vector{Float64}
     triggers::Matrix{Int64}
     timestamps::Matrix{Float64}
-    poster_pos::Vector{Vector{Float64}}
+    poster_pos::Dict{Symbol, NTuple{3,Float64}}
     header::Dict
 end
 
@@ -42,7 +58,7 @@ DPHT.level(::Type{UnityData}) = "session"
 function UnityData()
     # attempt to find data file
     # assume we are at the sesison level
-    _datadir = glob("RawData-T*")
+    _datadir = glob("RawData_T*")
     if !isempty(_datadir)
         datadir = first(_datadir)
         if isdir(datadir)
@@ -77,20 +93,35 @@ function UnityData(data, header)
     timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
     # the unity coordinate system swaps x and y
 
-    # parse the poster locations
-    poster_position = header["PosterLocations"]
-    loc = split(poster_position)
-    rr = r"P([\d+.])\(([-\d\.]+),[-\d.]+,([-\d.]+)\)"
-    poster_loc = Vector{Vector{Float64}}(undef, length(loc))
-    for (i,_loc) in enumerate(loc)
-        m = match(rr, _loc)
-        if m !== nothing
-            # first is the poster number
-            j = parse(Int64, m.captures[1])
-            poster_loc[j] = parse.(Float64, reverse(m.captures[2:end]))
-        end
+    UnityData(_time, data[:,[3,4]], data[:,5], triggers, timestamps, header["PosterLocations"], header)
+end
+
+
+"""
+    parse_poster_location(loc::String)
+
+Parse poster location from a string like "P1(-5,1.5,-7.55)"
+"""
+function parse_poster_location(loc::AbstractString)
+    rr = r"P([\d+.])\(([-\d\.]+),([-\d.]+),([-\d\.]+)\)"
+    m = match(rr, loc)
+    if m !== nothing
+        # first is the poster number
+        j = parse(Int64, m.captures[1])
+        poster_loc = tuple(parse.(Float64, m.captures[2:end])...)
+        return j,poster_loc
     end
-    UnityData(_time, data[:,[4,3]], data[:,5], triggers, timestamps, poster_loc, header)
+    return 0, (NaN,NaN)
+end
+
+function Base.parse(::Type{NTuple{3,Float64}},s::AbstractString)
+    rr = r"\(([-\d\.]+),[ ]*([-\d\.]+),[ ]*([-\d\.]+)\)"
+    m = match(rr,s)
+    if m !== nothing
+        tt = tuple(parse.(Float64, m.captures)...)
+        return tt
+    end
+    throw(ArgumentError("Unable for parse NTuple{3,Float64} for $s"))
 end
 
 numtrials(x::UnityData) = size(x.triggers,1)
@@ -105,24 +136,78 @@ end
 Read the file `fname`, assuming each column is separated by a single space, and
 the first 14 rows contain header information
 """
-function read_unity_file(fname::String;header_rows=14)
+function read_unity_file(fname::String)
     # TODO: Return the config as well
     column_names = ["marker","Δt","xpos","ypos","direction"]
-    data = readdlm(fname, ' ', skipstart=header_rows) 
     # check if first column should be skipped
+    header = Dict()
+    header_rows = 0
+    lines = open(fname) do fid
+        _lines = String[]
+        while true
+            _line = readline(fid)
+            if isempty(_line)
+                continue
+            end
+            if isdigit(first(strip(_line)))
+                break
+            end
+            push!(_lines, _line)
+            header_rows += 1
+        end
+        _lines
+    end
+    _header = header
+    poster_idx = 0
+    for (i,_line) in enumerate(lines) 
+        if occursin(':', _line)
+            k,v = split(_line, ':')
+            if k == "PosterLocations"
+                # check the next line
+                if startswith(lines[i+1],"name: Poster")
+                    # different format: start 
+                    header["PosterLocations"] = Dict()
+                    _header = header["PosterLocations"]
+                else
+                    # older format
+                    header["PosterLocations"] = Dict()
+                    loc_strings = split(v)
+                    _keys = sort(collect(keys(poster_img)),by=k->string(k))
+                    header["PosterLocations"] = Dict(_keys[ll[1]]=>ll[2] for ll in parse_poster_location.(loc_strings))
+                end
+            elseif k == "name" || k == "posterPosition"
+                if k == "name" 
+                    # grab the next line which shoud be the position
+                    k2,v2 = split(lines[i+1], ':')
+                    _header[poster_idx] = parse(NTuple{3,Float64},v2)
+                elseif k == "posterPosition"
+                    # do nothing since we've already processed this line above
+                end
+            else
+                if k == "MazeName"
+                    poster_idx = get_poster_index(v)
+                end
+                _header = header
+                _header[k] = v
+            end
+        end
+    end
+    # post processing
+    if "MazeName" in keys(header)
+        # figure out the poster index
+        poster_idx = get_poster_index(header["MazeName"])
+    end
+    data = readdlm(fname, ' ', skipstart=header_rows) 
     if size(data,2) == 6 # should only be 5 columns
         data = data[:,2:end]
     end
-    header = Dict()
-    open(fname) do fid
-        for i in 1:header_rows
-            _line = readline(fid)
-            k,v = split(_line, ':')
-            header[k] = v
-        end
-    end
     data = convert(Matrix{Float64}, data)
     data, header, column_names
+end
+
+function get_poster_index(mazename::AbstractString)
+    pp = split(mazename)
+    poster_idx = findfirst(k->occursin(lowercase(pp[end]),k),poster_img) 
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
@@ -136,10 +221,10 @@ end
 
 function angle2arrow(a::Float64)
     θ = π*a/180
-    cos(θ), sin(θ)
+    sin(θ), cos(θ)
 end
 
-function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=true, kwargs...)
+function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=false, kwargs...)
     _ntrials = numtrials(udata)
     udata_trial = lift(trial) do _trial
         if 0 < _trial.i <= _ntrials
@@ -246,7 +331,12 @@ function get_maze_colors(mm::MazeModel)
     colors[:walls] = fill(RGB(0.3f0, 0.21470589f0, 0.21470589f0), 4)
     colors[:floor] = to_color(:gray)
     colors[:ceiling] = to_color(:gray)
-    colors[:pillars] = [[to_color(c) for _ in  1:length(mm.pillars[i])] for (i,c) in enumerate([:yellow, :red, :blue, :green])]
+    _colors = [RGB(255/255,195/255,0.0), # yellow
+               RGB(255/255,111/255,120/255),# red
+               RGB(0.0, 118/255,1.0), # blue
+               RGB(5/255,223/255,0.0) # green
+            ]
+    colors[:pillars] = [[to_color(c) for _ in  1:length(mm.pillars[i])] for (i,c) in enumerate(_colors)]
     colors
 end
 
@@ -283,7 +373,6 @@ function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}
             _colors = colors[k]
             colors[k] = Vector{Vector{Vector{T}}}(undef, npillars)
             offset = 0
-            @show typeof(_colors) typeof(colors[k])
             for (i,j) in enumerate(n_pillar_walls)
                 colors[k][i] = _colors[offset+1:offset+j]
                 offset += j
@@ -301,8 +390,8 @@ function MazeModel(bins::Dict{Symbol,T}, normals) where T
     MazeModel(walls, pillars, _floor, _ceiling)
 end
 
-function MazeModel(;Δz=0.01)
-    bins,normals = create_maze(;Δz=Δz)
+function MazeModel(;kvs...)
+    bins,normals = create_maze(;kvs...)
     MazeModel(bins,normals)
 end
 
@@ -346,7 +435,7 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, kwargs...)
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, kwargs...)
     if show_floor
         #floor
         bin = mm.floor.bins
@@ -382,6 +471,9 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
                 bin = om.bins
                 m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
                 viz!(lscene, m, color=cc,colormap=:Blues)
+                if show_normals
+                    arrows!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
+                end
             end
         end
     end
@@ -399,21 +491,33 @@ struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
     sprite::Vector{Sprite{T, T2, T3, T4, T5}}
 end
 
-function Posters(img_files::Vector{String}, position, mm::MazeModel)
-    wall_pillar_idx = assign_posters(mm,position)
+function Posters(mm::MazeModel,udata::UnityData)
+    Posters(mm, udata.header["PosterLocations"])
+end
+
+function Posters(mm::MazeModel, _poster_pos::Dict{Symbol, NTuple{3, Float64}})
+    _poster_pos = Dict(k=>(p[1],p[3]) for (k,p) in _poster_pos)
+    Posters(mm, _poster_pos)
+end
+
+function Posters(mm::MazeModel,_poster_pos=poster_pos)
+    wall_pillar_idx = assign_posters(mm,_poster_pos)
     wall_idx = wall_pillar_idx.pillar_wall_idx
     pillar_idx = wall_pillar_idx.pillar_idx
     rot = LinearMap(RotX(3π/2))
-    images = [load(f) for f in img_files]
+    images = Dict(k=>load(v) for (k,v) in poster_img)
     # hack just to figure out the type
-    sp = sprite(images[1], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
-
-    sprites = Vector{typeof(sp)}(undef, length(images))
-    for (ii,(pp,img)) in enumerate(zip(position,images))
+    sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    for (ii,pk) in enumerate(keys(_poster_pos))
+        pp = _poster_pos[pk]
+        img = images[pk]
         sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
         sp2 = rot(sp)
-        trans = LinearMap(Translation(pp[1],pp[2], 2.5))
-        nn = mm.pillars[pillar_idx[ii]][wall_idx[ii]].normal
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], 2.5))
+        nn = mm.pillars[pillar_idx[pk]][wall_idx[pk]].normal
         θ = acos(sp2.normals[1]'*nn)
         rot2 = LinearMap(RotZ(θ))
         sp3 = trans(rot2(sp2))
@@ -435,129 +539,97 @@ function visualize!(lscene, posters::Posters;kwargs...)
     end
 end
 
+
+"""
+    create_mesh(lower_left::T, upper_right::T,Δb::Float64) where T <: NTuple{2,Float64}
+
+Create a mesh representing an object (pillar,wall) with the specified corners, using the specified bin width
+"""
+function create_mesh(lower_left::T, upper_right::T,Δb::Float64, height::Float64=5.0, Δ::Float64=0.1;flip_normals=false) where T <: NTuple{2,Float64}
+    bins = Vector{NTuple{3,Vector{Float64}}}(undef, 4)
+    normals = Vector{Vector{Float64}}(undef, 4)
+    
+    zbins = range(0.0, stop=height, length=10)
+
+    xbins = soft_range(lower_left[1], upper_right[1], Δb)
+    y0 = lower_left[2] 
+    ybins = range(y0-Δ, stop=y0+Δ,length=2)
+    bins[1] = (xbins,ybins,zbins)
+    normals[1] = [0.0, -1.0,0.0]
+
+    y0 = upper_right[2] 
+    ybins = range(y0-Δ, stop=y0+Δ,length=2)
+    bins[2] = (xbins,ybins,zbins)
+    normals[2] = [0.0, 1.0, 0.0]
+
+    ybins = soft_range(lower_left[2], upper_right[2],Δb)
+    x0 = lower_left[1] 
+    xbins = range(x0-Δ, stop=x0+Δ,length=2)
+    bins[3] = (xbins,ybins,zbins)
+    normals[3] = [-1.0, 0.0, 0.0]
+    x0 = upper_right[1] 
+    xbins = range(x0-Δ, stop=x0+Δ,length=2)
+    bins[4] = (xbins,ybins,zbins)
+    normals[4] = [1.0, 0.0, 0.0]
+    bins, normals
+end
+
 """
 Return the meshes representing the maze
 """
-function create_maze(;kvs...)
+function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs...)
     # unity uses 40x40 bins on the floor
-    floor_bins = range(-12.5, stop=12.5, length=40)
+    floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
 
-    bins = Dict{Symbol,Vector{NTuple{3,AbstractVector{Float64}}}}()
+    bins = Dict{Symbol,Vector{NTuple{3,Vector{Float64}}}}()
     normals = Dict{Symbol,Vector{Vector{Float64}}}()
 
     zbins = range(0.0, stop=5.0, length=10)
-    Δ = get(kvs, :Δz, 0.1)
-    # pillar 1
-    bins[:pillar_1] = Vector{AbstractVector{Float64}}(undef, 4)
-    normals[:pillar_1] = Vector{Vector{Float64}}(undef, 4)
-    xbins = soft_range(-7.5, -2.5, Δb)
-    y0 = 2.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_1][1] = (xbins,ybins,zbins)
-    normals[:pillar_1][1] = [0.0, -1.0,0.0]
 
-    y0 = 7.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_1][2] = (xbins,ybins,zbins)
-    normals[:pillar_1][2] = [0.0, 1.0, 0.0]
+    # pillar 1; yellow pillar
+    #lower_left = (-7.5, 2.5)
+    #upper_right = (-2.5, 7.5)
+    pos = pillar_positions[:yellow]
+    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
 
-    ybins = soft_range(2.5, 7.5,Δb)
-    x0 = -7.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_1][3] = (xbins,ybins,zbins)
-    normals[:pillar_1][3] = [-1.0, 0.0, 0.0]
-    x0 = -2.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_1][4] = (xbins,ybins,zbins)
-    normals[:pillar_1][4] = [1.0, 0.0, 0.0]
+    # pillar 2;red 
+    lower_left = (2.5, 2.5)
+    upper_right = (7.5, 7.5)
+    pos = pillar_positions[:red]
+    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
 
-    # pillar 2
-    bins[:pillar_2] = Vector{AbstractVector{Float64}}(undef, 4)
-    normals[:pillar_2] = Vector{Vector{Float64}}(undef, 4)
-    xbins = soft_range(2.5, 7.5, Δb)
-    y0 = 2.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_2][1] = (xbins,ybins,zbins)
-    normals[:pillar_2][1] = [0.0, -1.0, 0.0]
-    y0 = 7.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_2][2] = (xbins,ybins,zbins)
-    normals[:pillar_2][2] = [0.0, 1.0, 0.0]
-
-    ybins = soft_range(2.5, 7.5,Δb)
-    x0 = 2.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_2][3] = (xbins,ybins,zbins)
-    normals[:pillar_2][3] = [-1.0, 0.0, 0.0]
-    x0 = 7.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_2][4] = (xbins, ybins,zbins)
-    normals[:pillar_2][4] = [1.0, 0.0, 0.0]
-
-    # pillar 3
-    bins[:pillar_3] = Vector{AbstractVector{Float64}}(undef, 4)
-    normals[:pillar_3] = Vector{Vector{Float64}}(undef, 4)
-    xbins = soft_range(2.5, 7.5, Δb)
-    y0 = -2.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_3][1] = (xbins,ybins,zbins)
-    normals[:pillar_3][1] = [0.0, 1.0, 0.0]
-    y0 = -7.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_3][2] = (xbins, ybins,zbins)
-    normals[:pillar_3][2] = [0.0, -1.0, 0.0]
-    ybins = soft_range(-7.5, -2.5,Δb)
-    x0 = 2.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_3][3] = (xbins, ybins,zbins)
-    normals[:pillar_3][3] = [-1.0, 0.0, 0.0]
-    x0 = 7.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_3][4] = (xbins, ybins, zbins)
-    normals[:pillar_3][4] = [1.0, 0.0, 0.0]
+    # pillar 3; blue
+    lower_left = (-7.5, -7.5)
+    upper_right = (-2.5, -2.5)
+    pos = pillar_positions[:blue]
+    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
 
     # pillar 4
-    bins[:pillar_4] = Vector{AbstractVector{Float64}}(undef,4)
-    normals[:pillar_4] = Vector{Vector{Float64}}(undef, 4)
-    xbins = soft_range(-7.5, -2.5, Δb)
-    y0 = -2.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_4][1] = (xbins, ybins, zbins)
-    normals[:pillar_4][1] = [0.0, 1.0, 0.0]
-    y0 = -7.5
-    ybins = range(y0-Δ, stop=y0+Δ,length=2)
-    bins[:pillar_4][2] = (xbins, ybins, zbins)
-    normals[:pillar_4][2] = [0.0, -1.0, 0.0]
-    ybins = soft_range(-7.5, -2.5,Δb)
-    x0 = -2.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_4][3] = (xbins, ybins, zbins)
-    normals[:pillar_4][3] = [1.0, 0.0, 0.0]
-    x0 = -7.5
-    xbins = range(x0-Δ, stop=x0+Δ,length=2)
-    bins[:pillar_4][4] = (xbins, ybins, zbins)
-    normals[:pillar_4][4] = [-1.0, 0.0, 0.0]
+    lower_left = (2.5, -7.5)
+    upper_right = (7.5, -2.5)
+    pos = pillar_positions[:green]
+    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
 
     # walls
-    bins[:walls] = Vector{AbstractVector{Float64}}(undef, 4)
+    bins[:walls] = Vector{Vector{Float64}}(undef, 4)
     normals[:walls] = Vector{Vector{Float64}}(undef, 4)
-    xbins = soft_range(-12.5, 12.5, Δb)
-    y0 = -12.5
+    xbins = soft_range(xmin, xmax, Δb)
+    y0 = ymin
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[:walls][1] = (xbins,ybins,zbins)
     normals[:walls][1] = [0.0, 1.0,0.0]
-    y0 = 12.5
+    y0 = ymax 
     ybins = range(y0-Δ, stop=y0+Δ,length=2)
     bins[:walls][2] = (xbins,ybins,zbins)
     normals[:walls][2] = [0.0, -1.0, 0.0]
 
-    ybins = soft_range(-12.5, 12.5, Δb)
-    x0 = -12.5
+    ybins = soft_range(ymin, ymax, Δb)
+    x0 = xmin
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[:walls][3] = (xbins, ybins, zbins)
     normals[:walls][3] = [1.0, 0.0, 0.0]
-    x0 = 12.5
+    x0 = xmax 
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[:walls][4] = (xbins, ybins, zbins)
     normals[:walls][4] = [-1.0, 0.0, 0.0]
@@ -571,8 +643,8 @@ function create_maze(;kvs...)
     normals[:floor] = [[0.0, 0.0, 1.0]]
 
     # ceiling
-    xbins = range(-12.5, stop=12.5, step=Δb)
-    ybins = range(-12.5, stop=12.5, step=Δb)
+    xbins = range(xmin, stop=xmax, step=Δb)
+    ybins = range(ymin, stop=ymax, step=Δb)
     z0 = 5.0
     zbins = range(z0-Δ, stop=z0+Δ, length=2)
     bins[:ceiling] = [(xbins, ybins, zbins)]
@@ -581,7 +653,7 @@ function create_maze(;kvs...)
     bins, normals
 end
 
-function assign_posters(bins, normals)
+function assign_posters_old(bins, normals)
     wall_idx = Vector{Tuple{Symbol,Int64}}(undef, length(poster_pos))
     for (i,pp) in enumerate(poster_pos)
         d = Inf
@@ -598,10 +670,15 @@ function assign_posters(bins, normals)
     wall_idx
 end
 
-function assign_posters(mm::MazeModel, poster_pos::Vector{Vector{T}}=poster_pos) where T <: Real
-    pillar_idx = fill(0, length(poster_pos))
-    wall_idx = fill(0, length(poster_pos))
-    for (i,pp) in enumerate(poster_pos)
+function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{3,Float64}})
+    # ignore the second coordinate
+    assign_posters(mm, Dict(k=>(p[1],p[3]) for (k,p) in _poster_pos))
+end
+
+function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{2,Float64}}=poster_pos)
+    pillar_idx = Dict{Symbol,Int64}()
+    wall_idx = Dict{Symbol,Int64}()
+    for (kp,pp) in _poster_pos
         d = Inf
         for (k,pillar) in enumerate(mm.pillars)
             for (j,_wall) in enumerate(pillar)
@@ -609,8 +686,8 @@ function assign_posters(mm::MazeModel, poster_pos::Vector{Vector{T}}=poster_pos)
                 _d = (pp[1] - mean(pq[1]))^2 + (pp[2] - mean(pq[2]))^2
                 if _d < d
                     d = _d
-                    pillar_idx[i] = k
-                    wall_idx[i] = j
+                    pillar_idx[kp] = k
+                    wall_idx[kp] = j
                 end
             end
         end

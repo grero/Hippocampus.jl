@@ -4,6 +4,7 @@ import Makie.SpecApi as S
 using StatsBase
 using MultivariateStats
 using LinearAlgebra
+using InteractiveViz
 
 struct MountainSortResult{T<:Real}
     templates::Array{T,3}
@@ -261,7 +262,7 @@ function plot_sorting(x::MountainSortResult, y::NeuralData)
         lg1 = GridLayout(fig[1,1])
         axes = [Axis(lg1[i,1]) for i in 1:length(waveforms)]
         lg2 = GridLayout(fig[1,2])
-        axf = Axis3(lg2[1,1])
+        axf = Axis3(lg2[1,1], xgridvisible=true, ygridvisible=true,zgridvisible=true)
         sc = Any[] 
         for (ii,ax) in enumerate(axes)
             lines!(ax, waveforms[ii][1,:,1:n_spikes_plot[ii]],color=colors[ii])
@@ -384,4 +385,6 @@ function inspect_sorting(mda_file::String)
     with_theme(theme_dark()) do
         fig = plot(mdata, ndata)
     end
+    ax5 = S.Axis(plots=[S.Lines(Float64.(y.analogtime), y.data)])
+    return S.GridLayout(S.GridLayout([S.GridLayout(axes) S.GridLayout(ax3,ax4;rowsizes=[Relative(0.7), Relative(0.3)])];colsizes=[Relative(0.3), Relative(0.7)]),ax5)
 end

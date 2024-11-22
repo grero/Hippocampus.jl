@@ -61,6 +61,7 @@ struct RippleData
     header::Dict
 end
 
+numtrials(rpdata::RippleData) = size(rpdata.triggers,1)
 DPHT.level(::Type{RippleData}) = "session"
 
 DPHT.filename(::Type{RippleData}) = "rplparallel.mat"
@@ -69,9 +70,16 @@ function RippleData(;do_save=true, redo=false, kvs...)
     outfile = DPHT.filename(RippleData)
     if isfile(outfile) && !redo
         qdata = MAT.matread(outfile)
-        trial_markers, trial_timestamps, header = (qdata["triggers"], qdata["timestamps"], get(qdata, "header", Dict()))
+        # hack
+        if "df" in keys(qdata)
+            trial_markers = round.(Int64, qdata["df"]["data"]["markers"])
+            trial_timestamps = qdata["df"]["data"]["timeStamps"]
+            header = Dict()
+        else
+            trial_markers, trial_timestamps, header = (qdata["triggers"], qdata["timestamps"], get(qdata, "header", Dict()))
+            meta = qdata["metadata"]
+        end
         rp = RippleData(trial_markers, trial_timestamps, header)
-        meta = qdata["metadata"]
     else
         # extract the markers from the raw file
         nev_files = glob("*.nev")
