@@ -491,16 +491,16 @@ struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
     sprite::Vector{Sprite{T, T2, T3, T4, T5}}
 end
 
-function Posters(mm::MazeModel,udata::UnityData)
-    Posters(mm, udata.header["PosterLocations"])
+function Posters(mm::MazeModel,udata::UnityData;kvs...)
+    Posters(mm, udata.header["PosterLocations"];kvs...)
 end
 
-function Posters(mm::MazeModel, _poster_pos::Dict{Symbol, NTuple{3, Float64}})
+function Posters(mm::MazeModel, _poster_pos::Dict{Symbol, NTuple{3, Float64}};kvs...)
     _poster_pos = Dict(k=>(p[1],p[3]) for (k,p) in _poster_pos)
-    Posters(mm, _poster_pos)
+    Posters(mm, _poster_pos;kvs...)
 end
 
-function Posters(mm::MazeModel,_poster_pos=poster_pos)
+function Posters(mm::MazeModel,_poster_pos=poster_pos;z=2.5)
     wall_pillar_idx = assign_posters(mm,_poster_pos)
     wall_idx = wall_pillar_idx.pillar_wall_idx
     pillar_idx = wall_pillar_idx.pillar_idx
@@ -516,7 +516,7 @@ function Posters(mm::MazeModel,_poster_pos=poster_pos)
         sp2 = rot(sp)
         μ = mean(sp2.points) 
         # trans is relative
-        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], 2.5))
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
         nn = mm.pillars[pillar_idx[pk]][wall_idx[pk]].normal
         θ = acos(sp2.normals[1]'*nn)
         rot2 = LinearMap(RotZ(θ))
@@ -577,7 +577,7 @@ end
 """
 Return the meshes representing the maze
 """
-function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs...)
+function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, height=5.0, pillar_height=3.0,kvs...)
     # unity uses 40x40 bins on the floor
     floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
@@ -585,32 +585,34 @@ function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs..
     bins = Dict{Symbol,Vector{NTuple{3,Vector{Float64}}}}()
     normals = Dict{Symbol,Vector{Vector{Float64}}}()
 
-    zbins = range(0.0, stop=5.0, length=10)
+    zbins = range(0.0, stop=height, length=10)
 
     # pillar 1; yellow pillar
     #lower_left = (-7.5, 2.5)
     #upper_right = (-2.5, 7.5)
     pos = pillar_positions[:yellow]
-    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
+    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
 
     # pillar 2;red 
     lower_left = (2.5, 2.5)
     upper_right = (7.5, 7.5)
     pos = pillar_positions[:red]
-    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
+    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
 
     # pillar 3; blue
     lower_left = (-7.5, -7.5)
     upper_right = (-2.5, -2.5)
     pos = pillar_positions[:blue]
-    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
+    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
 
     # pillar 4
     lower_left = (2.5, -7.5)
     upper_right = (7.5, -2.5)
     pos = pillar_positions[:green]
-    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
+    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
 
+
+    zbins = range(0.0, stop=height, length=10)
     # walls
     bins[:walls] = Vector{Vector{Float64}}(undef, 4)
     normals[:walls] = Vector{Vector{Float64}}(undef, 4)
@@ -645,7 +647,7 @@ function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs..
     # ceiling
     xbins = range(xmin, stop=xmax, step=Δb)
     ybins = range(ymin, stop=ymax, step=Δb)
-    z0 = 5.0
+    z0 = height 
     zbins = range(z0-Δ, stop=z0+Δ, length=2)
     bins[:ceiling] = [(xbins, ybins, zbins)]
     normals[:ceiling]=[[0.0, 0.0, -1.0]]
