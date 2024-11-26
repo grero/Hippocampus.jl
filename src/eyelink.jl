@@ -255,8 +255,10 @@ function visualize!(ax::Makie.Block, edata::EyelinkData;trial::Observable{Trial}
         tef = (te .- te[1])/1000.0
         j = searchsortedfirst(tef, ct)
         if 0 < j <= length(tef)
-            gaze = permutedims([_edt[2] _edt[3]])
-            gaze_pos[] = Point2f.(eachcol(gaze[:,current_j:j]))
+            j0 = min(j,current_j)
+            j1 = max(j, current_j)
+            gaze = permutedims([_edt[2][:] _edt[3][:]])
+            gaze_pos[] = Point2f.(eachcol(gaze[:,j0:j1]))
             current_j = j
         end
     end
