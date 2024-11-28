@@ -135,6 +135,9 @@ end
     spm = Hippocampus.SpatialMap(spr, xbins,ybins, spoc)
     ee = Hippocampus.compute_entropy(spm)
     @test ee ≈ 6.361282290710195
+    sic = Hippocampus.compute_sic(spm)
+    # TODO: Is this value actually accurate?
+    @test sic ≈ 2.103883351775456
 end
 
 @testset "Raytrace" begin
