@@ -576,6 +576,9 @@ function create_mesh(lower_left::T, upper_right::T,Δb::Float64, height::Float64
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[4] = (xbins,ybins,zbins)
     normals[4] = [1.0, 0.0, 0.0]
+    if flip_normals
+        normals .*= -1.0
+    end
     bins, normals
 end
 
