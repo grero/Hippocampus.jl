@@ -723,6 +723,21 @@ function create_axis(obj::Posters, fig;kwargs...)
     ax = create_axis(axtype,fig;kwargs...)
 end
 
+function create_axis(obj::ViewRepresentation, fig;kwargs...)
+    axtype = get_axis_type(ViewRepresentation)
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
+function create_axis(obj::ViewOccupancy, fig;kwargs...)
+    axtype = get_axis_type(ViewOccupancy)
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
+function create_axis(obj::ViewMap, fig;kwargs...)
+   axtype = get_axis_type(ViewMap) 
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
  get_axis_type(::Type{T}) where T <: Any = LScene
  get_axis_type(::Type{EyelinkData}) = Axis
 
