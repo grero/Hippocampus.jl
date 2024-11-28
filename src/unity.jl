@@ -445,7 +445,7 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, kwargs...)
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, invert_ceiling=false, kwargs...)
     if show_floor
         #floor
         bin = mm.floor.bins
@@ -468,6 +468,12 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         end
         bin = mm.ceiling.bins
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+        if invert_ceiling
+            pp = Meshes.Vec(mean.(bin))
+            m = Translate(-pp...)(m)
+            m = Rotate(RotX(π))(m)
+            m = Translate(pp...)(m)
+        end
         if offsets !== nothing && :ceiling in keys(offsets)
             m = Translate(offsets[:ceiling][1]...)(m)
         end
