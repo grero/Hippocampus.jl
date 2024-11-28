@@ -122,7 +122,7 @@ Return the 3D eye position on objects in the maze
 function GazeOnMaze(edata::EyelinkData, udata::UnityData)
     # we an only align edata and udata using events, so we need to operate on trials
     # the most compact representation
-    nt = size(edata.triggers,1)
+    nt = size(udata.triggers,1)
     gaze = Vector{Matrix{Float64}}(undef, nt)
     gtime = Vector{Vector{Float64}}(undef,nt)
     fixation = Vector{Vector{Bool}}(undef, nt)
