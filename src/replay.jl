@@ -243,8 +243,10 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
         if 0 < j <= length(fixmask)
             _current_j = current_j
             current_j = j
-            _fixmask = fixmask[_current_j:j]
-            current_gaze[] = Point3f.(eachcol(gaze[:,_current_j:j][:,_fixmask]))
+            j0 = min(_current_j, j)
+            j1 = max(_current_j, j)
+            _fixmask = fixmask[j0:j1]
+            current_gaze[] = Point3f.(eachcol(gaze[:,j0:j1][:,_fixmask]))
         else
             current_gaze[] = [Point3f(NaN)]
         end
