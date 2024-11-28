@@ -344,6 +344,50 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
     arrows!(lscene, current_pos, current_arrow, color=:black)
 end
 
+"""
+Wrapper type to visualize the raytracing
+"""
+struct RaytraceViewer
+    udata::UnityData
+    gazemaze::GazeOnMaze
+end
+
+function visualize!(lscene, raytrace::RaytraceViewer;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),kwargs...)
+    data_trial = lift(trial) do _trial
+        tu,px,py,hh = get_trial(raytrace.udata, _trial.i)
+        tg, ga = get_trial(raytrace.gazemaze, _trial.i)
+        tg,ga,tu,px,py,hh
+    end
+    current_ray = Observable([Point3f(NaN)=>Point3f(NaN)])
+    ray_color = Observable(parse(Colorant, :green))
+    current_jg = 1
+    onany(data_trial, current_time) do _ugt, _ct
+        tg,ga,tu,px,py,hh = _ugt
+        tu .-= tu[1]
+        tg .-= tg[1]
+        ju = searchsortedfirst(tu, _ct) 
+        if 0 < ju <= length(tu)
+            jg = searchsortedfirst(tg, _ct)
+            j0 = max(min(current_jg, jg),0)
+            j1 = min(max(current_jg, jg),length(tg))
+            current_jg = jg
+            current_ray[] = [Point3f(px[ju],py[ju],1.85)=>Point3f(ga[:,j]) for j in j0:j1]
+            # whether the gaze vector is within the field of view
+            xx = ga[1,j0:j1] .- px[ju]
+            yy = ga[2,j0:j1] .- py[ju]
+            zz = ga[3,j0:j1] .- 1.85
+            θ = atan.(yy,xx)
+            ϕ = atan.(zz,xx./sin.(θ))
+            if any((ϕ .< -π/6 .|| ϕ .> ϕ./6) .&& (cos.(θ .- hh[ju]) .> cos(π/6)))
+                ray_color[] = parse(Colorant, :red)
+            else
+                ray_color[] = parse(Colorant, :green)
+            end
+        end
+    end
+    linesegments!(lscene, current_ray, color=ray_color)
+end
+
 function compute_histogram(gdata::GazeOnMaze,mm::MazeModel;fixations_only=true)
     bins = get_bins(mm)
     if fixations_only 
