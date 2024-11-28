@@ -128,6 +128,9 @@ function GazeOnMaze(edata::EyelinkData, udata::UnityData)
     screen_width = edata.header["gaze_coords"][3] - edata.header["gaze_coords"][1]
     screen_height = edata.header["gaze_coords"][4] - edata.header["gaze_coords"][2]
     gx0, gy0, gxm, gym = edata.header["gaze_coords"]
+    # find center of screen
+    gx0 = (gxm-gx0)/2
+    gy0 = (gym-gy0)/2
     prog = Progress(nt,desc="Raytracing...")
     for i in 1:nt
         # get the time index of the eyelink data triggers
