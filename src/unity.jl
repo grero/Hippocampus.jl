@@ -225,7 +225,7 @@ function angle2arrow(a::Float64)
     sin(θ), cos(θ)
 end
 
-function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=false, kwargs...)
+function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=false,show_north=false, kwargs...)
     _ntrials = numtrials(udata)
     udata_trial = lift(trial) do _trial
         if 0 < _trial.i <= _ntrials
@@ -248,6 +248,7 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
     current_pos = Observable(position[][1:1])
     current_head_direction = Observable([Point3f(angle2arrow(head_direction[][1])...,0.0)])
 
+    north_direction = Observable([Point3f(0.0, 1.0,0.0)])
     # trigger curent_pos both on trial and time change
     onany(position, current_time) do _position, _ct
         # figure out which position to use
@@ -266,6 +267,9 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
     lines!(lscene, position, color=:black)
     scatter!(lscene, current_pos, color=:blue)
     arrows!(lscene, current_pos, current_head_direction, color=:blue)
+    if show_north
+        arrows!(lscene, current_pos, north_direction, color=:red)
+    end
 end
 
 function plot_arena()
