@@ -884,6 +884,17 @@ end
 
 numtrials(vrp::ViewRepresentation) = length(vrp.position)
 
+function Makie.convert_arguments(::Type{<:AbstractPlot}, vr::ViewRepresentation)
+    gazepos = Point3f[]
+    for pp in vr.position
+        for pq in pp
+            push!(gazepos, pq)
+        end
+    end
+    ax3 = S.Axis3(plots=[S.Scatter(gazepos)])
+    S.GridLayout(ax3)
+end
+
 function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Observable(Trial(1)),kwargs...)
     nt = numtrials(vrp)
     gaze_pos = lift(trial) do _trial
