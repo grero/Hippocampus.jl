@@ -304,10 +304,10 @@ of the arena.
 """
 function impacts(pos)
     x,y,z = pos
-    b1 = -7.5 <= x <= -2.5 && 2.5 <= y <= 7.5
-    b2 = -7.5 <= x <= -2.5 && -7.5 <= y <= -2.5
-    b3 = 2.5 <= x <= 7.5 && -7.5 <= y <= -2.5
-    b4 = 2.5 <= x <= 7.5 && 2.5 <= y <= 7.5
+    b1 = -7.5 <= x <= -2.5 && 2.5 <= y <= 7.5 && z < pillar_height
+    b2 = -7.5 <= x <= -2.5 && -7.5 <= y <= -2.5 && z < pillar_height
+    b3 = 2.5 <= x <= 7.5 && -7.5 <= y <= -2.5 && z < pillar_height
+    b4 = 2.5 <= x <= 7.5 && 2.5 <= y <= 7.5 && z < pillar_height
     b5 = x < -12.5 || x > 12.5
     b6 = y < -12.5 || y > 12.5
     b7 = z > ceiling_height || z < 0.0
