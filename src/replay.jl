@@ -1,5 +1,6 @@
 using MAT
 using CSV
+using DataFrames
 using Makie
 using ProgressMeter
 
@@ -86,14 +87,15 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
     # height of frustrum at near clip
     fovr = π*fov/180
     fheight = 2*tan(fovr/2)*near_clip
-    fwidth = frustrum_ratio*fheight
-    xc = (x-0.5)*fwidth
-    yc = (y-0.5)y*fheight
+    fwidth = fheight*frustrum_ratio
+    # is the normalized plane from -1 to 1?
+    xc = x*fwidth
+    yc = y*fheight
     # flip x since x-values left-of-center should be associated with a positive angle
-    θ = atan(-xc, near_clip)
+    θ = atan(xc, near_clip)
     ϕ = atan(yc,near_clip) 
     θ += direction
-    # now cast along the line θ
+    # now cast along the line (θ,ϕ)
 
     dl = 0.01
     xp,yp,zp = (pos[1], pos[2],camera_height)
@@ -101,7 +103,7 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
     cθ = cos(θ)
     sϕ = sin(ϕ)
     while true
-        dx,dy,dz = (dl*cθ, dl*sθ,dl*sϕ)
+        dx,dy,dz = (dl*sθ, dl*cθ,dl*sϕ)
         xp += dx
         yp += dy 
         zp += dz 
@@ -116,18 +118,50 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
 end
 
 """
+Construct GazeMaze from eyelinkata and raytrace data from Unity
+"""
+function GazeOnMaze(edata::EyelinkData, raytracedata::DataFrame)
+    # get the trial triggers in raytrace time
+    triggers = edata.triggers
+    time_raytrace = raytracedata.Column2[:]
+    gaze_pos = [raytracedata.Column10 raytracedata.Column12 raytracedata.Column11]
+    gaze_pos[ismissing.(gaze_pos)] .= NaN
+    gaze_pos = something.(gaze_pos)
+    Δt = Float64(time_raytrace[1]) - edata.timestamps[1,1]
+    new_timestamps = edata.timestamps .+ Δt
+    nt = size(edata.triggers,1)
+    gaze = Vector{Matrix{Float64}}(undef, nt)
+    gtime = Vector{Vector{Float64}}(undef,nt) 
+    fixation = Vector{Vector{Bool}}(undef, nt)
+    for i in 1:nt
+        idx0 = searchsortedfirst(time_raytrace, new_timestamps[i,1])
+        idx1 = searchsortedlast(time_raytrace, new_timestamps[i,3])
+        gaze[i] = permutedims(gaze_pos[idx0:idx1,:])
+        # convert back to eyelink time
+        gtime[i] = time_raytrace[idx0:idx1] .- time_raytrace[idx0] .+ edata.timestamps[1,1]
+        gtime[i] = (gtime[i] .- gtime[i][1])/1000.0 # convert to seconds
+        # TODO: Actually set this
+        fixation[i] = fill(false, idx1-idx0+1)
+    end
+    GazeOnMaze(gtime,gaze,fixation,triggers,edata.timestamps,Dict())
+end
+
+"""
 Return the 3D eye position on objects in the maze
 """
 function GazeOnMaze(edata::EyelinkData, udata::UnityData)
     # we an only align edata and udata using events, so we need to operate on trials
     # the most compact representation
-    nt = size(edata.triggers,1)
+    nt = size(udata.triggers,1)
     gaze = Vector{Matrix{Float64}}(undef, nt)
     gtime = Vector{Vector{Float64}}(undef,nt)
     fixation = Vector{Vector{Bool}}(undef, nt)
     screen_width = edata.header["gaze_coords"][3] - edata.header["gaze_coords"][1]
     screen_height = edata.header["gaze_coords"][4] - edata.header["gaze_coords"][2]
     gx0, gy0, gxm, gym = edata.header["gaze_coords"]
+    # find center of screen
+    gx0 = (gxm-gx0)/2
+    gy0 = (gym-gy0)/2
     prog = Progress(nt,desc="Raytracing...")
     for i in 1:nt
         # get the time index of the eyelink data triggers
@@ -190,7 +224,8 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
     current_gaze = Observable([Point3f(NaN)])
     gdata_trial = lift(trial) do _trial
         if 0 < _trial.i <= nt
-            return gdata.time[_trial.i], gdata.gaze[_trial.i],gdata.fixation[_trial.i]
+            tg = gdata.time[_trial.i]
+            return tg, gdata.gaze[_trial.i],gdata.fixation[_trial.i]
         else
             return Float64[], fill(0.0, 3, 0), Bool[]
         end
@@ -209,8 +244,10 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
         if 0 < j <= length(fixmask)
             _current_j = current_j
             current_j = j
-            _fixmask = fixmask[_current_j:j]
-            current_gaze[] = Point3f.(eachcol(gaze[:,_current_j:j][:,_fixmask]))
+            j0 = min(_current_j, j)
+            j1 = max(_current_j, j)
+            _fixmask = fixmask[j0:j1]
+            current_gaze[] = Point3f.(eachcol(gaze[:,j0:j1][:,_fixmask]))
         else
             current_gaze[] = [Point3f(NaN)]
         end
@@ -308,6 +345,50 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
     arrows!(lscene, current_pos, current_arrow, color=:black)
 end
 
+"""
+Wrapper type to visualize the raytracing
+"""
+struct RaytraceViewer
+    udata::UnityData
+    gazemaze::GazeOnMaze
+end
+
+function visualize!(lscene, raytrace::RaytraceViewer;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),kwargs...)
+    data_trial = lift(trial) do _trial
+        tu,px,py,hh = get_trial(raytrace.udata, _trial.i)
+        tg, ga = get_trial(raytrace.gazemaze, _trial.i)
+        tg,ga,tu,px,py,hh
+    end
+    current_ray = Observable([Point3f(NaN)=>Point3f(NaN)])
+    ray_color = Observable(parse(Colorant, :green))
+    current_jg = 1
+    onany(data_trial, current_time) do _ugt, _ct
+        tg,ga,tu,px,py,hh = _ugt
+        tu .-= tu[1]
+        tg .-= tg[1]
+        ju = searchsortedfirst(tu, _ct) 
+        if 0 < ju <= length(tu)
+            jg = searchsortedfirst(tg, _ct)
+            j0 = max(min(current_jg, jg),0)
+            j1 = min(max(current_jg, jg),length(tg))
+            current_jg = jg
+            current_ray[] = [Point3f(px[ju],py[ju],1.85)=>Point3f(ga[:,j]) for j in j0:j1]
+            # whether the gaze vector is within the field of view
+            xx = ga[1,j0:j1] .- px[ju]
+            yy = ga[2,j0:j1] .- py[ju]
+            zz = ga[3,j0:j1] .- 1.85
+            θ = atan.(yy,xx)
+            ϕ = atan.(zz,xx./sin.(θ))
+            if any((ϕ .< -π/6 .|| ϕ .> ϕ./6) .&& (cos.(θ .- hh[ju]) .> cos(π/6)))
+                ray_color[] = parse(Colorant, :red)
+            else
+                ray_color[] = parse(Colorant, :green)
+            end
+        end
+    end
+    linesegments!(lscene, current_ray, color=ray_color)
+end
+
 function compute_histogram(gdata::GazeOnMaze,mm::MazeModel;fixations_only=true)
     bins = get_bins(mm)
     if fixations_only 
@@ -351,7 +432,7 @@ function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Fl
     cc.fov[] = 60.0
     cc.near[] = 0.3
     cc.far[] = 1000.0
-
+    cc.settings.clipping_mode[] = :adaptive # :static
     udata = mp.udata
     nt = numtrials(udata)
     udata_trial = lift(trial) do _trial
@@ -370,7 +451,7 @@ function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Fl
         if 0 < j <= length(tp)
             pos = Point3f(px[j],py[j], 1.85)
             θ = π*dir[j]/180.0 # convert to radians
-            cc.lookat[] = Point3f(cos(θ), sin(θ), 0.0) + pos
+            cc.lookat[] = Point3f(sin(θ), cos(θ), 0.0) + pos
             cc.eyeposition[] = pos
             update_cam!(lscene.scene, cc)
         end
@@ -602,14 +683,48 @@ Visualizables = Union{MazeModel, UnityData}
 # TODO: It would be more elegant to make use of Makie recipe here
 
 # I feel like this is duplicating functionality that must be in Makie somwhere...
-function create_axis(AxisType,fig;kwargs...)
-    if AxisType <: LScene
+function create_axis(::Type{T},fig;kwargs...) where T <: Makie.AbstractAxis
+    if T <: LScene
         axis_args = (show_axis=get(kwargs, :show_axis,false),)
     else
         axis_args = (backgroundcolor=get(kwargs, :backgroundcolor, :white),)
     end
-    lscene = AxisType(fig[1,1];axis_args...)
+    lscene = T(fig[1,1];axis_args...)
 end
+
+
+function create_axis(obj::EyelinkData, fig;kwargs...)
+    axtype = get_axis_type(EyelinkData)
+    ax = create_axis(axtype, fig;kwargs...)
+    # hide everything
+    hidedecorations!(ax)
+    ax.backgroundcolor = RGBA(1.0, 1.0, 1.0, 0.0) 
+    ax
+end
+
+function create_axis(obj::UnityData, fig;kwargs...)
+    axtype = get_axis_type(UnityData)
+    ax = create_axis(axtype, fig;kwargs...)
+    ax
+end
+
+function create_axis(obj::MazeReplayer, fig;kwargs...)
+    axtype = get_axis_type(MazeReplayer)
+    ax = create_axis(axtype, fig;kwargs...)
+end
+
+function create_axis(obj::MazeModel, fig;kwargs...)
+    axtype = get_axis_type(MazeModel)
+    ax = create_axis(axtype, fig;kwargs...)
+end
+
+function create_axis(obj::Posters, fig;kwargs...)
+    axtype = get_axis_type(Posters)
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
+ get_axis_type(::Type{T}) where T <: Any = LScene
+ get_axis_type(::Type{EyelinkData}) = Axis
 
 function visualize(objects;kwargs...)
     fig = Figure()
@@ -645,6 +760,61 @@ function visualize(objects;kwargs...)
     fig
 end
 
+VectorOrMatrix{T} = Union{Vector{T}, Matrix{T}}
+
+function visualize(fig::Figure, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
+    # tuple indicates overlay, i.e. plot in the same axis
+    # vector means stack, i.e. axis occupying the same grid locaiton
+    scenes = Any[]
+    lg = GridLayout(fig[1,1])
+    fobjects = Any[]
+    scene_offset = 0
+    for jj in axes(objects,2)
+        for ii in axes(objects,1)
+            obj = objects[ii,jj]
+            if isa(obj,Vector)
+                for (kk,_obj) in obj
+                    axtype = get_axis_type(typeof(_obj))
+                    push!(scenes, create_axis(axtype, lg[ii,jj];kvs...))
+                    push!(fobjects, _obj)
+                end
+                scene_offset += length(obj)
+            else
+                if isa(obj, Tuple)
+                    axtypes = Any[]
+                    _obj = first(obj)
+                    axtype = get_axis_type(typeof(_obj))
+                    _scene = create_axis(_obj, lg[ii,jj];kvs...)
+                    push!(axtypes, axtype)
+                    push!(fobjects, _obj)
+                    push!(scenes,_scene)
+                    for _obj in obj[2:end]
+                        axtype = get_axis_type(typeof(_obj))
+                        kk = findfirst(axtypes.==axtype)
+                        if kk !== nothing
+                            #FIXME: This is wrong, scenes contains all the scenes, not just for this cell
+                            _scene = scenes[scene_offset+kk]
+                            push!(scenes, _scene)
+                        else
+                            _scene = create_axis(_obj, lg[ii,jj];kvs...)
+                            push!(axtypes, axtype)
+                            push!(scenes, _scene)
+                        end
+                        push!(fobjects, _obj)
+                    end
+                    scene_offset += length(obj)
+                else
+                    axtype = get_axis_type(typeof(obj))
+                    push!(scenes, create_axis(obj, lg[ii,jj];kvs...))
+                    scene_offset += 1
+                    push!(fobjects, obj)
+                end
+            end
+        end
+    end
+    visualize!(scenes, fobjects;kvs...)
+end
+
 function visualize(fig::Figure, objects::Tuple{Any, Vararg{Any}};AxisType=LScene, kwargs...)
     if isa(AxisType, AbstractVector)
         scenes = Any[]
@@ -657,36 +827,6 @@ function visualize(fig::Figure, objects::Tuple{Any, Vararg{Any}};AxisType=LScene
         scenes = [lscene for _ in 1:length(objects)]
     end
     visualize!(scenes, objects;kwargs...)
-end
-
-function visualize(fig::Figure, objects::Vector;AxisType=[LScene for _ in length(objects)],kwargs...)
-    scenes = Any[]
-    lg = GridLayout(fig[1,1])
-    pobjects = Any[]
-    for (i,(obj,_AxisType)) in enumerate(zip(objects,AxisType))
-        if isa(obj, Tuple)
-            n = length(obj)
-        else
-            n = 1
-        end
-        if isa(_AxisType, NTuple{n,Any})
-            lscene = [create_axis(_AT, lg[1,i];kwargs...) for _AT in _AxisType]
-            push!(scenes, lscene)
-            push!(pobjects, obj)
-        else
-            lscene = create_axis(_AxisType, lg[1,i];kwargs...)
-            if n > 1
-                for j in 1:n
-                    push!(scenes, lscene)
-                    push!(pobjects, obj[j])
-                end
-            end
-        end
-    end
-    for (objs,scene) in zip(pobjects, scenes)
-        @show typeof(objs) typeof(scene)
-        visualize!(scene, objs;kwargs...)
-    end
 end
 
 function visualize!(scenes::AbstractVector, objects;kwargs...)

@@ -5,14 +5,19 @@ using LinearAlgebra
 using DelimitedFiles
 using FileIO
 
+# TODO: Unclear if these are the latest values. Perhaps update?
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
 zBound = [12.5, 12.5, -12.5, -12.5, 12.5]
+
 x1Bound = [-7.5, -2.5, -2.5, -7.5, -7.5]  # yellow pillar
 z1Bound = [7.5, 7.5, 2.5, 2.5, 7.5]
+
 x2Bound = [2.5, 7.5, 7.5, 2.5, 2.5]  # red pillar
 z2Bound = [7.5, 7.5, 2.5, 2.5, 7.5]
+
 x3Bound = [-7.5, -2.5, -2.5, -7.5, -7.5]  # blue pillar
 z3Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
+
 x4Bound = [2.5, 7.5, 7.5, 2.5, 2.5]  # green pillar
 z4Bound = [-2.5, -2.5, -7.5, -7.5, -2.5]
 
@@ -42,6 +47,7 @@ poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DI
 # TODO: Use actual values here
 camera_height = 2.5
 ceiling_height = 5.0
+pillar_height = 3.0
 
 struct UnityData
     time::Vector{Float64}
@@ -58,7 +64,7 @@ DPHT.level(::Type{UnityData}) = "session"
 function UnityData()
     # attempt to find data file
     # assume we are at the sesison level
-    _datadir = glob("RawData_T*")
+    _datadir = glob("RawData[_-]T*")
     if !isempty(_datadir)
         datadir = first(_datadir)
         if isdir(datadir)
@@ -224,7 +230,7 @@ function angle2arrow(a::Float64)
     sin(θ), cos(θ)
 end
 
-function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=false, kwargs...)
+function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0), show_maze=false,show_north=false, kwargs...)
     _ntrials = numtrials(udata)
     udata_trial = lift(trial) do _trial
         if 0 < _trial.i <= _ntrials
@@ -247,6 +253,7 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
     current_pos = Observable(position[][1:1])
     current_head_direction = Observable([Point3f(angle2arrow(head_direction[][1])...,0.0)])
 
+    north_direction = Observable([Point3f(0.0, 1.0,0.0)])
     # trigger curent_pos both on trial and time change
     onany(position, current_time) do _position, _ct
         # figure out which position to use
@@ -265,6 +272,9 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
     lines!(lscene, position, color=:black)
     scatter!(lscene, current_pos, color=:blue)
     arrows!(lscene, current_pos, current_head_direction, color=:blue)
+    if show_north
+        arrows!(lscene, current_pos, north_direction, color=:red)
+    end
 end
 
 function plot_arena()
@@ -299,10 +309,10 @@ of the arena.
 """
 function impacts(pos)
     x,y,z = pos
-    b1 = -7.5 <= x <= -2.5 && 2.5 <= y <= 7.5
-    b2 = -7.5 <= x <= -2.5 && -7.5 <= y <= -2.5
-    b3 = 2.5 <= x <= 7.5 && -7.5 <= y <= -2.5
-    b4 = 2.5 <= x <= 7.5 && 2.5 <= y <= 7.5
+    b1 = -7.5 <= x <= -2.5 && 2.5 <= y <= 7.5 && z < pillar_height
+    b2 = -7.5 <= x <= -2.5 && -7.5 <= y <= -2.5 && z < pillar_height
+    b3 = 2.5 <= x <= 7.5 && -7.5 <= y <= -2.5 && z < pillar_height
+    b4 = 2.5 <= x <= 7.5 && 2.5 <= y <= 7.5 && z < pillar_height
     b5 = x < -12.5 || x > 12.5
     b6 = y < -12.5 || y > 12.5
     b7 = z > ceiling_height || z < 0.0
@@ -491,16 +501,16 @@ struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
     sprite::Vector{Sprite{T, T2, T3, T4, T5}}
 end
 
-function Posters(mm::MazeModel,udata::UnityData)
-    Posters(mm, udata.header["PosterLocations"])
+function Posters(mm::MazeModel,udata::UnityData;kvs...)
+    Posters(mm, udata.header["PosterLocations"];kvs...)
 end
 
-function Posters(mm::MazeModel, _poster_pos::Dict{Symbol, NTuple{3, Float64}})
+function Posters(mm::MazeModel, _poster_pos::Dict{Symbol, NTuple{3, Float64}};kvs...)
     _poster_pos = Dict(k=>(p[1],p[3]) for (k,p) in _poster_pos)
-    Posters(mm, _poster_pos)
+    Posters(mm, _poster_pos;kvs...)
 end
 
-function Posters(mm::MazeModel,_poster_pos=poster_pos)
+function Posters(mm::MazeModel,_poster_pos=poster_pos;z=2.5)
     wall_pillar_idx = assign_posters(mm,_poster_pos)
     wall_idx = wall_pillar_idx.pillar_wall_idx
     pillar_idx = wall_pillar_idx.pillar_idx
@@ -516,7 +526,7 @@ function Posters(mm::MazeModel,_poster_pos=poster_pos)
         sp2 = rot(sp)
         μ = mean(sp2.points) 
         # trans is relative
-        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], 2.5))
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
         nn = mm.pillars[pillar_idx[pk]][wall_idx[pk]].normal
         θ = acos(sp2.normals[1]'*nn)
         rot2 = LinearMap(RotZ(θ))
@@ -571,13 +581,16 @@ function create_mesh(lower_left::T, upper_right::T,Δb::Float64, height::Float64
     xbins = range(x0-Δ, stop=x0+Δ,length=2)
     bins[4] = (xbins,ybins,zbins)
     normals[4] = [1.0, 0.0, 0.0]
+    if flip_normals
+        normals .*= -1.0
+    end
     bins, normals
 end
 
 """
 Return the meshes representing the maze
 """
-function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs...)
+function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, height=5.0, pillar_height=3.0,kvs...)
     # unity uses 40x40 bins on the floor
     floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
@@ -585,32 +598,34 @@ function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs..
     bins = Dict{Symbol,Vector{NTuple{3,Vector{Float64}}}}()
     normals = Dict{Symbol,Vector{Vector{Float64}}}()
 
-    zbins = range(0.0, stop=5.0, length=10)
+    zbins = range(0.0, stop=height, length=10)
 
     # pillar 1; yellow pillar
     #lower_left = (-7.5, 2.5)
     #upper_right = (-2.5, 7.5)
     pos = pillar_positions[:yellow]
-    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
+    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
 
     # pillar 2;red 
     lower_left = (2.5, 2.5)
     upper_right = (7.5, 7.5)
     pos = pillar_positions[:red]
-    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
+    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
 
     # pillar 3; blue
     lower_left = (-7.5, -7.5)
     upper_right = (-2.5, -2.5)
     pos = pillar_positions[:blue]
-    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0,Δ)
+    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
 
     # pillar 4
     lower_left = (2.5, -7.5)
     upper_right = (7.5, -2.5)
     pos = pillar_positions[:green]
-    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,5.0, Δ)
+    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
 
+
+    zbins = range(0.0, stop=height, length=10)
     # walls
     bins[:walls] = Vector{Vector{Float64}}(undef, 4)
     normals[:walls] = Vector{Vector{Float64}}(undef, 4)
@@ -645,7 +660,7 @@ function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, kvs..
     # ceiling
     xbins = range(xmin, stop=xmax, step=Δb)
     ybins = range(ymin, stop=ymax, step=Δb)
-    z0 = 5.0
+    z0 = height 
     zbins = range(z0-Δ, stop=z0+Δ, length=2)
     bins[:ceiling] = [(xbins, ybins, zbins)]
     normals[:ceiling]=[[0.0, 0.0, -1.0]]

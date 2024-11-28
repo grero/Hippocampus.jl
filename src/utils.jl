@@ -1,4 +1,5 @@
 using Printf
+
 function reshape_triggers(markers, timestamps)
     # the first marker is a session start; the remaining come in trios
     nn = length(markers)
