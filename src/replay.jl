@@ -431,7 +431,7 @@ function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Fl
     cc.fov[] = 60.0
     cc.near[] = 0.3
     cc.far[] = 1000.0
-
+    cc.settings.clipping_mode[] = :adaptive # :static
     udata = mp.udata
     nt = numtrials(udata)
     udata_trial = lift(trial) do _trial
