@@ -117,6 +117,35 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
 end
 
 """
+Construct GazeMaze from eyelinkata and raytrace data from Unity
+"""
+function GazeOnMaze(edata::EyelinkData, raytracedata::DataFrame)
+    # get the trial triggers in raytrace time
+    triggers = edata.triggers
+    time_raytrace = raytracedata.Column2[:]
+    gaze_pos = [raytracedata.Column10 raytracedata.Column12 raytracedata.Column11]
+    gaze_pos[ismissing.(gaze_pos)] .= NaN
+    gaze_pos = something.(gaze_pos)
+    Δt = Float64(time_raytrace[1]) - edata.timestamps[1,1]
+    new_timestamps = edata.timestamps .+ Δt
+    nt = size(edata.triggers,1)
+    gaze = Vector{Matrix{Float64}}(undef, nt)
+    gtime = Vector{Vector{Float64}}(undef,nt) 
+    fixation = Vector{Vector{Bool}}(undef, nt)
+    for i in 1:nt
+        idx0 = searchsortedfirst(time_raytrace, new_timestamps[i,1])
+        idx1 = searchsortedlast(time_raytrace, new_timestamps[i,3])
+        gaze[i] = permutedims(gaze_pos[idx0:idx1,:])
+        # convert back to eyelink time
+        gtime[i] = time_raytrace[idx0:idx1] .- time_raytrace[idx0] .+ edata.timestamps[1,1]
+        gtime[i] = (gtime[i] .- gtime[i][1])/1000.0 # convert to seconds
+        # TODO: Actually set this
+        fixation[i] = fill(false, idx1-idx0+1)
+    end
+    GazeOnMaze(gtime,gaze,fixation,triggers,edata.timestamps,Dict())
+end
+
+"""
 Return the 3D eye position on objects in the maze
 """
 function GazeOnMaze(edata::EyelinkData, udata::UnityData)
