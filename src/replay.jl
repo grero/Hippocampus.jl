@@ -945,7 +945,8 @@ function ViewMap(vrp::ViewRepresentation, xbins::AbstractVector{T}, ybins::Abstr
     ViewMap(xbins,ybins, zbins, view_count)
 end
 
-function ViewMap(vrp::ViewRepresentation, mm::MazeModel, voc::ViewOccupancy)
+function ViewMap(vrp::ViewRepresentation, voc::ViewOccupancy)
+    mm = voc.mm
     bins = get_bins(mm)
     # convert to matrix
     gaze_pos = Vector{Matrix{Float64}}(undef, length(vrp.position))
