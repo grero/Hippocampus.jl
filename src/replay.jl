@@ -18,7 +18,12 @@ numtrials(gdata::GazeOnMaze) = length(gdata.gaze)
 DPHT.filename(::Type{GazeOnMaze}) = "maze_raytrace.mat"
 DPHT.level(::Type{GazeOnMaze}) = "session"
 
-get_trial(gdata, i) = (gdata.time[i], gdata.gaze[i], gdata.fixation[i])
+function get_trial(gdata::GazeOnMaze, i;trial_start=1)
+    tg = gdata.time[i]
+    gg = gdata.gaze[i]
+    fm = gdata.fixation[i]
+    tg,gg,fm
+end
 
 # TODO: Make sure that this actually works
 function GazeOnMaze(;do_save=true, redo=false)
