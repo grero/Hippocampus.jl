@@ -753,12 +753,16 @@ function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothi
     counts
 end
 
+fstep(aa::Vector{T}) where T <: Real = mean(diff(aa))
+fstep(aa::StepRangeLen) = step(aa)
+fstep(aa::StepRangeLen) = step(aa)
+
 function compute_histogram!(counts, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)))
     qpos = ([pos[i,:] for i in 1:size(pos,1)]...,)
     w = aweights(weight)
     for (bin,count) in zip(bins,counts)
         # hackish; add one bin to the end
-        Δs = [step(b) for b in bin]
+        Δs = [fstep(b) for b in bin]
         h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
         count .+= h.weights
     end
