@@ -136,3 +136,23 @@ end
     ee = Hippocampus.compute_entropy(spm)
     @test ee ≈ 6.361282290710195
 end
+
+@testset "Raytrace" begin
+    gx = 950.4f0
+    gy = 1069.1f0
+    # center and normalize
+    gx -= 1919.0/2
+    gx /= 1919.0
+    gy -= 1079/2
+    gy /= 1079.0
+
+    # position in the maze
+    px = 0.0
+    py = -10.0
+
+    gmx,gmy,gmz = Hippocampus.raytrace(gx,gy,[px,py],0.0,60.0, 0.3)
+
+    @test gmx ≈ -0.06218056650665493
+    @test gmy ≈ -3.6203030183909872
+    @test gmz ≈ 4.995794176668579
+end
