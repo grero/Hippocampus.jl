@@ -986,6 +986,5 @@ function visualize!(lscene, vm::ViewMap;normalize=true, kwargs...)
         ncounts = vm.counts
     end
     colors = get_maze_colors(vm.mm,ncounts)
-    @show typeof(colors[:ceiling]), typeof(colors[:floor])
     visualize!(lscene, vm.mm;color=colors,kwargs...)
 end
