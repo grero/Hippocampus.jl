@@ -81,6 +81,13 @@ end
     @test _pos[1] ≈ -5.0
     @test _pos[2] ≈ -7.55
     @test _pos[3] ≈ 2.4999998
+
+    #visualizing the maze
+    fig = Hippocampus.visualize([(mm,posters)];show_normals=true)
+    # make sure we are getting a single scenee
+    @test length(fig.content) == 1
+    @test typeof(fig.content[1]) <: Hippocampus.Makie.LScene
+    @test length(fig.content[1].scene.plots) == 43
 end
 
 @testset "Ripple markers" begin
