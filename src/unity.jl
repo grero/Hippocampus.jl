@@ -42,6 +42,7 @@ poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DI
 # TODO: Use actual values here
 camera_height = 2.5
 ceiling_height = 5.0
+pillar_height = 3.0
 
 struct UnityData
     time::Vector{Float64}
