@@ -682,14 +682,48 @@ Visualizables = Union{MazeModel, UnityData}
 # TODO: It would be more elegant to make use of Makie recipe here
 
 # I feel like this is duplicating functionality that must be in Makie somwhere...
-function create_axis(AxisType,fig;kwargs...)
-    if AxisType <: LScene
+function create_axis(::Type{T},fig;kwargs...) where T <: Makie.AbstractAxis
+    if T <: LScene
         axis_args = (show_axis=get(kwargs, :show_axis,false),)
     else
         axis_args = (backgroundcolor=get(kwargs, :backgroundcolor, :white),)
     end
-    lscene = AxisType(fig[1,1];axis_args...)
+    lscene = T(fig[1,1];axis_args...)
 end
+
+
+function create_axis(obj::EyelinkData, fig;kwargs...)
+    axtype = get_axis_type(EyelinkData)
+    ax = create_axis(axtype, fig;kwargs...)
+    # hide everything
+    hidedecorations!(ax)
+    ax.backgroundcolor = RGBA(1.0, 1.0, 1.0, 0.0) 
+    ax
+end
+
+function create_axis(obj::UnityData, fig;kwargs...)
+    axtype = get_axis_type(UnityData)
+    ax = create_axis(axtype, fig;kwargs...)
+    ax
+end
+
+function create_axis(obj::MazeReplayer, fig;kwargs...)
+    axtype = get_axis_type(MazeReplayer)
+    ax = create_axis(axtype, fig;kwargs...)
+end
+
+function create_axis(obj::MazeModel, fig;kwargs...)
+    axtype = get_axis_type(MazeModel)
+    ax = create_axis(axtype, fig;kwargs...)
+end
+
+function create_axis(obj::Posters, fig;kwargs...)
+    axtype = get_axis_type(Posters)
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
+ get_axis_type(::Type{T}) where T <: Any = LScene
+ get_axis_type(::Type{EyelinkData}) = Axis
 
 function visualize(objects;kwargs...)
     fig = Figure()
@@ -725,6 +759,61 @@ function visualize(objects;kwargs...)
     fig
 end
 
+VectorOrMatrix{T} = Union{Vector{T}, Matrix{T}}
+
+function visualize(fig::Figure, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
+    # tuple indicates overlay, i.e. plot in the same axis
+    # vector means stack, i.e. axis occupying the same grid locaiton
+    scenes = Any[]
+    lg = GridLayout(fig[1,1])
+    fobjects = Any[]
+    scene_offset = 0
+    for jj in axes(objects,2)
+        for ii in axes(objects,1)
+            obj = objects[ii,jj]
+            if isa(obj,Vector)
+                for (kk,_obj) in obj
+                    axtype = get_axis_type(typeof(_obj))
+                    push!(scenes, create_axis(axtype, lg[ii,jj];kvs...))
+                    push!(fobjects, _obj)
+                end
+                scene_offset += length(obj)
+            else
+                if isa(obj, Tuple)
+                    axtypes = Any[]
+                    _obj = first(obj)
+                    axtype = get_axis_type(typeof(_obj))
+                    _scene = create_axis(_obj, lg[ii,jj];kvs...)
+                    push!(axtypes, axtype)
+                    push!(fobjects, _obj)
+                    push!(scenes,_scene)
+                    for _obj in obj[2:end]
+                        axtype = get_axis_type(typeof(_obj))
+                        kk = findfirst(axtypes.==axtype)
+                        if kk !== nothing
+                            #FIXME: This is wrong, scenes contains all the scenes, not just for this cell
+                            _scene = scenes[scene_offset+kk]
+                            push!(scenes, _scene)
+                        else
+                            _scene = create_axis(_obj, lg[ii,jj];kvs...)
+                            push!(axtypes, axtype)
+                            push!(scenes, _scene)
+                        end
+                        push!(fobjects, _obj)
+                    end
+                    scene_offset += length(obj)
+                else
+                    axtype = get_axis_type(typeof(obj))
+                    push!(scenes, create_axis(obj, lg[ii,jj];kvs...))
+                    scene_offset += 1
+                    push!(fobjects, obj)
+                end
+            end
+        end
+    end
+    visualize!(scenes, fobjects;kvs...)
+end
+
 function visualize(fig::Figure, objects::Tuple{Any, Vararg{Any}};AxisType=LScene, kwargs...)
     if isa(AxisType, AbstractVector)
         scenes = Any[]
@@ -737,36 +826,6 @@ function visualize(fig::Figure, objects::Tuple{Any, Vararg{Any}};AxisType=LScene
         scenes = [lscene for _ in 1:length(objects)]
     end
     visualize!(scenes, objects;kwargs...)
-end
-
-function visualize(fig::Figure, objects::Vector;AxisType=[LScene for _ in length(objects)],kwargs...)
-    scenes = Any[]
-    lg = GridLayout(fig[1,1])
-    pobjects = Any[]
-    for (i,(obj,_AxisType)) in enumerate(zip(objects,AxisType))
-        if isa(obj, Tuple)
-            n = length(obj)
-        else
-            n = 1
-        end
-        if isa(_AxisType, NTuple{n,Any})
-            lscene = [create_axis(_AT, lg[1,i];kwargs...) for _AT in _AxisType]
-            push!(scenes, lscene)
-            push!(pobjects, obj)
-        else
-            lscene = create_axis(_AxisType, lg[1,i];kwargs...)
-            if n > 1
-                for j in 1:n
-                    push!(scenes, lscene)
-                    push!(pobjects, obj[j])
-                end
-            end
-        end
-    end
-    for (objs,scene) in zip(pobjects, scenes)
-        @show typeof(objs) typeof(scene)
-        visualize!(scene, objs;kwargs...)
-    end
 end
 
 function visualize!(scenes::AbstractVector, objects;kwargs...)
