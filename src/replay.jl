@@ -86,14 +86,15 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
     # height of frustrum at near clip
     fovr = π*fov/180
     fheight = 2*tan(fovr/2)*near_clip
-    fwidth = frustrum_ratio*fheight
-    xc = (x-0.5)*fwidth
-    yc = (y-0.5)y*fheight
+    fwidth = fheight*frustrum_ratio
+    # is the normalized plane from -1 to 1?
+    xc = x*fwidth
+    yc = y*fheight
     # flip x since x-values left-of-center should be associated with a positive angle
-    θ = atan(-xc, near_clip)
+    θ = atan(xc, near_clip)
     ϕ = atan(yc,near_clip) 
     θ += direction
-    # now cast along the line θ
+    # now cast along the line (θ,ϕ)
 
     dl = 0.01
     xp,yp,zp = (pos[1], pos[2],camera_height)
@@ -101,7 +102,7 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
     cθ = cos(θ)
     sϕ = sin(ϕ)
     while true
-        dx,dy,dz = (dl*cθ, dl*sθ,dl*sϕ)
+        dx,dy,dz = (dl*sθ, dl*cθ,dl*sϕ)
         xp += dx
         yp += dy 
         zp += dz 
