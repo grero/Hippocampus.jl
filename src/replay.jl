@@ -223,7 +223,8 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
     current_gaze = Observable([Point3f(NaN)])
     gdata_trial = lift(trial) do _trial
         if 0 < _trial.i <= nt
-            return gdata.time[_trial.i], gdata.gaze[_trial.i],gdata.fixation[_trial.i]
+            tg = gdata.time[_trial.i]
+            return tg, gdata.gaze[_trial.i],gdata.fixation[_trial.i]
         else
             return Float64[], fill(0.0, 3, 0), Bool[]
         end
