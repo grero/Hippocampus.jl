@@ -106,8 +106,9 @@ end
     rpdata = cd(@__DIR__) do
         Hippocampus.RippleData()
     end
-    unity_file = joinpath(@__DIR__, "session_1_2312018113452.txt")
-    udata = Hippocampus.UnityData(unity_file)
+    udata = cd(@__DIR__) do
+        Hippocampus.UnityData()
+    end
     # spatial occupancy
     xbins = range(-12.5, stop=12.5, length=40);
     ybins = xbins
