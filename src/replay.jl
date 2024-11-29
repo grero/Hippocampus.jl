@@ -774,7 +774,13 @@ function visualize(objects;kwargs...)
             current_trial[] = Trial(nc)
         end
     end
-    visualize(fig, objects;current_time=current_time, trial=current_trial, kwargs...)
+    lg = GridLayout(fig[1,1])
+    # show title with current trial and current time
+    stitle = lift(current_trial, current_time) do ctrial,ctime
+        "Trial: $(ctrial.i) time: $ctime"
+    end
+    Label(lg[1,1],stitle, tellheight=true, tellwidth=false)
+    visualize(lg[2,1], objects;current_time=current_time, trial=current_trial, kwargs...)
     current_trial[] = Trial(1)
     current_time[] = 0.0
     fig
@@ -782,7 +788,7 @@ end
 
 VectorOrMatrix{T} = Union{Vector{T}, Matrix{T}}
 
-function visualize(fig::Figure, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
+function visualize(fig::Union{Figure,GridLayout,GridPosition}, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
     # tuple indicates overlay, i.e. plot in the same axis
     # vector means stack, i.e. axis occupying the same grid locaiton
     scenes = Any[]
