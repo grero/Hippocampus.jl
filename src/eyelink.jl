@@ -193,8 +193,8 @@ function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
     qdata
 end
 
-function get_trial(edata::EyelinkData, i)
-    idx0 = searchsortedfirst(edata.analogtime, edata.timestamps[i,1])
+function get_trial(edata::EyelinkData, i;trial_start=1)
+    idx0 = searchsortedfirst(edata.analogtime, edata.timestamps[i,trial_start])
     idx1 = searchsortedfirst(edata.analogtime, edata.timestamps[i,3])
     trial_time = edata.analogtime[idx0:idx1]
     er = edata.header["eye_recorded"]
