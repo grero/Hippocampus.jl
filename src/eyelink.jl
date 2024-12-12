@@ -237,7 +237,7 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData, trial::
     PlotSpec(Lines, gx[1,:], gy[1,:])
 end
 
-function visualize!(ax::Axis, edata::EyelinkData;trial::Observable{Trial}=Observable(Trial(1)),current_time::Observable{Float64}=Observable(0.0),kwargs...)
+function visualize!(ax::Makie.Block, edata::EyelinkData;trial::Observable{Trial}=Observable(Trial(1)),current_time::Observable{Float64}=Observable(0.0),kwargs...)
 
     edata_trial = lift(trial) do _trial
         te, gx, gy,fixmask = get_trial(edata, _trial.i)
@@ -262,5 +262,9 @@ function visualize!(ax::Axis, edata::EyelinkData;trial::Observable{Trial}=Observ
             current_j = j
         end
     end
-    scatter!(ax, gaze_pos;color=:red)
+    if isa(ax, Axis)
+        scatter!(ax, gaze_pos;color=:red)
+    else
+        # plot into the near plane
+    end
 end
