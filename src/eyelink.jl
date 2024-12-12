@@ -237,28 +237,36 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData, trial::
     PlotSpec(Lines, gx[1,:], gy[1,:])
 end
 
-function visualize!(ax::Makie.Block, edata::EyelinkData;trial::Observable{Trial}=Observable(Trial(1)),current_time::Observable{Float64}=Observable(0.0),kwargs...)
+function visualize!(lscene, edata::EyelinkData;trial::Observable{Trial}=Observable(Trial(1)),current_time::Observable{Float64}=Observable(0.0),kwargs...)
 
     edata_trial = lift(trial) do _trial
         te, gx, gy,fixmask = get_trial(edata, _trial.i)
     end
+    cam = Makie.camera(lscene.scene)
     # set the limits
     x0,y0,x1,y1 = edata.header["gaze_coords"]
-    xlims!(ax, x0,x1)
-    ylims!(ax, y0,y1)
-    ax.xgridvisible = false
-    ax.ygridvisible = false
+    Δx = x1-x0+1
+    Δy = y1-y0+1
+    #xlims!(ax, x0,x1)
+    #ylims!(ax, y0,y1)
+    #ax.xgridvisible = false
+    #ax.ygridvisible = false
     gaze_pos = Observable([Point2f(NaN)])
     current_j = 1
-    onany(edata_trial, current_time) do _edt, ct
+    onany(edata_trial, current_time, cam.projectionview) do _edt, ct, proj
         te = _edt[1]
         tef = (te .- te[1])/1000.0
         j = searchsortedfirst(tef, ct)
         if 0 < j <= length(tef)
+            inv_pv = inv(proj)
             j0 = min(j,current_j)
             j1 = max(j, current_j)
-            gaze = permutedims([_edt[2][:] _edt[3][:]])
-            gaze_pos[] = Point2f.(eachcol(gaze[:,j0:j1]))
+            # project to the cameras near clip, i.e. z=0.0
+            gaze = permutedims([_edt[2][:]./Δx _edt[3][:]./Δy fill(0.0, length(_edt[2]))])
+            gaze_pos[] = map(eachcol(gaze[:,j0:j1])) do gg
+                p = inv_pv*to_ndim(Point4f, gg, 1.0)
+                Point3f(p[Makie.Vec(1,2,3)]/p[4])
+            end
             current_j = j
         end
     end

@@ -729,7 +729,6 @@ function create_axis(obj::Posters, fig;kwargs...)
 end
 
  get_axis_type(::Type{T}) where T <: Any = LScene
- get_axis_type(::Type{EyelinkData}) = Axis
 
 function visualize(objects;kwargs...)
     fig = Figure()
