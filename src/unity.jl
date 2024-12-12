@@ -470,7 +470,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         else
             _color = color[:floor]
         end
-        viz!(lscene, m, color=_color,colormap=:Blues)
+        viz!(lscene, m, color=_color,colormap=colormap)
     end
 
     if show_ceiling
@@ -490,7 +490,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         if offsets !== nothing && :ceiling in keys(offsets)
             m = Translate(offsets[:ceiling][1]...)(m)
         end
-        viz!(lscene, m, color=_color,colormap=:Blues)
+        viz!(lscene, m, color=_color,colormap=colormap)
     end
 
     #pillars
@@ -499,7 +499,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
             for (om,cc) in zip(oms,ccs)
                 bin = om.bins
                 m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-                viz!(lscene, m, color=cc,colormap=:Blues)
+                viz!(lscene, m, color=cc,colormap=colormap)
                 if show_normals
                     arrows!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
                 end
@@ -511,7 +511,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         for (ii,om) in enumerate(mm.walls)
             bin = om.bins
             m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-            viz!(lscene, m, color=color[:walls][ii],colormap=:Blues)
+            viz!(lscene, m, color=color[:walls][ii],colormap=colormap)
         end
     end
 end
