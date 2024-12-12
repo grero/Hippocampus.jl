@@ -4,6 +4,8 @@ using Meshes
 using LinearAlgebra
 using DelimitedFiles
 using FileIO
+using StatsBase
+using ImageFiltering
 
 # TODO: Unclear if these are the latest values. Perhaps update?
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
@@ -353,25 +355,36 @@ end
 """
 Convert the histogram counts on each surface of `mm` to a color
 """
-function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}) where T <: Real
+function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}};kernel=nothing, invert_ceiling=false,kwargs...) where T <: Real
     # TODO: This can probably be done more efficiently and robustly
     base_colors = get_maze_colors(mm)
     colors = Dict{Symbol,Union{Vector{Vector{T}}, Vector{Vector{Vector{T}}}}}()
     normals = get_normals(mm)
     for k in keys(normals)
         colors[k] = Vector{Vector{T}}(undef, length(normals[k]))
+        if k == :ceiling
+            invert = invert_ceiling
+        else
+            invert = false
+        end
         for (i,n) in enumerate(normals[k])
             # we want to color only the inside
             c = counts[k][i]
             _color = fill!(similar(c), 0.0)
             for d in 1:length(n)
-                if n[d] < 0
-                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-                elseif n[d] > 0
-                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                if n[d] == 0
+                    continue
                 end
+                if (n[d] < 0) && (!invert)
+                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
+                else
+                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
+                end
+                cq = dropdims(sum(_c->isfinite(_c) ? _c : zero(_c),c,dims=d),dims=d)
+                if kernel !== nothing
+                    cq = imfilter(cq, kernel)
+                end
+                _color[idx...] .= cq
             end
             colors[k][i] = _color[:]
         end
@@ -445,7 +458,7 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, kwargs...)
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, flip_ceiling=false, colormap=:Blues, kwargs...)
     if show_floor
         #floor
         bin = mm.floor.bins
@@ -457,7 +470,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         else
             _color = color[:floor]
         end
-        viz!(lscene, m, color=_color,colormap=:Blues)
+        viz!(lscene, m, color=_color,colormap=colormap)
     end
 
     if show_ceiling
@@ -468,10 +481,16 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         end
         bin = mm.ceiling.bins
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+        if flip_ceiling
+            pp = Meshes.Vec(mean.(bin))
+            m = Translate(-pp...)(m)
+            m = Rotate(RotX(π))(m)
+            m = Translate(pp...)(m)
+        end
         if offsets !== nothing && :ceiling in keys(offsets)
             m = Translate(offsets[:ceiling][1]...)(m)
         end
-        viz!(lscene, m, color=_color,colormap=:Blues)
+        viz!(lscene, m, color=_color,colormap=colormap)
     end
 
     #pillars
@@ -480,7 +499,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
             for (om,cc) in zip(oms,ccs)
                 bin = om.bins
                 m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-                viz!(lscene, m, color=cc,colormap=:Blues)
+                viz!(lscene, m, color=cc,colormap=colormap)
                 if show_normals
                     arrows!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
                 end
@@ -492,7 +511,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         for (ii,om) in enumerate(mm.walls)
             bin = om.bins
             m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-            viz!(lscene, m, color=color[:walls][ii],colormap=:Blues)
+            viz!(lscene, m, color=color[:walls][ii],colormap=colormap)
         end
     end
 end
@@ -747,12 +766,15 @@ function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothi
     counts
 end
 
+fstep(aa::Vector{T}) where T <: Real = mean(diff(aa))
+fstep(aa::StepRangeLen) = step(aa)
+
 function compute_histogram!(counts, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)))
     qpos = ([pos[i,:] for i in 1:size(pos,1)]...,)
     w = aweights(weight)
     for (bin,count) in zip(bins,counts)
         # hackish; add one bin to the end
-        Δs = [step(b) for b in bin]
+        Δs = [fstep(b) for b in bin]
         h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
         count .+= h.weights
     end
