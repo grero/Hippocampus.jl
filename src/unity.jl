@@ -362,17 +362,23 @@ function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}
     normals = get_normals(mm)
     for k in keys(normals)
         colors[k] = Vector{Vector{T}}(undef, length(normals[k]))
+        if k == :ceiling
+            invert = invert_ceiling
+        else
+            invert = false
+        end
         for (i,n) in enumerate(normals[k])
             # we want to color only the inside
             c = counts[k][i]
             _color = fill!(similar(c), 0.0)
             for d in 1:length(n)
-                if n[d] < 0
+                if n[d] == 0
+                    continue
+                end
+                if (n[d] < 0) && (!invert)
                     idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-                elseif n[d] > 0
+                else
                     idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
                 end
             end
             colors[k][i] = _color[:]
