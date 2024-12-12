@@ -380,6 +380,11 @@ function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}
                 else
                     idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
                 end
+                cq = dropdims(sum(_c->isfinite(_c) ? _c : zero(_c),c,dims=d),dims=d)
+                if kernel !== nothing
+                    cq = imfilter(cq, kernel)
+                end
+                _color[idx...] .= cq
             end
             colors[k][i] = _color[:]
         end
