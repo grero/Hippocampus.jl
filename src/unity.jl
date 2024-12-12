@@ -4,6 +4,8 @@ using Meshes
 using LinearAlgebra
 using DelimitedFiles
 using FileIO
+using StatsBase
+using ImageFiltering
 
 # TODO: Unclear if these are the latest values. Perhaps update?
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
