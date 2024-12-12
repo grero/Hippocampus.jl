@@ -755,7 +755,6 @@ end
 
 fstep(aa::Vector{T}) where T <: Real = mean(diff(aa))
 fstep(aa::StepRangeLen) = step(aa)
-fstep(aa::StepRangeLen) = step(aa)
 
 function compute_histogram!(counts, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)))
     qpos = ([pos[i,:] for i in 1:size(pos,1)]...,)
