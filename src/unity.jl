@@ -481,7 +481,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         end
         bin = mm.ceiling.bins
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        if invert_ceiling
+        if flip_ceiling
             pp = Meshes.Vec(mean.(bin))
             m = Translate(-pp...)(m)
             m = Rotate(RotX(π))(m)
