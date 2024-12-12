@@ -18,7 +18,12 @@ numtrials(gdata::GazeOnMaze) = length(gdata.gaze)
 DPHT.filename(::Type{GazeOnMaze}) = "maze_raytrace.mat"
 DPHT.level(::Type{GazeOnMaze}) = "session"
 
-get_trial(gdata, i) = (gdata.time[i], gdata.gaze[i], gdata.fixation[i])
+function get_trial(gdata::GazeOnMaze, i;trial_start=1)
+    tg = gdata.time[i]
+    gg = gdata.gaze[i]
+    fm = gdata.fixation[i]
+    tg,gg,fm
+end
 
 # TODO: Make sure that this actually works
 function GazeOnMaze(;do_save=true, redo=false)
@@ -451,7 +456,7 @@ function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Fl
         if 0 < j <= length(tp)
             pos = Point3f(px[j],py[j], 1.85)
             θ = π*dir[j]/180.0 # convert to radians
-            cc.lookat[] = Point3f(sin(θ), cos(θ), 0.0) + pos
+            cc.lookat[] = Point3f(0.3*sin(θ), 0.3*cos(θ), 0.0) + pos
             cc.eyeposition[] = pos
             update_cam!(lscene.scene, cc)
         end
@@ -724,7 +729,6 @@ function create_axis(obj::Posters, fig;kwargs...)
 end
 
  get_axis_type(::Type{T}) where T <: Any = LScene
- get_axis_type(::Type{EyelinkData}) = Axis
 
 function visualize(objects;kwargs...)
     fig = Figure()
@@ -754,7 +758,13 @@ function visualize(objects;kwargs...)
             current_trial[] = Trial(nc)
         end
     end
-    visualize(fig, objects;current_time=current_time, trial=current_trial, kwargs...)
+    lg = GridLayout(fig[1,1])
+    # show title with current trial and current time
+    stitle = lift(current_trial, current_time) do ctrial,ctime
+        "Trial: $(ctrial.i) time: $ctime"
+    end
+    Label(lg[1,1],stitle, tellheight=true, tellwidth=false)
+    visualize(lg[2,1], objects;current_time=current_time, trial=current_trial, kwargs...)
     current_trial[] = Trial(1)
     current_time[] = 0.0
     fig
@@ -762,7 +772,7 @@ end
 
 VectorOrMatrix{T} = Union{Vector{T}, Matrix{T}}
 
-function visualize(fig::Figure, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
+function visualize(fig::Union{Figure,GridLayout,GridPosition}, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
     # tuple indicates overlay, i.e. plot in the same axis
     # vector means stack, i.e. axis occupying the same grid locaiton
     scenes = Any[]
@@ -884,6 +894,22 @@ end
 
 numtrials(vrp::ViewRepresentation) = length(vrp.position)
 
+function Makie.convert_arguments(::Type{<:AbstractPlot}, vr::ViewRepresentation)
+    gazepos = Point3f[]
+    for pp in vr.position
+        for pq in pp
+            push!(gazepos, pq)
+        end
+    end
+    ax3 = S.Axis3(plots=[S.Scatter(gazepos)])
+    S.GridLayout(ax3)
+end
+
+function create_axis(obj::ViewRepresentation, fig;kwargs...)
+    axtype = get_axis_type(ViewRepresentation)
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
 function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Observable(Trial(1)),kwargs...)
     nt = numtrials(vrp)
     gaze_pos = lift(trial) do _trial
@@ -916,10 +942,16 @@ function ViewOccupancy()
 end
 
 function Makie.convert_arguments(voc::ViewOccupancy, mm::MazeModel)
+    
+end
+
+function create_axis(obj::ViewOccupancy, fig;kwargs...)
+    axtype = get_axis_type(ViewOccupancy)
+    ax = create_axis(axtype,fig;kwargs...)
 end
 
 function visualize!(lscene, voc::ViewOccupancy;kwargs...)
-    colors = get_maze_colors(voc.mm,voc.counts)
+    colors = get_maze_colors(voc.mm,voc.counts;kwargs...)
     visualize!(lscene, voc.mm;color=colors,kwargs...)
 end
 
@@ -945,7 +977,8 @@ function ViewMap(vrp::ViewRepresentation, xbins::AbstractVector{T}, ybins::Abstr
     ViewMap(xbins,ybins, zbins, view_count)
 end
 
-function ViewMap(vrp::ViewRepresentation, mm::MazeModel, voc::ViewOccupancy)
+function ViewMap(vrp::ViewRepresentation, voc::ViewOccupancy)
+    mm = voc.mm
     bins = get_bins(mm)
     # convert to matrix
     gaze_pos = Vector{Matrix{Float64}}(undef, length(vrp.position))
@@ -971,7 +1004,12 @@ function ViewMap(;kwargs...)
     ViewMap(vrp, mm,voc)
 end
 
-function visualize!(lscene, vm::ViewMap;normalize=true, kwargs...)
+function create_axis(obj::ViewMap, fig;kwargs...)
+    axtype = get_axis_type(ViewMap) 
+     ax = create_axis(axtype,fig;kwargs...)
+ end
+
+function visualize!(lscene, vm::ViewMap;kernel=nothing, normalize=true, kwargs...)
     # normalize each component in vm.counts
     if normalize
         ncounts = typeof(vm.counts)()
@@ -985,7 +1023,6 @@ function visualize!(lscene, vm::ViewMap;normalize=true, kwargs...)
     else
         ncounts = vm.counts
     end
-    colors = get_maze_colors(vm.mm,ncounts)
-    @show typeof(colors[:ceiling]), typeof(colors[:floor])
+    colors = get_maze_colors(vm.mm,ncounts;kernel=kernel,kwargs...)
     visualize!(lscene, vm.mm;color=colors,kwargs...)
 end
