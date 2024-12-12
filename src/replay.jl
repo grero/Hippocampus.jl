@@ -456,7 +456,7 @@ function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Fl
         if 0 < j <= length(tp)
             pos = Point3f(px[j],py[j], 1.85)
             θ = π*dir[j]/180.0 # convert to radians
-            cc.lookat[] = Point3f(sin(θ), cos(θ), 0.0) + pos
+            cc.lookat[] = Point3f(0.3*sin(θ), 0.3*cos(θ), 0.0) + pos
             cc.eyeposition[] = pos
             update_cam!(lscene.scene, cc)
         end
