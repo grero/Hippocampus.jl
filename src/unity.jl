@@ -355,7 +355,7 @@ end
 """
 Convert the histogram counts on each surface of `mm` to a color
 """
-function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}) where T <: Real
+function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}};kernel=nothing, invert_ceiling=false,kwargs...) where T <: Real
     # TODO: This can probably be done more efficiently and robustly
     base_colors = get_maze_colors(mm)
     colors = Dict{Symbol,Union{Vector{Vector{T}}, Vector{Vector{Vector{T}}}}}()

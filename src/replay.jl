@@ -952,7 +952,7 @@ function create_axis(obj::ViewOccupancy, fig;kwargs...)
 end
 
 function visualize!(lscene, voc::ViewOccupancy;kwargs...)
-    colors = get_maze_colors(voc.mm,voc.counts)
+    colors = get_maze_colors(voc.mm,voc.counts;kwargs...)
     visualize!(lscene, voc.mm;color=colors,kwargs...)
 end
 
@@ -1024,6 +1024,6 @@ function visualize!(lscene, vm::ViewMap;kernel=nothing, normalize=true, kwargs..
     else
         ncounts = vm.counts
     end
-    colors = get_maze_colors(vm.mm,ncounts)
+    colors = get_maze_colors(vm.mm,ncounts;kernel=kernel,kwargs...)
     visualize!(lscene, vm.mm;color=colors,kwargs...)
 end
