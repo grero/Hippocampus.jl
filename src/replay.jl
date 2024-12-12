@@ -728,21 +728,6 @@ function create_axis(obj::Posters, fig;kwargs...)
     ax = create_axis(axtype,fig;kwargs...)
 end
 
-function create_axis(obj::ViewRepresentation, fig;kwargs...)
-    axtype = get_axis_type(ViewRepresentation)
-    ax = create_axis(axtype,fig;kwargs...)
-end
-
-function create_axis(obj::ViewOccupancy, fig;kwargs...)
-    axtype = get_axis_type(ViewOccupancy)
-    ax = create_axis(axtype,fig;kwargs...)
-end
-
-function create_axis(obj::ViewMap, fig;kwargs...)
-   axtype = get_axis_type(ViewMap) 
-    ax = create_axis(axtype,fig;kwargs...)
-end
-
  get_axis_type(::Type{T}) where T <: Any = LScene
  get_axis_type(::Type{EyelinkData}) = Axis
 
@@ -921,6 +906,11 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, vr::ViewRepresentation)
     S.GridLayout(ax3)
 end
 
+function create_axis(obj::ViewRepresentation, fig;kwargs...)
+    axtype = get_axis_type(ViewRepresentation)
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
 function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Observable(Trial(1)),kwargs...)
     nt = numtrials(vrp)
     gaze_pos = lift(trial) do _trial
@@ -953,6 +943,12 @@ function ViewOccupancy()
 end
 
 function Makie.convert_arguments(voc::ViewOccupancy, mm::MazeModel)
+    
+end
+
+function create_axis(obj::ViewOccupancy, fig;kwargs...)
+    axtype = get_axis_type(ViewOccupancy)
+    ax = create_axis(axtype,fig;kwargs...)
 end
 
 function visualize!(lscene, voc::ViewOccupancy;kwargs...)
@@ -1009,7 +1005,12 @@ function ViewMap(;kwargs...)
     ViewMap(vrp, mm,voc)
 end
 
-function visualize!(lscene, vm::ViewMap;normalize=true, kwargs...)
+function create_axis(obj::ViewMap, fig;kwargs...)
+    axtype = get_axis_type(ViewMap) 
+     ax = create_axis(axtype,fig;kwargs...)
+ end
+
+function visualize!(lscene, vm::ViewMap;kernel=nothing, normalize=true, kwargs...)
     # normalize each component in vm.counts
     if normalize
         ncounts = typeof(vm.counts)()
