@@ -84,10 +84,11 @@ end
 
     #visualizing the maze
     fig = Hippocampus.visualize([(mm,posters)];show_normals=true)
-    # make sure we are getting a single scenee
-    @test length(fig.content) == 1
-    @test typeof(fig.content[1]) <: Hippocampus.Makie.LScene
-    @test length(fig.content[1].scene.plots) == 43
+    # make sure we are getting a label on top and a single scene below that
+    @test length(fig.content) == 2
+    @test typeof(fig.content[1]) <: Hippocampus.Makie.Label
+    @test typeof(fig.content[2]) <: Hippocampus.Makie.LScene
+    @test length(fig.content[2].scene.plots) == 43
 end
 
 @testset "Ripple markers" begin
