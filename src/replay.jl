@@ -279,18 +279,21 @@ function UnityRaytraceData()
     unity_eyelinkfile = CSV.File(fname, header=0)
     n = length(unity_eyelinkfile)
     fixated_points = fill(NaN, 3, n)
-    position = fill(0.0, 3, n)
-    direction = fill(0.0, n)
+    position = fill(0.0f0, 3, n)
+    direction = fill(0.0f0, n)
     timestamps = zeros(UInt64,n)
+    fixated_object = Vector{String}(undef, n)
     i = 1
     for row in unity_eyelinkfile
         # TODO: Grab more data here
         px,py,pz,a = (row[6],row[7],row[8],row[9])
         θ = π*a/180.0
-        position[:,i] = (px,pz,py)
+        position[:,i] .= (px,pz,py)
         direction[i] = θ
+        # FIXME: This does not appear to be the actual eyelink timestamp!
         timestamps[i] = row[2]
         gx,gy,gz = (row[10],row[11],row[12])
+        fixated_object[i] = row[3]
         if (gx !== missing) && (gy !== missing) && (gz !== missing)
             # gx,gy,gz is relative to player ?
 
@@ -299,22 +302,30 @@ function UnityRaytraceData()
         end
     end
 
+    timestamps .-= timestamps[1]
+
     # break up into trials using edata
     nt = numtrials(edata)
     trial_fixations = Vector{Matrix{Float64}}(undef,nt)
     trial_position = Vector{Matrix{Float64}}(undef, nt)
     trial_head_direction = Vector{Vector{Float64}}(undef, nt)
     trial_times = Vector{Vector{Float64}}(undef,nt)
+    #t0 = edata.analogtime[1]
+    te,_,_, = get_trial(edata, 1)
+    t0 = te[1]
+
     for i in 1:nt
         te,_,_, = get_trial(edata, i)
+        # unit raytraced data use time relative to start of recording
+        te .-= t0
         idx0 = searchsortedfirst(timestamps, te[1])
         idx1 = searchsortedlast(timestamps,te[end])
         trial_fixations[i] = fixated_points[:,idx0:idx1]
         trial_position[i] = position[:,idx0:idx1]
-        trial_head_direction[i] = diration[idx0:idx1]
+        trial_head_direction[i] = direction[idx0:idx1]
         trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
     end
-    UnityRaytraceData(trial_fixations, trial_position, trial_head_diraction, trial_times)
+    UnityRaytraceData(timestamps, position, direction, fixated_object, trial_fixations, trial_position, trial_head_direction, trial_times)
 end
 
 function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
@@ -331,23 +342,34 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
         tu,tg,tp,td 
     end
 
-    current_pos = Observable(ugdata_trial[][2][1:1])
-    current_path = Obserable(ugdata_trial[][3])
+    current_pos = Observable(ugdata_trial[][3][1:1])
+    current_arrow_pos = Observable(ugdata_trial[][3][1:1])
+    current_gaze = Observable(ugdata_trial[][2])
+    current_path = Observable(ugdata_trial[][3])
     current_dir = Observable(ugdata_trial[][4][1:1])
     current_arrow = lift(current_dir) do θ
-        [Point3f(cos(θ), sin(θ), 0.0)]
+        [mean([Point3f(sin(_θ), cos(_θ), 0.0) for _θ in θ])]
     end
     current_j = 1
 
     onany(ugdata_trial, current_time) do _ugt, _ct
-        _tu, _points = (_ugt[1], _ugt[2])
+        _tu, gpoints,ppoints,_td = (_ugt[1], _ugt[2], _ugt[3],_ugt[4])
         j = searchsortedfirst(_tu, _ct) 
-        current_pos[] = _points[current_j:j]
-        current_j = j
+        if j <= length(_tu)
+            j0 = min(j,current_j)
+            j1 = max(j, current_j)
+            current_pos[] = ppoints[j0:j1]
+            current_dir[] = _td[j0:j1]
+            current_arrow_pos[] = [mean(ppoints[j0:j1])]
+            current_gaze[] = gpoints[j0:j1]
+            current_path[] = ppoints
+            current_j = j
+        end
     end
     lines!(lscene, current_path)
     scatter!(lscene,current_pos, color=:black)
-    arrows!(lscene, current_pos, current_arrow, color=:black)
+    arrows!(lscene, current_arrow_pos, current_arrow, color=:black)
+    scatter!(lscene, current_gaze, color=:red)
 end
 
 """
