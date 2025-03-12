@@ -262,10 +262,15 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
 end
 
 struct UnityRaytraceData
+    analogtime::Vector{UInt64}
+    positions::Matrix{Float32}
+    directions::Vector{Float32}
+
     gaze::Vector{Matrix{Float64}}
     position::Vector{Matrix{Float64}}
     head_direction::Vector{Vector{Float64}}
     timestamps::Vector{Vector{Float64}}
+    fixated_object::Vector{Vector{String}}
 end
 
 function UnityRaytraceData()
@@ -310,6 +315,7 @@ function UnityRaytraceData()
     trial_position = Vector{Matrix{Float64}}(undef, nt)
     trial_head_direction = Vector{Vector{Float64}}(undef, nt)
     trial_times = Vector{Vector{Float64}}(undef,nt)
+    trial_fixated_object = Vector{Vector{String}}(undef, nt)
     #t0 = edata.analogtime[1]
     te,_,_, = get_trial(edata, 1)
     t0 = te[1]
@@ -324,11 +330,12 @@ function UnityRaytraceData()
         trial_position[i] = position[:,idx0:idx1]
         trial_head_direction[i] = direction[idx0:idx1]
         trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
+        trial_fixated_object[i] = fixated_object[idx0:idx1]
     end
-    UnityRaytraceData(timestamps, position, direction, fixated_object, trial_fixations, trial_position, trial_head_direction, trial_times)
+    UnityRaytraceData(timestamps, position, direction, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object)
 end
 
-function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
+function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),indicate_object=false)
     ugdata_trial = lift(trial) do _trial
         #Point3f.(eachcol(unitygaze.gaze[_trial.i]))
         gaze = unitygaze.gaze[_trial.i]
@@ -339,7 +346,7 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
         tg = [Point3f(gaze[[1,2,3],i]) for i in 1:size(gaze,2)]
         tp = [Point3f(pos[[1,2,3],i]) for i in 1:size(gaze,2)]
         td = dir
-        tu,tg,tp,td 
+        tu,tg,tp,td, unitygaze.fixated_object[_trial.i] 
     end
 
     current_pos = Observable(ugdata_trial[][3][1:1])
@@ -347,6 +354,7 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
     current_gaze = Observable(ugdata_trial[][2])
     current_path = Observable(ugdata_trial[][3])
     current_dir = Observable(ugdata_trial[][4][1:1])
+    fixated_object = Observable(ugdata_trial[][5][1])
     current_arrow = lift(current_dir) do θ
         [mean([Point3f(sin(_θ), cos(_θ), 0.0) for _θ in θ])]
     end
@@ -363,6 +371,7 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
             current_arrow_pos[] = [mean(ppoints[j0:j1])]
             current_gaze[] = gpoints[j0:j1]
             current_path[] = ppoints
+            fixated_object[] = mode(_ugt[5][j0:j1])
             current_j = j
         end
     end
@@ -370,6 +379,9 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
     scatter!(lscene,current_pos, color=:black)
     arrows!(lscene, current_arrow_pos, current_arrow, color=:black)
     scatter!(lscene, current_gaze, color=:red)
+    if indicate_object
+        text!(lscene, 0.5, 0.85;text=fixated_object,space=:relative)
+    end
 end
 
 """
