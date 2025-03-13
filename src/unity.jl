@@ -755,13 +755,19 @@ function compute_histogram(pos::Matrix{Float64},bins)
     compute_histogram!(counts, pos,bins)
 end
 
-function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing)
+function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing,k::Symbol=:unknown)
+    idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(pos))
+    compute_histogram!(idx, pos, bins,weight,k)
+    counts, idx
+end
+
+function compute_histogram!(idx::Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}, pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing, k::Symbol=:unkown)
     counts = [fill(0.0, length.(bin)) for bin in bins]
     if weight === nothing
         weight = [fill(1.0, size(_pos,2)) for _pos in pos]
     end
     for (ii,_pos) in enumerate(pos)
-        compute_histogram!(counts, _pos, bins;weight=weight[ii])
+        compute_histogram!(counts,idx[ii], _pos, bins;weight=weight[ii],kname=k)
     end
     counts
 end
@@ -769,16 +775,25 @@ end
 fstep(aa::Vector{T}) where T <: Real = mean(diff(aa))
 fstep(aa::StepRangeLen) = step(aa)
 
-function compute_histogram!(counts, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)))
-    qpos = ([pos[i,:] for i in 1:size(pos,1)]...,)
+function compute_histogram!(counts, idx::Vector{Tuple{Int64, Int64, Int64, Symbol}}, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)),kname::Symbol=:unknown)
     w = aweights(weight)
     for (bin,count) in zip(bins,counts)
         # hackish; add one bin to the end
         Δs = [fstep(b) for b in bin]
-        h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+        h = Histogram(([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,), Float64)
+        #h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+        #count .+= h.weights
+        for (ii,(w,_pos)) in enumerate(zip(weight,eachcol(pos)))
+            _idx = StatsBase.binindex(h, (_pos...,))
+            #if all((0,0,0) .< _idx .< nb)
+            if checkbounds(Bool, h.weights, _idx...)
+                @inbounds idx[ii] = (_idx...,kname)
+                @inbounds h.weights[_idx...] += w
+            end
+        end
         count .+= h.weights
     end
-    counts
+    idx
 end
 
 function compute_histogram(pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N

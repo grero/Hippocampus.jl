@@ -456,6 +456,37 @@ function compute_histogram(gdata::GazeOnMaze,mm::MazeModel;fixations_only=true)
     counts,bins
 end
 
+function compute_histogram(gdata::UnityRaytraceData,mm::MazeModel)
+    bins = get_bins(mm)
+    gaze = Vector{Matrix{Float64}}(undef, length(gdata.gaze))
+    weight = Vector{Vector{Float64}}(undef, length(gdata.gaze))
+    for i in eachindex(gaze)
+        Δt = diff(gdata.timestamps[i])
+        weight[i] = Δt
+        gaze[i] = gdata.gaze[i][:,1:end-1] # Skip the last point
+    end
+
+    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
+    idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(gdata.gaze))
+    # initialize
+    for ii in 1:length(idx)
+        idx[ii] = fill((0,0,0,:unknown), size(gaze[ii],2))
+    end
+    for k in keys(bins)
+        counts[k] = compute_histogram!(idx, gaze,bins[k],weight,k)
+    end
+    # replace the object place holder with the actual fixated object as reported
+    # by unity
+    for ii in 1:length(idx)
+        fo = gdata.fixated_object[ii]
+        _idx = idx[ii]
+        for jj in 1:length(idx[ii])
+            _idx[jj] = (_idx[jj][1:3]..., Symbol(fo[jj]))
+        end
+    end
+    counts,bins,idx
+end
+
 """
 Type to indicate that we want to replay the maze as the subject experienced it.
 """
