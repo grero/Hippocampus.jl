@@ -493,16 +493,19 @@ Type to indicate that we want to replay the maze as the subject experienced it.
 struct MazeReplayer
     mm::MazeModel
     udata::UnityData
+    camera_aspect::Float32
 end
+
+MazeReplayer(mm::MazeModel, udata::UnityData) = MazeReplayer(mm,udata,1.0f0)
 
 function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Float64}=Observable(0.0), trial::Observable{Trial}=Observable(Trial(1)), kwargs...)
 
     visualize!(lscene,mp.mm;show_ceiling=true)
+    aspect = mp.camera_aspect 
+    cam = Makie.camera(lscene.scene)
+    cam.projection[] = Makie.perspectiveprojection(60.0f0, aspect, 0.3f0, 1000.0f0)
     cc = cameracontrols(lscene.scene)
-    cc.fov[] = 60.0
-    cc.near[] = 0.3
-    cc.far[] = 1000.0
-    cc.settings.clipping_mode[] = :adaptive # :static
+    #cc.settings.clipping_mode[] = :adaptive # :static
     udata = mp.udata
     nt = numtrials(udata)
     udata_trial = lift(trial) do _trial
