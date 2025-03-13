@@ -33,12 +33,12 @@ pillar_positions[:green] = Dict(:lower_left => (2.5, -7.5),
 pillar_positions[:red] = Dict(:lower_left => (2.5, 2.5),
                               :upper_right => (7.5, 7.5))
 poster_pos = Dict{Symbol,NTuple{2,Float64}}()
-poster_pos[:camel] = (-7.55, 5.0)
-poster_pos[:cat] = (-5.0, -7.55)
-poster_pos[:pig] = (-5.0, -2.45)
-poster_pos[:donkey] = (5.0, 7.55)
-poster_pos[:croc] = (5.0, 2.45)
-poster_pos[:rabbit] = (7.55, -5.0)
+poster_pos[:camel] = (-7.567, 5.0)
+poster_pos[:cat] = (-5.0, -7.6)
+poster_pos[:pig] = (-5.0, -2.44)
+poster_pos[:donkey] = (5.168, 7.561)
+poster_pos[:croc] = (5.0, 2.433)
+poster_pos[:rabbit] = (7.561, -5.0)
 
 
 #poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
@@ -48,8 +48,8 @@ poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DI
 
 # TODO: Use actual values here
 camera_height = 2.5
-ceiling_height = 5.0
-pillar_height = 3.0
+ceiling_height = 4.93
+pillar_height = 3.11
 
 struct UnityData
     time::Vector{Float64}
