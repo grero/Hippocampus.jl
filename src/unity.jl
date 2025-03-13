@@ -609,7 +609,7 @@ end
 """
 Return the meshes representing the maze
 """
-function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, height=5.0, pillar_height=3.0,kvs...)
+function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, height=ceiling_height, pillar_height=pillar_height,kvs...)
     # unity uses 40x40 bins on the floor
     floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
