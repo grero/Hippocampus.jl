@@ -1000,9 +1000,9 @@ end
 DPHT.level(::Type{ViewOccupancy}) = "session"
 DPHT.filename(::Type{ViewOccupancy}) = "view_occupancy.mat"
 
-function ViewOccupancy(gdata::GazeOnMaze, mm::MazeModel)
-    counts,bins = compute_histogram(gdata,mm)
-    ViewOccupancy(counts,bins, mm)
+function ViewOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, mm::MazeModel)
+    counts,bins,idx = compute_histogram(gdata,mm)
+    ViewOccupancy(counts,bins,idx, mm)
 end
 
 function ViewOccupancy()
