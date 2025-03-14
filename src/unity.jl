@@ -802,7 +802,20 @@ function compute_histogram(pos::Matrix{Float64},bins)
     compute_histogram!(counts, pos,bins)
 end
 
-function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing,k::Symbol=:unknown)
+function compute_histogram(pos::Vector{Matrix{Float64}}, bins::Dict{Symbol, Vector{NTuple{3, Vector{Float64}}}}, weight::Union{Nothing, Vector{Vector{Float64}}}=nothing)
+    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
+    idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(pos))
+     # initialize
+     for ii in 1:length(idx)
+        idx[ii] = fill((0,0,0,:unknown), size(pos[ii],2))
+    end
+    for k in keys(bins)
+        counts[k] = compute_histogram!(idx, pos,bins[k],weight,k)
+    end
+    counts, idx
+end
+
+function compute_histogram(pos::Vector{Matrix{Float64}},bins::Vector{NTuple{3, Vector{Float64}}},weight::Union{Nothing,Vector{Vector{Float64}}}=nothing,k::Symbol=:unknown)
     idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(pos))
     compute_histogram!(idx, pos, bins,weight,k)
     counts, idx
