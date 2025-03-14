@@ -993,6 +993,7 @@ end
 struct ViewOccupancy
     counts::Dict
     bins::Dict
+    binidx::Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}
     mm::MazeModel
 end
 
