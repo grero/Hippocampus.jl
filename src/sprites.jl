@@ -8,7 +8,7 @@ plot_theme = Makie.theme_minimal()
 plot_theme.Axis.xticksvisible = true
 plot_theme.Axis.yticksvisible = true
 
-struct Sprite{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
+struct Sprite{T<:RGB,T2<:Integer,T3<:Point3, T4<:Vec2,T5<:Vec3}
     points::Vector{T3}
     faces::Vector{TriangleFace{T2}}
     normals::Vector{T5}
@@ -42,12 +42,12 @@ function sprite(img,rect=Rect2(-0.5, -0.5, 1.0, 1.0))
     points = decompose(Point3f, rect)
     normals = decompose(GeometryBasics.Normal(Vec3f), rect)
     faces = decompose(GLTriangleFace, rect)
-    uv = decompose(UV(Point2f), rect)
+    uv = decompose(UV(Vec2f), rect)
 
     Sprite(points, faces, normals, uv, img)
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, sp::Sprite)
-    gb_mesh = Hippocampus.GeometryBasics.Mesh(Hippocampus.GeometryBasics.meta(sp.points; uv=sp.uv, sp.normals), sp.faces)
-    PlotSpec(Makie.Mesh, gb_mesh, color=sp.img)
+    gb_mesh = GeometryBasics.Mesh(sp.points, sp.faces; uv = Vec2f.(sp.uv), normal =sp.normals)
+    PlotSpec(Makie.Mesh, gb_mesh,color=sp.img)
 end
