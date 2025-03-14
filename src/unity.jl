@@ -338,6 +338,36 @@ struct MazeModel{T<:AbstractVector{<: Real}}
     ceiling::OrientedMesh{T}
 end
 
+"""
+Return the total number of surface bins in `mm`
+"""
+function num_bins(mm::MazeModel)
+    nbins = 0
+    for wall in mm.walls
+        nb = 1
+        for l in length.(wall.bins)
+            if l > 2
+                nb *= l
+            end
+        end
+        nbins += nb
+    end
+    nbins += prod(length.(mm.ceiling.bins[1:2]))
+    nbins += prod(length.(mm.floor.bins[1:2]))
+    for pillar in mm.pillars
+        for pwall in pillar
+            nb = 1
+            for l in length.(pwall.bins)
+                if l > 2
+                    nb *= l
+                end
+            end
+            nbins += nb
+        end
+    end
+    nbins
+end
+
 function get_maze_colors(mm::MazeModel)
     colors = Dict{Symbol, Any}()
     colors[:walls] = fill(RGB(0.3f0, 0.21470589f0, 0.21470589f0), 4)
