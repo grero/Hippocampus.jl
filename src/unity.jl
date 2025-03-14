@@ -604,11 +604,11 @@ end
 
 Create a mesh representing an object (pillar,wall) with the specified corners, using the specified bin width
 """
-function create_mesh(lower_left::T, upper_right::T,Δb::Float64, height::Float64=5.0, Δ::Float64=0.1;flip_normals=false) where T <: NTuple{2,Float64}
+function create_mesh(lower_left::T, upper_right::T,Δb::Float64, Δv::Float64=Δb, height::Float64=5.0, Δ::Float64=0.1;flip_normals=false) where T <: NTuple{2,Float64}
     bins = Vector{NTuple{3,Vector{Float64}}}(undef, 4)
     normals = Vector{Vector{Float64}}(undef, 4)
-    
-    zbins = range(0.0, stop=height, length=10)
+
+    zbins = soft_range(0.0, height, Δv)
 
     xbins = soft_range(lower_left[1], upper_right[1], Δb)
     y0 = lower_left[2] 
@@ -639,7 +639,9 @@ end
 """
 Return the meshes representing the maze
 """
-function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, height=ceiling_height, pillar_height=pillar_height,kvs...)
+function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, height=ceiling_height, pillar_height=pillar_height,n_vertical_pillar_bins::Union{Int64, Nothing}=nothing,
+                                                                    n_horizontal_pillar_bins::Union{Nothing, Int64}=nothing, 
+                                                                    n_vertical_wall_bins::Union{Nothing, Int64}=nothing, kvs...)
     # unity uses 40x40 bins on the floor
     floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
@@ -647,35 +649,50 @@ function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, 
     bins = Dict{Symbol,Vector{NTuple{3,Vector{Float64}}}}()
     normals = Dict{Symbol,Vector{Vector{Float64}}}()
 
-    zbins = range(0.0, stop=height, length=10)
+    zbins = soft_range(0.0, height, Δb)
 
     # pillar 1; yellow pillar
     #lower_left = (-7.5, 2.5)
     #upper_right = (-2.5, 7.5)
+    if n_horizontal_pillar_bins !== nothing
+        Δh = 5.0/(n_horizontal_pillar_bins-1)
+    else
+        Δh = Δb
+    end
+    if n_vertical_pillar_bins !== nothing
+        Δv = pillar_height/(n_vertical_pillar_bins-1)
+    else
+        Δv = Δb
+    end
     pos = pillar_positions[:yellow]
-    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
+    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δh,Δv, pillar_height, Δ)
 
     # pillar 2;red 
     lower_left = (2.5, 2.5)
     upper_right = (7.5, 7.5)
     pos = pillar_positions[:red]
-    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
+    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ)
 
     # pillar 3; blue
     lower_left = (-7.5, -7.5)
     upper_right = (-2.5, -2.5)
     pos = pillar_positions[:blue]
-    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
+    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ)
 
     # pillar 4
     lower_left = (2.5, -7.5)
     upper_right = (7.5, -2.5)
     pos = pillar_positions[:green]
-    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
+    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height, Δ)
 
 
-    zbins = range(0.0, stop=height, length=10)
     # walls
+    if n_vertical_wall_bins !== nothing
+        Δv = height/(n_vertical_wall_bins-1)
+    else
+        Δv = Δb
+    end
+    zbins = soft_range(0.0, height, Δv)
     bins[:walls] = Vector{Vector{Float64}}(undef, 4)
     normals[:walls] = Vector{Vector{Float64}}(undef, 4)
     xbins = soft_range(xmin, xmax, Δb)
