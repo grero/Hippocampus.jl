@@ -998,6 +998,7 @@ struct ViewOccupancy
 end
 
 DPHT.level(::Type{ViewOccupancy}) = "session"
+DPHT.filename(::Type{ViewOccupancy}) = "view_occupancy.mat"
 
 function ViewOccupancy(gdata::GazeOnMaze, mm::MazeModel)
     counts,bins = compute_histogram(gdata,mm)
