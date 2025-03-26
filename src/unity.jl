@@ -300,7 +300,7 @@ end
 Range where the step is adjusted to match the start and stop
 """
 function soft_range(start::T, stop::T,step::T) where T <: Real
-    nn = round(Int64,(start-stop)/step)
+    nn = round(Int64,floor((start-stop)/step))
     Δ = (start-stop)/nn
     range(start,stop=stop,step=Δ)
 end
