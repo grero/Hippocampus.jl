@@ -639,9 +639,9 @@ end
 """
 Return the meshes representing the maze
 """
-function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, height=ceiling_height, pillar_height=pillar_height,n_vertical_pillar_bins::Union{Int64, Nothing}=nothing,
-                                                                    n_horizontal_pillar_bins::Union{Nothing, Int64}=nothing, 
-                                                                    n_vertical_wall_bins::Union{Nothing, Int64}=nothing, kvs...)
+function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, height=ceiling_height, pillar_height=pillar_height,n_vertical_pillar_bins::Union{Int64, Nothing}=5,
+                                                                    n_horizontal_pillar_bins::Union{Nothing, Int64}=8, 
+                                                                    n_vertical_wall_bins::Union{Nothing, Int64}=8, pillar_bottom=0.05, kvs...)
     # unity uses 40x40 bins on the floor
     floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
@@ -665,25 +665,25 @@ function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, 
         Δv = Δb
     end
     pos = pillar_positions[:yellow]
-    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δh,Δv, pillar_height, Δ)
+    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δh,Δv, pillar_height, Δ;bottom=pillar_bottom)
 
     # pillar 2;red 
     lower_left = (2.5, 2.5)
     upper_right = (7.5, 7.5)
     pos = pillar_positions[:red]
-    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ)
+    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ;bottom=pillar_bottom)
 
     # pillar 3; blue
     lower_left = (-7.5, -7.5)
     upper_right = (-2.5, -2.5)
     pos = pillar_positions[:blue]
-    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ)
+    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ;bottom=pillar_bottom)
 
     # pillar 4
     lower_left = (2.5, -7.5)
     upper_right = (7.5, -2.5)
     pos = pillar_positions[:green]
-    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height, Δ)
+    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height, Δ;bottom=pillar_bottom)
 
 
     # walls
