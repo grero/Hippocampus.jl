@@ -725,11 +725,11 @@ end
 
 Create a mesh representing an object (pillar,wall) with the specified corners, using the specified bin width
 """
-function create_mesh(lower_left::T, upper_right::T,Δb::Float64, Δv::Float64=Δb, height::Float64=5.0, Δ::Float64=0.1;flip_normals=false) where T <: NTuple{2,Float64}
+function create_mesh(lower_left::T, upper_right::T,Δb::Float64, Δv::Float64=Δb, height::Float64=5.0, Δ::Float64=0.1;bottom=0.0, flip_normals=false) where T <: NTuple{2,Float64}
     bins = Vector{NTuple{3,Vector{Float64}}}(undef, 4)
     normals = Vector{Vector{Float64}}(undef, 4)
 
-    zbins = soft_range(0.0, height, Δv)
+    zbins = soft_range(bottom, height, Δv)
 
     xbins = soft_range(lower_left[1], upper_right[1], Δb)
     y0 = lower_left[2] 
