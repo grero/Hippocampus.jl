@@ -438,7 +438,7 @@ end
 function MazeModel(bins::Dict{Symbol,T}, normals) where T
     walls = [OrientedMesh(m,n) for (m,n) in zip(bins[:walls], normals[:walls])]
     pillars = [[OrientedMesh(m,n) for (m,n) in zip(bins[k],normals[k])] for k in [:pillar_1, :pillar_2, :pillar_3, :pillar_4]]
-    _floor = OrientedMesh(first(bins[:floor]), first(normals[:floor]))
+    _floor = [OrientedMesh(m,n) for (m,n) in zip(bins[:floor], normals[:floor])]
     _ceiling = OrientedMesh(first(bins[:ceiling]), first(normals[:ceiling]))
     MazeModel(walls, pillars, _floor, _ceiling)
 end
@@ -716,12 +716,53 @@ function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, 
     normals[:walls][4] = [-1.0, 0.0, 0.0]
 
     # floor
+    # TODO: Break up the floor into tiles accommodate the pillars
+    # slab covering the entire y-range, and the x-range up to the poster
+    xbins1 = soft_range(xmin, -7.55, Δb)
+    ybins1 = soft_range(ymin, ymax, Δb)
+
+    # central slap
+    xbins2 = soft_range(-2.45, 2.55, Δb)
+    ybins2 = soft_range(ymin,ymax,Δb)
+    
+    # slab covering the entire y-range, and the x-range from the poster to the wall
+    xbins3 = soft_range(7.55, xmax, Δb)
+    ybins3 = soft_range(ymin, ymax, Δb)
+
+    # slabs inbetwen the pillar on the left
+    xbins4 = soft_range(-7.55, -2.45, Δb)
+    ybins4 = soft_range(ymin, -7.55, Δb)
+
+    xbins5 = soft_range(-7.55, -2.45, Δb)
+    ybins5 = soft_range(-2.45, 2.45, Δb)
+
+    xbins6 = soft_range(-7.55,-2.45, Δb)
+    ybins6 = soft_range(7.55, ymax, Δb)
+
+    #slabs inbetween the pillars on the right
+    xbins7 = soft_range(2.45, 7.55, Δb)
+    ybins7 = soft_range(ymin, -7.55, Δb)
+
+    xbins8 = soft_range(2.45, 7.55, Δb)
+    ybins8 = soft_range(-2.45, 2.45,Δb)
+
+    xbins9 = soft_range(2.45, 7.55, Δb)
+    ybins9 = soft_range(7.55, ymax, Δb)
     xbins = floor_bins
     ybins = floor_bins
     z0 = 0.0
     zbins = range(z0-Δ, stop=z0+Δ, length=2)
-    bins[:floor] = [(xbins, ybins, zbins)]
-    normals[:floor] = [[0.0, 0.0, 1.0]]
+    bins[:floor] = [(xbins1, ybins1, zbins),
+                    (xbins2, ybins2, zbins),
+                    (xbins3, ybins3, zbins),
+                    (xbins4, ybins4, zbins),
+                    (xbins5, ybins5, zbins),
+                    (xbins6, ybins6, zbins),
+                    (xbins7, ybins7, zbins),
+                    (xbins8, ybins8, zbins),
+                    (xbins9, ybins9, zbins)
+                    ]
+    normals[:floor] = [[0.0, 0.0, 1.0] for _ in 1:9]
 
     # ceiling
     xbins = range(xmin, stop=xmax, step=Δb)
