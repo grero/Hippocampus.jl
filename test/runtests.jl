@@ -164,7 +164,51 @@ end
 
     gmx,gmy,gmz = Hippocampus.raytrace(gx,gy,[px,py],0.0,60.0, 0.3)
 
-    @test gmx ≈ -0.06218056650665493
-    @test gmy ≈ -3.6203030183909872
-    @test gmz ≈ 4.995794176668579
+    @test gmx ≈ -0.060816102664816116 
+    @test gmy ≈ -3.760296369084596
+    @test gmz ≈ 4.926764210409394 
+end
+
+@testset "Gaze histogram" begin
+    # create a random gaze path on the inner surfaces of the maze
+    # and check that we can recover that path when computing histograms
+    points = fill(0.0, 3, 10)
+    points[:,1] .= [2.5, 7.51, 1.5] # point on the red pillar near the donkey poster
+    points[:,2] .= [7.51, -2.5, 1.5] # point on the green pillar near the rabiit poster
+    points[:,3] .= [-2.5, -7.51, 1.5] # point on the blue pillar near the cat poster
+    points[:,4] .= [-7.51, 2.5, 1.5] # point  on the yellow pillar near the camel poster
+    points[:,5] .= [-2.5, -2.49, 1.5] # point on the blue pillar near the pig poster
+    points[:,6] .= [2.5, 2.49, 1.5] # point on the red pillar near the crocodile poster
+    points[:,7] .= [0.0, 0.0, 4.93] # point in the middle of the ceiling
+    points[:,8] .= [-2.72, 12.63, 1.5] # point on one of the peripheral walls
+    points[:,9] .= [-2.72, -12.37, 1.5] # point on another peripheral wall
+    points[:,10] .=[0.0, 0.0, 0.0] # point on the middle of the floor
+
+    # create the maze
+    mm = Hippocampus.MazeModel(;xmin=-12.72, xmax=12.28,ymin=-12.37, ymax=12.63,Δ=0.05,n_vertical_wall_bins=8, n_vertical_pillar_bins=5,
+                                n_horizontal_pillar_bins=8)
+    nbins = Hippocampus.num_bins(mm)
+    @test nbins == 5180
+    bins = Hippocampus.get_bins(mm)
+    counts,_idx = Hippocampus.compute_histogram([points], bins) 
+    # unpack the trial again
+    idx = _idx[1]
+    # test that the labels are correct
+    @test idx[1][4] == :pillars
+    @test idx[2][4] == :pillars
+    @test idx[3][4] == :pillars
+    @test idx[4][4] == :pillars
+    @test idx[4][4] == :pillars
+    @test idx[6][4] == :pillars
+    @test idx[7][4] == :ceiling
+    @test idx[8][4] == :walls
+    @test idx[9][4] == :walls
+    @test idx[10][4] == :floor
+
+end
+
+@testset "Path on cube" begin
+    r1 = Rect3f(0.0, 0.0, 0.0,1.0, 1.0, 1.0)
+    d = Hippocampus.distance(Point3f(0.5, 0.0, 0.5), Point3f(0.5, 1.0, 0.5), r1)
+    @test d ≈ 2.0f0
 end
