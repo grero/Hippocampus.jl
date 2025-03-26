@@ -392,19 +392,26 @@ end
 function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Symbol[]) where T2 <: AbstractVector{T} where T <: Real
     points = Point{3,T}[]
     elements = setdiff([:ceiling, :floor, :walls, :pillars], exclude_element)
+    idx = Tuple{Symbol, Int64,Int64}[]
     for obj in elements
         if obj == :pillars
             for (jj,pillar) in enumerate(getfield(mm, :pillars))
                 for (kk,pwall) in enumerate(pillar)
-                    append!(points, get_surface_points(pwall))
+                    _points = get_surface_points(pwall)
+                    append!(points, _points)
+                    append!(idx, fill((:pillar, jj,kk), length(_points)))
                 end
             end
         elseif (obj == :walls) || (obj == :floor)
-            for mq in getfield(mm, obj)
-                append!(points, get_surface_points(mq))
+            for (jj, mq) in enumerate(getfield(mm, obj))
+                _points = get_surface_points(mq)
+                append!(points, _points)
+                append!(idx, fill((obj, 1,jj), length(_points)))
             end
         else
-            append!(points, get_surface_points(getfield(mm, obj)))
+            _points = get_surface_points(getfield(mm, obj))
+            append!(points, _points)
+            apend!(idx, fill((obj, 1,1), length(_points)))
         end
     end
     points
