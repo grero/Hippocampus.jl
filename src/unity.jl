@@ -411,7 +411,7 @@ function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Sy
         else
             _points = get_surface_points(getfield(mm, obj))
             append!(points, _points)
-            apend!(idx, fill((obj, 1,1), length(_points)))
+            append!(idx, fill((obj, 1,1), length(_points)))
         end
     end
     points
