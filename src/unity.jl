@@ -612,16 +612,18 @@ end
 function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, flip_ceiling=false, colormap=:Blues, kwargs...)
     if show_floor
         #floor
-        bin = mm.floor.bins
-        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        #hackish
-        # only do this if color[:floor] is a vector of something
-        if typeof(color[:floor]) <: AbstractVector
-            _color = color[:floor][1][:]
-        else
-            _color = color[:floor]
+        for ff in mm.floor
+            bin =ff.bins
+            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+            #hackish
+            # only do this if color[:floor] is a vector of something
+            if typeof(color[:floor]) <: AbstractVector
+                _color = color[:floor][1][:]
+            else
+                _color = color[:floor]
+            end
+            viz!(lscene, m, color=_color,colormap=colormap)
         end
-        viz!(lscene, m, color=_color,colormap=colormap)
     end
 
     if show_ceiling
