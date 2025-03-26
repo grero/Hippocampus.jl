@@ -331,11 +331,132 @@ end
 
 OrientedMesh(bins, normal::AbstractVector{T}) where T <: Real = OrientedMesh(bins, Vec3f(normal))
 
+Base.length(om::OrientedMesh) = 1
+
+"""
+Get a rectangle encompassing the inner face of the mesh
+"""
+function get_rect(om::OrientedMesh{T2};invert=false) where T2 <: AbstractVector{T} where T <: Real
+    n = om.normal
+    bins = om.bins
+    idx = NTuple{3, Int64}[]
+    for d in 1:length(n)
+        if n[d] == 0
+            continue
+        end
+        if (n[d] < 0) && (!invert)
+            _idx = ntuple(dim->dim==d ? 1 : 1, 3)
+            push!(idx, _idx)
+            _idx = ntuple(dim->dim==d ? 1 : length(bins[dim]), 3)
+            push!(idx, _idx)
+        else
+            push!(idx, ntuple(dim->dim==d ? length(bins[d]) : 1, 3))
+            push!(idx, ntuple(dim->dim==d ? length(bins[d]) : length(bins[dim]), 3))
+        end
+    end
+    oo = Point{3,T}([bins[i][idx[1][i]] for i in 1:3]...)
+    pp = Point{3,T}([bins[i][idx[2][i]] for i in 1:3]...)
+    Rect(oo, pp-oo)
+end
+
+function get_surface_bins(om::OrientedMesh{T2};invert=false) where T2 <: AbstractVector{T} where T <: Real
+    n = om.normal
+    bins = om.bins
+    idx = NTuple{3, Int64}[]
+    for d in 1:length(n)
+        if n[d] == 0
+            continue
+        end
+        if (n[d] < 0) && (!invert)
+            idx = ntuple(dim->dim==d ? (1,) : axes(bins[dim]), 3)
+        else
+            idx = ntuple(dim->dim==d ? (length(bins[d]),) : axes(bins[dim]), 3)
+        end
+    end
+    [bin[idx[i]...] for (i,bin) in enumerate(bins)]
+end
+
+function get_surface_points(om::OrientedMesh{T2};invert=false) where T2 <: AbstractVector{T} where T <: Real
+    bins = get_surface_bins(om;invert=invert)
+    [Point{3,T}(b1,b2,b3) for b1 in bins[1], b2 in bins[2], b3 in bins[3]]
+end
+
+
 struct MazeModel{T<:AbstractVector{<: Real}}
     walls::Vector{OrientedMesh{T}}
     pillars::Vector{Vector{OrientedMesh{T}}}
-    floor::OrientedMesh{T}
+    floor::Vector{OrientedMesh{T}}
     ceiling::OrientedMesh{T}
+end
+
+function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Symbol[]) where T2 <: AbstractVector{T} where T <: Real
+    points = Point{3,T}[]
+    elements = setdiff([:ceiling, :floor, :walls, :pillars], exclude_element)
+    for obj in elements
+        if obj == :pillars
+            for (jj,pillar) in enumerate(getfield(mm, :pillars))
+                for (kk,pwall) in enumerate(pillar)
+                    append!(points, get_surface_points(pwall))
+                end
+            end
+        elseif (obj == :walls) || (obj == :floor)
+            for mq in getfield(mm, obj)
+                append!(points, get_surface_points(mq))
+            end
+        else
+            append!(points, get_surface_points(getfield(mm, obj)))
+        end
+    end
+    points
+end
+
+
+function ParametrizedManifold(mm::MazeModel{T};include_pillars=true) where T <: AbstractVector{T2} where T2 <: Real
+    # floor + ceiling + walls + pillars
+    n = length(mm.ceiling) + length(mm.floor) + length(mm.walls)
+    elements = [:ceiling, :floor, :walls]
+    if include_pillars
+        n += 16
+        push!(elements, :pillars)
+    end
+    normals = Vector{Vec{3,T2}}(undef, n)
+    bb = Vector{Matrix{T2}}(undef, n)
+    μ = Vector{Vec{3,T2}}(undef, n)
+    points = Vector{Point{3,T2}}(undef, 0)
+    ff = Vector{QuadFace{Int64}}(undef, n)
+
+    offset = 0
+    point_idx_offset = 0
+    # ceiling and floor
+    for (jj,vv) in enumerate(elements)
+        vk = getfield(mm,vv)
+        # kind of hackish
+        if vv  == :ceiling 
+            vk = [vk]
+        elseif vv == :pillars
+            vk = [mm.pillars[i][j] for i in 1:4 for j in 1:4]
+        end
+        for (ii,_vk) in enumerate(vk[:])
+            kk = offset + ii
+            rr = get_rect(_vk)
+            pp = decompose(Point{3,T2}, rr)
+            upp = unique(pp)
+            append!(points,upp)
+            pidx = [findfirst(pp.==p) for p in upp]
+            ff_ = faces(rr)
+            fidx = findfirst(_ff->isempty(setdiff(_ff, pidx)), ff_)
+            uidx = [findfirst(p.==sort(pidx)) for p in ff_[fidx]] .+ point_idx_offset
+            ff[kk] = QuadFace{Int64}(uidx...)
+            point_idx_offset += length(upp)
+            μ[kk] = mean(upp)
+            nn = _vk.normal
+            normals[kk] = nn
+            bb[kk] = abs.(nullspace(permutedims(nn)))
+        end
+        offset += length(vk)
+    end
+
+    ParametrizedManifold(normals, ff, μ, bb, points)
 end
 
 """
