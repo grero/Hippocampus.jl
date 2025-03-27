@@ -84,6 +84,60 @@ struct ParametrizedManifold{N<:Any, N2<:Any, T3<:Real, T<:Vec{N,T3},T2<:NgonFace
     μ::Vector{T} 
     base::Vector{Matrix{T3}}
     points::Vector{T4}
+    # label to indicate
+    label::Vector{Tuple{Symbol,Int64,Int64}}
+end
+
+function visualize!(lscene, pm::ParametrizedManifold{N,N2,T3,T, T2,T4},color::AbstractVector{T5}, pidx::AbstractVector{T7},sizes::Vector{T6};include_ceiling=true, kwargs...) where T4 <: Point{N,T3} where T <: Vec{N,T3} where T2 <: QuadFace{Int64} where T3 <: Real where N2 where T5 <: Real where T6 <: NTuple{3,Int64} where T7 <: Tuple{Symbol, Int64, Int64, Int64} where N
+    # each face is implemented as a separate mesh
+    n = length(pm.faces)
+    # TODO Make sure the colorscale is the same
+    cl = extrema(color)
+    for ii in 1:n
+        lidx = pm.label[ii]
+        if lidx[1] == :ceiling && include_ceiling == false
+            continue
+        end
+        offset = (ii-1)*N2
+        points = pm.points[(ii-1)*N2+1:ii*N2]
+        _ff = pm.faces[ii]
+        fpoints = pm.points[_ff]
+        # rescale 
+        ff = _ff .- offset
+        nn = pm.normals[ii]
+        # also a bit hackish
+        rf = Rect([fpoints.points...])
+        # TODO: This doesn't always work
+        uv = GeometryBasics.decompose(UV(Vec2f), rf)
+        # grab every other point
+        #uv = Vec{2,T}.(uv[1:2:end])
+        uv = uv[1:2:end]
+        gb_mesh = GeometryBasics.Mesh(Point3f.(points), [ff];normal=Vec3f.([nn for _ in 1:N2]),uv=uv)
+        # 
+        # this is a bit clunky;
+        # find the portion of the color vector pertaining to this surface
+        # this is brittle as it depends on an exact match
+        cidx = findall(x->(x[1]==lidx[1])&(x[2]==lidx[2])&&(x[3]==lidx[3]), pidx)
+        @show lidx length(cidx)
+        if isempty(cidx)
+            continue
+        end
+        _size = filter(x->x>1, sizes[ii])
+        fq = permutedims(reshape(color[cidx],_size))
+        mesh!(lscene, gb_mesh, color=fq,colorrange=cl)
+    end
+end
+
+function visualize!(lscene, pm::ParametrizedManifold{N,N2,T3,T, T2,T4};kwargs...) where T4 <: Point{N,T3} where T <: Vec{N,T3} where T2 <: QuadFace{Int64} where T3 <: Real where N2 <: Val{4} where N
+    # need to replicate normals to every point
+    nn = Vector{Vec{N,T}}(undef, length(pm.points))
+    for ii in 1:length(pm.normals)
+        for k in 1:4
+            nn[(ii-1)*4+k] = pm.normals[ii]
+        end
+    end
+    gb_mesh = GeometryBasics.Mesh(pm.points, pm.faces;normal=nn)
+    wireframe!(lscene, gb_mesh)
 end
 
 function ParametrizedManifold(m::HyperRectangle{N,T}) where T <: Real where N
