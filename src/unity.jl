@@ -378,7 +378,8 @@ end
 
 function get_surface_points(om::OrientedMesh{T2};invert=false) where T2 <: AbstractVector{T} where T <: Real
     bins = get_surface_bins(om;invert=invert)
-    [Point{3,T}(b1,b2,b3) for b1 in bins[1], b2 in bins[2], b3 in bins[3]]
+    ll = tuple(length.(bins)...)
+    [Point{3,T}(b1,b2,b3) for b1 in bins[1], b2 in bins[2], b3 in bins[3]], ll
 end
 
 
@@ -393,33 +394,37 @@ function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Sy
     points = Point{3,T}[]
     elements = setdiff([:ceiling, :floor, :walls, :pillars], exclude_element)
     idx = Tuple{Symbol, Int64,Int64,Int64}[]
+    ll = Tuple{Int64, Int64, Int64}[]
     for obj in elements
         if obj == :pillars
             for (jj,pillar) in enumerate(getfield(mm, :pillars))
                 for (kk,pwall) in enumerate(pillar)
-                    _points = get_surface_points(pwall)
+                    _points,_ll = get_surface_points(pwall)
                     append!(points, _points)
-                    append!(idx, [(:pillar, jj,kk,ll) for ll in 1:length(_points)])
+                    append!(idx, [(:pillars, jj,kk,ll) for ll in 1:length(_points)])
+                    push!(ll, _ll)
                 end
             end
         elseif (obj == :walls) || (obj == :floor)
             for (jj, mq) in enumerate(getfield(mm, obj))
-                _points = get_surface_points(mq)
+                _points,_ll = get_surface_points(mq)
                 append!(points, _points)
                 append!(idx, [(obj, 1,jj,ll) for ll in 1:length(_points)])
+                push!(ll, _ll)
             end
         else
-            _points = get_surface_points(getfield(mm, obj))
+            _points,_ll = get_surface_points(getfield(mm, obj))
             append!(points, _points)
             append!(idx, [(obj, 1,1,ll) for ll in 1:length(_points)])
+            push!(ll, _ll)
         end
     end
-    points, idx
+    points, idx, ll
 end
 
 function compute_distance_matrix(mm::MazeModel{T2}) where T2 <: AbstractVector{T} where T <: Real 
     pm = ParametrizedManifold(mm;include_pillars=true)
-    points,pidx = get_surface_points(mm)
+    points,pidx,ll = get_surface_points(mm)
     npoints = length(points)
     D = zeros(T, npoints, npoints)
     for i in 1:npoints-1
@@ -429,7 +434,7 @@ function compute_distance_matrix(mm::MazeModel{T2}) where T2 <: AbstractVector{T
             D[i,j] = D[j,i]
         end
     end
-    D, points, pidx
+    D, points, pidx,ll
 end
 
 
