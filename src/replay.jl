@@ -18,7 +18,12 @@ numtrials(gdata::GazeOnMaze) = length(gdata.gaze)
 DPHT.filename(::Type{GazeOnMaze}) = "maze_raytrace.mat"
 DPHT.level(::Type{GazeOnMaze}) = "session"
 
-get_trial(gdata, i) = (gdata.time[i], gdata.gaze[i], gdata.fixation[i])
+function get_trial(gdata::GazeOnMaze, i;trial_start=1)
+    tg = gdata.time[i]
+    gg = gdata.gaze[i]
+    fm = gdata.fixation[i]
+    tg,gg,fm
+end
 
 # TODO: Make sure that this actually works
 function GazeOnMaze(;do_save=true, redo=false)
@@ -257,10 +262,15 @@ function visualize!(lscene, gdata::GazeOnMaze;trial::Observable{Trial}=Observabl
 end
 
 struct UnityRaytraceData
+    analogtime::Vector{UInt64}
+    positions::Matrix{Float32}
+    directions::Vector{Float32}
+
     gaze::Vector{Matrix{Float64}}
     position::Vector{Matrix{Float64}}
     head_direction::Vector{Vector{Float64}}
     timestamps::Vector{Vector{Float64}}
+    fixated_object::Vector{Vector{String}}
 end
 
 function UnityRaytraceData()
@@ -274,18 +284,21 @@ function UnityRaytraceData()
     unity_eyelinkfile = CSV.File(fname, header=0)
     n = length(unity_eyelinkfile)
     fixated_points = fill(NaN, 3, n)
-    position = fill(0.0, 3, n)
-    direction = fill(0.0, n)
+    position = fill(0.0f0, 3, n)
+    direction = fill(0.0f0, n)
     timestamps = zeros(UInt64,n)
+    fixated_object = Vector{String}(undef, n)
     i = 1
     for row in unity_eyelinkfile
         # TODO: Grab more data here
         px,py,pz,a = (row[6],row[7],row[8],row[9])
         θ = π*a/180.0
-        position[:,i] = (px,pz,py)
+        position[:,i] .= (px,pz,py)
         direction[i] = θ
+        # FIXME: This does not appear to be the actual eyelink timestamp!
         timestamps[i] = row[2]
         gx,gy,gz = (row[10],row[11],row[12])
+        fixated_object[i] = row[3]
         if (gx !== missing) && (gy !== missing) && (gz !== missing)
             # gx,gy,gz is relative to player ?
 
@@ -294,25 +307,35 @@ function UnityRaytraceData()
         end
     end
 
+    timestamps .-= timestamps[1]
+
     # break up into trials using edata
     nt = numtrials(edata)
     trial_fixations = Vector{Matrix{Float64}}(undef,nt)
     trial_position = Vector{Matrix{Float64}}(undef, nt)
     trial_head_direction = Vector{Vector{Float64}}(undef, nt)
     trial_times = Vector{Vector{Float64}}(undef,nt)
+    trial_fixated_object = Vector{Vector{String}}(undef, nt)
+    #t0 = edata.analogtime[1]
+    te,_,_, = get_trial(edata, 1)
+    t0 = te[1]
+
     for i in 1:nt
         te,_,_, = get_trial(edata, i)
+        # unit raytraced data use time relative to start of recording
+        te .-= t0
         idx0 = searchsortedfirst(timestamps, te[1])
         idx1 = searchsortedlast(timestamps,te[end])
         trial_fixations[i] = fixated_points[:,idx0:idx1]
         trial_position[i] = position[:,idx0:idx1]
-        trial_head_direction[i] = diration[idx0:idx1]
+        trial_head_direction[i] = direction[idx0:idx1]
         trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
+        trial_fixated_object[i] = fixated_object[idx0:idx1]
     end
-    UnityRaytraceData(trial_fixations, trial_position, trial_head_diraction, trial_times)
+    UnityRaytraceData(timestamps, position, direction, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object)
 end
 
-function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
+function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),indicate_object=false)
     ugdata_trial = lift(trial) do _trial
         #Point3f.(eachcol(unitygaze.gaze[_trial.i]))
         gaze = unitygaze.gaze[_trial.i]
@@ -323,26 +346,42 @@ function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial
         tg = [Point3f(gaze[[1,2,3],i]) for i in 1:size(gaze,2)]
         tp = [Point3f(pos[[1,2,3],i]) for i in 1:size(gaze,2)]
         td = dir
-        tu,tg,tp,td 
+        tu,tg,tp,td, unitygaze.fixated_object[_trial.i] 
     end
 
-    current_pos = Observable(ugdata_trial[][2][1:1])
-    current_path = Obserable(ugdata_trial[][3])
+    current_pos = Observable(ugdata_trial[][3][1:1])
+    current_arrow_pos = Observable(ugdata_trial[][3][1:1])
+    current_gaze = Observable(ugdata_trial[][2])
+    current_path = Observable(ugdata_trial[][3])
     current_dir = Observable(ugdata_trial[][4][1:1])
+    fixated_object = Observable(ugdata_trial[][5][1])
     current_arrow = lift(current_dir) do θ
-        [Point3f(cos(θ), sin(θ), 0.0)]
+        [mean([Point3f(sin(_θ), cos(_θ), 0.0) for _θ in θ])]
     end
     current_j = 1
 
     onany(ugdata_trial, current_time) do _ugt, _ct
-        _tu, _points = (_ugt[1], _ugt[2])
+        _tu, gpoints,ppoints,_td = (_ugt[1], _ugt[2], _ugt[3],_ugt[4])
         j = searchsortedfirst(_tu, _ct) 
-        current_pos[] = _points[current_j:j]
-        current_j = j
+        if j <= length(_tu)
+            j0 = min(j,current_j)
+            j1 = max(j, current_j)
+            current_pos[] = ppoints[j0:j1]
+            current_dir[] = _td[j0:j1]
+            current_arrow_pos[] = [mean(ppoints[j0:j1])]
+            current_gaze[] = gpoints[j0:j1]
+            current_path[] = ppoints
+            fixated_object[] = mode(_ugt[5][j0:j1])
+            current_j = j
+        end
     end
     lines!(lscene, current_path)
     scatter!(lscene,current_pos, color=:black)
-    arrows!(lscene, current_pos, current_arrow, color=:black)
+    arrows!(lscene, current_arrow_pos, current_arrow, color=:black)
+    scatter!(lscene, current_gaze, color=:red)
+    if indicate_object
+        text!(lscene, 0.5, 0.85;text=fixated_object,space=:relative)
+    end
 end
 
 """
@@ -417,22 +456,56 @@ function compute_histogram(gdata::GazeOnMaze,mm::MazeModel;fixations_only=true)
     counts,bins
 end
 
+function compute_histogram(gdata::UnityRaytraceData,mm::MazeModel)
+    bins = get_bins(mm)
+    gaze = Vector{Matrix{Float64}}(undef, length(gdata.gaze))
+    weight = Vector{Vector{Float64}}(undef, length(gdata.gaze))
+    for i in eachindex(gaze)
+        Δt = diff(gdata.timestamps[i])
+        weight[i] = Δt
+        gaze[i] = gdata.gaze[i][:,1:end-1] # Skip the last point
+    end
+
+    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
+    idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(gdata.gaze))
+    # initialize
+    for ii in 1:length(idx)
+        idx[ii] = fill((0,0,0,:unknown), size(gaze[ii],2))
+    end
+    for k in keys(bins)
+        counts[k] = compute_histogram!(idx, gaze,bins[k],weight,k)
+    end
+    # replace the object place holder with the actual fixated object as reported
+    # by unity
+    for ii in 1:length(idx)
+        fo = gdata.fixated_object[ii]
+        _idx = idx[ii]
+        for jj in 1:length(idx[ii])
+            _idx[jj] = (_idx[jj][1:3]..., Symbol(fo[jj]))
+        end
+    end
+    counts,bins,idx
+end
+
 """
 Type to indicate that we want to replay the maze as the subject experienced it.
 """
 struct MazeReplayer
     mm::MazeModel
     udata::UnityData
+    camera_aspect::Float32
 end
+
+MazeReplayer(mm::MazeModel, udata::UnityData) = MazeReplayer(mm,udata,1.0f0)
 
 function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Float64}=Observable(0.0), trial::Observable{Trial}=Observable(Trial(1)), kwargs...)
 
     visualize!(lscene,mp.mm;show_ceiling=true)
+    aspect = mp.camera_aspect 
+    cam = Makie.camera(lscene.scene)
+    cam.projection[] = Makie.perspectiveprojection(60.0f0, aspect, 0.3f0, 1000.0f0)
     cc = cameracontrols(lscene.scene)
-    cc.fov[] = 60.0
-    cc.near[] = 0.3
-    cc.far[] = 1000.0
-    cc.settings.clipping_mode[] = :adaptive # :static
+    #cc.settings.clipping_mode[] = :adaptive # :static
     udata = mp.udata
     nt = numtrials(udata)
     udata_trial = lift(trial) do _trial
@@ -451,7 +524,7 @@ function visualize!(lscene::LScene, mp::MazeReplayer;current_time::Observable{Fl
         if 0 < j <= length(tp)
             pos = Point3f(px[j],py[j], 1.85)
             θ = π*dir[j]/180.0 # convert to radians
-            cc.lookat[] = Point3f(sin(θ), cos(θ), 0.0) + pos
+            cc.lookat[] = Point3f(0.3*sin(θ), 0.3*cos(θ), 0.0) + pos
             cc.eyeposition[] = pos
             update_cam!(lscene.scene, cc)
         end
@@ -724,7 +797,6 @@ function create_axis(obj::Posters, fig;kwargs...)
 end
 
  get_axis_type(::Type{T}) where T <: Any = LScene
- get_axis_type(::Type{EyelinkData}) = Axis
 
 function visualize(objects;kwargs...)
     fig = Figure()
@@ -754,7 +826,13 @@ function visualize(objects;kwargs...)
             current_trial[] = Trial(nc)
         end
     end
-    visualize(fig, objects;current_time=current_time, trial=current_trial, kwargs...)
+    lg = GridLayout(fig[1,1])
+    # show title with current trial and current time
+    stitle = lift(current_trial, current_time) do ctrial,ctime
+        "Trial: $(ctrial.i) time: $ctime"
+    end
+    Label(lg[1,1],stitle, tellheight=true, tellwidth=false)
+    visualize(lg[2,1], objects;current_time=current_time, trial=current_trial, kwargs...)
     current_trial[] = Trial(1)
     current_time[] = 0.0
     fig
@@ -762,7 +840,7 @@ end
 
 VectorOrMatrix{T} = Union{Vector{T}, Matrix{T}}
 
-function visualize(fig::Figure, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
+function visualize(fig::Union{Figure,GridLayout,GridPosition}, objects::VectorOrMatrix{T};kvs...) where T <: Union{T2, NTuple{N,T2},Vector{T2}} where T2 where N
     # tuple indicates overlay, i.e. plot in the same axis
     # vector means stack, i.e. axis occupying the same grid locaiton
     scenes = Any[]
@@ -884,6 +962,22 @@ end
 
 numtrials(vrp::ViewRepresentation) = length(vrp.position)
 
+function Makie.convert_arguments(::Type{<:AbstractPlot}, vr::ViewRepresentation)
+    gazepos = Point3f[]
+    for pp in vr.position
+        for pq in pp
+            push!(gazepos, pq)
+        end
+    end
+    ax3 = S.Axis3(plots=[S.Scatter(gazepos)])
+    S.GridLayout(ax3)
+end
+
+function create_axis(obj::ViewRepresentation, fig;kwargs...)
+    axtype = get_axis_type(ViewRepresentation)
+    ax = create_axis(axtype,fig;kwargs...)
+end
+
 function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Observable(Trial(1)),kwargs...)
     nt = numtrials(vrp)
     gaze_pos = lift(trial) do _trial
@@ -899,14 +993,16 @@ end
 struct ViewOccupancy
     counts::Dict
     bins::Dict
+    binidx::Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}
     mm::MazeModel
 end
 
 DPHT.level(::Type{ViewOccupancy}) = "session"
+DPHT.filename(::Type{ViewOccupancy}) = "view_occupancy.mat"
 
-function ViewOccupancy(gdata::GazeOnMaze, mm::MazeModel)
-    counts,bins = compute_histogram(gdata,mm)
-    ViewOccupancy(counts,bins, mm)
+function ViewOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, mm::MazeModel)
+    counts,bins,idx = compute_histogram(gdata,mm)
+    ViewOccupancy(counts,bins,idx, mm)
 end
 
 function ViewOccupancy()
@@ -916,10 +1012,16 @@ function ViewOccupancy()
 end
 
 function Makie.convert_arguments(voc::ViewOccupancy, mm::MazeModel)
+    
+end
+
+function create_axis(obj::ViewOccupancy, fig;kwargs...)
+    axtype = get_axis_type(ViewOccupancy)
+    ax = create_axis(axtype,fig;kwargs...)
 end
 
 function visualize!(lscene, voc::ViewOccupancy;kwargs...)
-    colors = get_maze_colors(voc.mm,voc.counts)
+    colors = get_maze_colors(voc.mm,voc.counts;kwargs...)
     visualize!(lscene, voc.mm;color=colors,kwargs...)
 end
 
@@ -945,7 +1047,8 @@ function ViewMap(vrp::ViewRepresentation, xbins::AbstractVector{T}, ybins::Abstr
     ViewMap(xbins,ybins, zbins, view_count)
 end
 
-function ViewMap(vrp::ViewRepresentation, mm::MazeModel, voc::ViewOccupancy)
+function ViewMap(vrp::ViewRepresentation, voc::ViewOccupancy)
+    mm = voc.mm
     bins = get_bins(mm)
     # convert to matrix
     gaze_pos = Vector{Matrix{Float64}}(undef, length(vrp.position))
@@ -971,7 +1074,12 @@ function ViewMap(;kwargs...)
     ViewMap(vrp, mm,voc)
 end
 
-function visualize!(lscene, vm::ViewMap;normalize=true, kwargs...)
+function create_axis(obj::ViewMap, fig;kwargs...)
+    axtype = get_axis_type(ViewMap) 
+     ax = create_axis(axtype,fig;kwargs...)
+ end
+
+function visualize!(lscene, vm::ViewMap;kernel=nothing, normalize=true, kwargs...)
     # normalize each component in vm.counts
     if normalize
         ncounts = typeof(vm.counts)()
@@ -985,7 +1093,6 @@ function visualize!(lscene, vm::ViewMap;normalize=true, kwargs...)
     else
         ncounts = vm.counts
     end
-    colors = get_maze_colors(vm.mm,ncounts)
-    @show typeof(colors[:ceiling]), typeof(colors[:floor])
+    colors = get_maze_colors(vm.mm,ncounts;kernel=kernel,kwargs...)
     visualize!(lscene, vm.mm;color=colors,kwargs...)
 end

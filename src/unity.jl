@@ -4,6 +4,8 @@ using Meshes
 using LinearAlgebra
 using DelimitedFiles
 using FileIO
+using StatsBase
+using ImageFiltering
 
 # TODO: Unclear if these are the latest values. Perhaps update?
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
@@ -31,12 +33,12 @@ pillar_positions[:green] = Dict(:lower_left => (2.5, -7.5),
 pillar_positions[:red] = Dict(:lower_left => (2.5, 2.5),
                               :upper_right => (7.5, 7.5))
 poster_pos = Dict{Symbol,NTuple{2,Float64}}()
-poster_pos[:camel] = (-7.55, 5.0)
-poster_pos[:cat] = (-5.0, -7.55)
-poster_pos[:pig] = (-5.0, -2.45)
-poster_pos[:donkey] = (5.0, 7.55)
-poster_pos[:croc] = (5.0, 2.45)
-poster_pos[:rabbit] = (7.55, -5.0)
+poster_pos[:camel] = (-7.567, 5.0)
+poster_pos[:cat] = (-5.0, -7.6)
+poster_pos[:pig] = (-5.0, -2.44)
+poster_pos[:donkey] = (5.168, 7.561)
+poster_pos[:croc] = (5.0, 2.433)
+poster_pos[:rabbit] = (7.561, -5.0)
 
 
 #poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
@@ -46,8 +48,8 @@ poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DI
 
 # TODO: Use actual values here
 camera_height = 2.5
-ceiling_height = 5.0
-pillar_height = 3.0
+ceiling_height = 4.93
+pillar_height = 3.11
 
 struct UnityData
     time::Vector{Float64}
@@ -298,7 +300,7 @@ end
 Range where the step is adjusted to match the start and stop
 """
 function soft_range(start::T, stop::T,step::T) where T <: Real
-    nn = round(Int64,(start-stop)/step)
+    nn = round(Int64,floor((start-stop)/step))
     Δ = (start-stop)/nn
     range(start,stop=stop,step=Δ)
 end
@@ -329,11 +331,198 @@ end
 
 OrientedMesh(bins, normal::AbstractVector{T}) where T <: Real = OrientedMesh(bins, Vec3f(normal))
 
+Base.length(om::OrientedMesh) = 1
+
+"""
+Get a rectangle encompassing the inner face of the mesh
+"""
+function get_rect(om::OrientedMesh{T2};invert=false) where T2 <: AbstractVector{T} where T <: Real
+    n = om.normal
+    bins = om.bins
+    idx = NTuple{3, Int64}[]
+    for d in 1:length(n)
+        if n[d] == 0
+            continue
+        end
+        if (n[d] < 0) && (!invert)
+            _idx = ntuple(dim->dim==d ? 1 : 1, 3)
+            push!(idx, _idx)
+            _idx = ntuple(dim->dim==d ? 1 : length(bins[dim]), 3)
+            push!(idx, _idx)
+        else
+            push!(idx, ntuple(dim->dim==d ? length(bins[d]) : 1, 3))
+            push!(idx, ntuple(dim->dim==d ? length(bins[d]) : length(bins[dim]), 3))
+        end
+    end
+    oo = Point{3,T}([bins[i][idx[1][i]] for i in 1:3]...)
+    pp = Point{3,T}([bins[i][idx[2][i]] for i in 1:3]...)
+    Rect(oo, pp-oo)
+end
+
+function get_surface_bins(om::OrientedMesh{T2};invert=false) where T2 <: AbstractVector{T} where T <: Real
+    n = om.normal
+    bins = om.bins
+    idx = NTuple{3, Int64}[]
+    for d in 1:length(n)
+        if n[d] == 0
+            continue
+        end
+        if (n[d] < 0) && (!invert)
+            idx = ntuple(dim->dim==d ? (1,) : axes(bins[dim]), 3)
+        else
+            idx = ntuple(dim->dim==d ? (length(bins[d]),) : axes(bins[dim]), 3)
+        end
+    end
+    [bin[idx[i]...] for (i,bin) in enumerate(bins)]
+end
+
+function get_surface_points(om::OrientedMesh{T2};invert=false) where T2 <: AbstractVector{T} where T <: Real
+    bins = get_surface_bins(om;invert=invert)
+    ll = tuple(length.(bins)...)
+    [Point{3,T}(b1,b2,b3) for b1 in bins[1], b2 in bins[2], b3 in bins[3]], ll
+end
+
+
 struct MazeModel{T<:AbstractVector{<: Real}}
     walls::Vector{OrientedMesh{T}}
     pillars::Vector{Vector{OrientedMesh{T}}}
-    floor::OrientedMesh{T}
+    floor::Vector{OrientedMesh{T}}
     ceiling::OrientedMesh{T}
+end
+
+function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Symbol[]) where T2 <: AbstractVector{T} where T <: Real
+    points = Point{3,T}[]
+    elements = setdiff([:ceiling, :floor, :walls, :pillars], exclude_element)
+    idx = Tuple{Symbol, Int64,Int64,Int64}[]
+    ll = Tuple{Int64, Int64, Int64}[]
+    for obj in elements
+        if obj == :pillars
+            for (jj,pillar) in enumerate(getfield(mm, :pillars))
+                for (kk,pwall) in enumerate(pillar)
+                    _points,_ll = get_surface_points(pwall)
+                    append!(points, _points)
+                    append!(idx, [(:pillars, jj,kk,ll) for ll in 1:length(_points)])
+                    push!(ll, _ll)
+                end
+            end
+        elseif (obj == :walls) || (obj == :floor)
+            for (jj, mq) in enumerate(getfield(mm, obj))
+                _points,_ll = get_surface_points(mq)
+                append!(points, _points)
+                append!(idx, [(obj, 1,jj,ll) for ll in 1:length(_points)])
+                push!(ll, _ll)
+            end
+        else
+            _points,_ll = get_surface_points(getfield(mm, obj))
+            append!(points, _points)
+            append!(idx, [(obj, 1,1,ll) for ll in 1:length(_points)])
+            push!(ll, _ll)
+        end
+    end
+    points, idx, ll
+end
+
+function compute_distance_matrix(mm::MazeModel{T2}) where T2 <: AbstractVector{T} where T <: Real 
+    pm = ParametrizedManifold(mm;include_pillars=true)
+    points,pidx,ll = get_surface_points(mm)
+    npoints = length(points)
+    D = zeros(T, npoints, npoints)
+    for i in 1:npoints-1
+        for j in i+1:npoints
+            d,_ = distance(points[i], points[j],pm)
+            D[j,i] = norm(d)
+            D[i,j] = D[j,i]
+        end
+    end
+    D, points, pidx,ll
+end
+
+
+function ParametrizedManifold(mm::MazeModel{T};include_pillars=true) where T <: AbstractVector{T2} where T2 <: Real
+    # floor + ceiling + walls + pillars
+    n = length(mm.ceiling) + length(mm.floor) + length(mm.walls)
+    elements = [:ceiling, :floor, :walls]
+    if include_pillars
+        n += 16
+        push!(elements, :pillars)
+    end
+    normals = Vector{Vec{3,T2}}(undef, n)
+    bb = Vector{Matrix{T2}}(undef, n)
+    μ = Vector{Vec{3,T2}}(undef, n)
+    points = Vector{Point{3,T2}}(undef, 0)
+    ff = Vector{QuadFace{Int64}}(undef, n)
+    label = Vector{Tuple{Symbol, Int64, Int64}}(undef, n)
+
+    offset = 0
+    point_idx_offset = 0
+    # ceiling and floor
+    for (jj,vv) in enumerate(elements)
+        vk = getfield(mm,vv)
+        idx = [1]
+        # kind of hackish
+        if vv  == :ceiling 
+            idx = [(1,1)]
+            vk = [vk]
+        elseif vv == :pillars
+            idx = [(i,j) for i in 1:4 for j in 1:4]
+            vk = [mm.pillars[i][j] for i in 1:4 for j in 1:4]
+        else
+            idx = [(1,i) for i in 1:length(vk)]
+        end
+        for (ii,(_idx,_vk)) in enumerate(zip(idx,vk[:]))
+            kk = offset + ii
+            rr = get_rect(_vk)
+            pp = decompose(Point{3,T2}, rr)
+            upp = unique(pp)
+            append!(points,upp)
+            pidx = [findfirst(pp.==p) for p in upp]
+            ff_ = faces(rr)
+            fidx = findfirst(_ff->isempty(setdiff(_ff, pidx)), ff_)
+            uidx = [findfirst(p.==sort(pidx)) for p in ff_[fidx]] .+ point_idx_offset
+            ff[kk] = QuadFace{Int64}(uidx...)
+            point_idx_offset += length(upp)
+            μ[kk] = mean(upp)
+            nn = _vk.normal
+            normals[kk] = nn
+            bb[kk] = abs.(nullspace(permutedims(nn)))
+            label[kk] = (vv, _idx[1], _idx[2])
+        end
+        offset += length(vk)
+    end
+
+    ParametrizedManifold(normals, ff, μ, bb, points,label)
+end
+
+"""
+Return the total number of surface bins in `mm`
+"""
+function num_bins(mm::MazeModel)
+    nbins = 0
+    for wall in mm.walls
+        nb = 1
+        for l in length.(wall.bins)
+            if l > 2
+                nb *= l
+            end
+        end
+        nbins += nb
+    end
+    nbins += prod(length.(mm.ceiling.bins[1:2]))
+    for fl in mm.floor
+        nbins += prod(length.(fl.bins[1:2])) 
+    end
+    for pillar in mm.pillars
+        for pwall in pillar
+            nb = 1
+            for l in length.(pwall.bins)
+                if l > 2
+                    nb *= l
+                end
+            end
+            nbins += nb
+        end
+    end
+    nbins
 end
 
 function get_maze_colors(mm::MazeModel)
@@ -353,25 +542,36 @@ end
 """
 Convert the histogram counts on each surface of `mm` to a color
 """
-function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}}) where T <: Real
+function get_maze_colors(mm::MazeModel, counts::Dict{Symbol, Vector{Array{T,3}}};kernel=nothing, invert_ceiling=false,kwargs...) where T <: Real
     # TODO: This can probably be done more efficiently and robustly
     base_colors = get_maze_colors(mm)
     colors = Dict{Symbol,Union{Vector{Vector{T}}, Vector{Vector{Vector{T}}}}}()
     normals = get_normals(mm)
     for k in keys(normals)
         colors[k] = Vector{Vector{T}}(undef, length(normals[k]))
+        if k == :ceiling
+            invert = invert_ceiling
+        else
+            invert = false
+        end
         for (i,n) in enumerate(normals[k])
             # we want to color only the inside
             c = counts[k][i]
             _color = fill!(similar(c), 0.0)
             for d in 1:length(n)
-                if n[d] < 0
-                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
-                elseif n[d] > 0
-                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
-                    _color[idx...] .= dropdims(sum(c,dims=d),dims=d)
+                if n[d] == 0
+                    continue
                 end
+                if (n[d] < 0) && (!invert)
+                    idx = ntuple(dim->dim==d ? 1 : axes(c,dim), 3)
+                else
+                    idx = ntuple(dim->dim==d ? size(c,d) : axes(c,dim), 3)
+                end
+                cq = dropdims(sum(_c->isfinite(_c) ? _c : zero(_c),c,dims=d),dims=d)
+                if kernel !== nothing
+                    cq = imfilter(cq, kernel)
+                end
+                _color[idx...] .= cq
             end
             colors[k][i] = _color[:]
         end
@@ -395,7 +595,7 @@ end
 function MazeModel(bins::Dict{Symbol,T}, normals) where T
     walls = [OrientedMesh(m,n) for (m,n) in zip(bins[:walls], normals[:walls])]
     pillars = [[OrientedMesh(m,n) for (m,n) in zip(bins[k],normals[k])] for k in [:pillar_1, :pillar_2, :pillar_3, :pillar_4]]
-    _floor = OrientedMesh(first(bins[:floor]), first(normals[:floor]))
+    _floor = [OrientedMesh(m,n) for (m,n) in zip(bins[:floor], normals[:floor])]
     _ceiling = OrientedMesh(first(bins[:ceiling]), first(normals[:ceiling]))
     MazeModel(walls, pillars, _floor, _ceiling)
 end
@@ -413,7 +613,7 @@ function get_bins(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <: Re
     bins[:walls] = [w.bins for w in mm.walls]
     bins[:pillars] = cat([[p.bins for p in pp] for pp in mm.pillars]...,dims=1)
     bins[:ceiling] = [mm.ceiling.bins]
-    bins[:floor] = [mm.floor.bins]
+    bins[:floor] = [w.bins for w in mm.floor]
     bins
 end
 
@@ -425,13 +625,13 @@ function get_normals(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <:
     normals[:walls]  = [w.normal for w in mm.walls]
     normals[:pillars] = cat([[p.normal for p in pp] for pp in mm.pillars]...,dims=1)
     normals[:ceiling] = [mm.ceiling.normal]
-    normals[:floor] = [mm.floor.normal]
+    normals[:floor] = [ff.normal for ff in mm.floor]
     normals
 end
 
 function get_physical_size(mm::MazeModel)
-   # floor size 
-   (xmin,xmax),(ymin,ymax),_ = extrema.(mm.floor.bins)
+   # ceiling size 
+   (xmin,xmax),(ymin,ymax),_ = extrema.(mm.ceiling.bins)
    _,_,(zmin,zmax) = extrema.(mm.walls[1].bins)
    Δx = xmax-xmin
    Δy = ymax-ymin
@@ -445,19 +645,21 @@ function Base.show(io::IO, mm::MazeModel)
     print(io, "$(Δx) by $(Δy) by $(Δz) maze with $npillars pillars")
 end
 
-function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, kwargs...)
+function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_colors(mm), offsets::Union{Nothing, Dict{Symbol, Vector{Vector{Float64}}}}=nothing, show_ceiling=false, show_floor=true, show_walls=true, show_pillars=true, show_normals=false, flip_ceiling=false, colormap=:Blues, kwargs...)
     if show_floor
         #floor
-        bin = mm.floor.bins
-        m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-        #hackish
-        # only do this if color[:floor] is a vector of something
-        if typeof(color[:floor]) <: AbstractVector
-            _color = color[:floor][1][:]
-        else
-            _color = color[:floor]
+        for ff in mm.floor
+            bin =ff.bins
+            m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+            #hackish
+            # only do this if color[:floor] is a vector of something
+            if typeof(color[:floor]) <: AbstractVector
+                _color = color[:floor][1][:]
+            else
+                _color = color[:floor]
+            end
+            viz!(lscene, m, color=_color,colormap=colormap)
         end
-        viz!(lscene, m, color=_color,colormap=:Blues)
     end
 
     if show_ceiling
@@ -468,10 +670,16 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         end
         bin = mm.ceiling.bins
         m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
+        if flip_ceiling
+            pp = Meshes.Vec(mean.(bin))
+            m = Translate(-pp...)(m)
+            m = Rotate(RotX(π))(m)
+            m = Translate(pp...)(m)
+        end
         if offsets !== nothing && :ceiling in keys(offsets)
             m = Translate(offsets[:ceiling][1]...)(m)
         end
-        viz!(lscene, m, color=_color,colormap=:Blues)
+        viz!(lscene, m, color=_color,colormap=colormap)
     end
 
     #pillars
@@ -480,7 +688,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
             for (om,cc) in zip(oms,ccs)
                 bin = om.bins
                 m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-                viz!(lscene, m, color=cc,colormap=:Blues)
+                viz!(lscene, m, color=cc,colormap=colormap)
                 if show_normals
                     arrows!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
                 end
@@ -492,12 +700,12 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
         for (ii,om) in enumerate(mm.walls)
             bin = om.bins
             m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
-            viz!(lscene, m, color=color[:walls][ii],colormap=:Blues)
+            viz!(lscene, m, color=color[:walls][ii],colormap=colormap)
         end
     end
 end
 
-struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Point2,T5<:Vec3}
+struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Vec2,T5<:Vec3}
     sprite::Vector{Sprite{T, T2, T3, T4, T5}}
 end
 
@@ -555,11 +763,11 @@ end
 
 Create a mesh representing an object (pillar,wall) with the specified corners, using the specified bin width
 """
-function create_mesh(lower_left::T, upper_right::T,Δb::Float64, height::Float64=5.0, Δ::Float64=0.1;flip_normals=false) where T <: NTuple{2,Float64}
+function create_mesh(lower_left::T, upper_right::T,Δb::Float64, Δv::Float64=Δb, height::Float64=5.0, Δ::Float64=0.1;bottom=0.0, flip_normals=false) where T <: NTuple{2,Float64}
     bins = Vector{NTuple{3,Vector{Float64}}}(undef, 4)
     normals = Vector{Vector{Float64}}(undef, 4)
-    
-    zbins = range(0.0, stop=height, length=10)
+
+    zbins = soft_range(bottom, height, Δv)
 
     xbins = soft_range(lower_left[1], upper_right[1], Δb)
     y0 = lower_left[2] 
@@ -590,7 +798,9 @@ end
 """
 Return the meshes representing the maze
 """
-function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, height=5.0, pillar_height=3.0,kvs...)
+function create_maze(;xmin=-12.72, xmax=12.28, ymin=-12.37,ymax=12.63, Δ=0.05, height=ceiling_height, pillar_height=pillar_height,n_vertical_pillar_bins::Union{Int64, Nothing}=5,
+                                                                    n_horizontal_pillar_bins::Union{Nothing, Int64}=8, 
+                                                                    n_vertical_wall_bins::Union{Nothing, Int64}=8, pillar_bottom=0.05, kvs...)
     # unity uses 40x40 bins on the floor
     floor_bins = range(xmin, stop=xmax, length=40)
     Δb = step(floor_bins)
@@ -598,35 +808,50 @@ function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, heigh
     bins = Dict{Symbol,Vector{NTuple{3,Vector{Float64}}}}()
     normals = Dict{Symbol,Vector{Vector{Float64}}}()
 
-    zbins = range(0.0, stop=height, length=10)
+    zbins = soft_range(0.0, height, Δb)
 
     # pillar 1; yellow pillar
     #lower_left = (-7.5, 2.5)
     #upper_right = (-2.5, 7.5)
+    if n_horizontal_pillar_bins !== nothing
+        Δh = 5.0/(n_horizontal_pillar_bins-1)
+    else
+        Δh = Δb
+    end
+    if n_vertical_pillar_bins !== nothing
+        Δv = pillar_height/(n_vertical_pillar_bins-1)
+    else
+        Δv = Δb
+    end
     pos = pillar_positions[:yellow]
-    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
+    bins[:pillar_1], normals[:pillar_1] = create_mesh(pos[:lower_left], pos[:upper_right],Δh,Δv, pillar_height, Δ;bottom=pillar_bottom)
 
     # pillar 2;red 
     lower_left = (2.5, 2.5)
     upper_right = (7.5, 7.5)
     pos = pillar_positions[:red]
-    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
+    bins[:pillar_2], normals[:pillar_2] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ;bottom=pillar_bottom)
 
     # pillar 3; blue
     lower_left = (-7.5, -7.5)
     upper_right = (-2.5, -2.5)
     pos = pillar_positions[:blue]
-    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height,Δ)
+    bins[:pillar_3], normals[:pillar_3] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height,Δ;bottom=pillar_bottom)
 
     # pillar 4
     lower_left = (2.5, -7.5)
     upper_right = (7.5, -2.5)
     pos = pillar_positions[:green]
-    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,pillar_height, Δ)
+    bins[:pillar_4], normals[:pillar_4] = create_mesh(pos[:lower_left], pos[:upper_right],Δb,Δv, pillar_height, Δ;bottom=pillar_bottom)
 
 
-    zbins = range(0.0, stop=height, length=10)
     # walls
+    if n_vertical_wall_bins !== nothing
+        Δv = height/(n_vertical_wall_bins-1)
+    else
+        Δv = Δb
+    end
+    zbins = soft_range(0.0, height, Δv)
     bins[:walls] = Vector{Vector{Float64}}(undef, 4)
     normals[:walls] = Vector{Vector{Float64}}(undef, 4)
     xbins = soft_range(xmin, xmax, Δb)
@@ -650,12 +875,53 @@ function create_maze(;xmin=-12.5, xmax=12.5, ymin=xmin,ymax=xmax, Δ=0.01, heigh
     normals[:walls][4] = [-1.0, 0.0, 0.0]
 
     # floor
+    # TODO: Break up the floor into tiles accommodate the pillars
+    # slab covering the entire y-range, and the x-range up to the poster
+    xbins1 = soft_range(xmin, -7.55, Δb)
+    ybins1 = soft_range(ymin, ymax, Δb)
+
+    # central slap
+    xbins2 = soft_range(-2.45, 2.55, Δb)
+    ybins2 = soft_range(ymin,ymax,Δb)
+    
+    # slab covering the entire y-range, and the x-range from the poster to the wall
+    xbins3 = soft_range(7.55, xmax, Δb)
+    ybins3 = soft_range(ymin, ymax, Δb)
+
+    # slabs inbetwen the pillar on the left
+    xbins4 = soft_range(-7.55, -2.45, Δb)
+    ybins4 = soft_range(ymin, -7.55, Δb)
+
+    xbins5 = soft_range(-7.55, -2.45, Δb)
+    ybins5 = soft_range(-2.45, 2.45, Δb)
+
+    xbins6 = soft_range(-7.55,-2.45, Δb)
+    ybins6 = soft_range(7.55, ymax, Δb)
+
+    #slabs inbetween the pillars on the right
+    xbins7 = soft_range(2.45, 7.55, Δb)
+    ybins7 = soft_range(ymin, -7.55, Δb)
+
+    xbins8 = soft_range(2.45, 7.55, Δb)
+    ybins8 = soft_range(-2.45, 2.45,Δb)
+
+    xbins9 = soft_range(2.45, 7.55, Δb)
+    ybins9 = soft_range(7.55, ymax, Δb)
     xbins = floor_bins
     ybins = floor_bins
     z0 = 0.0
     zbins = range(z0-Δ, stop=z0+Δ, length=2)
-    bins[:floor] = [(xbins, ybins, zbins)]
-    normals[:floor] = [[0.0, 0.0, 1.0]]
+    bins[:floor] = [(xbins1, ybins1, zbins),
+                    (xbins2, ybins2, zbins),
+                    (xbins3, ybins3, zbins),
+                    (xbins4, ybins4, zbins),
+                    (xbins5, ybins5, zbins),
+                    (xbins6, ybins6, zbins),
+                    (xbins7, ybins7, zbins),
+                    (xbins8, ybins8, zbins),
+                    (xbins9, ybins9, zbins)
+                    ]
+    normals[:floor] = [[0.0, 0.0, 1.0] for _ in 1:9]
 
     # ceiling
     xbins = range(xmin, stop=xmax, step=Δb)
@@ -736,27 +1002,58 @@ function compute_histogram(pos::Matrix{Float64},bins)
     compute_histogram!(counts, pos,bins)
 end
 
-function compute_histogram(pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing)
+function compute_histogram(pos::Vector{Matrix{Float64}}, bins::Dict{Symbol, Vector{NTuple{3, Vector{Float64}}}}, weight::Union{Nothing, Vector{Vector{Float64}}}=nothing)
+    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
+    idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(pos))
+     # initialize
+     for ii in 1:length(idx)
+        idx[ii] = fill((0,0,0,:unknown), size(pos[ii],2))
+    end
+    for k in keys(bins)
+        counts[k] = compute_histogram!(idx, pos,bins[k],weight,k)
+    end
+    counts, idx
+end
+
+function compute_histogram(pos::Vector{Matrix{Float64}},bins::Vector{NTuple{3, Vector{Float64}}},weight::Union{Nothing,Vector{Vector{Float64}}}=nothing,k::Symbol=:unknown)
+    idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(pos))
+    compute_histogram!(idx, pos, bins,weight,k)
+    counts, idx
+end
+
+function compute_histogram!(idx::Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}, pos::Vector{Matrix{Float64}},bins,weight::Union{Nothing,Vector{Vector{Float64}}}=nothing, k::Symbol=:unkown)
     counts = [fill(0.0, length.(bin)) for bin in bins]
     if weight === nothing
         weight = [fill(1.0, size(_pos,2)) for _pos in pos]
     end
     for (ii,_pos) in enumerate(pos)
-        compute_histogram!(counts, _pos, bins;weight=weight[ii])
+        compute_histogram!(counts,idx[ii], _pos, bins;weight=weight[ii],kname=k)
     end
     counts
 end
 
-function compute_histogram!(counts, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)))
-    qpos = ([pos[i,:] for i in 1:size(pos,1)]...,)
+fstep(aa::Vector{T}) where T <: Real = mean(diff(aa))
+fstep(aa::StepRangeLen) = step(aa)
+
+function compute_histogram!(counts, idx::Vector{Tuple{Int64, Int64, Int64, Symbol}}, pos::Matrix{Float64},bins;weight=fill(1.0, size(pos,2)),kname::Symbol=:unknown)
     w = aweights(weight)
     for (bin,count) in zip(bins,counts)
         # hackish; add one bin to the end
-        Δs = [step(b) for b in bin]
-        h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+        Δs = [fstep(b) for b in bin]
+        h = Histogram(([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,), Float64)
+        #h = fit(Histogram, qpos, w, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
+        #count .+= h.weights
+        for (ii,(w,_pos)) in enumerate(zip(weight,eachcol(pos)))
+            _idx = StatsBase.binindex(h, (_pos...,))
+            #if all((0,0,0) .< _idx .< nb)
+            if checkbounds(Bool, h.weights, _idx...)
+                @inbounds idx[ii] = (_idx...,kname)
+                @inbounds h.weights[_idx...] += w
+            end
+        end
         count .+= h.weights
     end
-    counts
+    idx
 end
 
 function compute_histogram(pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N
