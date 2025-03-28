@@ -273,69 +273,83 @@ struct UnityRaytraceData
     fixated_object::Vector{Vector{String}}
 end
 
-function UnityRaytraceData()
-    edata = cd(DPHT.process_level(EyelinkData)) do
-        EyelinkData()
-    end
-    fname = "unityfile_eyelink.csv"
-    if !ispath(fname)
-        error("No raytracing data found")
-    end
-    unity_eyelinkfile = CSV.File(fname, header=0)
-    n = length(unity_eyelinkfile)
-    fixated_points = fill(NaN, 3, n)
-    position = fill(0.0f0, 3, n)
-    direction = fill(0.0f0, n)
-    timestamps = zeros(UInt64,n)
-    fixated_object = Vector{String}(undef, n)
-    i = 1
-    for row in unity_eyelinkfile
-        # TODO: Grab more data here
-        px,py,pz,a = (row[6],row[7],row[8],row[9])
-        θ = π*a/180.0
-        position[:,i] .= (px,pz,py)
-        direction[i] = θ
-        # FIXME: This does not appear to be the actual eyelink timestamp!
-        timestamps[i] = row[2]
-        gx,gy,gz = (row[10],row[11],row[12])
-        fixated_object[i] = row[3]
-        if (gx !== missing) && (gy !== missing) && (gz !== missing)
-            # gx,gy,gz is relative to player ?
+function UnityRaytraceData(;do_save=true, redo=false,append_tag=true)
+    fname = DPHT.filename(UnityRaytraceData)
+    if !redo && isfile(fname)
+        ut = DPHT.load(UnityRaytraceData)
+    else
+        edata = cd(DPHT.process_level(EyelinkData)) do
+            EyelinkData()
+        end
+        fname = "unityfile_eyelink.csv"
+        if !ispath(fname)
+            error("No raytracing data found")
+        end
+        unity_eyelinkfile = CSV.File(fname, header=0)
+        n = length(unity_eyelinkfile)
+        fixated_points = fill(NaN, 3, n)
+        position = fill(0.0f0, 3, n)
+        direction = fill(0.0f0, n)
+        timestamps = zeros(UInt64,n)
+        fixated_object = Vector{String}(undef, n)
+        i = 1
+        for row in unity_eyelinkfile
+            # TODO: Grab more data here
+            px,py,pz,a = (row[6],row[7],row[8],row[9])
+            θ = π*a/180.0
+            position[:,i] .= (px,pz,py)
+            direction[i] = θ
+            # FIXME: This does not appear to be the actual eyelink timestamp!
+            timestamps[i] = row[2]
+            gx,gy,gz = (row[10],row[11],row[12])
+            fixated_object[i] = row[3]
+            if (gx !== missing) && (gy !== missing) && (gz !== missing)
+                # gx,gy,gz is relative to player ?
 
-            fixated_points[:,i] .= (gx,gz,gy) # unity has the z-axis into the scene
-            i += 1
+                fixated_points[:,i] .= (gx,gz,gy) # unity has the z-axis into the scene
+                i += 1
+            end
+        end
+
+        timestamps .-= timestamps[1]
+
+        # break up into trials using edata
+        nt = numtrials(edata)
+        trial_fixations = Vector{Matrix{Float64}}(undef,nt)
+        trial_position = Vector{Matrix{Float64}}(undef, nt)
+        trial_head_direction = Vector{Vector{Float64}}(undef, nt)
+        trial_times = Vector{Vector{Float64}}(undef,nt)
+        trial_fixated_object = Vector{Vector{String}}(undef, nt)
+        #t0 = edata.analogtime[1]
+        te,_,_, = get_trial(edata, 1)
+        t0 = te[1]
+
+        for i in 1:nt
+            te,_,_, = get_trial(edata, i)
+            # unit raytraced data use time relative to start of recording
+            te .-= t0
+            idx0 = searchsortedfirst(timestamps, te[1])
+            idx1 = searchsortedlast(timestamps,te[end])
+            trial_fixations[i] = fixated_points[:,idx0:idx1]
+            trial_position[i] = position[:,idx0:idx1]
+            trial_head_direction[i] = direction[idx0:idx1]
+            trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
+            trial_fixated_object[i] = fixated_object[idx0:idx1]
+        end
+        ut = UnityRaytraceData(timestamps, position, direction, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object)
+        if do_save
+            DPHT.save(ut;append_tag=append_tag)
         end
     end
-
-    timestamps .-= timestamps[1]
-
-    # break up into trials using edata
-    nt = numtrials(edata)
-    trial_fixations = Vector{Matrix{Float64}}(undef,nt)
-    trial_position = Vector{Matrix{Float64}}(undef, nt)
-    trial_head_direction = Vector{Vector{Float64}}(undef, nt)
-    trial_times = Vector{Vector{Float64}}(undef,nt)
-    trial_fixated_object = Vector{Vector{String}}(undef, nt)
-    #t0 = edata.analogtime[1]
-    te,_,_, = get_trial(edata, 1)
-    t0 = te[1]
-
-    for i in 1:nt
-        te,_,_, = get_trial(edata, i)
-        # unit raytraced data use time relative to start of recording
-        te .-= t0
-        idx0 = searchsortedfirst(timestamps, te[1])
-        idx1 = searchsortedlast(timestamps,te[end])
-        trial_fixations[i] = fixated_points[:,idx0:idx1]
-        trial_position[i] = position[:,idx0:idx1]
-        trial_head_direction[i] = direction[idx0:idx1]
-        trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
-        trial_fixated_object[i] = fixated_object[idx0:idx1]
-    end
-    UnityRaytraceData(timestamps, position, direction, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object)
+    return ut
 end
 
-function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),indicate_object=false)
+numtrials(gdata::UnityRaytraceData) = length(gdata.gaze)
+
+DPHT.filename(::Type{UnityRaytraceData}) = "unity_raytrace.mat"
+DPHT.level(::Type{UnityRaytraceData}) = "session"
+
+function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),indicate_object=false,kwargs...)
     ugdata_trial = lift(trial) do _trial
         #Point3f.(eachcol(unitygaze.gaze[_trial.i]))
         gaze = unitygaze.gaze[_trial.i]
