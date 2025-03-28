@@ -214,15 +214,16 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
     bb = pm.base
     sidx = assign_to_surface(p0, nn, μ;visited=visited)
     visited[sidx] = true
+    bb2 = bb[sidx]*bb[sidx]'
     # project onto the surface
-    p0p = Point{N,T}(bb[sidx]*bb[sidx]'*p0) + (μ[sidx]'*nn[sidx]).*nn[sidx]
+    p0p = Point{N,T}(bb2*p0) + (μ[sidx]'*nn[sidx]).*nn[sidx]
 
     # now do the actual projection
     d = p1 - p0p
 
     # create a a boundingbox
     rf = Rect([pm.points[ff[sidx]].points...])
-    dp = bb[sidx]*(bb[sidx]'*d)
+    dp = bb2'*d
     @debug "Some" p0 p0p d p0 + dp
     if p0p + dp ≈ p1
         #return norm(dp),[p1]
@@ -232,7 +233,7 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
     # that means that we need to travel to the end of the manifold
     @debug "norm" norm(dp) sidx
 
-    p1p = Point{N,T}(bb[sidx]*bb[sidx]'*p1) + (μ[sidx]'*nn[sidx]).*nn[sidx]
+    p1p = Point{N,T}(bb2'*p1) + (μ[sidx]'*nn[sidx]).*nn[sidx]
 
     dx = displacement_to_edge(rf, p1p)
     p0n,dp = move_to_edge(rf, p0p, dx)
