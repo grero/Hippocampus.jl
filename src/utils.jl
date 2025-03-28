@@ -1,4 +1,7 @@
 using Printf
+using GeometryBasics
+using GeometryBasics: Point, Rect, Vec, faces,Mat
+using LinearAlgebra
 
 function reshape_triggers(markers, timestamps)
     # the first marker is a session start; the remaining come in trios
