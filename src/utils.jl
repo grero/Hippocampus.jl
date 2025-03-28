@@ -88,7 +88,42 @@ struct ParametrizedManifold{N<:Any, N2<:Any, T3<:Real, T<:Vec{N,T3},T2<:NgonFace
     label::Vector{Tuple{Symbol,Int64,Int64}}
 end
 
-function visualize!(lscene, pm::ParametrizedManifold{N,N2,T3,T, T2,T4},color::AbstractVector{T5}, pidx::AbstractVector{T7},sizes::Vector{T6};include_ceiling=true, kwargs...) where T4 <: Point{N,T3} where T <: Vec{N,T3} where T2 <: QuadFace{Int64} where T3 <: Real where N2 where T5 <: Real where T6 <: NTuple{3,Int64} where T7 <: Tuple{Symbol, Int64, Int64, Int64} where N
+function smooth(counts::Dict{Symbol,Vector{T}}, D::Matrix{T2}, pidx::Vector{Tuple{Symbol, Int64, Int64, Int64}};σ=5.5) where T <: Array{T2,3}  where T2 <: Real
+    Z = zeros(T2, size(D,1))
+    for (k,vv) in counts
+        # hack; we should get this from an associated MazeModel object
+        if k == :pillars
+            # 4 pillar with 4 walls
+            idx = permutedims(CartesianIndices((1:4,1:4)))
+        elseif k == :walls
+            idx = CartesianIndices((1:1, 1:4))
+        elseif k == :floor
+            idx = CartesianIndices((1:1, 1:9))
+        else #ceiling
+            idx = CartesianIndices((1:1, 1:1))
+        end
+        for (qidx,v) in zip(idx,vv)
+            # hackish; grap the side with the most counts
+            _size = size(v)
+            # dummy side has width 2
+            didx = findfirst(_size.==2)
+            udims = setdiff(1:3, didx)
+            Xp = dropdims(sum(abs.(v),dims=(udims...,)),dims=(udims...,))
+            sidx = argmax(Xp)
+            vidx = ntuple(p->ifelse(p==didx, sidx, 1:_size[p]), 3)
+            X = v[vidx...] 
+            # find the points in the distance matrix
+            idx = findall(x->(x[1]==k)&(x[2]==qidx[1])&(x[3]==qidx[2]), pidx)
+            if length(idx) != length(X)
+                @show qidx k
+            end
+            Z .+= exp.(-D[:,idx].^2/(2*σ^2))*X[:]
+        end
+    end
+    Z
+end
+
+function visualize!(lscene, pm::ParametrizedManifold{N,N2,T3,T, T2,T4},color::AbstractVector{T5}, color_points::AbstractVector{T4}, pidx::AbstractVector{T7},sizes::Vector{T6};include_ceiling=true, kwargs...) where T4 <: Point{N,T3} where T <: Vec{N,T3} where T2 <: QuadFace{Int64} where T3 <: Real where N2 where T5 <: Real where T6 <: NTuple{3,Int64} where T7 <: Tuple{Symbol, Int64, Int64, Int64} where N
     # each face is implemented as a separate mesh
     n = length(pm.faces)
     # TODO Make sure the colorscale is the same
@@ -101,29 +136,45 @@ function visualize!(lscene, pm::ParametrizedManifold{N,N2,T3,T, T2,T4},color::Ab
         offset = (ii-1)*N2
         points = pm.points[(ii-1)*N2+1:ii*N2]
         _ff = pm.faces[ii]
-        fpoints = pm.points[_ff]
+        fpoints = pm.points[_ff].points
         # rescale 
         ff = _ff .- offset
         nn = pm.normals[ii]
         # also a bit hackish
-        rf = Rect([fpoints.points...])
-        # TODO: This doesn't always work
-        uv = GeometryBasics.decompose(UV(Vec2f), rf)
-        # grab every other point
-        #uv = Vec{2,T}.(uv[1:2:end])
-        uv = uv[1:2:end]
-        gb_mesh = GeometryBasics.Mesh(Point3f.(points), [ff];normal=Vec3f.([nn for _ in 1:N2]),uv=uv)
-        # 
+
         # this is a bit clunky;
         # find the portion of the color vector pertaining to this surface
         # this is brittle as it depends on an exact match
         cidx = findall(x->(x[1]==lidx[1])&(x[2]==lidx[2])&&(x[3]==lidx[3]), pidx)
-        @show lidx length(cidx)
+        @debug lidx length(cidx)
         if isempty(cidx)
             continue
         end
         _size = filter(x->x>1, sizes[ii])
-        fq = permutedims(reshape(color[cidx],_size))
+        fq = reshape(color[cidx],_size)
+        # I have no idea why this is necessary
+        fq = rotl90(fq)
+        pq = reshape(color_points[cidx], _size)
+
+        # use the rect wrapper to find the origin
+        rf = Rect([fpoints...])
+        # identify the origin
+        oidx = findfirst(_pq->_pq==origin(rf), pq)
+        # identify the corners
+        idx1 = findfirst(fp->fp==pq[oidx],points)
+        idx2 = findfirst(fp->fp==pq[oidx.I[1],end],points)
+        idx3 = findfirst(fp->fp==pq[end,oidx.I[2]],points)
+        idx4 = findfirst(fp->fp==pq[end,end],points)
+        uv = Vector{Vec2f}(undef,4)
+        uv[idx1] = Vec2f(0,0)
+        uv[idx2] = Vec2f(0,1)
+        uv[idx3] = Vec2f(1,0)
+        uv[idx4] = Vec2f(1,1)
+        gb_mesh = GeometryBasics.Mesh(Point3f.(points), [ff];normal=Vec3f.([nn for _ in 1:N2]),uv=uv)
+        # debug; plot the base
+        #arrows!(lscene, Point3f.([pm.μ[ii], pm.μ[ii]]),Point3f.(eachcol(pm.base[ii])),color=:white)
+        # indicate the uv points
+        #scatter!(lscene, points[[idx1,idx2,idx3,idx4]],color=Makie.wong_colors()[1:4])
         mesh!(lscene, gb_mesh, color=fq,colorrange=cl)
     end
 end
