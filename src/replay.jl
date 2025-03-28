@@ -932,14 +932,17 @@ struct ViewRepresentation
     event::Vector{Vector{Float64}}
 end
 
-function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::GazeOnMaze)
+function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{GazeOnMaze,UnityRaytraceData})
     nt = numtrials(gdata)
     position = Vector{Vector{Point3f}}(undef, nt)
     events = Vector{Vector{Float64}}(undef, nt)
     sp = spikes.timestamps/1000.0 #convert to seconds
     for i in 1:nt
         tg,gaze,fixmask = get_trial(gdata,i)
-
+        if length(tg) == 0
+            continue
+        end
+        tg .-= tg[1]
         timestamps = rp.timestamps[i,:]
         idx0 = searchsortedfirst(sp, timestamps[1])
         idx1 = searchsortedlast(sp, timestamps[3])
@@ -963,9 +966,9 @@ function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::GazeOnMaz
     ViewRepresentation(position, events)
 end
 
-function ViewRepresentation(;kwrgas...)
-    gdata = cd(DPHT.process_level(GazeOnMaze)) do
-        GazeOnMaze()
+function ViewRepresentation(gaze_type::Type{T};kwrgas...) where T <: Union{GazeOnMaze, UnityRaytraceData}
+    gdata = cd(DPHT.process_level(T)) do
+        T()
     end
     rp = cd(DPHT.process_level(RippleData)) do
         RippleData()
