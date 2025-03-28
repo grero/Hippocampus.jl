@@ -508,7 +508,9 @@ function num_bins(mm::MazeModel)
         nbins += nb
     end
     nbins += prod(length.(mm.ceiling.bins[1:2]))
-    nbins += prod(length.(mm.floor.bins[1:2]))
+    for fl in mm.floor
+        nbins += prod(length.(fl.bins[1:2])) 
+    end
     for pillar in mm.pillars
         for pwall in pillar
             nb = 1
@@ -611,7 +613,7 @@ function get_bins(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <: Re
     bins[:walls] = [w.bins for w in mm.walls]
     bins[:pillars] = cat([[p.bins for p in pp] for pp in mm.pillars]...,dims=1)
     bins[:ceiling] = [mm.ceiling.bins]
-    bins[:floor] = [mm.floor.bins]
+    bins[:floor] = [w.bins for w in mm.floor]
     bins
 end
 
@@ -623,13 +625,13 @@ function get_normals(mm::MazeModel{T}) where T <: AbstractVector{T2} where T2 <:
     normals[:walls]  = [w.normal for w in mm.walls]
     normals[:pillars] = cat([[p.normal for p in pp] for pp in mm.pillars]...,dims=1)
     normals[:ceiling] = [mm.ceiling.normal]
-    normals[:floor] = [mm.floor.normal]
+    normals[:floor] = [ff.normal for ff in mm.floor]
     normals
 end
 
 function get_physical_size(mm::MazeModel)
-   # floor size 
-   (xmin,xmax),(ymin,ymax),_ = extrema.(mm.floor.bins)
+   # ceiling size 
+   (xmin,xmax),(ymin,ymax),_ = extrema.(mm.ceiling.bins)
    _,_,(zmin,zmax) = extrema.(mm.walls[1].bins)
    Δx = xmax-xmin
    Δy = ymax-ymin
