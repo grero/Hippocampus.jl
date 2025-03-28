@@ -103,6 +103,11 @@ end
     #poster assignment
     _poster_pos = Dict(:camel => (-5.0, 1.5, -7.55), :cat => (-7.55, 1.5, 5.0), :rabbit => (-5.0, 1.5, -2.45), :donkey => (5.0, 1.5, 7.55), :croc => (7.55, 1.5, -5.0), :pig => (5.0, 1.5, 2.45))
     mm = Hippocampus.MazeModel()
+    Δx, Δy, Δz = Hippocampus.get_physical_size(mm)
+    @test Δx ≈ 25.0
+    @test Δy ≈ 25.0
+    @test Δz ≈ 4.93
+
     posters = Hippocampus.Posters(mm,_poster_pos)
     _pos = mean(posters.sprite[1].points)
     @test _pos[1] ≈ -5.0
