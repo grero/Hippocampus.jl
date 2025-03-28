@@ -1075,10 +1075,7 @@ function ViewMap(vrp::ViewRepresentation, voc::ViewOccupancy)
             gaze_pos[ii][:,jj] = p
         end
     end
-    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
-    for k in keys(bins)
-        counts[k] = compute_histogram(gaze_pos,bins[k])
-    end
+    counts, idx = compute_histogram(gaze_pos,bins)
     ViewMap(counts, bins, voc.counts, mm)
 end
 
