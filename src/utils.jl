@@ -212,7 +212,7 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
     ff = pm.faces
     μ = pm.μ
     bb = pm.base
-    sidx = assign_to_surface(p0, nn, ff, bb, μ, pm.points;visited=visited)
+    sidx = assign_to_surface(p0, nn, μ;visited=visited)
     visited[sidx] = true
     # project onto the surface
     p0p = Point{N,T}(bb[sidx]*bb[sidx]'*p0) + (μ[sidx]'*nn[sidx]).*nn[sidx]
@@ -250,10 +250,8 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
 
 end
 
-function assign_to_surface(p0::Point{N,T}, normals, _faces, bases, μ,points;visited=fill(false, length(normals))) where T <: Real where N
+function assign_to_surface(p0::Point{N,T}, normals, μ;visited=fill(false, length(normals))) where T <: Real where N
     nn = normals
-    bb = bases
-    ff = _faces
     i0 = 0 
     d0 = typemax(T)
     for (ii,_nn) in enumerate(nn)

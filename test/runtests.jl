@@ -257,13 +257,13 @@ end
 
     point1 = pillar_points_1[25]
     @test point1 == Point{3,Float64}(-7.5, 2.45, 2.345)
-    sidx1 = Hippocampus.assign_to_surface(point1, pm.normals, pm.faces, pm.base, pm.μ, pm.points)
+    sidx1 = Hippocampus.assign_to_surface(point1, pm.normals, pm.μ)
     # first wall of the first pillar
     @test sidx1 == 15
 
     point2 = pillar_points_2[10]
     @test point2 == Point{3,Float64}(-6.785714285714286, 7.55, 0.815)
-    sidx2 = Hippocampus.assign_to_surface(point2, pm.normals, pm.faces, pm.base, pm.μ, pm.points)
+    sidx2 = Hippocampus.assign_to_surface(point2, pm.normals, pm.μ)
     # second wall of the first pillar
     @test sidx2 == 16
 
