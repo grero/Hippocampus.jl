@@ -257,17 +257,10 @@ function assign_to_surface(p0::Point{N,T}, normals, _faces, bases, μ,points;vis
         if visited[ii]
             continue
         end
-        # project onto the plane
-        # to make sure we are within the bounds of this surface
-        pp = Point{N,T}(bb[ii]*bb[ii]'*p0) + (μ[ii]'*nn[ii]).*nn[ii]
-        rf = Rect([points[ff[ii]].points...])
-        if true
-        #if in(rf)(pp)
-            _d0 = norm(((p0-μ[ii])'*nn[ii]))
-            if _d0 < d0
-                i0 = ii
-                d0 = _d0
-            end
+        _d0 = norm(((p0-μ[ii])'*nn[ii]))
+        if _d0 < d0
+            i0 = ii
+            d0 = _d0
         end
     end
     i0
