@@ -229,15 +229,8 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
     # that means that we need to travel to the end of the manifold
     @debug "norm" norm(dp) sidx
 
-   # if norm(dp) == zero(T)
-   #     # TODO: Choose the base vector most aligned with the distance vector
-   #     dp = bb[sidx][:,2]
-   # end
-    # TODO: Find the edge point closest to p1
     p1p = Point{N,T}(bb[sidx]*bb[sidx]'*p1) + (μ[sidx]'*nn[sidx]).*nn[sidx]
 
-    # TODO: This does not work for the cloor and ceiling. The pillars current sit on top of the
-    # floor, but does not intersect it.
     dx = displacement_to_edge(rf, p1p)
     p0n,dp = move_to_edge(rf, p0p, dx)
 
