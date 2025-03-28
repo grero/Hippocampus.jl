@@ -19,6 +19,29 @@ using StableRNGs
     # wrong index trigger on the first trigger on the last trial
     markers = [84, 11, 21, 31, 12, 22, 42, 23, 23, 33]
     @test_throws "Inconsistent main markers" Hippocampus.reshape_triggers(markers, timestamps)
+
+    # test disk
+    f = Hippocampus.disk(1)
+    @test f ==  [0.0 0.2 0.0; 0.2 0.2 0.2; 0.0 0.2 0.0]
+end
+
+@testset "Paths" begin
+    results = Hippocampus.find_path(6, 1,2;path_length=22, max_npaths=1)
+    @test length(results) == 1
+    @test results[1][1] == 1
+    @test results[1][end] == 2
+    @test length(results[1]) == 23
+    edges = [(i,j) for (i,j) in zip(results[1][1:end-1], results[1][2:end])]
+    edge_count = countmap(edges)
+    @test unique(values(edge_count)) == [1]
+
+    # test default parameters
+    results = Hippocampus.find_path(6,1,2)
+    @test length(results) == 1
+    @test length(results[1]) == 29 
+end
+
+@testset "Plot functions" begin
 end
 
 @testset "Unity" begin
@@ -59,19 +82,23 @@ end
     @test normals ≈ [[0.0, -1.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0]]
     @test bins[1][1][[1,51]]  ≈ [-7.5, -2.5]
     @test bins[1][2] ≈ [2.4,2.6]
-    @test bins[1][3][[1,10]] ≈ [0.0,5.0]
+    @test length(bins[1][3]) == 51
+    @test bins[1][3][[1,51]] ≈ [0.0,5.0]
 
     @test bins[2][1][[1,51]] ≈ [-7.5,-2.5]
     @test bins[2][2] ≈ [7.4,7.6]
-    @test bins[2][3][[1,10]] ≈ [0.0,5.0]
+    @test length(bins[1][3]) == 51
+    @test bins[2][3][[1,51]] ≈ [0.0,5.0]
 
     @test bins[3][1] ≈ [-7.6,-7.4]
     @test bins[3][2][[1,51]] ≈ [2.5,7.5]
-    @test bins[3][3][[1,10]] ≈ [0.0, 5.0]
+    @test length(bins[3][3]) == 51
+    @test bins[3][3][[1,51]] ≈ [0.0, 5.0]
 
     @test bins[4][1] ≈ [-2.6,-2.4]
     @test bins[4][2][[1,51]] ≈ [2.5,7.5]
-    @test bins[3][3][[1,10]] ≈ [0.0, 5.0]
+    @test length(bins[3][3]) == 51
+    @test bins[3][3][[1,51]] ≈ [0.0, 5.0]
 
     #poster assignment
     _poster_pos = Dict(:camel => (-5.0, 1.5, -7.55), :cat => (-7.55, 1.5, 5.0), :rabbit => (-5.0, 1.5, -2.45), :donkey => (5.0, 1.5, 7.55), :croc => (7.55, 1.5, -5.0), :pig => (5.0, 1.5, 2.45))
@@ -88,7 +115,7 @@ end
     @test length(fig.content) == 2
     @test typeof(fig.content[1]) <: Hippocampus.Makie.Label
     @test typeof(fig.content[2]) <: Hippocampus.Makie.LScene
-    @test length(fig.content[2].scene.plots) == 43
+    @test length(fig.content[2].scene.plots) == 51 
 end
 
 @testset "Ripple markers" begin
@@ -188,7 +215,7 @@ end
     mm = Hippocampus.MazeModel(;xmin=-12.72, xmax=12.28,ymin=-12.37, ymax=12.63,Δ=0.05,n_vertical_wall_bins=8, n_vertical_pillar_bins=5,
                                 n_horizontal_pillar_bins=8)
     nbins = Hippocampus.num_bins(mm)
-    @test nbins == 5180
+    @test nbins == 5186
     bins = Hippocampus.get_bins(mm)
     counts,_idx = Hippocampus.compute_histogram([points], bins) 
     # unpack the trial again
