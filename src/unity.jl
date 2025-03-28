@@ -279,21 +279,6 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
     end
 end
 
-function plot_arena()
-    fig = Figure()
-    ax = Axis(fig[1,1])
-    plot_arena!(ax)
-    fig,ax
-end
-
-function plot_arena!(ax)
-    poly!(ax, Point2f.(zip(zBound, xBound)),color=:grey)
-    poly!(ax, Point2f.(zip(z1Bound, x1Bound)), color=:yellow)
-    poly!(ax, Point2f.(zip(z2Bound, x2Bound)), color=:red)
-    poly!(ax, Point2f.(zip(z3Bound, x3Bound)), color=:blue)
-    poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
-end
-
 """
     soft_range(start::T, stop::T,step::T) where T <: Real
 
