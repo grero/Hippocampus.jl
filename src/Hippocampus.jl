@@ -5,6 +5,7 @@ using DrWatson
 using DataProcessingHierarchyTools
 const DPHT = DataProcessingHierarchyTools
 include("utils.jl")
+include("paths.jl")
 include("sprites.jl")
 include("neuropixels.jl")
 include("eyelink.jl")
