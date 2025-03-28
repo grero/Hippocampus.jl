@@ -451,19 +451,25 @@ function ParametrizedManifold(mm::MazeModel{T};include_pillars=true) where T <: 
     μ = Vector{Vec{3,T2}}(undef, n)
     points = Vector{Point{3,T2}}(undef, 0)
     ff = Vector{QuadFace{Int64}}(undef, n)
+    label = Vector{Tuple{Symbol, Int64, Int64}}(undef, n)
 
     offset = 0
     point_idx_offset = 0
     # ceiling and floor
     for (jj,vv) in enumerate(elements)
         vk = getfield(mm,vv)
+        idx = [1]
         # kind of hackish
         if vv  == :ceiling 
+            idx = [(1,1)]
             vk = [vk]
         elseif vv == :pillars
+            idx = [(i,j) for i in 1:4 for j in 1:4]
             vk = [mm.pillars[i][j] for i in 1:4 for j in 1:4]
+        else
+            idx = [(1,i) for i in 1:length(vk)]
         end
-        for (ii,_vk) in enumerate(vk[:])
+        for (ii,(_idx,_vk)) in enumerate(zip(idx,vk[:]))
             kk = offset + ii
             rr = get_rect(_vk)
             pp = decompose(Point{3,T2}, rr)
@@ -479,11 +485,12 @@ function ParametrizedManifold(mm::MazeModel{T};include_pillars=true) where T <: 
             nn = _vk.normal
             normals[kk] = nn
             bb[kk] = abs.(nullspace(permutedims(nn)))
+            label[kk] = (vv, _idx[1], _idx[2])
         end
         offset += length(vk)
     end
 
-    ParametrizedManifold(normals, ff, μ, bb, points)
+    ParametrizedManifold(normals, ff, μ, bb, points,label)
 end
 
 """
