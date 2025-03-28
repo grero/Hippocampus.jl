@@ -1,5 +1,6 @@
 using Test
 using Hippocampus
+using GeometryBasics
 using StatsBase
 using StableRNGs
 
