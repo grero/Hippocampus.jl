@@ -729,13 +729,6 @@ function Posters(mm::MazeModel,_poster_pos=poster_pos;z=2.5)
     Posters(sprites)
 end
 
-function show_posters(args...;kwargs...)
-    fig = Figure()
-    lscene = LScene(fig[1,1])
-    show_posters!(lscene, args...;kwargs...)
-    fig
-end
-
 function visualize!(lscene, posters::Posters;kwargs...)
     for sp3 in posters.sprite
         plot!(lscene, sp3)
