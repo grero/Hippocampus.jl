@@ -25,8 +25,8 @@ function zerounless(::Type{Eyelink.Event};kwargs...)
 end
 
 struct EyelinkData
-    triggers::Matrix{Int64}
-    timestamps::Matrix{UInt64}
+    triggers::Matrix{Union{Missing, Int64}}
+    timestamps::Matrix{Union{UInt64, Missing}}
     analogtime::Vector{UInt64}
     gazex::Matrix{Float32}
     gazey::Matrix{Float32}
@@ -67,10 +67,17 @@ end
 
 function EyelinkData(qdata::Dict)
     args = Any[]
+    midx = Int64[]
     for k in fieldnames(EyelinkData)
         push!(args, qdata[string(k)])
     end
-    EyelinkData(args...)
+    ee = EyelinkData(args...)
+    if "missing_idx" in keys(qdata)
+        midx = qdata["missing_idx"]
+        ee.triggers[midx[:,1], midx[:,2]] .= missing
+        ee.timestamps[midx[:,1], midx[:,2]] .= missing
+    end
+    ee
 end
 
 function EyelinkData(;do_save=true,redo=false)
