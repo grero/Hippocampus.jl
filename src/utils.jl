@@ -3,7 +3,7 @@ using GeometryBasics
 using GeometryBasics: Point, Rect, Vec, faces,Mat
 using LinearAlgebra
 
-function reshape_triggers(markers, timestamps)
+function reshape_triggers(markers::AbstractVector{T1}, timestamps::AbstractVector{T2},session_start::Vector{UInt64}=UInt64[];perform_fix=false) where T1 <: Real where T2 <: Real
     # the first marker is a session start; the remaining come in trios
     nn = length(markers)
     if markers[1] == 84
@@ -14,24 +14,75 @@ function reshape_triggers(markers, timestamps)
         _markers = markers
         _timestamps = timestamps
     end
-    rem(nn,3) == 0 || error("Inconsistent number of markers")
-    nt = div(nn,3)
-    trial_markers = permutedims(reshape(_markers, 3, nt))
-    trial_timestamps = permutedims(reshape(_timestamps,3,nt))
+    p1 = 0
+    p2 = 0
+    nt = 1
+    if rem(nn,3) == 0
+        nt = div(nn,3)
+        trial_markers = permutedims(reshape(_markers, 3, nt))
+        trial_timestamps = permutedims(reshape(_timestamps,3,nt))
 
-    # sanity check; make sure that the last number digit is the same for each trial
-    # and that the succession is 1,2,3 or 1,2,4.
-    main_marker = floor.(trial_markers/10.0)
-    p1 =sum(sum(main_marker .≈ [1.0 2.0 3.0],dims=2).==3)
-    p2 =sum(sum(main_marker .≈ [1.0 2.0 4.0],dims=2).==3)
+        # sanity check; make sure that the last number digit is the same for each trial
+        # and that the succession is 1,2,3 or 1,2,4.
+        main_marker = floor.(trial_markers/10.0)
+        p1 =sum(sum(main_marker .≈ [1.0 2.0 3.0],dims=2).==3)
+        p2 =sum(sum(main_marker .≈ [1.0 2.0 4.0],dims=2).==3)
+    else
+        if perform_fix
+            main_marker = round.(Int64, floor.(_markers/10.0))
+        else
+            error("Inconsistent number of markers")
+        end
+    end
 
-    p1+p2 == nt || error("Inconsistent main markers")
+    if p1+p2 != nt 
+        if perform_fix
+            # try to recover by removing trials that break the pattern
+            rmarkers = fix_markers(round.(Int64, permutedims(main_marker)[:]))
+            rmarkers = reshape(rmarkers, 3, div(length(rmarkers),3))
+            midx = ((!ismissing)).(rmarkers)
 
+            trial_markers_r = Matrix{Union{Missing, T1}}(undef, size(rmarkers)...)
+            trial_markers_r[midx] .= _markers 
+            trial_timestamps_r = Matrix{Union{Missing, T2}}(undef, size(rmarkers)...)
+            trial_timestamps_r[midx] .= _timestamps
+
+            trial_markers = permutedims(trial_markers_r)
+            trial_timestamps = permutedims(trial_timestamps_r)
+            main_marker = floor.(trial_markers/10.0)
+        else
+            error("Inconsistent main markers")
+        end
+    end
+    nt = size(trial_markers,1)
     # check the the minor markers are the same
     minor_marker = trial_markers - 10.0*main_marker
-    p3 = sum(sum(minor_marker .== minor_marker[:,1:1],dims=2).==3)
+    p3 = 0
+    for x in eachrow(minor_marker)
+        q = filter(!ismissing, x)
+        p3 += all(q.==q[1])
+    end
     p3 == nt || error("Inconsistent cue markers")
     trial_markers, trial_timestamps
+end
+
+function fix_markers(markers)
+    recovered_markers = Union{Missing, eltype(markers)}[]
+    i = 1
+    valid_marker = [2,(3,4),1,1]
+    while i <= length(markers)
+        # skip markers that do not follow the valid progression
+        if i > 1 && !(markers[i] in valid_marker[markers[i-1]])
+            push!(recovered_markers, missing)
+        end
+        push!(recovered_markers, markers[i])
+        i += 1
+    end 
+    # we should end on a 3 or 4
+    if !(recovered_markers[end] in [3,4])
+        push!(recovered_markers, missing)
+    end
+    recovered_markers
 end
 
 struct Trial

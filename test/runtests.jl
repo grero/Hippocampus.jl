@@ -21,6 +21,20 @@ using StableRNGs
     markers = [84, 11, 21, 31, 12, 22, 42, 23, 23, 33]
     @test_throws "Inconsistent main markers" Hippocampus.reshape_triggers(markers, timestamps)
 
+    # test fix markers
+    fmarkers = Hippocampus.fix_markers([1,2,3,1,2,1,2,3])
+    @test length(fmarkers) == 9
+    @test ismissing(fmarkers[6])
+
+    # test repairing markers
+    markers = [11, 21, 31, 12, 22, 42, 23, 33]
+    timestamps = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+    trial_markers, trial_timestamps = Hippocampus.reshape_triggers(markers, timestamps;perform_fix=true)
+    @test size(trial_markers) == size(trial_timestamps) == (3,3)
+    @test ismissing(trial_markers[3,1])
+    @test ismissing(trial_timestamps[3,1])
+
+
     # test disk
     f = Hippocampus.disk(1)
     @test f ==  [0.0 0.2 0.0; 0.2 0.2 0.2; 0.0 0.2 0.0]
