@@ -103,7 +103,7 @@ end
 
 Extract trial markers from Eyelink message events.
 """
-function get_markers(messages::Vector{Eyelink.Event})
+function get_markers(messages::Vector{Eyelink.Event};perform_fix=true)
     triggers = Int64[]
     timestamps = UInt64[]
     for msg in messages
@@ -116,7 +116,7 @@ function get_markers(messages::Vector{Eyelink.Event})
                 push!(timestamps, msg.sttime)
         end
     end
-    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps;perform_fix=perform_fix)
 end
 
 function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
