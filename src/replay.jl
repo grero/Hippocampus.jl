@@ -1072,7 +1072,7 @@ function ViewMap(vrp::ViewRepresentation, voc::ViewOccupancy)
     for (ii,pos) in enumerate(vrp.position)
         gaze_pos[ii] = fill(0.0, 3, length(pos))
         for (jj,p) in enumerate(pos)
-            gaze_pos[ii][:,jj] = p
+            gaze_pos[ii][:,jj] .= p
         end
     end
     counts, idx = compute_histogram(gaze_pos,bins)
