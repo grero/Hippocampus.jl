@@ -1095,6 +1095,16 @@ function ViewMap(;kwargs...)
     ViewMap(vrp, mm,voc)
 end
 
+function smooth(vm::ViewMap;kwargs...)
+    D, points, pidx,ll = compute_distance_matrix(vm.mm)
+    Z = smooth(vm, D, pidx)
+    Z, D, points, pidx, ll
+end
+
+function smooth(vm::ViewMap,D,pidx;kwargs...)
+    smooth(vm.counts,D, pidx;kwargs...) 
+end
+
 function create_axis(obj::ViewMap, fig;kwargs...)
     axtype = get_axis_type(ViewMap) 
      ax = create_axis(axtype,fig;kwargs...)
