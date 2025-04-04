@@ -1076,7 +1076,14 @@ function ViewMap(vrp::ViewRepresentation, voc::ViewOccupancy)
         end
     end
     counts, idx = compute_histogram(gaze_pos,bins)
-    ViewMap(counts, bins, voc.counts, mm)
+    # normalize using the occupancy map
+    for (k,v) in voc.counts
+        for (ii,vv) in enumerate(v)
+            counts[k][ii] ./= vv
+        end
+    end
+
+    ViewMap(counts, bins, voc.counts, mm), idx
 end
 
 function ViewMap(;kwargs...)
