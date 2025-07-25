@@ -566,3 +566,43 @@ function distance(p0::Point{N,T}, p1::Point{N,T}, m::T2;visited=fill(false, leng
     @debug "Show" p0 #rf#dpn #visited #sidx[1] Δp rf bb[sidx[1]] fm dq nn[sidx[1]] dpn
     return Δp + distance(p0, p1, m;visited=visited)
 end
+
+"""
+Return a discrete disc of radius `r` centered on `i`
+"""
+function disc(p0::CartesianIndex{2}, r::Int64,n1::Int64, n2::Int64)
+    idx = Vector{CartesianIndex{2}}()
+    # first make a square
+    idx1 = max(1, p0.I[1]-r):min(p0.I[1]+r, n1)
+    idx2 = max(1, p0.I[2]-r):min(p0.I[2]+r, n2)
+    for i in idx1
+        for j in idx2
+            if (i-p0.I[1])^2 + (j-p0.I[2])^2 <= r^2
+                push!(idx, CartesianIndex(i,j))
+            end
+        end
+    end
+    idx
+end
+
+function adaptive_smoothing(X::Matrix{T}, Y::Matrix{T}, α::T;stop_at_nan=true) where T <: Real
+    n1,n2 = size(X)
+    Z = fill!(similar(X), zero(T))
+    for ii in CartesianIndices(size(X))
+        nsp = X[ii]
+        nocc = Y[ii]
+        r = 1
+        while nsp < α/(nocc^2*r^2) 
+            idx = disc(ii, r, n1, n2)
+            # stop expanding the kernel if we hit boundary
+            if stop_at_nan && any(isnan.(Y[idx]))
+                break
+            end
+            nsp = sum(X[idx])
+            nocc = sum(Y[idx])
+            r += 1
+        end
+        Z[ii] = nsp/nocc 
+    end
+    Z
+end
