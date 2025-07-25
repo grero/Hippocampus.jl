@@ -39,7 +39,7 @@ function SpatialRepresentation()
         RippleData()
     end
     udata = cd(DPHT.process_level(level(UnityData))) do
-        UnityDate()
+        UnityData()
     end
     SpatialRepresentation(sptrain, rdata, udata)
 end
@@ -95,7 +95,7 @@ function SpatialOccupancy(udata::UnityData, xbins::AbstractVector{T}, ybins::Abs
 end
 
 function SpatialOccupancy(xbins,ybins=xbins;kwargs...)
-    udata = UnitData()
+    udata = UnityData()
     SpatialOccupancy(udata, xbins, ybins;kwargs...)
 end
 
