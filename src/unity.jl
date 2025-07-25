@@ -375,6 +375,30 @@ struct MazeModel{T<:AbstractVector{<: Real}}
     ceiling::OrientedMesh{T}
 end
 
+"""
+Return the 3D bounding box of each of the maze's pillars
+"""
+function get_pillar_rects(mm::MazeModel)
+    footprints = Vector{Rect3f}()
+    for pillar in mm.pillars
+        footprint = reduce(union,get_rect.(pillar))
+        push!(footprints, footprint)
+    end
+    footprints
+end
+
+function filter_pillars(mm::MazeModel, X::Matrix{T},xbins=1:size(X,1), ybins=1:size(X,2)) where T <: Real
+    Z = fill!(similar(X), zero(T))
+    Z .= X
+    rects = get_pillar_rects(mm)
+    for r in rects 
+        idx1 = searchsortedfirst(xbins, r.origin[1]):searchsortedlast(xbins, r.origin[1]+r.widths[1])
+        idx2 = searchsortedfirst(ybins, r.origin[2]):searchsortedlast(ybins, r.origin[2]+r.widths[2])
+        Z[idx1,idx2] .= NaN
+    end
+    Z
+end
+
 function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Symbol[]) where T2 <: AbstractVector{T} where T <: Real
     points = Point{3,T}[]
     elements = setdiff([:ceiling, :floor, :walls, :pillars], exclude_element)
