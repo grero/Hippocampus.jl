@@ -166,3 +166,7 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,args::N
     S.GridLayout([ax1 ll])
 end
 
+function Makie.convert_arguments(T::Type{<:AbstractPlot}, spm::SpatialMap,args::Vector{<:NamedTuple})
+    a = [convert_arguments(T, spm, _arg) for _arg in args]
+    S.GridLayout(a)
+end
