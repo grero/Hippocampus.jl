@@ -159,7 +159,7 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap;normali
         X = spm.weight
         label = "Spike count"
     end
-    h = S.Heatmap(spm.xbins, spm.ybins, X)
+    h = S.Heatmap(spm.xbins, spm.ybins, rotr90(X))
     ax1 = S.Axis(plots=[h])
     ll = S.Colorbar(h,label=label)
     S.GridLayout([ax1 ll])
