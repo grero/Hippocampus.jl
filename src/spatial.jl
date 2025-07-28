@@ -151,8 +151,9 @@ function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     -sum(filter(isfinite, pp.*log2.(pp)))
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap;normalize=true)
-    if normalize
+function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,args::NamedTuple=(normalize=false, do_smooth=true))
+    X = copy(spm.weight)
+    if args.normalize
         X = spm.weight./spm.occupancy
         label = "Firing rate"
     else
