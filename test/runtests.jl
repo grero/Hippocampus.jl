@@ -38,6 +38,10 @@ using StableRNGs
     # test disk
     f = Hippocampus.disk(1)
     @test f ==  [0.0 0.2 0.0; 0.2 0.2 0.2; 0.0 0.2 0.0]
+
+    # test alternative disk
+    d2idx = Hippocampus.disc(CartesianIndex(3,3), 2, 5, 5)
+    @test d2idx == CartesianIndex{2}[CartesianIndex(1, 3), CartesianIndex(2, 2), CartesianIndex(2, 3), CartesianIndex(2, 4), CartesianIndex(3, 1), CartesianIndex(3, 2), CartesianIndex(3, 3), CartesianIndex(3, 4), CartesianIndex(3, 5), CartesianIndex(4, 2), CartesianIndex(4, 3), CartesianIndex(4, 4), CartesianIndex(5, 3)]
 end
 
 @testset "Paths" begin
