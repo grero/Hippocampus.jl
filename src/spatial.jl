@@ -159,16 +159,27 @@ function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     -sum(filter(isfinite, pp.*log2.(pp)))
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,args::NamedTuple=(normalize=false, do_smooth=true))
+function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,args::NamedTuple=(;))
+    default_arguments = Dict(:normalize=>true, :do_smooth=>true, :α=>10_000.0^2, :filter_gaze => true)
+    for k in keys(args)
+        v = args[k] 
+        default_arguments[k] = v
+    end
     X = copy(spm.weight)
-    if args.normalize
+    if default_arguments[:normalize]
         X = spm.weight./spm.occupancy
-        label = "Firing rate"
+        label = "Firing rate [Hz]"
     else
         X = spm.weight
         label = "Spike count"
     end
-    h = S.Heatmap(spm.xbins, spm.ybins, rotr90(X))
+    if default_arguments[:do_smooth]
+        X = adaptive_smoothing(spm.weight, spm.occupancy, default_arguments[:α])
+    end
+    if default_arguments[:filter_gaze]
+        X[spm.occupancy.==0] .= eltype(X)(NaN)
+    end
+    h = S.Heatmap(spm.xbins, spm.ybins, rotr90(X), colormap=:turbo)
     ax1 = S.Axis(plots=[h])
     ll = S.Colorbar(h,label=label)
     S.GridLayout([ax1 ll])
