@@ -134,6 +134,14 @@ function SpatialMap(xbins, ybins;redo=false, do_save=false,kwargs...)
     SpatialMap(spr, xbins, ybins, spoc)
 end
 
+function adaptive_smoothing(spm::SpatialMap, α=10000.0^2;filter_unoccupied=true)
+    Z = adaptive_smoothing(spm.weight, spm.occupancy, α)
+    if filter_unoccupied
+        Z[spm.occupancy.==0] .= eltype(spm.weight)(NaN) 
+    end
+    Z
+end
+
 function compute_sic(spm::SpatialMap)
 
     x = spm.weight./spm.occupancy
