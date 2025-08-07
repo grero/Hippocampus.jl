@@ -4,6 +4,73 @@ using DataFrames
 using Makie
 using ProgressMeter
 
+struct DummyCam
+    pos::Point3f
+    dir::Vec3f
+    fov::Float32
+    z_near::Float32
+    frustrum_ratio::Float32
+end
+
+"""
+Trace a ray from position `x,y` through the camera with focal length `focal_length` until it
+impacts something in the arena
+"""
+function raytrace(x, y, cam::DummyCam,mm::MazeModel)
+    # TODO: It looks like the raytracing function in Unity just uses the viewport. In other words,
+    # what the camera 'sees' is a normalized coordinate system (not the physical sensor.)
+    # find the angle of the point
+    # height of frustrum at near clip
+    # Unity is also using the far instead of the near plane, setting the far plane at 25 units
+    fovr = cam.fov
+    fwidth = tan(fovr/2)*cam.z_near
+    fheight = fwidth/cam.frustrum_ratio
+    # is the normalized plane from -1 to 1?
+    xc = x*fwidth
+    yc = y*fheight
+    # flip x since x-values left-of-center should be associated with a positive angle
+    θ = atan(xc, cam.z_near)
+    θc = atan(cam.dir[2],cam.dir[1])
+    θ += θc
+    # TODO: Assumes no camera elevation angle
+    ϕ = atan(yc,cam.z_near) 
+    v = [cos(θ)*cos(ϕ), sin(θ)*cos(ϕ), sin(ϕ)]
+    # alternatively
+    #b = [cam.dir nullspace(permutedims(cam.dir))]
+    #v = xc*b[:,2] + yc*b[:,3]
+    #v = v + cam.dir
+    # re-normalize
+    #v = v./norm(v)
+    
+    dl = 0.001
+    (xp,yp,zp) = cam.pos
+    while true
+        dx,dy,dz = dl*v 
+        xp += dx
+        yp += dy 
+        zp += dz 
+        if impacts([xp,yp,zp], mm)
+            xp -= dx
+            yp -= dy
+            zp -= dz
+            break
+        end
+    end
+    xp,yp,zp
+end
+
+function projecto(cam::DummyCam, pos::AbstractVector{T}) where T <: Real
+    fwidth = tan(cam.fov/2)*cam.z_near
+    fheight = fwidth/cam.frustrum_ratio
+    # project along camera axis
+    # TODO: Not clear which is which of these axes
+    b = [cam.dir nullspace(permutedims(cam.dir))]
+    pos_p = b'*(pos-cam.pos)
+    xh = (pos_p[2]*cam.z_near/pos_p[1])/fwidth
+    yh = (pos_p[3]*cam.z_near/(sqrt(pos_p[1]^2+pos_p[2]^2)))/fheight
+    xh,yh
+end
+
 struct GazeOnMaze
     time::Vector{Vector{Float64}}
     gaze::Vector{Matrix{Float64}}
