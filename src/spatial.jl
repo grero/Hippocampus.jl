@@ -240,6 +240,7 @@ function plot_regression_reults(lq, km_results, position, X)
     with_theme(plot_theme) do
         fig = Figure(size=(600,700))
         ax1 = Axis(fig[1,1])
+        Label(fig[1,1,TopLeft()], "A")
         hh = heatmap!(ax1, xbins, ybins, h.weights)
         Colorbar(fig[1,2], hh, label="Count") 
         scatter!(ax1, Point2f.(eachcol(km_results.centers)), color=:white,
@@ -248,17 +249,20 @@ function plot_regression_reults(lq, km_results, position, X)
         
         lg1 = GridLayout(fig[2,1:2])
         ax1_1 = Axis(lg1[1,1])
+        Label(lg1[1,1,TopLeft()], "B")
         scatter!(ax1_1, km_results.centers[1,:], Y[1,:],color=km_results.centers[1,:],
                             colormap=:solar)
         ax1_1.xlabel = "True x-pos"
         ax1_1.ylabel = "Estimated x-pos"
         ax1_2 = Axis(lg1[1,2])
+        Label(lg1[1,2,TopLeft()], "C")
         scatter!(ax1_2, km_results.centers[2,:], Y[2,:], color=km_results.centers[2,:],
                         colormap=:matter)
         ax1_2.xlabel = "True y-pos"
         ax1_2.ylabel = "Estimated y-pos"
 
         ax1_3 = Axis(lg1[1,3])
+        Label(lg1[1,3,TopLeft()], "D")
         barplot!(ax1_3, [1], [lq.r²])
         ax1_3.ylabel = "r²"
         ax1_3.xticksvisible = false
@@ -267,9 +271,11 @@ function plot_regression_reults(lq, km_results, position, X)
 
         lg2 = GridLayout(fig[3,1:2])
         ax2 = Axis(lg2[1,1])
+        Label(lg2[1,1,TopLeft()],"E")
         sc = scatter!(ax2, Point2f.(eachcol(Y)), color=km_results.centers[1,:],colormap=:solar)
         #Colorbar(lg2[2,1], sc, label="x-pos", vertical=false, flipaxis=false)
         ax3 = Axis(lg2[1,2])
+        Label(lg2[1,2,TopLeft()], "F")
         scy = scatter!(ax3, Point2f.(eachcol(Y)), color=km_results.centers[2,:], colormap=:matter)
         #Colorbar(lg2[2,2], scy, label="y-pos", vertical=false, flipaxis=false)
         #rowsize!(lg2, 2, Relative(0.25))
