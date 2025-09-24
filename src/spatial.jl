@@ -1,4 +1,10 @@
 using Makie
+import Makie.SpecApi as S
+using Clustering
+using MultivariateStats
+using LinearAlgebra
+using LinearRegressionUtils
+
 """
 A spatial representation of events
 """
@@ -188,4 +194,85 @@ end
 function Makie.convert_arguments(T::Type{<:AbstractPlot}, spm::SpatialMap,args::Vector{<:NamedTuple})
     a = [convert_arguments(T, spm, _arg) for _arg in args]
     S.GridLayout(a)
+end
+
+"""
+Combine the spatial representions for each of the cells represented by `cellidirs` and use
+those combined responses to regress to position in the maze
+"""
+function regress_space(celldirs::Vector{String};kwargs...)
+    spr = map(celldirs) do celldir
+       cd(celldir) do
+            Hippocampus.SpatialRepresentation(;min_speed=0.3,trial_start=2)
+        end
+    end
+    regress_space(spr;kwargs...)
+end
+
+function regress_space(spr::Vector{SpatialRepresentation{T1,T2}};n_spatial_clusters=256, kwargs...) where T1 <: Real where T2 <: Real
+    X, position = get_population_representation(spr)
+    km_results = kmeans(position, n_spatial_clusters)
+    # sum up responses in each of the spatial bins returned by the kmean algorithm
+    X2 = zeros(eltype(X), size(X,1), n_spatial_clusters)
+    for (i,k) in enumerate(km_results.assignments)
+       X2[:,k] .+= X[:,i]
+    end
+    
+    # perform PCA to decorrelate the inputs
+    pca = fit(PCA, X2)
+    Z = predict(pca, X2)
+    lq = LinearRegressionUtils.llsq_stats(permutedims(Z), permutedims(km_results.centers))
+    lq, pca, km_results, X2,X, position
+end
+
+function plot_regression_reults(lq, km_results, position, X)
+    # compute histogram of positions
+    xbins = range(-12.5f0, stop=12.5f0, length=40)
+    ybins = xbins
+    h = fit(Histogram, (eachrow(position)...,), (xbins, ybins))
+    
+    # project X onto the regression space
+    q,r = qr(lq.β[1:end-1,:])
+    w = q[:,1:2]
+    Y = w'*X
+    # also do the actual regresson
+    Yp = lq.β[1:end-1,:]'*X .+ lq.β[end,:]
+    with_theme(plot_theme) do
+        fig = Figure(size=(600,700))
+        ax1 = Axis(fig[1,1])
+        hh = heatmap!(ax1, xbins, ybins, h.weights)
+        Colorbar(fig[1,2], hh, label="Count") 
+        scatter!(ax1, Point2f.(eachcol(km_results.centers)), color=:white,
+                markersize=5px)
+
+        
+        lg1 = GridLayout(fig[2,1:2])
+        ax1_1 = Axis(lg1[1,1])
+        scatter!(ax1_1, km_results.centers[1,:], Y[1,:],color=km_results.centers[1,:],
+                            colormap=:solar)
+        ax1_1.xlabel = "True x-pos"
+        ax1_1.ylabel = "Estimated x-pos"
+        ax1_2 = Axis(lg1[1,2])
+        scatter!(ax1_2, km_results.centers[2,:], Y[2,:], color=km_results.centers[2,:],
+                        colormap=:matter)
+        ax1_2.xlabel = "True y-pos"
+        ax1_2.ylabel = "Estimated y-pos"
+
+        ax1_3 = Axis(lg1[1,3])
+        barplot!(ax1_3, [1], [lq.r²])
+        ax1_3.ylabel = "r²"
+        ax1_3.xticksvisible = false
+        ax1_3.xticklabelsvisible = false
+        colsize!(lg1, 3, Relative(0.15))
+
+        lg2 = GridLayout(fig[3,1:2])
+        ax2 = Axis(lg2[1,1])
+        sc = scatter!(ax2, Point2f.(eachcol(Y)), color=km_results.centers[1,:],colormap=:solar)
+        #Colorbar(lg2[2,1], sc, label="x-pos", vertical=false, flipaxis=false)
+        ax3 = Axis(lg2[1,2])
+        scy = scatter!(ax3, Point2f.(eachcol(Y)), color=km_results.centers[2,:], colormap=:matter)
+        #Colorbar(lg2[2,2], scy, label="y-pos", vertical=false, flipaxis=false)
+        #rowsize!(lg2, 2, Relative(0.25))
+        fig
+    end
 end
