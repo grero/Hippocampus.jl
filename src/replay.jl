@@ -375,11 +375,13 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         edata = cd(DPHT.process_level(EyelinkData)) do
             EyelinkData()
         end
-        fname = "unityfile_eyelink.csv"
-        if !ispath(fname)
+        if !isempty(extradir)
+            raytrace_fname = joinpath(extradir, raytrace_fname)
+        end
+        if !ispath(raytrace_fname)
             error("No raytracing data found")
         end
-        unity_eyelinkfile = CSV.File(fname, header=0)
+        unity_eyelinkfile = CSV.File(raytrace_fname, header=0)
         n = length(unity_eyelinkfile)
         fixated_points = fill(NaN, 3, n)
         position = fill(0.0f0, 3, n)
