@@ -407,15 +407,45 @@ function MazeModelNew(fname::String)
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, mm::MazeModelNew)
-    plots = [S.Mesh(m) for m in mm.walls]
-    push!(plots, S.Mesh(mm.floor))
-    push!(plots, S.Mesh(mm.ceiling))
-    for pillar in mm.pillars
+    # TODO: Add textures
+    plots = [S.Mesh(m, color=:gray) for m in mm.walls]
+    push!(plots, S.Mesh(mm.floor, color=RGB(0.498, 0.263,0.025)))
+    push!(plots, S.Mesh(mm.ceiling, color=:gray))
+    pillar_colors = [:red, :green, :blue, :yellow]
+    for (pillar,color) in zip(mm.pillars, pillar_colors)
         for mp in pillar
-            push!(plots, S.Mesh(mp))
+            push!(plots, S.Mesh(mp,color=color))
         end
     end
-    S.GridLayout(S.LScene(plots=plots))
+    plots
+end
+
+function impacts(pos, mm::MazeModelNew)
+    a = false
+    for wall in mm.walls
+        r = Rect(wall)
+        if in(r)(pos)
+            a = true
+            break
+        end
+    end
+    if !a
+        a = a || (in(Rect(mm.ceiling))(pos) || in(Rect(mm.floor))(pos))
+    end
+    if !a 
+        for pillar in mm.pillars
+            for mp in pillar 
+                a = a || in(Rect(mp))(pos)
+                if a
+                    break
+                end
+            end
+            if a
+                break
+            end
+        end
+    end
+    return a
 end
 
 function impacts(pos, mm::MazeModel)
