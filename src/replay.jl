@@ -419,6 +419,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         trial_head_direction = Vector{Vector{Float64}}(undef, nt)
         trial_times = Vector{Vector{Float64}}(undef,nt)
         trial_fixated_object = Vector{Vector{String}}(undef, nt)
+        fixating = Vector{Vector{Bool}}(undef, nt)
         #t0 = edata.analogtime[1]
         te,_,_, = get_trial(edata, 1)
         t0 = te[1]
