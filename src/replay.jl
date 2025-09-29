@@ -387,7 +387,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         position = fill(NaN32, 3, n)
         direction = fill(NaN32, n)
         timestamps = zeros(UInt64,n)
-        fixated_object = Vector{String}(undef, n)
+        fixated_object = fill("unknown", n)
         i = 1
         for row in unity_eyelinkfile
             # TODO: Grab more data here
