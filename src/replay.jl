@@ -391,12 +391,15 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         i = 1
         for row in unity_eyelinkfile
             # TODO: Grab more data here
+            timestamps[i] = row[2]
             px,py,pz,a = (row[6],row[7],row[8],row[9])
+            if any(ismissing.((px,py,pz,a)))
+                continue
+            end
             θ = π*a/180.0
             position[:,i] .= (px,pz,py)
             direction[i] = θ
             # FIXME: This does not appear to be the actual eyelink timestamp!
-            timestamps[i] = row[2]
             gx,gy,gz = (row[10],row[11],row[12])
             fixated_object[i] = row[3]
             if (gx !== missing) && (gy !== missing) && (gz !== missing)
