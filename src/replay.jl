@@ -882,6 +882,49 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
     end
 end
 
+function explore_maze(mm::MazeModelNew, points::Vector{Point3f}=Point3f[])
+    with_theme(plot_theme) do
+        fig = Figure()
+        lscene = LScene(fig[1,1])
+        plot!(lscene, mm)
+        if !isempty(points)
+            scatter!(lscene, points)
+        end
+
+        #set up camera
+        lookat = Point3f(1.0, 0.0, 0.7)
+        cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
+        eyepos = Point3f(0.0, 0.0, 0.7)
+        v = lookat - eyepos 
+        v = v./norm(v)
+        #translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0,2.5))
+        update_cam!(lscene.scene, eyepos, lookat)
+        on(events(lscene.scene).keyboardbutton, priority=20) do event
+            if ispressed(lscene.scene, Keyboard.up)
+                pos = cc.eyeposition[]
+                dx = 0.1*v
+                npos = pos + dx
+                translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, -0.1))
+                if impacts(cc.eyeposition[], mm)
+                    # move back
+                    # TODO: This doesn't quite work, but maybe we don't care
+                    translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, 0.1))
+                    # last coordinate if foward movement (for some inexplicable reason))
+                end
+            end
+            if ispressed(lscene.scene, Keyboard.right)
+                rotate_cam!(lscene.scene, cc, Point3f(0.0, -0.1, 0.0))
+                return Consume()
+            end
+            if ispressed(lscene.scene, Keyboard.left)
+                rotate_cam!(lscene.scene,cc, Point3f(0.0, 0.1, 0.0))
+                return Consume()
+            end
+        end
+        fig
+    end
+end
+
 # these are the types we can visualize
 Visualizables = Union{MazeModel, UnityData}
 
