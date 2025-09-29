@@ -425,7 +425,16 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         t0 = te[1]
 
         for i in 1:nt
-            te,_,_, = get_trial(edata, i)
+            if any(ismissing.(edata.triggers[i,:]))
+                trial_fixations[i] = zeros(3,0)
+                trial_position[i] = zeros(3,0) 
+                trial_head_direction[i] = zeros(0)
+                trial_times[i] = zeros(0)
+                trial_fixated_object[i] = String[]
+                fixating[i] = Bool[]
+                continue
+            end
+            te,_,_,fm = get_trial(edata, i)
             # unit raytraced data use time relative to start of recording
             te .-= t0
             idx0 = searchsortedfirst(timestamps, te[1])
