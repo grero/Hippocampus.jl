@@ -338,9 +338,33 @@ struct UnityRaytraceData
     head_direction::Vector{Vector{Float64}}
     timestamps::Vector{Vector{Float64}}
     fixated_object::Vector{Vector{String}}
+    fixating::Vector{Vector{Bool}}
 end
 
-function UnityRaytraceData(;do_save=true, redo=false,append_tag=true)
+"""
+    get_gaze(X::UnityRaytraceData)
+
+Return a matrix of all gaze positons concatenated
+"""
+function get_gaze(X::UnityRaytraceData;only_fixations=true)
+    nn = div.(length.(X.gaze),3)
+    nt = sum(nn)
+    Y = zeros(Float64, 3, nt)
+    offset = 0
+    for (_fix,_gaze) in zip(X.fixating, X.gaze)
+        if only_fixations
+            fidx = _fix
+        else
+            fidx = fill(true, size(_gaze,2))
+        end
+        nf = sum(fidx)
+        Y[:,offset+1:offset+nf] .= _gaze[:,fidx]
+        offset += nf
+    end
+    Y[:,1:offset]
+end
+
+function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_fname="unityfile_eyelink.csv", extradir::String="")
     fname = DPHT.filename(UnityRaytraceData)
     if !redo && isfile(fname)
         t1 = time()
