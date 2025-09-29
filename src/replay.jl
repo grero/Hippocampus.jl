@@ -384,8 +384,8 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         unity_eyelinkfile = CSV.File(raytrace_fname, header=0)
         n = length(unity_eyelinkfile)
         fixated_points = fill(NaN, 3, n)
-        position = fill(0.0f0, 3, n)
-        direction = fill(0.0f0, n)
+        position = fill(NaN32, 3, n)
+        direction = fill(NaN32, n)
         timestamps = zeros(UInt64,n)
         fixated_object = Vector{String}(undef, n)
         i = 1
