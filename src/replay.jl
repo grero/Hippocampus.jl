@@ -887,6 +887,13 @@ function explore_maze(mm::MazeModelNew, points::Vector{Point3f}=Point3f[])
         fig = Figure()
         lscene = LScene(fig[1,1])
         plot!(lscene, mm)
+        # add lights
+        set_lights!(lscene, [])
+        push_light!(lscene, PointLight(RGBf(1,1,1), Point3f(-9.1, 5.0, 1.5)))
+        push_light!(lscene, PointLight(RGBf(1,1,1), Point3f(-4.8, -9.0, 1.5)))
+        push_light!(lscene, PointLight(RGBf(1,1,1), Point3f(5.0, 9.0, 1.5)))
+        push_light!(lscene, PointLight(RGBf(1,1,1), Point3f(9.0, -5.0, 1.5)))
+        push_light!(lscene, PointLight(RGBf(1,1,1), Point3f(5.0, 1.1, 1.5)))
         if !isempty(points)
             scatter!(lscene, points)
         end
