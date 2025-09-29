@@ -343,7 +343,10 @@ end
 function UnityRaytraceData(;do_save=true, redo=false,append_tag=true)
     fname = DPHT.filename(UnityRaytraceData)
     if !redo && isfile(fname)
+        t1 = time()
         ut = DPHT.load(UnityRaytraceData)
+        t2 = time()-t1
+        @show t2-t1
     else
         edata = cd(DPHT.process_level(EyelinkData)) do
             EyelinkData()
