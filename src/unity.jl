@@ -375,6 +375,35 @@ struct MazeModel{T<:AbstractVector{<: Real}}
     ceiling::OrientedMesh{T}
 end
 
+function impacts(pos, mm::MazeModel)
+    a = false
+    for w in mm.walls
+        a = impacts(pos, w) 
+        if a
+            return a
+        end
+    end
+
+    for pillar in mm.pillars
+        for pw in pillar
+            a = impacts(pos,pw)
+            if a
+                return a
+            end
+        end
+    end
+
+    for f in mm.floor
+        a = impacts(pos, f)
+        if a
+            return a
+        end
+    end
+    a = impacts(pos,mm.ceiling)
+    return a
+end
+
+
 """
 Return the 3D bounding box of each of the maze's pillars
 """
