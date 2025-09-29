@@ -444,8 +444,17 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
             trial_head_direction[i] = direction[idx0:idx1]
             trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
             trial_fixated_object[i] = fixated_object[idx0:idx1]
+            # we need to match fixations to the actual time points
+            _fm = fill(false, idx1-idx0+1)
+            for j in 1:length(_fm)
+                _idx = searchsortedlast(te, timestamps[idx0+j-1])
+                if 0 < _idx < length(te) 
+                    _fm[j] = fm[_idx]
+                end
+            end
+            fixating[i] = _fm
         end
-        ut = UnityRaytraceData(timestamps, position, direction, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object)
+        ut = UnityRaytraceData(timestamps, position, direction, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object, fixating)
         if do_save
             DPHT.save(ut;append_tag=append_tag)
         end
