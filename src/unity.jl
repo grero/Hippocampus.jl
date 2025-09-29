@@ -375,6 +375,49 @@ struct MazeModel{T<:AbstractVector{<: Real}}
     ceiling::OrientedMesh{T}
 end
 
+struct MazeModelNew{T<:AbstractMesh{<:Any, <:Any}}
+    walls::Vector{T}
+    pillars::Vector{Vector{T}}
+    floor::T
+    ceiling::T
+end
+
+function MazeModelNew()
+    fname = joinpath(@__DIR__, "..","artefacts","DTLarge.obj")
+    MazeModelNew(fname)
+end
+
+function MazeModelNew(fname::String)
+    mm = load(fname)
+    mm_b = GeometryBasics.Mesh(mm)
+    #pillars 
+    pillars = [[findfirst([occursin("m_wall_$(j)_$(i)_", g) for g in mm.meta[:groups]]) for i in 1:4] for j in 1:4]
+    pillar_mesh = [split_mesh(mm_b, mm.views[pillar]) for pillar in pillars]
+
+    walls = findall([occursin(r"wall_[0-9]{2,2}", g) for g in mm.meta[:groups]])
+    wall_mesh = split_mesh(mm_b, mm.views[walls]) 
+
+    ceiling = findall([occursin("Ceiling", g) for g in mm.meta[:groups]])
+    ceiling_mesh = split_mesh(mm_b, mm.views[ceiling])
+
+    ground = findall([occursin("Ground", g) for g in mm.meta[:groups]])
+    ground_mesh = split_mesh(mm_b, mm.views[ground])
+
+    MazeModelNew(wall_mesh, pillar_mesh, first(ground_mesh), first(ceiling_mesh))
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, mm::MazeModelNew)
+    plots = [S.Mesh(m) for m in mm.walls]
+    push!(plots, S.Mesh(mm.floor))
+    push!(plots, S.Mesh(mm.ceiling))
+    for pillar in mm.pillars
+        for mp in pillar
+            push!(plots, S.Mesh(mp))
+        end
+    end
+    S.GridLayout(S.LScene(plots=plots))
+end
+
 function impacts(pos, mm::MazeModel)
     a = false
     for w in mm.walls
