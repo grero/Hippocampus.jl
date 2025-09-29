@@ -900,15 +900,18 @@ function explore_maze(mm::MazeModelNew, points::Vector{Point3f}=Point3f[])
         #translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0,2.5))
         update_cam!(lscene.scene, eyepos, lookat)
         on(events(lscene.scene).keyboardbutton, priority=20) do event
-            if ispressed(lscene.scene, Keyboard.up)
-                pos = cc.eyeposition[]
-                dx = 0.1*v
-                npos = pos + dx
-                translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, -0.1))
+
+            if ispressed(lscene.scene, Keyboard.up) || ispressed(lscene.scene, Keyboard.down)
+                if ispressed(lscene.scene, Keyboard.up)
+                    dx = Point3f(0.0, 0.0, -0.1)
+                else
+                    dx = Point3f(0.0, 0.0, 0.1)
+                end
+                translate_cam!(lscene.scene, cc, dx)
                 if impacts(cc.eyeposition[], mm)
                     # move back
                     # TODO: This doesn't quite work, but maybe we don't care
-                    translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0, 0.1))
+                    translate_cam!(lscene.scene, cc, -dx)
                     # last coordinate if foward movement (for some inexplicable reason))
                 end
             end
