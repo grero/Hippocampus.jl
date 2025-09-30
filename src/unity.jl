@@ -1080,6 +1080,26 @@ function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{2,Float64
     (pillar_idx=pillar_idx, pillar_wall_idx=wall_idx)
 end
 
+function assign_posters(mm::MazeModelNew, _poster_pos::Dict{Symbol,NTuple{2,Float64}}=poster_pos)
+    pillar_idx = Dict{Symbol,Int64}()
+    wall_idx = Dict{Symbol,Int64}()
+    for (kp,pp) in _poster_pos
+        d = Inf
+        for (k,pillar) in enumerate(mm.pillars)
+            for (j,_wall) in enumerate(pillar)
+                pq = mean(_wall.position)
+                _d = (pp[1] - pq[1])^2 + (pp[2] - pq[2])^2
+                if _d < d
+                    d = _d
+                    pillar_idx[kp] = k
+                    wall_idx[kp] = j
+                end
+            end
+        end
+    end
+    (pillar_idx=pillar_idx, pillar_wall_idx=wall_idx)
+end
+
 # TODO: The Unity raytracer uses 40x40 bins on the floor as the baseline
 """
 Compute a histogram of `pos` projected onto the plane at `z0`
