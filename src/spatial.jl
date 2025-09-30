@@ -30,26 +30,40 @@ function get_positions(spr::SpatialRepresentation{T1,T2}) where T1 <: Real where
     Y
 end
 
-function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData)
+function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData;min_speed=0.0,trial_start=1, gidx::Union{Vector{Vector{Bool}}, Nothing}=nothing)
     nt = numtrials(udata)
     position = Vector{Vector{Point2f}}(undef, nt)
     events = Vector{Vector{Float64}}(undef, nt)
     sp = spikes.timestamps/1000.0 #convert to seconds
     for i in 1:nt
-        tp,posx,posy,_ = get_trial(udata,i)
+        tp,posx,posy,_ = get_trial(udata,i;trial_start=trial_start)
         tp .-= tp[1]
+        if gidx !== nothing
+            use_bin = gidx[i]
+        else
+            use_bin = fill(true,length(tp))
+        end
+        if min_speed > 0
+            # mark bins as invalid if the speed is too low
+            vv = sqrt.(diff(posx).^2 + diff(posy).^2)./diff(tp)
+            fidx = findall(vv .< min_speed)
+            use_bin[fidx] .= false
+        end
         timestamps = rp.timestamps[i,:]
-        idx0 = searchsortedfirst(sp, timestamps[1])
+        idx0 = searchsortedfirst(sp, timestamps[trial_start])
         idx1 = searchsortedlast(sp, timestamps[3])
         # align to trial start
-        sp_trial = sp[idx0:idx1] .- timestamps[1]
+        sp_trial = sp[idx0:idx1] .- timestamps[trial_start]
         nspikes = idx1-idx0+1
-        events[i] = sp_trial
-        position[i] = Vector{Point2f}(undef, nspikes)
+        events[i] = Float64[] 
+        position[i] = Point2f[]
         for j in 1:nspikes
-            k = searchsortedfirst(tp,sp_trial[j])
-            if 0 < k <= length(posx)
-                position[i][j] = Point2f(posx[k],posy[k])
+            k = searchsortedlast(tp,sp_trial[j])
+            if 0 < k < length(posx)
+                if use_bin[k]
+                    push!(position[i], Point2f(posx[k],posy[k]))
+                    push!(events[i], sp_trial[j])
+                end
             end
         end
     end
