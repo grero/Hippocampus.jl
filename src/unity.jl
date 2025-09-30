@@ -40,6 +40,15 @@ poster_pos[:donkey] = (5.168, 7.561)
 poster_pos[:croc] = (5.0, 2.433)
 poster_pos[:rabbit] = (7.561, -5.0)
 
+# hard coded new poster locations
+poster_pos_new = Dict{Symbol,NTuple{3,Float64}}()
+poster_pos_new[:camel] = (-5.0, -7.6, 1.4)
+poster_pos_new[:cat] = (7.6, -5.0, 1.4)
+poster_pos_new[:pig] = (2.4, -5.0, 1.4)
+poster_pos_new[:donkey] = (-7.6, 5.0, 1.4)
+poster_pos_new[:croc] = (-2.4, 5.0, 1.4)
+poster_pos_new[:rabbit] = (5.0, 7.6, 1.4)
+
 
 #poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
 # for some reason x and y appear to be flipped
