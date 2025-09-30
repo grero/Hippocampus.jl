@@ -70,7 +70,19 @@ function EyelinkData(qdata::Dict)
     args = Any[]
     midx = Int64[]
     for k in fieldnames(EyelinkData)
-        push!(args, qdata[string(k)])
+        tt = fieldtype(EyelinkData, k)
+        qv = qdata[string(k)]
+        if k == :session_start
+            qv = get(qdata,string(k),UInt64[])
+        else
+            qv = qdata[string(k)]
+        end
+        if typeof(qv) == eltype(tt)
+            qt = [qv]
+        else
+            qt = tt(qv)
+        end
+        push!(args, qt)
     end
     ee = EyelinkData(args...)
     if "missing_idx" in keys(qdata)
