@@ -239,7 +239,7 @@ function adaptive_smoothing(spm::SpatialMap, α=10000.0^2;filter_unoccupied=true
     Z
 end
 
-function compute_sic(spm::SpatialMap)
+function compute_sic(spm::AbstractSpatialMap)
 
     x = spm.weight./spm.occupancy
     idx = isfinite.(x)
