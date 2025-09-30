@@ -5,6 +5,7 @@ using MultivariateStats
 using LinearAlgebra
 using LinearRegressionUtils
 
+abstract type AbstractRepresentation{T1<:Real,T2<:Real} end
 """
 A spatial representation of events
 """
