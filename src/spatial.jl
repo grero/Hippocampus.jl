@@ -231,12 +231,18 @@ function SpatialMap(xbins, ybins;redo=false, do_save=false,kwargs...)
     SpatialMap(spr, xbins, ybins, spoc)
 end
 
-function adaptive_smoothing(spm::SpatialMap, α=10000.0^2;filter_unoccupied=true)
-    Z = adaptive_smoothing(spm.weight, spm.occupancy, α)
-    if filter_unoccupied
-        Z[spm.occupancy.==0] .= eltype(spm.weight)(NaN) 
-    end
-    Z
+function filter_occupancy(spm::SpatialMap{T}) where T <: Real
+    findall(spm.occupancy .== 0)
+end
+
+function filter_occupancy(spm::SmoothedSpatialMap{T}) where T <: Real
+    spm.unvisited
+end
+
+function adaptive_smoothing(spm::SpatialMap{T}, α=T(10000.0)^2;filter_unoccupied=true) where T <: Real
+    unoccupied = findall(spm.occupancy.==0)
+    Z,X,Y = adaptive_smoothing(spm.weight, spm.occupancy, α)
+    SmoothedSpatialMap(spm.xbins, spm.ybins, X, Y, unoccupied,α)
 end
 
 function compute_sic(spm::AbstractSpatialMap)
@@ -271,7 +277,8 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::AbstractSpatialMap
         label = "Spike count"
     end
     if default_arguments[:filter_gaze]
-        X[spm.occupancy.==0] .= eltype(X)(NaN)
+        oidx = filter_occupancy(spm)
+        X[oidx] .= eltype(X)(NaN)
     end
     h = S.Heatmap(spm.xbins, spm.ybins, rotr90(X), colormap=:turbo)
     ax1 = S.Axis(plots=[h])
