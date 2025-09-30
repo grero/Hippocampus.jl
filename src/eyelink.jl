@@ -26,6 +26,7 @@ end
 
 struct EyelinkData
     triggers::Matrix{Union{Missing, Int64}}
+    session_start::Vector{UInt64}
     timestamps::Matrix{Union{UInt64, Missing}}
     analogtime::Vector{UInt64}
     gazex::Matrix{Float32}
