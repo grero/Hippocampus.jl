@@ -135,10 +135,12 @@ function visualize!(lscene, spr::SpatialRepresentation;trial::Observable{Trial}=
     scatter!(lscene, trial_events)
 end
 
+abstract type AbstractSpatialMap end
+
 """
 Contains information about the total time spent in each spatial bin.
 """
-struct SpatialOccupancy{T<:Real}
+struct SpatialOccupancy{T<:Real} <: AbstractSpatialMap
     xbins::AbstractVector{T}
     ybins::AbstractVector{T}
     weight::Matrix{T}
