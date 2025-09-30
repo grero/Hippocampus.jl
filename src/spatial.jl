@@ -185,7 +185,7 @@ function SpatialOccupancy(xbins,ybins=xbins;kwargs...)
     SpatialOccupancy(udata, xbins, ybins;kwargs...)
 end
 
-struct SpatialMap{T<:Real}
+struct SpatialMap{T<:Real} <: AbstractSpatialMap
     xbins::AbstractVector{T}
     ybins::AbstractVector{T}
     weight::Matrix{T}
