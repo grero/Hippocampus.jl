@@ -9,9 +9,25 @@ abstract type AbstractRepresentation{T1<:Real,T2<:Real} end
 """
 A spatial representation of events
 """
-struct SpatialRepresentation
-    position::Vector{Vector{Point2f}}
-    events::Vector{Vector{Float64}}
+struct SpatialRepresentation{T1<:Real,T2<:Real} <: AbstractRepresentation{T1,T2}
+    position::Vector{Vector{Point{2, T1}}}
+    events::Vector{Vector{T2}}
+end
+
+"""
+Return a matrix of all positions
+"""
+function get_positions(spr::SpatialRepresentation{T1,T2}) where T1 <: Real where T2 <: Real
+    nspikes = sum(length.(spr.events))
+    Y = zeros(T1, 2, nspikes)
+    offset = 0
+    for pps in spr.position
+        for (j,pp)  in enumerate(pps)
+            Y[:, offset+j] .= pp
+        end
+        offset += length(pps)
+    end
+    Y
 end
 
 function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData)
