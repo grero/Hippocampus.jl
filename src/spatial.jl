@@ -78,7 +78,37 @@ function SpatialRepresentation(;kwargs...)
     udata = cd(DPHT.process_level(level(UnityData))) do
         UnityData()
     end
-    SpatialRepresentation(sptrain, rdata, udata)
+    SpatialRepresentation(sptrain, rdata, udata;kwargs...)
+end
+
+function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepresentation{T1,T2} where T1 <: Real where T2 <: Real
+    # save in a dictionary for now
+    nr = length(spr)
+    Q = Dict()
+    for (i,_spr) in enumerate(spr)
+        for pos in _spr.position
+            for p in pos
+                if !(p in keys(Q))
+                    Q[p] = fill(0, nr)
+                end
+                Q[p][i] += 1
+            end
+        end
+    end
+    nq = length(Q) 
+    pq = first(keys(Q))
+    if typeof(pq) == Point{2,T1}
+        d = 2
+    else
+        d = 3
+    end
+    position = zeros(T1, d, nq)
+    X = zeros(T1, nr, nq)
+    for (i,(q,v)) in enumerate(Q)
+        position[:,i] = q
+        X[:,i] = v
+    end
+    X,position
 end
 
 numtrials(spr::SpatialRepresentation) = length(spr.position)
