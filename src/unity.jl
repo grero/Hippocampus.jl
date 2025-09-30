@@ -415,17 +415,58 @@ function MazeModelNew(fname::String)
     MazeModelNew(wall_mesh, pillar_mesh, first(ground_mesh), first(ceiling_mesh))
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, mm::MazeModelNew)
+function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, posters::Posters)
     # TODO: Add textures
-    plots = [S.Mesh(m, color=:gray) for m in mm.walls]
-    push!(plots, S.Mesh(mm.floor, color=RGB(0.498, 0.263,0.025)))
-    push!(plots, S.Mesh(mm.ceiling, color=:gray))
-    pillar_colors = [:red, :green, :blue, :yellow]
+    hsv = HSV(RGB(0.498, 0.263,0.025))
+    x = range(-12.5f0, stop=12.5f0, length=200)
+    dd = x .- permutedims(x)
+    Q = exp.(-dd.^2/0.75f0)
+    Qs = sqrt(Q)
+    X = Qs'*randn(Float32, 200,200)*Qs
+    X .= 0.2f0 .+ 0.8f0*(X .- minimum(X))./(maximum(X) - minimum(X))
+    _color = HSV.(hsv.h, hsv.s, X)
+    plots = [S.Mesh(mm.floor, color=_color,shininess=16, specular=0.1)]
+    #push!(plots, S.Mesh(mm.ceiling, color=:gray))
+    for mw in mm.walls
+        rr = Rect(mw)
+        w = sort(rr.widths)
+        _color,_uv = generate_tile(RGB(0.3, 0.3, 0.3), w[1],w[2];nn=60,period=10, buffer=3)
+        push!(plots, S.Mesh(mw, color=_color,specular=0.1, shininess=16))
+    end
+
+    # TODO: Match this
+    #pillar_colors = fill(parse(Colorant, :red), 4)
+    #for (ii,pillar) in enumerate(mm.pillars)
+    #    μ = zeros(Float32, 3)
+    #    for mp in pillar
+    #        μ .+= mean(mp.position)
+    #    end
+    #    μ ./= 4
+    #    if μ[1] > 0 && μ[2] < 0
+    #        pillar_colors[ii] = parse(Colorant, :blue)
+    #    elseif μ[1] > 0 && μ[2] > 0
+    #        pillar_colors[ii] = parse(Colorant,:yellow)
+    #    elseif μ[1] < 0 && μ[2] < 0
+    #        pillar_colors[ii] = parse(Colorant, :green)
+    #    else
+    #        pillar_colors[ii] = parse(Colorant,:red)
+    #    end
+    #end
+    # the pillars are number counter-clockwise.
+    pillar_colors = [:green, :blue, :yellow, :red]
     for (pillar,color) in zip(mm.pillars, pillar_colors)
-        for mp in pillar
-            push!(plots, S.Mesh(mp,color=color))
+        nn = get_normal(pillar)
+        for (ii,mp) in enumerate(pillar)
+            μ = mean(mp.position)
+            # this is hackish
+            rr = Rect(mp)
+            w = sort(rr.widths)
+            _color,_uv = generate_tile(color, w[1],w[2];nn=60,period=20, buffer=3)
+            push!(plots, S.Mesh(mp,color=_color))
+            push!(plots, S.Arrows3D(μ, nn[ii],color=:black))
         end
     end
+    append!(plots, convert_arguments(T, posters))
     plots
 end
 
