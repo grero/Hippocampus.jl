@@ -228,6 +228,9 @@ function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
 end
 
 function get_trial(edata::EyelinkData, i;trial_start=1)
+    if ismissing(edata.timestamps[i,trial_start]) || ismissing(edata.timestamps[i,3])
+        error("Trial $i contains missing data")
+    end
     idx0 = searchsortedfirst(edata.analogtime, edata.timestamps[i,trial_start])
     idx1 = searchsortedfirst(edata.analogtime, edata.timestamps[i,3])
     trial_time = edata.analogtime[idx0:idx1]
