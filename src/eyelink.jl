@@ -119,6 +119,7 @@ Extract trial markers from Eyelink message events.
 function get_markers(messages::Vector{Eyelink.Event};perform_fix=true)
     triggers = Int64[]
     timestamps = UInt64[]
+    session_start = UInt64[]
     for msg in messages
         if startswith(msg.message, "Start Trial") ||
         startswith(msg.message, "End Trial") ||
@@ -127,9 +128,12 @@ function get_markers(messages::Vector{Eyelink.Event};perform_fix=true)
                 trigger = parse(Int64, split(msg.message)[end])
                 push!(triggers, trigger)
                 push!(timestamps, msg.sttime)
+        elseif startswith(msg.message, "Trigger")
+            push!(session_start, msg.sttime)
         end
     end
     trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps;perform_fix=perform_fix)
+    trial_markers, trial_timestamps, session_start
 end
 
 function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
@@ -183,9 +187,9 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     # get the messages
     messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
 
-    trial_markers, trial_timestamps = get_markers(messages)
+    trial_markers, trial_timestamps,session_start = get_markers(messages)
     qdata = Dict{String,Any}()
-    merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
+    merge!(qdata, Dict("triggers"=>trial_markers, "session_start"=>session_start, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
             "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "fixation_start"=>fixation_start,
             "fixation_end"=>fixation_end, "saccade_start_time"=>saccade_start_time,
             "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
@@ -195,8 +199,18 @@ end
 
 function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
     qdata = Dict{String,Any}()
-    qdata["triggers"] = edata.triggers
-    qdata["timestamps"] = edata.timestamps
+    # take care of the missing values
+    midx = (!ismissing).(edata.triggers)
+    triggers = zeros(Int64, size(edata.triggers)...)
+    triggers[midx] = edata.triggers[midx]
+    timestamps = zeros(UInt64, size(edata.timestamps)...)
+    timestamps[midx] = edata.timestamps[midx]
+    qdata["triggers"] = triggers
+    qdata["session_start"] = edata.session_start
+    qdata["timestamps"] = timestamps
+    _midx = findall((!).(midx))
+    qdata["missing_idx"] = [[_ii.I[1] for _ii in _midx] [_ii.I[2] for _ii in _midx]]
+    @show qdata["missing_idx"]
     qdata["analogtime"] = edata.analogtime
     qdata["gazex"] = edata.gazex
     qdata["gazey"] = edata.gazey
