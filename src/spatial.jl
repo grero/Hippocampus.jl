@@ -146,19 +146,36 @@ struct SpatialOccupancy{T<:Real} <: AbstractSpatialMap
     weight::Matrix{T}
 end
 
-function SpatialOccupancy(udata::UnityData, xbins::AbstractVector{T}, ybins::AbstractVector{T};trial_start=1) where T <: Real
+function SpatialOccupancy(udata::UnityData, xbins::AbstractVector{T}, ybins::AbstractVector{T};trial_start=1,min_speed=0.0, min_duration=0.0, min_num_observations=0,gidx::Union{Vector{Vector{Bool}},Nothing}=nothing) where T <: Real
     nt = numtrials(udata)
-    weight = fill(0.0, length(xbins)-1, length(ybins)-1)
+    weight = zeros(T, length(xbins)-1, length(ybins)-1)
+    w = fill!(similar(weight), zero(T))
     for i in 1:nt
+        # keep track of observations per trial
+        fill!(w, zero(T))
         tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
+        if gidx !== nothing
+            _gidx = gidx[i]
+        else
+            _gidx = fill(true, length(tu))
+        end
         for j in 2:length(tu)
+            if !_gidx[j]
+                continue
+            end
             Δt = tu[j]-tu[j-1]
-            xidx = searchsortedlast(xbins, posx[j-1])
-            yidx = searchsortedlast(ybins, posy[j-1])
-            if 0 < xidx <= size(weight,1) && 0 < yidx <= size(weight,2)
-                weight[xidx,yidx] += Δt
+            ds = sqrt((posx[j] - posx[j-1])^2 + (posy[j]-posy[j-1])^2)
+            ds /= Δt
+            if ds > min_speed
+                xidx = searchsortedlast(xbins, posx[j-1])
+                yidx = searchsortedlast(ybins, posy[j-1])
+                if 0 < xidx <= size(weight,1) && 0 < yidx <= size(weight,2)
+                    w[xidx,yidx] += Δt
+                end
             end
         end
+        # check number of observations per bin
+        weight .+= w
     end
     SpatialOccupancy(xbins, ybins, weight)
 end
