@@ -288,7 +288,7 @@ function visualize!(lscene, edata::EyelinkData;trial::Observable{Trial}=Observab
     #ylims!(ax, y0,y1)
     #ax.xgridvisible = false
     #ax.ygridvisible = false
-    gaze_pos = Observable([Point2f(NaN)])
+    gaze_pos = Observable([Point3f(NaN)])
     current_j = 1
     onany(edata_trial, current_time, cam.projectionview) do _edt, ct, proj
         te = _edt[1]
@@ -301,15 +301,11 @@ function visualize!(lscene, edata::EyelinkData;trial::Observable{Trial}=Observab
             # project to the cameras near clip, i.e. z=0.0
             gaze = permutedims([_edt[2][:]./Δx _edt[3][:]./Δy fill(0.0, length(_edt[2]))])
             gaze_pos[] = map(eachcol(gaze[:,j0:j1])) do gg
-                p = inv_pv*to_ndim(Point4f, gg, 1.0)
+                p = inv_pv*to_ndim(Point4f, Point3f(gg), 1.0)
                 Point3f(p[Makie.Vec(1,2,3)]/p[4])
             end
             current_j = j
         end
     end
-    if isa(ax, Axis)
-        scatter!(ax, gaze_pos;color=:red)
-    else
-        # plot into the near plane
-    end
+    scatter!(lscene, gaze_pos;color=:red)
 end
