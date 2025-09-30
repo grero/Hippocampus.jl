@@ -70,7 +70,7 @@ function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityD
     SpatialRepresentation(position,events)
 end
 
-function SpatialRepresentation()
+function SpatialRepresentation(;kwargs...)
     sptrain = Spiketrain()
     rdata = cd(DPHT.process_level(level(RippleData))) do
         RippleData()
