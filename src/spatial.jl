@@ -256,8 +256,8 @@ function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     -sum(filter(isfinite, pp.*log2.(pp)))
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,args::NamedTuple=(;))
-    default_arguments = Dict(:normalize=>true, :do_smooth=>true, :α=>10_000.0^2, :filter_gaze => true)
+function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::AbstractSpatialMap,args::NamedTuple=(;))
+    default_arguments = Dict(:normalize=>true, :filter_gaze => true)
     for k in keys(args)
         v = args[k] 
         default_arguments[k] = v
@@ -269,9 +269,6 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialMap,args::N
     else
         X = spm.weight
         label = "Spike count"
-    end
-    if default_arguments[:do_smooth]
-        X = adaptive_smoothing(spm.weight, spm.occupancy, default_arguments[:α])
     end
     if default_arguments[:filter_gaze]
         X[spm.occupancy.==0] .= eltype(X)(NaN)
