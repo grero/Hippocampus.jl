@@ -3,6 +3,7 @@ using Makie
 using Glob
 using DrWatson
 using DataProcessingHierarchyTools
+using RippleTools
 const DPHT = DataProcessingHierarchyTools
 include("utils.jl")
 include("paths.jl")
