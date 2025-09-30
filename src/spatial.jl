@@ -305,8 +305,13 @@ function regress_space(celldirs::Vector{String};kwargs...)
 end
 
 function regress_space(spr::Vector{SpatialRepresentation{T1,T2}};n_spatial_clusters=256, kwargs...) where T1 <: Real where T2 <: Real
-    X, position = get_population_representation(spr)
-    km_results = kmeans(position, n_spatial_clusters)
+    X, Y = get_population_representation(spr)
+    lq,pca, km_results, X2 = regression_space(X,Y;n_spatial_clusters=n_spatial_clusters, kwargs...)
+    lq, pca, km_results, X2,X,Y 
+end
+
+function regress_space(X::Matrix{T}, Y::Matrix{T};n_spatial_clusters=256,kwargs...) where T <: Real
+    km_results = kmeans(Y, n_spatial_clusters)
     # sum up responses in each of the spatial bins returned by the kmean algorithm
     X2 = zeros(eltype(X), size(X,1), n_spatial_clusters)
     for (i,k) in enumerate(km_results.assignments)
@@ -317,7 +322,7 @@ function regress_space(spr::Vector{SpatialRepresentation{T1,T2}};n_spatial_clust
     pca = fit(PCA, X2)
     Z = predict(pca, X2)
     lq = LinearRegressionUtils.llsq_stats(permutedims(Z), permutedims(km_results.centers))
-    lq, pca, km_results, X2,X, position
+    lq, pca, km_results, X2,X,Y 
 end
 
 function plot_regression_reults(lq, km_results, position, X)
