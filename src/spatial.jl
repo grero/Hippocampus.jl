@@ -192,10 +192,21 @@ struct SpatialMap{T<:Real} <: AbstractSpatialMap
     occupancy::Matrix{T}
 end
 
-DPHT.level(::Type{SpatialMap}) = "cell"
+struct SmoothedSpatialMap{T<:Real} <: AbstractSpatialMap
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    weight::Matrix{T}
+    occupancy::Matrix{T}
+    unvisited::Vector{CartesianIndex{2}}
+    α::T
+end
 
-function SpatialMap(spr::SpatialRepresentation, xbins::AbstractVector{T}, ybins::AbstractVector{T},spoc::SpatialOccupancy;kwargs...) where T <: Real
-    spatial_count = fill(0.0, length(xbins)-1, length(ybins)-1)
+DPHT.level(::Type{<:AbstractSpatialMap}) = "cell"
+
+function SpatialMap(spr::SpatialRepresentation{T,T2}, spoc::SpatialOccupancy{T};kwargs...) where T <: Real where T2 <: Real
+    xbins = spoc.xbins
+    ybins = spoc.ybins
+    spatial_count = zeros(T, length(xbins)-1, length(ybins)-1)
     nt = numtrials(spr)
     for i in 1:nt
         position = spr.position[i]
