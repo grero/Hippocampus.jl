@@ -1115,7 +1115,7 @@ function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{Gaz
             events[i] = Float64[]
             continue
         end
-        tg .-= tg[1]
+        tg .= tg .- tg[1]
         timestamps = rp.timestamps[i,:]
         idx0 = searchsortedfirst(sp, timestamps[1])
         idx1 = searchsortedlast(sp, timestamps[3])
