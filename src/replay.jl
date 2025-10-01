@@ -1111,6 +1111,8 @@ function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{Gaz
     for i in 1:nt
         tg,gaze,fixmask = get_trial(gdata,i)
         if length(tg) == 0
+            position[i] = Point3f[]
+            events[i] = Float64[]
             continue
         end
         tg .-= tg[1]
