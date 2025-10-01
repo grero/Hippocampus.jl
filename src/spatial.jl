@@ -11,14 +11,15 @@ A spatial representation of events
 """
 struct SpatialRepresentation{T1<:Real,T2<:Real} <: AbstractRepresentation{T1,T2}
     position::Vector{Vector{Point{2, T1}}}
-    events::Vector{Vector{T2}}
+    timestamp::Vector{Vector{T2}}
+    event::Vector{Vector{T2}}
 end
 
 """
 Return a matrix of all positions
 """
 function get_positions(spr::SpatialRepresentation{T1,T2}) where T1 <: Real where T2 <: Real
-    nspikes = sum(length.(spr.events))
+    nspikes = sum(length.(spr.event))
     Y = zeros(T1, 2, nspikes)
     offset = 0
     for pps in spr.position
@@ -33,6 +34,7 @@ end
 function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData;min_speed=0.0,trial_start=1, gidx::Union{Vector{Vector{Bool}}, Nothing}=nothing)
     nt = numtrials(udata)
     position = Vector{Vector{Point2f}}(undef, nt)
+    timestamp = Vector{Vector{Float64}}(undef, nt)
     events = Vector{Vector{Float64}}(undef, nt)
     sp = spikes.timestamps/1000.0 #convert to seconds
     for i in 1:nt
@@ -56,6 +58,7 @@ function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityD
         sp_trial = sp[idx0:idx1] .- timestamps[trial_start]
         nspikes = idx1-idx0+1
         events[i] = Float64[] 
+        timestamp[i] = Float64[]
         position[i] = Point2f[]
         for j in 1:nspikes
             k = searchsortedlast(tp,sp_trial[j])
@@ -63,11 +66,12 @@ function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityD
                 if use_bin[k]
                     push!(position[i], Point2f(posx[k],posy[k]))
                     push!(events[i], sp_trial[j])
+                    push!(timestamp[i], tp[k])
                 end
             end
         end
     end
-    SpatialRepresentation(position,events)
+    SpatialRepresentation(position,timestamp, events)
 end
 
 function SpatialRepresentation(;kwargs...)
