@@ -453,7 +453,7 @@ function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, post
     #    end
     #end
     # the pillars are number counter-clockwise.
-    pillar_colors = [:green, :blue, :yellow, :red]
+    pillar_colors = circshift([:green, :blue, :yellow, :red],-1)
     for (pillar,color) in zip(mm.pillars, pillar_colors)
         nn = get_normal(pillar)
         for (ii,mp) in enumerate(pillar)
