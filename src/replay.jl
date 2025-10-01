@@ -117,12 +117,14 @@ function GazeOnMaze(;do_save=true, redo=false)
     gdata
 end
 
-function DPHT.save(gdata::GazeOnMaze)
-    fname = DPHT.filename(typeof(gdata))
+function DPHT.save(gdata::T;append_tag=true) where T
+    fname = DPHT.filename(T)
     qdata = Dict{String,Any}()
     metadata = Dict{String,Any}() 
-    tag!(metadata, storepatch=true)
-    for k in fieldnames(GazeOnMaze)
+    if append_tag
+        tag!(metadata, storepatch=true)
+    end
+    for k in fieldnames(T)
         v = getfield(gdata, k)
         qdata[string(k)] = v
     end
@@ -130,15 +132,36 @@ function DPHT.save(gdata::GazeOnMaze)
     MAT.matwrite(fname, qdata)
 end
 
-function DPHT.load(::Type{GazeOnMaze})
-    fname = DPHT.filename(GazeOnMaze)
+function save_jld2(gdata::T;append_tag=true) where T
+    fname = DPHT.filename(T)
+    fname = replace(fname, ".mat"=>".jld2")
+    metadata = Dict{String,Any}() 
+    if append_tag
+        tag!(metadata, storepatch=true)
+    end
+    JLD2.save(fname, Dict("data"=>gdata, "meta"=>metadata))
+end
+
+function load_jld2(::Type{T}) where T
+    fname = DPHT.filename(T)
+    fname = replace(fname, ".mat"=>".jld2")
+    data,meta = JLD2.load(fname, "meta","data")
+    data
+end
+
+function DPHT.load(::Type{T}) where T
+    fname = DPHT.filename(T)
+    fname_jld2 = replace(fname ,".mat"=>".jld2")
+    if isfile(fname_jld2)
+        return load_jld2(T)
+    end
     qdata = MAT.matread(fname)
     metadata = qdata["meta"]
     args = Any[]
-    for k in fieldnames(GazeOnMaze)
+    for k in fieldnames(T)
         push!(args, qdata[string(k)])
     end
-    GazeOnMaze(args...)
+    T(args...)
 end
 
 """
