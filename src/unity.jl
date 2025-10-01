@@ -415,7 +415,15 @@ function MazeModelNew(fname::String)
     MazeModelNew(wall_mesh, pillar_mesh, first(ground_mesh), first(ceiling_mesh))
 end
 
-function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, posters::Posters)
+function get_pillar_colors(mm::MazeModelNew)
+     # the pillars are number counter-clockwise.
+    pillar_colors = HSV.(parse.(Colorant,circshift([:green, :blue, :yellow, :red],-1)))
+    #change saturation
+    pillar_colors = [HSV(hsv.h, 0.6*hsv.s, hsv.v) for hsv in pillar_colors]
+    pillar_colors
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, mm::MazeModelNew)
     # TODO: Add textures
     hsv = HSV(RGB(0.498, 0.263,0.025))
     x = range(-12.5f0, stop=12.5f0, length=200)
@@ -452,8 +460,8 @@ function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, post
     #        pillar_colors[ii] = parse(Colorant,:red)
     #    end
     #end
-    # the pillars are number counter-clockwise.
-    pillar_colors = circshift([:green, :blue, :yellow, :red],-1)
+    pillar_colors = get_pillar_colors(mm)
+
     for (pillar,color) in zip(mm.pillars, pillar_colors)
         nn = get_normal(pillar)
         for (ii,mp) in enumerate(pillar)
@@ -463,9 +471,30 @@ function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, post
             w = sort(rr.widths)
             _color,_uv = generate_tile(color, w[1],w[2];nn=60,period=20, buffer=3)
             push!(plots, S.Mesh(mp,color=_color))
-            push!(plots, S.Arrows3D(μ, nn[ii],color=:black))
+            #push!(plots, S.Arrows3D(μ, nn[ii],color=:black))
         end
     end
+    plots
+end
+
+function Makie.convert_arguments(::Type{<:Wireframe}, mm::MazeModelNew)
+    plots = [S.Wireframe(mm.floor, color=(:black, 0.2),transparency=true)]
+    push!(plots, S.Wireframe(mm.ceiling, color=(:black, 0.2), transparency=true))
+    for mw in mm.walls
+        push!(plots, S.Wireframe(mw,color=(:black, 0.2), transparency=true))
+    end
+
+    pillar_colors = get_pillar_colors(mm)
+    for (pillar,_color) in zip(mm.pillars,pillar_colors)
+        for (ii,mp) in enumerate(pillar)
+            push!(plots, S.Wireframe(mp, color=(_color, 0.2),transparency=true))
+        end
+    end
+    plots
+end
+
+function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, posters::Posters)
+    plots = convert_arguments(T, mm)
     append!(plots, convert_arguments(T, posters))
     plots
 end
