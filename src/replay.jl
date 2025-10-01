@@ -145,7 +145,7 @@ end
 function load_jld2(::Type{T}) where T
     fname = DPHT.filename(T)
     fname = replace(fname, ".mat"=>".jld2")
-    data,meta = JLD2.load(fname, "meta","data")
+    meta,data = JLD2.load(fname, "meta","data")
     data
 end
 
