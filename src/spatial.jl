@@ -85,6 +85,9 @@ function SpatialRepresentation(;kwargs...)
     SpatialRepresentation(sptrain, rdata, udata;kwargs...)
 end
 
+each(X::AbstractVector{<:Any}) = X
+each(X::AbstractMatrix{<:Any}) = eachcol(X)
+
 function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepresentation{T1,T2} where T1 <: Real where T2 <: Real
     # save in a dictionary for now
     nr = length(spr)
