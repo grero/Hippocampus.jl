@@ -93,8 +93,9 @@ function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepr
     nr = length(spr)
     Q = Dict()
     for (i,_spr) in enumerate(spr)
-        for pos in _spr.position
-            for p in pos
+        _position = get_rep(_spr)
+        for (kk,pos) in enumerate(_position)
+            for p in each(pos)
                 if !(p in keys(Q))
                     Q[p] = fill(0, nr)
                 end
