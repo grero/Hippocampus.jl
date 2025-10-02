@@ -107,8 +107,10 @@ function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepr
     pq = first(keys(Q))
     if typeof(pq) == Point{2,T1}
         d = 2
-    else
+    elseif typeof(pq) == Point{3,T1}
         d = 3
+    else
+        d = length(pq)
     end
     position = zeros(T1, d, nq)
     X = zeros(T1, nr, nq)
