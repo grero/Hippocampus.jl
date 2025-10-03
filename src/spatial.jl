@@ -31,6 +31,8 @@ function get_positions(spr::SpatialRepresentation{T1,T2}) where T1 <: Real where
     Y
 end
 
+get_rep(sr::SpatialRepresentation) = sr.position
+
 function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData;min_speed=0.0,trial_start=1, gidx::Union{Vector{Vector{Bool}}, Nothing}=nothing)
     nt = numtrials(udata)
     position = Vector{Vector{Point2f}}(undef, nt)
