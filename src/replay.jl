@@ -1203,6 +1203,73 @@ function visualize!(lscene, vrp::ViewRepresentation;trial::Observable{Trial}=Obs
     scatter!(lscene, gaze_pos, color=:green)
 end
 
+struct JointRepresentation <: AbstractRepresentation{Float32, Float64}
+    events::Vector{Vector{Float64}}
+    data::Vector{Matrix{Float32}}
+end
+
+get_rep(jp::JointRepresentation) = jp.data
+
+function JointRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{GazeOnMaze,UnityRaytraceData}, udata::UnityData)
+    sp = spikes.timestamps/1000.0 
+    nt = numtrials(gdata)
+    nt == numtrials(udata) || error("`gdata` and `udata` should have the same number of trials")
+    events = Vector{Vector{Float64}}(undef, nt)
+    data = Vector{Matrix{Float32}}(undef, nt)
+    for i in 1:nt
+        tg,gaze,fixmask = get_trial(gdata,i)
+        if isempty(tg)
+            events[i] = Float64[]
+            data[i] = Matrix{Float32}(undef, 0,0)
+            continue
+        end
+        tg .-= tg[1]
+        tu,posx,posy,hd = get_trial(udata,i)
+        tu .-= tu[1]
+
+        timestamps = rp.timestamps[i,:]
+        
+        # find the index of of each spike in this trial
+        idx0 = searchsortedfirst(sp, timestamps[1])
+        idx1 = searchsortedlast(sp, timestamps[3])
+
+        sp_trial = sp[idx0:idx1] .- timestamps[1]
+        nspikes = idx1-idx0+1
+        trialdata = zeros(Float32, 5, nspikes)
+        trialevents = zeros(Float64, nspikes)
+        js = 1
+        for j in 1:nspikes
+            kg = searchsortedfirst(tg,sp_trial[j])
+            ku = searchsortedfirst(tu,sp_trial[j])
+
+            if (0 < kg <= size(gaze,2) && fixmask[kg]) && (0 < ku <= length(posx))
+                trialdata[1:3, js] .= gaze[:,kg]
+                trialdata[4, js] = posx[ku]
+                trialdata[5, js] = posy[ku]
+                trialevents[js] = sp_trial[j]
+                js += 1
+            end
+        end
+        data[i] = trialdata[:,1:js-1]
+        events[i] = trialevents[1:js-1]
+    end
+    JointRepresentation(events, data)
+end
+
+function JointRepresentation(::Type{T};kwargs...) where T <: Union{GazeOnMaze, UnityRaytraceData}
+    gdata = cd(DPHT.process_level(T)) do
+        T(;kwargs...)
+    end
+    rp = cd(DPHT.process_level(RippleData)) do
+        RippleData()
+    end
+    udata = cd(DPHT.process_level(UnityData)) do
+        UnityData()
+    end
+    sp = Spiketrain()
+    JointRepresentation(sp,rp,gdata,udata)
+end
+
 struct ViewOccupancy
     counts::Dict
     bins::Dict
