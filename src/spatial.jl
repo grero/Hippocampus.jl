@@ -322,6 +322,47 @@ function regress_space(spr::Vector{SpatialRepresentation{T1,T2}};n_spatial_clust
     lq, pca, km_results, X2,X,Y 
 end
 
+function merge_responses(X::Matrix{T}, km_results::Vector{Clustering.KmeansResult{Matrix{T},T,Int64}}) where T <: Real
+    assignments = [km.assignments for km in km_results]
+    centers = [km.centers for km in km_results]
+    dm = size.(centers,1)
+    d,n = size(X)
+    nq = maximum.(assignments)
+    nn = prod(nq)
+    Xq = zeros(T, d, nq...)
+    ny = zeros(Int64, 1, nq...)
+    idx = [CartesianIndex(i,j) for (i,j) in zip(assignments...)]
+    for (k,ii) in enumerate(idx)
+        Xq[:,ii] .+= X[:,k]
+        ny[1,ii] += 1
+    end
+    Y = zeros(T, sum(dm), nq...)
+    iidx = CartesianIndices(tuple([1:_n for _n in nq]...))
+    for ii in iidx
+        offset = 0
+        for j in 1:length(dm)
+            Y[offset+1:offset+dm[j],ii] .= centers[j][:,ii.I[j]]
+            offset += dm[j]
+        end
+    end
+    # filter out combinations that did not happen
+    fidx = findall(ny[1,:,:] .> 0)
+    Xq[:,fidx]./ny[:,fidx], Y[:,fidx]
+end
+
+function merge_responses(X::Matrix{T}, assignment::AbstractVector{Int64}, weight::Union{AbstractVector{T2},Nothing}=nothing) where T <: Real where T2 <: Real
+    nc = maximum(assignment)
+    if weight === nothing
+        weight == fill(one(T), nc)
+    end
+    X2 = zeros(T, size(X,1), nc)
+    for (i,k) in enumerate(assignment)
+       X2[:,k] .+= X[:,i]
+    end
+    X2 ./= reshape(weight,1,size(X2,2))
+    X2
+end
+
 function regress_space(X::Matrix{T}, Y::Matrix{T};n_spatial_clusters=256,kwargs...) where T <: Real
     km_results = kmeans(Y, n_spatial_clusters)
     # sum up responses in each of the spatial bins returned by the kmean algorithm
