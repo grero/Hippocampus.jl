@@ -222,7 +222,7 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
 
     #now the walls
     upper_wall_points = [(xmin,ymin, zmax),(xmin, -7.5, zmax),(xmin, -2.5, zmax), (xmin, 2.5, zmax),
-                     (xmin, 7.5, zmax), (xmin, ymax, zmax), (-2.5, ymax,zmax), (-7.5, ymax,zmax),
+                     (xmin, 7.5, zmax), (xmin, ymax, zmax), (-7.5, ymax,zmax), (-2.5, ymax,zmax),
                      (2.5, ymax,zmax),(7.5, ymax,zmax), (xmax, ymax,zmax), (xmax, 7.5,zmax),
                      (xmax, 2.5,zmax),(xmax, -2.5,zmax),(xmax, -7.5,zmax), (xmax, ymin,zmax),
                      (7.5, ymin,zmax),(2.5, ymin,zmax), (-2.5, ymin,zmax),(-7.5, ymin,zmax)]
