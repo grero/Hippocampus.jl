@@ -219,5 +219,21 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     push!(cnx, (37,53,54,13)) 
     push!(cnx, (8,51,53,37))
     push!(cnx, (9,52,54,13))
+
+    #now the walls
+    upper_wall_points = [(xmin,ymin, zmax),(xmin, -7.5, zmax),(xmin, -2.5, zmax), (xmin, 2.5, zmax),
+                     (xmin, 7.5, zmax), (xmin, ymax, zmax), (-2.5, ymax,zmax), (-7.5, ymax,zmax),
+                     (2.5, ymax,zmax),(7.5, ymax,zmax), (xmax, ymax,zmax), (xmax, 7.5,zmax),
+                     (xmax, 2.5,zmax),(xmax, -2.5,zmax),(xmax, -7.5,zmax), (xmax, ymin,zmax),
+                     (7.5, ymin,zmax),(2.5, ymin,zmax), (-2.5, ymin,zmax),(-7.5, ymin,zmax)]
+    append!(points, upper_wall_points)
+    #maybe be a bit smarter here
+    for (p1,p2) in zip(upper_wall_points, circshift(upper_wall_points,1))
+        idx0 = findfirst(p->p==(p1[1], p1[2],zmin), points)
+        idx1 = findfirst(p->p==(p1[1], p1[2],zmax), points)
+        idx2 = findfirst(p->p==(p2[1], p2[2],zmax), points)
+        idx3 = findfirst(p->p==(p2[1], p2[2],zmin), points)
+        push!(cnx, (idx0, idx1, idx2,idx3))
+    end
     points, cnx
 end
