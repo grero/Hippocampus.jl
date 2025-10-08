@@ -235,6 +235,30 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
         idx3 = findfirst(p->p==(p2[1], p2[2],zmin), points)
         push!(cnx, (idx0, idx1, idx2,idx3))
     end
+
+    # ceiling
+    above_pillar_points = Tuple{Float64,Float64,Float64}[]
+    for x = [-7.5, -2.5, 2.5, 7.5]
+        for y in [-7.5, -2.5, 2.5, 7.5]
+            push!(above_pillar_points, (x,y,zmax))
+        end
+    end
+    append!(points, above_pillar_points)
+    # now connect them
+    xpoints = [xmin, -7.5, -2.5, 2.5, 7.5, xmax]
+    ypoints = [ymin, -7.5, -2.5, 2.5, 7.5, ymax]
+
+    for (x1,x2) in zip(xpoints[1:end-1], xpoints[2:end]) 
+        for (y1,y2) in zip(ypoints[1:end-1], ypoints[2:end])
+            idx0 = findfirst(p->p==(x1,y1,zmax), points)
+            idx1 = findfirst(p->p==(x1,y2,zmax), points)
+            idx2 = findfirst(p->p==(x2,y2,zmax), points)
+            idx3 = findfirst(p->p==(x2,y1,zmax), points)
+            push!(cnx, (idx0,idx1,idx2,idx3))
+        end
+    end
+
+
     points, cnx
 end
 
