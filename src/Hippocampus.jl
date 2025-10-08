@@ -5,6 +5,7 @@ using DrWatson
 using DataProcessingHierarchyTools
 using RippleTools
 const DPHT = DataProcessingHierarchyTools
+include("topology.jl")
 include("utils.jl")
 include("paths.jl")
 include("sprites.jl")
