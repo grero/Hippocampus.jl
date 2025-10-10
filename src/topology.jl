@@ -46,8 +46,8 @@ function nearestneighbors(mm::SimpleMesh)
     end
 end
 
-function ballsearch(mm::SimpleMesh)
-    A = adjacencymatrix(mm;rank=0)
+function ballsearch(mm::SimpleMesh;rank=paramdim(mm))
+    A = adjacencymatrix(mm;rank=rank)
     G = SimpleGraph(A)
     function searchball(ii::Integer, r::Integer)
         dj = dijkstra_shortest_paths(G, ii, A;trackvertices=false)
@@ -55,10 +55,14 @@ function ballsearch(mm::SimpleMesh)
     end
 end
 
-function distancematrix(mm::SimpleMesh)
+function distancematrix(mm::SimpleMesh;rank=paramdim(mm))
     nn = length(mm.vertices)
-    A = adjacencymatrix(mm;rank=0)
-    G = SimpleGraph(A)
+    A = adjacencymatrix(mm;rank=rank)
+    if issymmetric(A)
+        G = SimpleGraph(A)
+    else
+        G = SimpleDiGraph(A)
+    end
     D = zeros(nn,nn)
     for ii in 1:nn
         dj = dijkstra_shortest_paths(G, ii;trackvertices=false)
