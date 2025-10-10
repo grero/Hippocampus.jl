@@ -349,3 +349,67 @@ function count_on_manifold(mm::SimpleMesh, X::Matrix{T},w::AbstractVector{T}=one
     end
     Z
 end
+
+function mapto(mm::SimpleMesh, x::AbstractVector{T}, y::AbstractVector{T},z::AbstractVector{T}) where T <: Real
+    #get the size of a single element 
+    idx = Int64[]
+    kn = KNearestSearch(mm, 1)
+    for _x in x
+        for _y in y
+            for _z in z
+               _idx,dd = searchdists(Meshes.Point(_x,_y,_z), kn)
+               _mm = mm[first(_idx)]
+               Δ=mean(norm.(_mm.vertices .- centroid(_mm)))
+               if all(dd .<= Δ)
+                    push!(idx, first(_idx))
+               else
+                    push!(idx, 0)
+               end
+            end
+        end
+    end
+    idx
+end
+
+function explore(mm::SimpleMesh;kwargs...)
+    # used for collision
+    kn = KNearestSearch(mm, 1)
+    fig,lscene = viz(mm;kwargs...)
+    #set up camera
+    lookat = Point3f(1.0, 0.0, 0.7)
+    cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
+    eyepos = Point3f(0.0, 0.0, 0.7)
+    v = lookat - eyepos 
+    v = v./norm(v)
+    #translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0,2.5))
+    update_cam!(lscene.scene, eyepos, lookat)
+    on(events(lscene.scene).keyboardbutton, priority=20) do event
+
+        if ispressed(lscene.scene, Keyboard.up) || ispressed(lscene.scene, Keyboard.down)
+            if ispressed(lscene.scene, Keyboard.up)
+                dx = Point3f(0.0, 0.0, -0.1)
+            else
+                dx = Point3f(0.0, 0.0, 0.1)
+            end
+            translate_cam!(lscene.scene, cc, dx)
+            #check for collision
+            qq = cc.eyeposition[]
+            idx,dd = searchdists(Meshes.Point(qq...), kn)
+            if dd[1] <= 0.1*Unitful.m
+                # move back
+                # TODO: This doesn't quite work, but maybe we don't care
+                translate_cam!(lscene.scene, cc, -dx)
+                # last coordinate if foward movement (for some inexplicable reason))
+            end
+        end
+        if ispressed(lscene.scene, Keyboard.right)
+            rotate_cam!(lscene.scene, cc, Point3f(0.0, -0.1, 0.0))
+            return Consume()
+        end
+        if ispressed(lscene.scene, Keyboard.left)
+            rotate_cam!(lscene.scene,cc, Point3f(0.0, 0.1, 0.0))
+            return Consume()
+        end
+    end
+    fig
+end
