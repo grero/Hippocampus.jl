@@ -230,8 +230,8 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     _do_reverse = has_edges(idx, cnx)
 
     push!(cnx, fix_connection(idx,points;clockwise=!_do_reverse))
-    append!(points, [(7.5, ymin, 0.0), (7.5, -7.5, 0.0)])
-    _cnx = (31,29,30,32)
+    append!(points, [(7.5, ymin, 0.0)])
+    _cnx = (31,29,30,25)
     _do_reverse = has_edges(idx, cnx)
     push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
     append!(points, [(-2.5, ymin, 0.0), (-2.5, -7.5, 0.0)])
