@@ -2,6 +2,7 @@ using Meshes
 using Meshes: connect
 using Graphs
 using Graphs: DijkstraState
+using Unitful
 
 using GeometryBasics
 
