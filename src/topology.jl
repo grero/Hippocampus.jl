@@ -339,13 +339,13 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     points, cnx
 end
 
-function count_on_manifold(mm::SimpleMesh, X::Matrix{T}) where T <: Real
+function count_on_manifold(mm::SimpleMesh, X::Matrix{T},w::AbstractVector{T}=ones(T,size(X,2))) where T <: Real
     # look for the nearest element
     kn = KNearestSearch(mm, 1)
     Z = zeros(nelements(mm))
-    for v in eachcol(X)
+    for (j,v) in enumerate(eachcol(X))
         idx = search(Meshes.Point(v...),kn)
-        Z[idx] .+= 1.0
+        Z[idx] .+= w[j]
     end
     Z
 end
