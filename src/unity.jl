@@ -934,6 +934,108 @@ function Posters(mm::MazeModel,_poster_pos=poster_pos;z=2.5)
     Posters(sprites)
 end
 
+function Posters(mm::MazeModelNew,_poster_pos=poster_pos_new;z=1.5)
+    __poster_pos = Dict(k=>(p[1],p[2],z) for (k,p) in _poster_pos)
+    wall_pillar_idx = assign_posters(mm,__poster_pos)
+    wall_idx = wall_pillar_idx.pillar_wall_idx
+    pillar_idx = wall_pillar_idx.pillar_idx
+    rot = LinearMap(RotX(3π/2))
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    # hack just to figure out the type
+    sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    nn = Dict(k=>get_normal(mm.pillars[pillar_idx[k]]) for k in keys(pillar_idx))
+    for (ii,pk) in enumerate(keys(__poster_pos))
+        pp = _poster_pos[pk]
+        img = images[pk]
+        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+        sp2 = rot(sp)
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
+        #nn = get_normal(mm.pillars[pillar_idx[pk]][wall_idx[pk]])
+        _nn = nn[pk][wall_idx[pk]]
+        θ = acos(sp2.normals[1]'*_nn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        sprites[ii] = sp3
+    end
+    Posters(sprites)
+end
+
+function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5)
+    __poster_pos = Dict(k=>(p[1],p[2],z) for (k,p) in _poster_pos)
+    rot = LinearMap(RotX(3π/2))
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    # hack just to figure out the type
+    sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    kn = KNearestSearch(mm, 1)
+    for (ii,pk) in enumerate(keys(__poster_pos))
+        pp = _poster_pos[pk]
+        img = images[pk]
+        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+        sp2 = rot(sp)
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
+        # find the normal vector
+        # first find the closest element
+        mp = Meshes.Point(pp[1],pp[2],z)
+        _idx, dd = searchdists(mp,kn)
+        _mm = mm[first(_idx)]
+        v = mp - centroid(_mm)
+        v = v./norm(v)
+        v1 = _mm.vertices[1] - _mm.vertices[2]
+        v1 = v1./norm(v1)
+        v2 = _mm.vertices[1] - _mm.vertices[4]
+        v2 = v2./norm(v2)
+        # normal to the surface
+        vn = cross(v1,v2) 
+        if vn'*v < 0
+            vn = -1.0*vn
+        end
+
+        θ = acos(sp2.normals[1]'*vn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        sprites[ii] = sp3
+    end
+    Posters(sprites)
+end
+
+function get_normal(m::Vector{T}) where T <: OrientedMesh
+    [_m.normal for _m in m]
+end
+
+function get_normal(pillar::Vector{T}) where T <: GeometryBasics.AbstractMesh
+    # we need to figure out which normal points outwards
+    # maybe just find the normal that points away from the center
+    pos = Point3f[]
+    for p in pillar
+        append!(pos, p.position)
+    end
+    μ = mean(pos)
+    nn = Vector{Vec3f}(undef, length(pillar))
+    for (j,p) in enumerate(pillar)
+        μp = mean(p.position)
+        v = μp - μ
+        v = normalize(v)
+        q = 0.0f0
+        jj = 0
+        for n in p.normals.data
+            _d = v'*n
+            if _d > q
+                nn[j] = n
+                q = _d
+            end
+        end 
+    end
+    nn
+end
+
+
+
 function visualize!(lscene, posters::Posters;kwargs...)
     for sp3 in posters.sprite
         plot!(lscene, sp3)
