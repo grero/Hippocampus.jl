@@ -339,6 +339,14 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     points, cnx
 end
 
+function get_maze_mesh(args...;kwargs...)
+    points,cnx = maze_topology3(args...;kwargs...)
+    mm = SimpleMesh(points, connect.(cnx))
+    mm2 = refine(refine(refine(mm, QuadRefinement()), QuadRefinement()),QuadRefinement())
+    mm2 = SimpleMesh(mm2.vertices, convert(HalfEdgeTopology, mm2.topology))
+    mm2
+end
+
 function count_on_manifold(mm::SimpleMesh, X::Matrix{T},w::AbstractVector{T}=ones(T,size(X,2))) where T <: Real
     # look for the nearest element
     kn = KNearestSearch(mm, 1)
