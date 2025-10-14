@@ -437,3 +437,77 @@ function explore(mm::SimpleMesh;kwargs...)
     end
     fig
 end
+
+function map_from_matlab(pillar_height=2.5f0)
+    xbins = range(-12.5f0, stop=12.5f0, length=40)
+    ybins = xbins
+    zbins = range(0.0f0, stop=5.0f0, step=step(xbins))
+
+    # each wall is 40 × 8
+    #start at  bottom left corner, move clockwise
+    wall_idx = reverse(permutedims(reshape(3203:3203+1280-1, 40*4,8)),dims=1)
+    wall_points = NTuple{3, Float32}[]
+    for zb in zbins 
+        for yb in ybins
+            push!(wall_points, (xbins[1], yb, zb))
+        end
+        for xb in xbins
+            push!(wall_points, (xb, ybins[end], zb))
+        end
+        for yb in reverse(ybins) 
+            push!(wall_points, (xbins[end], yb, zb))
+        end
+        for xb in reverse(xbins)
+            push!(wall_points, (xb, ybins[1], zb))
+        end
+    end
+
+    ceiling_idx = reverse(permutedims(reshape(1603:1603+1600-1, 40, 40)),dims=1)
+    ceiling_points = NTuple{3, Float32}[]
+    for yb in ybins
+        for xb in xbins
+            push!(ceiling_points, (xb,yb, last(zbins)))
+        end
+    end
+    floor_idx = reverse(permutedims(reshape(3:3+1600-1, 40, 40)))
+    floor_points = NTuple{3, Float32}[]
+    for yb in ybins
+        for xb in xbins
+            push!(floor_points, (xb,yb, first(zbins)))
+        end
+    end
+
+    # pillars
+    pillar_points = Vector{Vector{NTuple{3, Float32}}}(undef, 4)
+    p1_br_idx = reverse(permutedims(reshape(4483:4483+160-1, 8*4, 5)),dims=1) 
+    p2_bl_idx = reverse(permutedims(reshape(4643:4643+160-1, 8*4, 5)),dims=1)
+    p3_tr_idx = reverse(permutedims(reshape(4803:4803+160-1, 8*4, 5)),dims=1)
+    p4_tl_idx = reverse(permutedims(reshape(4963:4963+160-1, 8*4, 5)),dims=1)
+
+    lower_left = [(-7.5, -7.5),(-7.5, 2.5), (2.5, 2.5), (2.5, -7.5)]
+    for (i,ll) in enumerate(lower_left)
+        _points = NTuple{3,Float32}[]
+        _ybins = range(ll[2], stop=ll[2]+5.0f0, length=8)
+        _xbins = range(ll[1], stop=ll[1]+5.0f0, length=8)
+        for zb in range(0.0f0, stop=pillar_height, length=5)
+            for yb in _ybins
+                push!(_points, (ll[1], yb,zb))
+            end
+            for xb in _xbins
+                push!(_points, (xb, ll[2]+5.0f0, zb))
+            end
+            for yb in reverse(_ybins) 
+                push!(_points, (_xbins[end], yb, zb))
+            end
+            for xb in reverse(_xbins)
+                push!(_points, (xb, _ybins[1], zb))
+            end
+        end
+        pillar_points[i] = _points
+    end
+     
+    nn = length(wall_idx) + length(ceiling_idx) + length(floor_idx) + length(p1_br_idx) + length(p2_bl_idx) + length(p3_tr_idx) + length(p4_tl_idx)
+    wall_points, ceiling_points, floor_points, pillar_points, nn
+    allidx = [vec(floor_idx);vec(ceiling_idx);vec(wall_idx);vec(p1_br_idx);vec(p2_bl_idx);vec(p3_tr_idx);vec(p4_tl_idx)]
+    [floor_points;ceiling_points;wall_points;pillar_points...], allidx
+end
