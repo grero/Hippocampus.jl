@@ -374,7 +374,31 @@ end
 function explore(mm::SimpleMesh;kwargs...)
     # used for collision
     kn = KNearestSearch(mm, 1)
-    fig,lscene = viz(mm;kwargs...)
+    fig = Figure()
+    lscene = LScene(fig[1,1])
+    zmax = maximum(mm.vertices).coords.z.val
+    if (floor_offset != 0 || ceiling_offset != 0)
+        ppred(p1,p2) = ((p1.coords.z.val==0.0)&&(p2.coords.z.val==0.0))||((zmax > p1.coords.z.val > 0.0)&&(zmax > p2.coords.z.val>0.0))||((p1.coords.z.val==zmax)&&(p2.coords.z.val==zmax))
+        parts = partition(mm, PointPredicatePartition(ppred))
+        # the order is not consistent, but floor has the least number of elements, followed by the ceiling, and then the middle
+        midx = sortperm(nelements.(parts))
+        m_floor, m_ceiling, m_middle = parts[midx]
+        if floor_offset != 0
+            m_floor2 = Translate(0.0, 0.0, floor_offset)(m_floor)
+        else
+            m_floor2 = m_floor
+        end
+        if ceiling_offset != 0
+            m_ceiling2 = Translate(0.0, 0.0, ceiling_offset)(m_ceiling)
+        else
+            m_ceiling2 = m_ceiling
+        end
+        viz!(lscene, m_middle;color=color[m_middle.inds],alpha=alpha[m_middle.inds], kwargs...)
+        viz!(lscene, m_floor2;color=color[m_floor2.inds],alpha=alpha[m_floor2.inds], kwargs...)
+        viz!(lscene, m_ceiling2;color=color[m_ceiling2.inds],alpha=alpha[m_ceiling2.inds], kwargs...)
+    else
+        viz!(lscene, mm;color=color,alpha=alpha, kwargs...)
+    end
     #set up camera
     lookat = Point3f(1.0, 0.0, 0.7)
     cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
