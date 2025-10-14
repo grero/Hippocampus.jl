@@ -1277,18 +1277,345 @@ struct ViewOccupancy
     mm::MazeModel
 end
 
-DPHT.level(::Type{ViewOccupancy}) = "session"
+struct ViewOccupancyNew{T<:Real} <: AbstractViewOccupancy
+    counts::Vector{T}
+    mm::SimpleMesh
+end
+
+struct ViewAndPlaceOccupancy{T<:Real}
+    weight_place::Vector{T}
+    placebin_idx::Vector{Vector{Int64}}
+    weight_view::Matrix{T}
+    viewbin_idx::Vector{Vector{Int64}}
+    mm::SimpleMesh
+end
+
+DPHT.level(::Type{<:AbstractViewOccupancy}) = "session"
 DPHT.filename(::Type{ViewOccupancy}) = "view_occupancy.mat"
+DPHT.filename(::Type{ViewOccupancyNew{T}}) where T <: Real = "view_occupancy_new.jld2"
+DPHT.filename(::Type{ViewOccupancyNew}) = "view_occupancy_new.jld2"
+DPHT.filename(::Type{ViewAndPlaceOccupancy}) = "view_and_occupancy.jld2"
+
+function load_jld2(::Type{ViewOccupancyNew})
+    fname = DPHT.filename(ViewOccupancyNew)
+    fname = replace(fname, ".mat"=>".jld2")
+    meta,data = JLD2.load(fname, "meta","data")
+    mm = get_maze_mesh()
+    ViewOccupancyNew(data["counts"],mm)
+end
+
+function save_jld2(voc::ViewOccupancyNew{T};append_tag=true) where T <: Real
+    fname = DPHT.filename(ViewOccupancyNew{T})
+    fname = replace(fname, ".mat"=>".jld2")
+    metadata = Dict{String,Any}() 
+    if append_tag
+        tag!(metadata, storepatch=true)
+    end
+    JLD2.save(fname, Dict("data"=>Dict("counts"=>voc.counts), "meta"=>metadata))
+end
 
 function ViewOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, mm::MazeModel)
     counts,bins,idx = compute_histogram(gdata,mm)
     ViewOccupancy(counts,bins,idx, mm)
 end
 
-function ViewOccupancy()
-    mm = MazeModel()
-    gdata = GazeOnMaze()
-    ViewOccupancy(gdata,mm)
+function ViewOccupancyNew(gdata::Union{GazeOnMaze,UnityRaytraceData}, mm::SimpleMesh;fixations_only=false)
+    ng = sum(length.(gdata.gaze) .-1 )
+    gaze = zeros(3, ng)
+    weight = zeros(ng)
+    offset = 0
+    for (_gaze, _timestamps,_fix) in zip(gdata.gaze, gdata.timestamps,gdata.fixating)
+        Δt = diff(_timestamps)
+        nb = length(Δt)
+        if fixations_only
+            weight[offset+1:offset+nb] = Δt.*_fix[1:end-1]
+            gaze[:,offset+1:offset+nb] = _gaze[:,1:end-1] # Skip the last point
+        else
+            weight[offset+1:offset+nb] = Δt
+            gaze[:,offset+1:offset+nb] = _gaze[:,1:end-1] # Skip the last point
+        end
+        offset += nb
+    end
+    counts = count_on_manifold(mm, gaze, weight)
+    ViewOccupancyNew(counts,mm)
+end
+
+function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata::UnityData, mm::SimpleMesh;fixations_only=false, check_dist=false)
+    nt = numtrials(gdata)
+    nt == numtrials(udata) || error("View and gaze data should have the same number of trials")
+    ss = Slice(x=(-12.5, 12.5), y=(-12.5, 12.5), z=(0.0, 0.0))
+    m_floor = ss(mm)
+    kn = KNearestSearch(mm,1)
+    kn_floor = KNearestSearch(m_floor,1)
+    weight_place = zeros(nelements(m_floor))
+    placebin_idx = Vector{Vector{Int64}}(undef, nt)
+    viewbin_idx = Vector{Vector{Int64}}(undef, nt)
+    weight_view = zeros(nelements(mm), size(weight_place,1))
+    for i in 1:nt
+        tg, gaze,_,fixmask,fo = get_trial(gdata,i;trial_start=1)
+        if isempty(tg)
+            placebin_idx[i] = Int64[]
+            viewbin_idx[i] = Int64[]
+            continue
+        end
+        fixated_object = fo 
+        tg .-= tg[1]
+        tu,posx,posy,hd = get_trial(udata, i;trial_start=1)
+        tu .-= tu[1]
+        Δtu = diff(tu)
+        push!(Δtu, maximum(Δtu))
+        _placebin_idx = zeros(Int64, length(tu))
+        _viewbin_idx = zeros(Int64, length(tg))
+        for (j,(px,py,_tu)) in enumerate(zip(posx, posy, tu))
+            idx,dd = searchdists(Meshes.Point(px,py,0.0), kn_floor)
+            _idx = first(idx)
+            _mm = m_floor[_idx]
+            Δ=mean(norm.(_mm.vertices .- centroid(_mm)))
+            if (dd[1] <= Δ) || (check_dist == false)
+                weight_place[_idx] += Δtu[j] 
+                _placebin_idx[j] = _idx
+            else
+                continue
+            end
+            # find all gaze coords within this place bin 
+            idx0 = searchsortedfirst(tg, _tu)
+            idx1 = searchsortedlast(tg, _tu+Δtu[j])
+            if _idx == 831
+                @debug "trialidx" idx0:idx1
+            end
+            for k in idx0:idx1-1
+                # do not include the hint image
+                if fixated_object[k] == "HintImage"
+                    continue
+                end
+                pg = gaze[:,k]
+                idxv,dd = searchdists(Meshes.Point(pg...),kn)
+                _idxv = first(idxv)
+                _mm = mm[_idxv]
+                Δ=mean(norm.(_mm.vertices .- centroid(_mm)))
+                if (dd[1] <= Δ) || (check_dist == false)
+                    #debug
+                    if _idxv == 3336 && _idx == 831
+                        @debug "indices" tg[k+1]-tg[k]
+                    end
+                    weight_view[_idxv, _idx] += tg[k+1] -tg[k]
+                    _viewbin_idx[k] = _idxv
+                else
+                    @debug "indices" _idx _idxv dd[1] Δ pg
+                end
+            end
+        end
+        placebin_idx[i] = _placebin_idx
+        viewbin_idx[i] = _viewbin_idx
+    end
+    ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
+end
+
+function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixations_only=false, trial_start=1)
+    nt = numtrials(gdata)
+    ss = Slice(x=(-12.5, 12.5), y=(-12.5, 12.5), z=(0.0, 0.0))
+    m_floor = ss(mm)
+    kn = KNearestSearch(mm,1)
+    kn_floor = KNearestSearch(m_floor,1)
+    weight_place = zeros(nelements(m_floor))
+    placebin_idx = Vector{Vector{Int64}}(undef, nt)
+    viewbin_idx = Vector{Vector{Int64}}(undef, nt)
+    weight_view = zeros(nelements(mm), size(weight_place,1))
+    for i in 1:nt
+        tt, gaze,pos,fixmask,fo = get_trial(gdata,i;trial_start=1)
+        if isempty(tt)
+            placebin_idx[i] = Int64[]
+            viewbin_idx[i] = Int64[]
+            continue
+        end
+        Δt = diff(tt)
+        push!(Δt, maximum(Δt))
+        _placebin_idx = zeros(Int64, length(tt))
+        _viewbin_idx = zeros(Int64, length(tt))
+        for (j,(_pos, _gaze, _fo)) in enumerate(zip(eachcol(pos), eachcol(gaze), fo))
+            if _fo == "HintImage"
+                continue
+            end
+            _idx, _idxv = (0,0)
+            px,py = _pos[1:2] # don't use the z-coordinate here
+            # place bin
+            idx,dd = searchdists(Meshes.Point(px,py,0.0), kn_floor)
+            _idx = first(idx)
+            _mm = m_floor[_idx]
+            Δ = mean(norm.(_mm.vertices .- centroid(_mm)))
+            if dd[1] <= Δ
+                weight_place[_idx] += Δt[j] 
+                _placebin_idx[j] = _idx
+            else
+                _idx = 0
+                continue
+            end
+
+            idxv,dd = searchdists(Meshes.Point(_gaze...), kn)
+            _idxv = first(idxv)
+            _mm = mm[_idxv]
+            Δ = mean(norm.(_mm.vertices .- centroid(_mm)))
+            if dd[1] <= Δ
+                weight_view[_idxv,_idx] += Δt[j] 
+                _viewbin_idx[j] = _idxv
+            else
+                continue
+            end
+        end
+        placebin_idx[i] = _placebin_idx
+        viewbin_idx[i] = _viewbin_idx
+    end
+    ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
+end
+
+
+function create_path(posx::AbstractVector{T}, posy::AbstractVector{T}) where T <: Real
+    p = [(posx[1], posy[1])]
+    for j in 2:length(posx)
+        pn = (posx[j], posy[j])
+        if pn !== p[end]
+            push!(p, pn)
+        end
+    end
+    p 
+end
+
+function explore(vvp::ViewAndPlaceOccupancy{<:Real},idxpath::Union{Vector{Int64},Nothing}=nothing;floor_offset=-10.0)
+    mm = vvp.mm
+    ss = Slice(x=(-12.5, 12.5), y=(-12.5, 12.5), z=(0.0, 0.0))
+    m_floor = ss(mm) 
+    # this is kind of hacking; find the minimum distance between elements of the floor
+    Δ = minimum(norm.(diff(centroid.(m_floor))))
+    kn_floor = KNearestSearch(m_floor,1) 
+    fig = Figure()
+    lscene = LScene(fig[1,1])
+
+    cc1 = cameracontrols(lscene.scene)
+    lookat0 = cc1.lookat[]
+    eyepos0 = cc1.eyeposition[]
+    upvector0 = cc1.upvector[]
+    #cc0 = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
+    ii = Observable(1)
+
+    _tcolor = fill(NaN, size(vvp.weight_view,1))
+    _tcolor .= vvp.weight_view[:,1]
+    _alpha = fill(1.0, length(_tcolor))
+    _alpha[_tcolor.==0] .= 0.0
+    tcolor = Observable(_tcolor)
+    alpha = Observable(_alpha)
+    pp = coords(centroid(m_floor[ii[]]))
+
+    point = Observable(Point3f(pp.x.val, pp.y.val, pp.z.val))
+    fpoint = Observable(Point3f(pp.x.val, pp.y.val, pp.z.val))
+    fp = false
+    on(ii) do _ii
+        if 0 < _ii <= size(vvp.weight_view,2)
+            _tcolor  .= vvp.weight_view[:,_ii]
+            fill!(_alpha, 1.0)
+            _alpha[_tcolor.==0] .= 0.0
+            tcolor[] = _tcolor
+            alpha[] = _alpha
+            pp = coords(centroid(m_floor[ii[]]))
+            point[] = Point3f(pp.x.val, pp.y.val, 1.0)
+            fpoint[] = Point3f(pp.x.val, pp.y.val, floor_offset)
+            if fp
+                # also update the camera
+                cc1.eyeposition[] = point[]
+                cc1.lookat[] = point[] + Makie.Vec(1.0, 0.0, 0.0)
+                cc1.upvector[] = Makie.Vec(0.0, 0.0, 1.0)
+                update_cam!(lscene.scene, cc1)
+            end
+        end
+    end
+    ii[] = 1
+    viz!(lscene, vvp.mm;showsegments=true,color=tcolor,alpha=alpha)
+    if idxpath !== nothing
+        # also plot the path
+        pth = centroid.(mm[idxpath])
+        pth_points = [Point3f(p.coords.x.val, p.coords.y.val, p.coords.z.val) for p in pth]
+        scatter!(lscene, pth_points, color=:black)
+    end
+    #m_floor2 = Meshes.Translate(0.0, 0.0, floor_offset)(Shadow("xy")(m_floor))
+
+    #viz!(lscene, m_floor2;showsegments=true, alpha=0.0)
+    scatter!(lscene, point, color=:red)
+    scatter!(lscene,fpoint,color=:red)
+    j = 1
+    on(events(lscene.scene).keyboardbutton, priority=20) do event
+            if ispressed(lscene.scene, Keyboard.c)
+                fp = ~fp
+                if fp
+                    cc1.eyeposition[] = point[]
+                    cc1.lookat[] = point[] + Makie.Vec(1.0, 0.0, 0.0)
+                    cc1.upvector[] = Makie.Vec(0.0, 0.0, 1.0)
+                else
+                    cc1.eyeposition[] = eyepos0 
+                    cc1.lookat[] = lookat0
+                    cc1.upvector[] = upvector0
+                end
+                update_cam!(lscene.scene, cc1)
+            end
+            if idxpath === nothing
+                μ = centroid(mm[ii[]])
+                v = (0.0, 0.0, 0.0).*Unitful.m
+                if ispressed(lscene.scene, Keyboard.up)
+                    v = (0.0*Unitful.m, Δ, 0.0*Unitful.m)
+                elseif ispressed(lscene.scene, Keyboard.down)
+                    v = (0.0*Unitful.m, -Δ, 0.0*Unitful.m)
+                elseif ispressed(lscene.scene, Keyboard.left)
+                    v = (-Δ, 0.0*Unitful.m, 0.0*Unitful.m)
+                elseif ispressed(lscene.scene, Keyboard.right)
+                    v = (Δ, 0.0*Unitful.m, 0.0*Unitful.m)
+                end
+                μ1 = Meshes.Translate(v...)(μ)
+                _idx,dd = searchdists(μ1, kn_floor)
+                if dd[1] <= Δ
+                    ii[] = first(_idx)
+                end
+            else
+                if ispressed(lscene.scene, Keyboard.up)
+                    j = min(j+1, length(idxpath))
+                elseif ispressed(lscene.scene, Keyboard.down)
+                    j = max(j-1, 1)
+                end
+                ii[] = idxpath[j]
+            end
+
+        end
+    fig
+end
+
+function ViewOccupancy(;do_save=true, redo=false)
+    fname = DPHT.filename(ViewOccupancy)
+    if !redo && isfile(fname)
+        vo = DPHT.load(ViewOccupancy)
+    else
+        mm = MazeModel()
+        gdata = UnityRaytraceData()
+        vo = ViewOccupancy(gdata,mm)
+        if do_save
+            DPHT.save(vo)
+        end
+    end
+    vo
+end
+
+function ViewOccupancyNew(;do_save=true, redo=false)
+    fname = DPHT.filename(ViewOccupancyNew)
+    if !redo && isfile(fname)
+        vo = DPHT.load(ViewOccupancyNew)
+    else
+        points,cnx = maze_topology3()
+        mm = SimpleMesh(points, connect.(cnx))
+        mm2 = refine(refine(refine(mm, QuadRefinement()), QuadRefinement()),QuadRefinement())
+        mm2 = SimpleMesh(mm2.vertices, convert(HalfEdgeTopology, mm2.topology))
+        gdata = UnityRaytraceData()
+        vo = ViewOccupancyNew(gdata,mm2)
+        if do_save
+            save_jld2(vo)
+        end
+    end
+    vo
 end
 
 function Makie.convert_arguments(voc::ViewOccupancy, mm::MazeModel)
