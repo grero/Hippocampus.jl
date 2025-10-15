@@ -380,10 +380,28 @@ function mapto(mm::SimpleMesh, x::AbstractVector{T}, y::AbstractVector{T},z::Abs
 end
 
 function explore(mm::SimpleMesh;kwargs...)
+    fig = Figure()
+    lg = GridLayout(fig[1,1])
+    explore!(lg, mm;kwargs...)
+    fig
+end
+
+function explore(mm::SimpleMesh,tcolor::Vector{Vector{T}};kwargs...) where T <: Real
+    fig = Figure()
+    lgs = [GridLayout(fig[1,i]) for i in 1:length(tcolor)]
+    for (lg,_tcolor) in zip(lgs, tcolor)
+        alpha = get_alpha(_tcolor)
+        explore!(lg, mm;color=_tcolor, alpha=alpha,kwargs...)
+    end
+    fig
+end
+
+function explore!(fig, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0, color=fill(0.0, nelements(mm)),alpha=fill(1.0, nelements(mm)),kwargs...)
     # used for collision
     kn = KNearestSearch(mm, 1)
-    fig = Figure()
     lscene = LScene(fig[1,1])
+    cm=get(Dict(kwargs), :colormap, :viridis)
+    cb = Colorbar(fig[1,2]; limits=extrema(filter(isfinite, color)), colormap=cm)
     zmax = maximum(mm.vertices).coords.z.val
     if (floor_offset != 0 || ceiling_offset != 0)
         ppred(p1,p2) = ((p1.coords.z.val==0.0)&&(p2.coords.z.val==0.0))||((zmax > p1.coords.z.val > 0.0)&&(zmax > p2.coords.z.val>0.0))||((p1.coords.z.val==zmax)&&(p2.coords.z.val==zmax))
@@ -401,9 +419,10 @@ function explore(mm::SimpleMesh;kwargs...)
         else
             m_ceiling2 = m_ceiling
         end
-        viz!(lscene, m_middle;color=color[m_middle.inds],alpha=alpha[m_middle.inds], kwargs...)
-        viz!(lscene, m_floor2;color=color[m_floor2.inds],alpha=alpha[m_floor2.inds], kwargs...)
-        viz!(lscene, m_ceiling2;color=color[m_ceiling2.inds],alpha=alpha[m_ceiling2.inds], kwargs...)
+        cr = extrema(color)
+        viz!(lscene, m_middle;color=color[m_middle.inds],alpha=alpha[m_middle.inds], colorrange=cr, kwargs...)
+        viz!(lscene, m_floor2;color=color[m_floor2.inds],alpha=alpha[m_floor2.inds], colorrange=cr, kwargs...)
+        viz!(lscene, m_ceiling2;color=color[m_ceiling2.inds],alpha=alpha[m_ceiling2.inds], colorrange=cr, kwargs...)
     else
         viz!(lscene, mm;color=color,alpha=alpha, kwargs...)
     end
