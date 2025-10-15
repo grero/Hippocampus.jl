@@ -85,6 +85,55 @@ function fix_markers(markers)
     recovered_markers
 end
 
+"""
+    field_outline(f::Matrix{T};t=2) where T <: Real
+
+Extract contiguous patches of activity from `f` where the activity exceeds μ+t σ
+where μ is the overall mean and σ is the overall standard deviation.
+"""
+function field_outline(f::Matrix{T};t=2) where T <: Real
+    fidx = findall(isfinite, f)
+    σ = std(f[fidx])
+    μ = mean(f[fidx])
+    fm,fi = findmax(f[fidx])
+    avail = fill(true, length(fidx))
+    patches = [[fidx[fi]]]
+    avail[fi] = false
+    pidx = 1
+    skip = false
+    while (sum(avail)>0) && (fm > μ+t*σ)
+        skip = false
+        # fill until we find it drops
+        # grab the nearest point
+        _fidx = fidx[avail]
+        qq = sortperm(fm .- f[_fidx])
+        did_change = false
+        qidx = findall(avail)
+        for _qq in qq
+            _dd = minimum(norm.(Tuple.(_fidx[_qq] .- patches[pidx])))
+            if _dd > 1
+                continue
+            end
+            did_change = true
+            if f[_fidx[_qq]]>= μ+t*σ
+                push!(patches[pidx],_fidx[_qq])
+            end
+            avail[qidx[_qq]] = false
+        end
+        if !did_change 
+            _fidx = fidx[avail]
+            qidx = findall(avail)
+            fm,fi = findmax(f[_fidx])
+            if fm > μ+t*σ
+                push!(patches, [_fidx[fi]])
+                pidx += 1
+            end
+            avail[qidx[fi]] = false
+        end
+    end
+    patches
+end
+
 struct Trial
     i::UInt64
 end
