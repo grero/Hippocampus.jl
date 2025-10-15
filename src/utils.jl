@@ -92,6 +92,7 @@ Extract contiguous patches of activity from `f` where the activity exceeds μ+t 
 where μ is the overall mean and σ is the overall standard deviation.
 """
 function field_outline(f::Matrix{T};t=2) where T <: Real
+    lidx = CartesianIndices((1:size(f,1), 1:size(f,2)))
     fidx = findall(isfinite, f)
     σ = std(f[fidx])
     μ = mean(f[fidx])
@@ -101,6 +102,7 @@ function field_outline(f::Matrix{T};t=2) where T <: Real
     avail[fi] = false
     pidx = 1
     skip = false
+    D = [norm(Tuple(i) .- Tuple(j)) for i in lidx, j in lidx]
     while (sum(avail)>0) && (fm > μ+t*σ)
         skip = false
         # fill until we find it drops
@@ -110,7 +112,7 @@ function field_outline(f::Matrix{T};t=2) where T <: Real
         did_change = false
         qidx = findall(avail)
         for _qq in qq
-            _dd = minimum(norm.(Tuple.(_fidx[_qq] .- patches[pidx])))
+            _dd = minimum(D[_fidx[_qq], patches[pidx]])
             if _dd > 1
                 continue
             end
