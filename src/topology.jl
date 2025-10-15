@@ -71,6 +71,12 @@ function distancematrix(mm::SimpleMesh;rank=paramdim(mm))
     D
 end
 
+function distancematrix(mm::Matrix{T}) where T <: Real
+    lidx = CartesianIndices((1:size(mm,1), 1:size(mm,2)))
+    D = [norm(Tuple(i) .- Tuple(j)) for i in lidx, j in lidx]
+    D
+end
+
 function maze_topology(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, zmax=5.0)
     # pillars
     x1Bound = [-7.5, -2.5, -2.5, -7.5, -7.5]  # yellow pillar
