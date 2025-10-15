@@ -42,6 +42,18 @@ using StableRNGs
     # test alternative disk
     d2idx = Hippocampus.disc(CartesianIndex(3,3), 2, 5, 5)
     @test d2idx == CartesianIndex{2}[CartesianIndex(1, 3), CartesianIndex(2, 2), CartesianIndex(2, 3), CartesianIndex(2, 4), CartesianIndex(3, 1), CartesianIndex(3, 2), CartesianIndex(3, 3), CartesianIndex(3, 4), CartesianIndex(3, 5), CartesianIndex(4, 2), CartesianIndex(4, 3), CartesianIndex(4, 4), CartesianIndex(5, 3)]
+
+    # test segmentation
+    μ1 = [5,5]
+    μ2 = [-5,-5]
+    xbins = range(-12.5f0, stop=12.5f0, length=40);
+    ybins = range(-12.5f0, stop=12.5f0, length=40);
+    D1 = [(x-μ1[1])^2 + (y-μ1[2])^2 for x in xbins, y in ybins]
+    D2 = [(x-μ2[1])^2 + (y-μ2[2])^2 for x in xbins, y in ybins]
+    F = exp.(-D1./(2*2.5^2)) .+ exp.(-D2./(2*3.5^2))
+    patches = Hippocampus.field_outline(F)
+    @test length(patches) == 2
+    length.(patches) == [81,41]
 end
 
 @testset "Paths" begin
