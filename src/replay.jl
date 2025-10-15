@@ -1697,6 +1697,127 @@ struct ViewMap
     mm::MazeModel
 end
 
+struct ViewMap{T<:Real}
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    zbins::AbstractVector{T}
+    weight::Array{T,3}
+    occupancy::Array{T,3}
+end
+
+struct ViewMapNew{T2<:AbstractViewOccupancy, T<:Real}
+    voc::T2
+    weight::Vector{T}
+end
+
+struct SmoothedViewMap{T<:Real}
+    mm::SimpleMesh
+    weight::Vector{T}
+    occupancy::Vector{T}
+    unoccupied::Vector{Int64}
+    α::T
+end
+
+function ViewMapNew(vrp::ViewRepresentation, voc::ViewOccupancyNew{T}) where T <: Real
+    gaze = get_positions(vrp)
+    Z = count_on_manifold(voc.mm, gaze)
+    ViewMapNew{ViewOccupancyNew{T}, T}(voc, Z)
+end
+
+function ViewMapNew(vrp::ViewRepresentation, voc::ViewAndPlaceOccupancy{T}) where T <: Real
+
+end
+
+function adaptive_smoothing(vm::ViewMapNew{T2, T}, α=T(10000.0)^2;filter_unoccupied=true) where T2 <: AbstractViewOccupancy where T <: Real
+    unoccupied = findall(vm.voc.counts.==0)
+    Z,X,Y = adaptive_smoothing(vm.weight, vm.voc.counts, vm.voc.mm, α)
+    SmoothedViewMap(vm.voc.mm, X, Y, unoccupied,α)
+end
+
+ViewMap(xbins,ybins, zbins, weights) = ViewMap(xbins, ybins, zbins, weights, ones(eltype(weights), size(weights)...))
+
+
+struct ViewAndPlaceMap{T<:Real}
+    voc::ViewAndPlaceOccupancy{T}
+    weight::Matrix{T}
+    weight_smooth::Matrix{T}
+    smoothing_params::NamedTuple
+end
+
+DPHT.filename(::Type{ViewAndPlaceMap}) = "view_and_place_map.jld2"
+DPHT.filename(::ViewAndPlaceMap{T}) where T <: Real = "view_and_place_map.jld2"
+
+DPHT.level(::Type{ViewAndPlaceMap}) = "cell"
+DPHT.filename(::ViewAndPlaceMap{T}) where T <: Real = "cell"
+
+
+function ViewAndPlaceMap(vprp::ViewAndPlaceRepresentation, vpp::ViewAndPlaceOccupancy{T};smoothing_params::NamedTuple=(method=:gaussian, σ=5)) where T <: Real
+    P = zeros(size(vpp.weight_view)...)
+    for i in 1:length(vprp.events)
+        for j in 1:length(vprp.events[i])
+            vidx = vprp.viewidx[i][j]
+            pidx = vprp.placeidx[i][j]
+            if (pidx > 0) && (vidx > 0)
+                P[vprp.viewidx[i][j], vprp.placeidx[i][j]] += 1.0
+            end
+        end
+    end
+    Zg,Xg, Yg = gaussian_smoothing(P, vpp.weight_view, vpp.mm,smoothing_params.σ) 
+    ViewAndPlaceMap{T}(vpp, P, Zg, smoothing_params)
+end
+
+function ViewAndPlaceMap(;redo=false, do_save=true,kwargs...)
+    fname = DPHT.filename(ViewAndPlaceMap)
+    if isfile(fname) && !redo
+        vmpv = load_jld2(ViewAndPlaceMap)
+    else
+        vprp = cd(DPHT.process_level(ViewAndPlaceRepresentation)) do
+            ViewAndPlaceRepresentation()
+        end
+        vpp = cd(DPHT.process_level(ViewAndPlaceOccupancy)) do
+            ViewAndPlaceOccupancy()
+        end
+        vmpv = ViewAndPlaceMap(vprp, vpp;kwargs...)
+        if do_save
+            save_jld2(vmpv)
+        end
+    end
+    vmpv
+end
+
+function explore(vmvp::ViewAndPlaceMap{T},ii) where T <: Real
+    fig = Figure()
+    lg = GridLayout(fig[1,1])
+    explore!(lg, vmvp,ii)
+    fig
+end
+
+function explore!(lg, vmvp::ViewAndPlaceMap{T},ii::Integer) where T <: Real
+    tcolor = vmvp.weight_smooth[:,ii]
+    tcolor[(!isfinite).(tcolor)] .= 0.0
+    alpha = get_alpha(tcolor)
+    explore!(lg, vmvp.voc.mm;color=tcolor,alpha=alpha, showsegments=true, floor_offset=-10, ceiling_offset=10, colormap=:jet, label="Firing rate")
+end
+
+function save_jld2(vmpv::ViewAndPlaceMap{T};append_tag=true) where T <: Real
+    fname = DPHT.filename(ViewAndPlaceMap)
+    data = Dict("weight"=>vmpv.weight, "weight_smooth"=>vmpv.weight_smooth, "smoothing_params"=>vmpv.smoothing_params)
+    metadata = Dict()
+    if append_tag
+        tag!(metadata, storepatch=true)
+    end
+    JLD2.save(fname, Dict("data"=>data, "meta"=>meta))
+end
+
+function load_jld2(::Type{ViewAndPlaceMap})
+    fname = DPHT.filename(ViewAndPlaceMap)
+    meta,data = JLD2.load(fname, "meta","data")
+    vpp = cd(DPHT.process_level(ViewAndPlaceOccupancy)) do
+        ViewAndPlaceOccupancy()
+    end
+    ViewAndPlaceMap(vpp, data["weight"], data["weight_smooth"], data["smoothing_params"])
+end
+
 function ViewMap(vrp::ViewRepresentation, xbins::AbstractVector{T}, ybins::AbstractVector{T}, zbins::AbstractVector{T}) where T <: Real
     view_count = fill(0.0, length(xbins)-1, length(ybins)-1, length(zbins)-1)
     nt = numtrials(vrp)
