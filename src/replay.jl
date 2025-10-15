@@ -1468,6 +1468,63 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
+struct ViewAndPlaceRepresentation <: AbstractRepresentation{Float32,Float64}
+    voc::ViewAndPlaceOccupancy{Float64}
+    events::Vector{Vector{Float64}}
+    placeidx::Vector{Vector{Int64}}
+    viewidx::Vector{Vector{Int64}}
+end
+
+function ViewAndPlaceRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData, gdata::UnityRaytraceData, voc::ViewAndPlaceOccupancy{T};fixation_only=false) where T <: Real
+    sp = spikes.timestamps/1000.0 
+    nt = numtrials(gdata)
+    nt == numtrials(udata) || error("`gdata` and `udata` should have the same number of trials")
+    events = Vector{Vector{Float64}}(undef, nt)
+    viewidx = Vector{Vector{Int64}}(undef, nt)
+    placeidx = Vector{Vector{Int64}}(undef, nt)
+    for i in 1:nt
+        tg,gaze,pos, fixmask,fo = get_trial(gdata,i)
+        if isempty(tg)
+            events[i] = Float64[]
+            data[i] = Matrix{Float32}(undef, 0,0)
+            continue
+        end
+        tg .-= tg[1]
+        tu,posx,posy,hd = get_trial(udata,i)
+        tu .-= tu[1]
+
+        timestamps = rp.timestamps[i,:]
+        
+        # find the index of of each spike in this trial
+        idx0 = searchsortedfirst(sp, timestamps[1])
+        idx1 = searchsortedlast(sp, timestamps[3])
+
+        sp_trial = sp[idx0:idx1] .- timestamps[1]
+        nspikes = idx1-idx0+1
+        trialevents = zeros(Float64, nspikes)
+        _viewidx = zeros(Int64, nspikes)
+        _placeidx = zeros(Int64, nspikes)
+        js = 1
+        for j in 1:nspikes
+            kg = searchsortedlast(tg,sp_trial[j])
+            ku = searchsortedlast(tu,sp_trial[j])
+            # check view and place bins
+            if (0 < kg <= size(gaze,2) && (fixmask[kg] || !fixation_only)) && (0 < ku <= length(posx))
+                #if (voc.placebin_idx[i][ku] != 0) && (voc.viewbin_idx[i][kg] != 0)
+                trialevents[js] = sp_trial[j]
+                _viewidx[js] = voc.viewbin_idx[i][kg]
+                _placeidx[js] = voc.placebin_idx[i][ku]
+                js += 1
+                #end
+            end
+        end
+        events[i] = trialevents[1:js-1]
+        viewidx[i] = _viewidx[1:js-1]
+        placeidx[i] = _placeidx[1:js-1]
+    end
+    ViewAndPlaceRepresentation(voc, events, placeidx, viewidx)
+end
+
 
 function create_path(posx::AbstractVector{T}, posy::AbstractVector{T}) where T <: Real
     p = [(posx[1], posy[1])]
