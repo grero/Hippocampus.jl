@@ -125,3 +125,44 @@ function plot_place_fields_with_outline(sessionnr=16)
     end
     fig
 end
+
+function plot_trajectories(udata::UnityData)
+    nt = numtrials(udata)
+    trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
+    prev_posterid = 0
+    for i in 1:nt
+        # make sure the trial was correct
+        if !(30 < udata.triggers[i,3] < 40)
+            posterid = 0
+        else
+            posterid = udata.triggers[i,1] - 10
+            kk = (prev_posterid, posterid)
+            if !(kk in keys(trajectories))
+                trajectories[kk] = Vector{Tuple{Float64, Float64}}[]
+            end
+            tg,posx,posy,hd = get_trial(udata, i;trial_start=2)
+            push!(trajectories[kk], [(px,py) for (px,py) in zip(posx,posy)])
+        end
+        prev_posterid = posterid
+    end
+    m_floor = floor_topology3() 
+    with_theme(plot_theme) do 
+        fig = Figure()
+        axes = [Axis(fig[i,j]) for i in 1:6, j in 1:6]
+        hidedecorations!.(axes)
+        _keys = collect(keys(trajectories))
+        sort!(_keys)
+        for k in _keys
+            if (0 in k) || (k[1]==k[2])
+                continue
+            end
+            ax = axes[k[1], k[2]]
+            viz!(ax, m_floor, color=:lightgray)
+            for v in trajectories[k]
+                lines!(ax, Point2f.(v),color=:black)
+            end
+            scatter!(ax, Point2f(first(trajectories[k])[1]), color=:green)
+        end
+        fig
+    end
+end
