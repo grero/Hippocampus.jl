@@ -474,38 +474,39 @@ end
 function map_from_matlab(pillar_height=2.5f0)
     xbins = range(-12.5f0, stop=12.5f0, length=40)
     ybins = xbins
-    zbins = range(0.0f0, stop=5.0f0, step=step(xbins))
+    zbins = range(0.0f0, stop=5.0f0, length=8)
 
     # each wall is 40 × 8
     #start at  bottom left corner, move clockwise
     wall_idx = reverse(permutedims(reshape(3203:3203+1280-1, 40*4,8)),dims=1)
     wall_points = NTuple{3, Float32}[]
+    # move counter clockwise
     for zb in zbins 
+        for xb in ybins
+            push!(wall_points, (xb, ybins[1], zb))
+        end
         for yb in ybins
-            push!(wall_points, (xbins[1], yb, zb))
-        end
-        for xb in xbins
-            push!(wall_points, (xb, ybins[end], zb))
-        end
-        for yb in reverse(ybins) 
             push!(wall_points, (xbins[end], yb, zb))
         end
-        for xb in reverse(xbins)
-            push!(wall_points, (xb, ybins[1], zb))
+        for xb in reverse(xbins) 
+            push!(wall_points, (xb, ybins[end], zb))
+        end
+        for yb in reverse(ybins)
+            push!(wall_points, (xbins[1], yb, zb))
         end
     end
 
     ceiling_idx = reverse(permutedims(reshape(1603:1603+1600-1, 40, 40)),dims=1)
     ceiling_points = NTuple{3, Float32}[]
-    for yb in ybins
-        for xb in xbins
+    for xb in xbins
+        for yb in ybins
             push!(ceiling_points, (xb,yb, last(zbins)))
         end
     end
     floor_idx = reverse(permutedims(reshape(3:3+1600-1, 40, 40)))
     floor_points = NTuple{3, Float32}[]
-    for yb in ybins
-        for xb in xbins
+    for xb in xbins
+        for yb in ybins
             push!(floor_points, (xb,yb, first(zbins)))
         end
     end
@@ -523,17 +524,17 @@ function map_from_matlab(pillar_height=2.5f0)
         _ybins = range(ll[2], stop=ll[2]+5.0f0, length=8)
         _xbins = range(ll[1], stop=ll[1]+5.0f0, length=8)
         for zb in range(0.0f0, stop=pillar_height, length=5)
-            for yb in _ybins
-                push!(_points, (ll[1], yb,zb))
-            end
             for xb in _xbins
-                push!(_points, (xb, ll[2]+5.0f0, zb))
+                push!(_points, (xb, _ybins[1],zb))
             end
-            for yb in reverse(_ybins) 
+            for yb in _ybins
                 push!(_points, (_xbins[end], yb, zb))
             end
-            for xb in reverse(_xbins)
-                push!(_points, (xb, _ybins[1], zb))
+            for xb in reverse(_xbins) 
+                push!(_points, (xb, _ybins[end], zb))
+            end
+            for yb in reverse(_ybins)
+                push!(_points, (xbins[1], yb, zb))
             end
         end
         pillar_points[i] = _points
