@@ -204,29 +204,60 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previo
     μ_perf_p = dropdims(mean(perf_p,dims=1),dims=1)
     ncells = data["ncells_per_session"]
     nt = data["correct_trials_per_session"]
+    contrib_current = data["cell_contrib_current"]
+    contrib_previous = data["cell_contrib_previous"]
+    current_poster_selectivity = data["current_poster_selectivity_strength"]
+    previous_poster_selectivity = data["previous_poster_selectivity_strength"]
 
     with_theme(poster_theme) do
         width = 10.0*2.5*72
-        height = width
+        height = 0.8*width
         fig = Figure(size=(width, height))
         # indivvidual cell responses
         lg2 = GridLayout(fig[1,1])
-        plot_raster_and_psth!(lg2, allcelldirs[cell_examples.previous_poster_selective];previous=true)
+        lg21 = GridLayout(lg2[1,1])
+        plot_raster_and_psth!(lg21, allcelldirs[cell_examples.previous_poster_selective];previous=true)
         rowsize!(lg2, 1, Relative(0.6))
-        lg3 = GridLayout(fig[1,2])
-        rowsize!(lg3, 1, Relative(0.6))
+        lg22 = GridLayout(lg2[1,2])
+        rowsize!(lg22, 1, Relative(0.6))
         with_theme(Theme(Axis=(ylabelvisible=false,))) do
-            plot_raster_and_psth!(lg3, allcelldirs[cell_examples.poster_selective])
+            plot_raster_and_psth!(lg22, allcelldirs[cell_examples.poster_selective])
         end
         # tuning strength of individual cell vs contribution to decoder
         # plot performance on current poster vs previous poster
-        lg1 = GridLayout(fig[2,1:2])
-        ax = Axis(lg1[1,1])
-        scatter!(ax, μ_perf_c, μ_perf_p)
+        lg1 = GridLayout(fig[2,1])
+        lg11 = GridLayout(lg1[1,1])
+        ax = Axis(lg11[1,1])
+        sc = scatter!(ax, μ_perf_c, μ_perf_p,color=ncells, markersize=30px)
+        Colorbar(lg11[1,2], sc, label="No cells")
         ablines!(ax, 0.0, 1.0, linestyle=:dot, color=:black)
         ax.xlabel = "Performance current"
         ax.ylabel = "Performance previous"
 
+        lg12 = GridLayout(lg1[1,2])
+        ax41 = Axis(lg12[1,1])
+        ax4 = Axis(lg12[2,1])
+        linkxaxes!(ax4,ax41)
+        ax41.xticklabelsvisible = false
+        hist!(ax41, 1.0./current_poster_selectivity)
+        scatter!(ax4, 1.0./current_poster_selectivity, dropdims(mean(contrib_current,dims=2),dims=2))
+        ax4.xlabel = "Current poster\nselectivity"
+        ax4.ylabel = "Relative coding contrib"
+        vlines!(ax4, 1.0, linestyle=:dot, color=:black)
+        vlines!(ax41, 1.0, linestyle=:dot, color=:black)
+        rowsize!(lg12, 1, Relative(0.4))
+
+        ax51 = Axis(lg12[1,2])
+        ax5 = Axis(lg12[2,2])
+        linkxaxes!(ax5,ax51)
+        ax51.xticklabelsvisible = false
+        hist!(ax51, 1.0./previous_poster_selectivity)
+        scatter!(ax5, 1.0./previous_poster_selectivity, dropdims(mean(contrib_previous,dims=2),dims=2))
+        vlines!(ax5, 1.0, linestyle=:dot, color=:black)
+        vlines!(ax51, 1.0, linestyle=:dot, color=:black)
+        ax5.xlabel = "Previous poster\nselectivity"
+        rowsize!(fig.layout, 1, Relative(0.6))
+        resize_to_layout!(fig)
         fig
     end
 end
