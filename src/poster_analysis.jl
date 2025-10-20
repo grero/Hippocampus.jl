@@ -1,3 +1,13 @@
+poster_theme = Theme(Axis=(xlabelsize=36, ylabelsize=36,
+                           xticklabelsize=36, yticklabelsize=36,
+                           topspinevisible=false, rightspinevisible=false,
+                           xgridvisible=false, ygridvisible=false,
+                           ),
+                     Scatter=(markersize=10px,),
+                     Lines=(linewidth=3,))
+
+
+
 find_place_selective_cells(celldirs::Vector{String};kwargs...) = find_selective_cells(is_place_selective, celldirs;kwargs...)
 find_view_selective_cells(celldirs::Vector{String};kwargs...) = find_selective_cells(is_view_selective, celldirs;kwargs...)
 
