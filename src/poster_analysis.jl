@@ -41,6 +41,11 @@ end
     
 function is_selective(vp_data::Dict{String,Any})
     # check for 
+   sic_value, sic_threshold = get_sic_with_shuffle(vp_data) 
+    return sic_value > sic_threshold 
+end
+
+function get_sic_with_shuffle(vp_data::Dict{String, Any})
     if "SIC" in keys(vp_data)
         sic_value = vp_data["SIC"]
     elseif "SIC_adsm" in keys(vp_data)
