@@ -55,8 +55,19 @@ function is_selective(vp_data::Dict{String,Any})
     else
         error("No shuffled data found")
     end
+    sic_value, sic_threshold
+end
 
-    return sic_value > sic_threshold 
+function get_sic_with_shuffle(celldir::String;filtering="All", raycast_type="1px")
+    fname=joinpath(celldir, "Filt$(filtering)",raycast_type,"vmpc.mat")
+    if !ispath(fname)
+        error("No vmpc object found at $fname")
+    end
+
+    vp = MAT.matread(fname)
+    vp_data = vp["vmp"]["data"]
+    sic_value, sic_threshold = get_sic_with_shuffle(vp_data)
+    sic_value, sic_threshold
 end
 
 function plot_place_fields_with_outline(sessionnr=16)
