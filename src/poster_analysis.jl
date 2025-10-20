@@ -192,3 +192,41 @@ function plot_trajectories(udata::UnityData)
         fig
     end
 end
+
+function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previous_poster_selective=105))
+    allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+        readlines(fid)
+    end
+    data = JLD2.load("data/poster_id_population_decoding_results.jld2")
+    perf_c = data["performance_current"]
+    μ_perf_c = dropdims(mean(perf_c,dims=1),dims=1)
+    perf_p = data["performance_previous"]
+    μ_perf_p = dropdims(mean(perf_p,dims=1),dims=1)
+    ncells = data["ncells_per_session"]
+    nt = data["correct_trials_per_session"]
+
+    with_theme(poster_theme) do
+        width = 10.0*2.5*72
+        height = width
+        fig = Figure(size=(width, height))
+        # indivvidual cell responses
+        lg2 = GridLayout(fig[1,1])
+        plot_raster_and_psth!(lg2, allcelldirs[cell_examples.previous_poster_selective];previous=true)
+        rowsize!(lg2, 1, Relative(0.6))
+        lg3 = GridLayout(fig[1,2])
+        rowsize!(lg3, 1, Relative(0.6))
+        with_theme(Theme(Axis=(ylabelvisible=false,))) do
+            plot_raster_and_psth!(lg3, allcelldirs[cell_examples.poster_selective])
+        end
+        # tuning strength of individual cell vs contribution to decoder
+        # plot performance on current poster vs previous poster
+        lg1 = GridLayout(fig[2,1:2])
+        ax = Axis(lg1[1,1])
+        scatter!(ax, μ_perf_c, μ_perf_p)
+        ablines!(ax, 0.0, 1.0, linestyle=:dot, color=:black)
+        ax.xlabel = "Performance current"
+        ax.ylabel = "Performance previous"
+
+        fig
+    end
+end
