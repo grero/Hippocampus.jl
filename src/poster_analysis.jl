@@ -216,9 +216,11 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previo
         # indivvidual cell responses
         lg2 = GridLayout(fig[1,1])
         lg21 = GridLayout(lg2[1,1])
+        Label(lg21[1,1,TopLeft()], "A")
         plot_raster_and_psth!(lg21, allcelldirs[cell_examples.previous_poster_selective];previous=true)
         rowsize!(lg2, 1, Relative(0.6))
         lg22 = GridLayout(lg2[1,2])
+        Label(lg22[1,1,TopLeft()], "B")
         rowsize!(lg22, 1, Relative(0.6))
         with_theme(Theme(Axis=(ylabelvisible=false,))) do
             plot_raster_and_psth!(lg22, allcelldirs[cell_examples.poster_selective])
@@ -227,6 +229,7 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previo
         # plot performance on current poster vs previous poster
         lg1 = GridLayout(fig[2,1])
         lg11 = GridLayout(lg1[1,1])
+        Label(lg11[1,1,TopLeft()],"C")
         ax = Axis(lg11[1,1])
         sc = scatter!(ax, μ_perf_c, μ_perf_p,color=ncells, markersize=30px)
         Colorbar(lg11[1,2], sc, label="No cells")
@@ -246,9 +249,11 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previo
         vlines!(ax4, 1.0, linestyle=:dot, color=:black)
         vlines!(ax41, 1.0, linestyle=:dot, color=:black)
         rowsize!(lg12, 1, Relative(0.4))
+        Label(lg12[1,1,TopLeft()], "D")
 
         ax51 = Axis(lg12[1,2])
         ax5 = Axis(lg12[2,2])
+        Label(lg12[1,2,TopLeft()], "E")
         linkxaxes!(ax5,ax51)
         ax51.xticklabelsvisible = false
         hist!(ax51, 1.0./previous_poster_selectivity)
@@ -258,6 +263,7 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previo
         ax5.xlabel = "Previous poster\nselectivity"
         rowsize!(fig.layout, 1, Relative(0.6))
         resize_to_layout!(fig)
+        rowgap!(fig.layout, 1, 0)
         fig
     end
 end
