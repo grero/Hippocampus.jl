@@ -91,7 +91,7 @@ end
 Extract contiguous patches of activity from `f` where the activity exceeds μ+t σ
 where μ is the overall mean and σ is the overall standard deviation.
 """
-function field_outline(f::Matrix{T};t=2) where T <: Real
+function field_outline(f::AbstractArray{T,N},domain=f;t=2) where T <: Real where N
     fidx = findall(isfinite, f)
     σ = std(f[fidx])
     μ = mean(f[fidx])
@@ -101,7 +101,7 @@ function field_outline(f::Matrix{T};t=2) where T <: Real
     avail[fi] = false
     pidx = 1
     skip = false
-    D = distancematrix(f)
+    D = distancematrix(domain)
     while (sum(avail)>0) && (fm > μ+t*σ)
         skip = false
         # fill until we find it drops
