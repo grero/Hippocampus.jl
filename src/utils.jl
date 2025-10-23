@@ -637,7 +637,8 @@ end
 
 function adaptive_smoothing(X::Matrix{T}, Y::Matrix{T}, α::T;stop_at_nan=true) where T <: Real
     n1,n2 = size(X)
-    Z = fill!(similar(X), zero(T))
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
     for ii in CartesianIndices(size(X))
         nsp = X[ii]
         nocc = Y[ii]
@@ -652,7 +653,223 @@ function adaptive_smoothing(X::Matrix{T}, Y::Matrix{T}, α::T;stop_at_nan=true) 
             nocc = sum(Y[idx])
             r += 1
         end
-        Z[ii] = nsp/nocc 
+        Xs[ii] = nsp
+        Ys[ii] = nocc
     end
-    Z
+    Xs./Ys, Xs, Ys
+end
+
+function disc_area(r)
+    n = 0
+    for i in -r:r
+        for j in -r:r
+            if i^2+j^2 <= r^2
+                n += 1
+            end
+        end
+    end
+    n
+end
+
+function fill_in_neighbours(X::Vector{T}, D::Matrix{T}, r::Integer,σ::T) where T <: Real
+    Y = zeros(T, size(X,1))
+    for i in axes(D,2)
+        Y[i] = fill_in_neighbours(X, D[:,i], r, σ)
+    end
+    Y
+end
+
+function fill_in_neighbours(X::Vector{T}, d::Vector{T}, r::Integer,σ::T) where T <: Real
+    sidx = sortperm(d)
+    ds = d[sidx]
+    y = zero(T) 
+    aa = zero(T) 
+    n = 0
+    j = 1
+    for k in 0:r
+        pq = exp(-k^2/(2*σ^2))
+        n = disc_area(k)-n
+        ns = 0
+        μ = zero(T) 
+        while ds[j] == k
+            ns += 1
+            μ += X[sidx[j]]
+            y += pq*X[sidx[j]]
+            j += 1
+        end
+        # idea: Change the kernel size based on the number of actual neighbours
+        μ /= ns
+        if ns < n
+            # TODO: Maybe just doing the average within the ring is not the best
+            # try reflecting?
+            y +=(n-ns)*pq*μ
+            # can we identify where the boundary is from this?
+            # ns being less than n just means that we are near a boundary
+
+        end
+        aa += n*pq
+    end
+    y/aa
+end
+
+function adaptive_smoothing(X::Vector{T}, Y::Vector{T}, mm::SimpleMesh, α::T;stop_at_nan=true,rmax=100) where T <: Real
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
+    func = ballsearch(mm)
+    @showprogress "Adaptively smoothing bins..." for ii in 1:length(X)
+        nsp = X[ii]
+        nocc = Y[ii]
+        r = 1
+        while nsp < α/(nocc^2*r^2) 
+            idx = func(ii, r)
+            # stop expanding the kernel if we hit boundary
+            if (stop_at_nan && any(isnan.(Y[idx]))) || (r >= rmax)
+                break
+            end
+            nsp = sum(X[idx])
+            nocc = sum(Y[idx])
+            r += 1
+        end
+        Xs[ii] = nsp
+        Ys[ii] = nocc
+    end
+    Xs./Ys, Xs, Ys
+end
+
+function gaussian_smoothing(X::AbstractVector{T}, mm::SimpleMesh,σ=4;kwargs...) where T <: Real
+    Y = ones(T,length(X))
+    gaussian_smoothing(X,Y,mm,σ;kwargs...)
+end
+
+function gaussian_smoothing(X::AbstractVector{T}, Y::AbstractVector{T}, mm::SimpleMesh,σ=4;m=5,dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,edge_correct=false) where T <: Real
+    # TODO: Deal with edge effects
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
+    if dmatrix === nothing
+        D = distancematrix(mm)
+    else
+        D = dmatrix
+    end
+    # find the are of the gaussian
+    da = disc_area(m*σ)
+    for ii in 1:length(X)
+        # find all points within the radius
+        # TODO: Handle border effects
+        # An edge pixel is one with less than 4 neighbours
+        idx = findall(D[ii,:] .<= m*σ)
+
+        dd = D[ii,idx].^2
+        ddm = dd./(2*σ^2)
+        ddm .= exp.(-ddm) 
+        ddm ./= sum(ddm) 
+        Xs[ii] += ddm'*X[idx]
+        Ys[ii] += ddm'*Y[idx]
+    end
+    if edge_correct
+        # correct for the fact that the number of points within a disc is not the same everywhere
+        nn = dropdims(sum(D .<= m*σ,dims=1),dims=1)
+        Xs .*= nn./maximum(nn)
+    end
+    Xs./Ys, Xs, Ys
+end
+
+function gaussian_smoothing(X::Matrix{T}, Y::Matrix{T}, mm::SimpleMesh,σ=4;dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,dim=1) where T <: Real
+    if dmatrix === nothing
+        D = distancematrix(mm)
+    else
+        D = dmatrix
+    end
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
+    Zs = fill!(similar(X), zero(T))
+    @showprogress "Smoothing columns..." for (ii, (_X, _Y)) in enumerate(zip(eachcol(X), eachcol(Y)))
+        if sum(X) > 0
+            Zs[:,ii], Xs[:,ii], Ys[:,ii] = gaussian_smoothing(_X, _Y, mm, σ;dmatrix=D)
+        end
+    end
+    Zs,Xs,Zs
+end
+
+"""
+Generate a simple tiled texture with the specified base color and period `period`.
+"""
+function generate_tile(base_color, width, height;nn=20, buffer=4, period=nn)
+    hsv = HSV(parse(Colorant, base_color))
+    b = buffer
+    points = [Point3f(x,y,0.0) for x in range(0.0, stop=width, length=nn), y in range(0.0, stop=height, length=nn)]
+    ni,nj= size(points)
+    _faces = decompose(Makie.QuadFace{Makie.GLIndex}, Makie.Tessellation(Rect(0, 0, 1, 1), size(points)))
+    uv = [Vec2f(x/width,y/height) for x in range(0.0, stop=width, length=nn), y in range(0.0, stop=height, length=nn)]
+    # random normals
+    # try someting a bit more systematic. Simulate a bowl
+    color = Matrix{HSV}(undef, size(points)...)
+    for j in axes(points,2)
+        jp = round(Int64, floor(j/period))
+        jl = j - jp*period 
+        for i in axes(points,1)
+            #p = points[i,j]
+            #q = exp(-(p[1]-2.5)^2/5.0 - (p[2]-2.5)^2/5)
+            # bevel
+            ip = round(Int64, floor(i/period))
+            il = i - ip*period
+            if il <= b 
+                qi = (il-1)/b
+            elseif ip*period-b+1 <= il <= period 
+                qi = 1.0 - (il-(period-b))/b
+            else
+                qi = 1.0
+            end
+            if jl <= b 
+                qj = (jl-1)/b
+            elseif jp*period-b+1 <= jl <= period 
+                qj = 1.0 - (jl-(period-b))/b
+            else
+                qj = 1.0
+            end
+            q = 0.4f0 .+ 0.6f0*min(qi,qj)
+            color[i,j] = HSV(hsv.h, hsv.s, Float32(q)*hsv.v)
+        end
+    end
+    color, uv
+end
+
+
+function test_smoothing()
+    m_floor = floor_topology3();
+    mm = Shadow("xy")(m_floor)
+    kn = KNearestSearch(mm,1)
+    nn = nelements(mm)
+    μ1 = (0.0,0.0)
+    idx1 = first(search(Meshes.Point(μ1...), kn))
+    μ2 = (-8.5, 9.0)
+    idx2 = first(search(Meshes.Point(μ2...), kn))
+    μ3 = (8.6, -9.0)
+    idx3 = first(search(Meshes.Point(μ3...), kn))
+    σ = 5.0
+    X = zeros(nn)
+    D = distancematrix(m_floor)
+    X .+= exp.(-(D[idx1,:].^2)./(2*σ^2))
+    X .+= exp.(-(D[idx2,:].^2)./(2*σ^2))
+    X .+= exp.(-(D[idx3,:].^2)./(2*σ^2))
+
+    #sampler = WeightedSampling(100, X, replace=true)
+    sampler = HomogeneousSampling(100,X)
+    points = collect(sample(mm, sampler))
+
+    fig = Figure(size=(800,1200))
+    ax1 = Axis(fig[1,1])
+    viz!(ax1, mm;color=X, showsegments=true)
+    Colorbar(fig[1,2], colorrange=(extrema(X)))
+    #blocks  = sample(mm, sampler)
+    Y = count_on_manifold(mm, points)
+    viz!(ax1, points;color=:white)
+    ax2 = Axis(fig[2,1])
+    viz!(ax2, mm;color=Y, showsegments=true)
+    Colorbar(fig[2,2], colorrange=extrema(Y), label="Counts")
+
+    Zs,Xs,Ys = gaussian_smoothing(X,mm,5)
+    ax3 = Axis(fig[3,1])
+    viz!(ax3, mm;color=Zs, showsegments=true)
+    Colorbar(fig[3,2], colorrange=extrema(Xs), label="Smoothe counts")
+    fig
 end
