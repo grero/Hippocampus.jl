@@ -164,7 +164,9 @@ function plot_raster!(ax, spa::TrialAlignedSpiketrain, rp::RippleData;tmax=20.0,
     scatter!(ax, points,color=colors)
     scatter!(ax, Point2f.([(cp, i) for (i,cp) in enumerate(cue_period)]),color=:black, marker='|')
     scatter!(ax, Point2f.([(trial_end[i], i) for i in findall(trial_end .<= tmax)]),color=:black, marker='|')
-    ax.ylabel = "Trialnr"
+    if get(kwargs, :ylabelvisible, true)
+        ax.ylabel = "Trialnr"
+    end
     ax.yticklabelsvisible = false
 end
 
@@ -193,7 +195,9 @@ function plot_psth!(ax, spa::TrialAlignedSpiketrain, rp::RippleData;tmax=20,bins
         μ ./= binsize*window
         lines!(ax, bins[1:idx1], μ[1:idx1];color=color[i])
     end
-    ax.ylabel = "Firing rate [Hz]" 
+    if get(kwargs, :ylabelvisible, true)
+        ax.ylabel = "Firing rate [Hz]" 
+    end
 end
 
 function plot_raster_and_psth(args...;kwargs...)
@@ -213,7 +217,10 @@ function plot_raster_and_psth!(lg::GridLayout, spa::TrialAlignedSpiketrain, rp::
     ax1.xticklabelsvisible = false
     ax1.xticksvisible = false
     linkxaxes!(ax1, ax2)
-    ax2.xlabel = "Time from cue [s]"
+    if get(kwargs, :xlabelvisible, true)
+        ax2.xlabel = "Time from cue [s]"
+    end
+    ax2.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
 end
 
 function plot_raster_and_psth!(lg::GridLayout, celldir::String;kwargs...)
