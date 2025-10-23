@@ -193,7 +193,7 @@ function plot_trajectories(udata::UnityData)
     end
 end
 
-function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previous_poster_selective=105))
+function plot_poster_decoding_results(;cell_examples=(poster_selective=176, previous_poster_selective=292, both=9))
     allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
         readlines(fid)
     end
@@ -211,25 +211,39 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previo
 
     with_theme(poster_theme) do
         width = 10.0*2.5*72
-        height = 0.8*width
+        height = width
         fig = Figure(size=(width, height))
         # indivvidual cell responses
         lg2 = GridLayout(fig[1,1])
+
         lg21 = GridLayout(lg2[1,1])
         Label(lg21[1,1,TopLeft()], "A")
-        plot_raster_and_psth!(lg21, allcelldirs[cell_examples.previous_poster_selective];previous=true)
-        rowsize!(lg2, 1, Relative(0.6))
+        plot_raster_and_psth!(lg21, allcelldirs[cell_examples.previous_poster_selective];previous=true,xlabelvisible=false, xticklabelsvisible=false)
+        rowsize!(lg21, 1, Relative(0.6))
+        lg31 = GridLayout(lg2[2,1])
+        rowsize!(lg31, 1, Relative(0.6))
+        plot_raster_and_psth!(lg31, allcelldirs[cell_examples.previous_poster_selective];previous=false)
+
         lg22 = GridLayout(lg2[1,2])
         Label(lg22[1,1,TopLeft()], "B")
         rowsize!(lg22, 1, Relative(0.6))
-        with_theme(Theme(Axis=(ylabelvisible=false,))) do
-            plot_raster_and_psth!(lg22, allcelldirs[cell_examples.poster_selective])
-        end
+        lg32 = GridLayout(lg2[2,2])
+        rowsize!(lg32, 1, Relative(0.6))
+        lg23 = GridLayout(lg2[1,3])
+        Label(lg23[1,1,TopLeft()], "C")
+        rowsize!(lg23, 1, Relative(0.6))
+        lg33 = GridLayout(lg2[2,3])
+        rowsize!(lg33, 1, Relative(0.6))
+        plot_raster_and_psth!(lg22, allcelldirs[cell_examples.poster_selective];previous=true,ylabelvisible=false,xlabelvisible=false, xticklabelsvisible=false)
+        plot_raster_and_psth!(lg32, allcelldirs[cell_examples.poster_selective];previous=false, ylabelvisible=false)
+
+        plot_raster_and_psth!(lg23, allcelldirs[cell_examples.both];previous=true, ylabelvisible=false, xticklabelsvisible=false, xlabelvisible=false)
+        plot_raster_and_psth!(lg33, allcelldirs[cell_examples.both];previous=false, ylabelvisible=false)
         # tuning strength of individual cell vs contribution to decoder
         # plot performance on current poster vs previous poster
         lg1 = GridLayout(fig[2,1])
         lg11 = GridLayout(lg1[1,1])
-        Label(lg11[1,1,TopLeft()],"C")
+        Label(lg11[1,1,TopLeft()],"D")
         ax = Axis(lg11[1,1])
         sc = scatter!(ax, μ_perf_c, μ_perf_p,color=ncells, markersize=30px)
         Colorbar(lg11[1,2], sc, label="No cells")
@@ -249,11 +263,11 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=9, previo
         vlines!(ax4, 1.0, linestyle=:dot, color=:black)
         vlines!(ax41, 1.0, linestyle=:dot, color=:black)
         rowsize!(lg12, 1, Relative(0.4))
-        Label(lg12[1,1,TopLeft()], "D")
+        Label(lg12[1,1,TopLeft()], "E")
 
         ax51 = Axis(lg12[1,2])
         ax5 = Axis(lg12[2,2])
-        Label(lg12[1,2,TopLeft()], "E")
+        Label(lg12[1,2,TopLeft()], "F")
         linkxaxes!(ax5,ax51)
         ax51.xticklabelsvisible = false
         hist!(ax51, 1.0./previous_poster_selectivity)
