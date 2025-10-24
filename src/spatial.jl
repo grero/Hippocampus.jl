@@ -158,11 +158,7 @@ function SpatialRepresentation(sp::AbstractVector{T}, rp::RippleData, udata::Uni
     for i in 1:nt
         tp,posx,posy,_ = get_trial(udata,i;trial_start=trial_start)
         tp .-= tp[1]
-        if gidx !== nothing
-            use_bin = gidx[i]
-        else
-            use_bin = fill(true,length(tp))
-        end
+        use_bin = fill(true,length(tp))
         if min_speed > 0
             # mark bins as invalid if the speed is too low
             vv = sqrt.(diff(posx).^2 + diff(posy).^2)./diff(tp)
