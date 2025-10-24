@@ -468,7 +468,29 @@ function explore!(fig, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0, colo
             return Consume()
         end
     end
-    fig
+    lscene
+end
+
+"""
+Scatter the points represented by `X` onto the mesh represented by `mm`
+"""
+function Makie.convert_arguments(::Type{<:Scatter}, X::Matrix{T}, mm::SimpleMesh) where T <: Real
+    m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
+    points = Tuple.(eachcol(X))
+    # map to manifold
+    kidx = mapto(mm, points, (0.0f0, 0.0f0, 0.0f0);Δmax=100*Unitful.m)
+    # find ceiling and floor points
+    ceiling_idx = findall(in(m_ceiling.inds), first.(kidx))
+    floor_idx = findall(in(m_floor.inds), first.(kidx))
+    # offset ceiling and floor
+    floor_offset = -20
+    ceiling_offset = 10
+    # copy X
+    X2 = zeros(T, size(X)...)
+    X2 .= X
+    X2[3,ceiling_idx] .+= ceiling_offset
+    X2[3,floor_idx] .+= floor_offset
+    S.Scatter(Point3f.(eachcol(X2)))
 end
 
 function map_from_matlab(pillar_height=2.5f0)
