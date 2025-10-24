@@ -6,7 +6,9 @@ end
 
 function Spiketrain(fname::String)
     q = MAT.matread(fname)
-    Spiketrain(q["timestamps"][:], q["reference"], q["components"])
+    reference = get(q, "reference", "None")
+    components = get(q, "components", 0)
+    Spiketrain(q["timestamps"][:], reference, components)
 end
 
 function Spiketrain()
