@@ -69,7 +69,7 @@ function get_poster_cue_response(celldir::String;previous=false, future=0)
             _posterid = rp.triggers[i,1]-10
             posterid[j] = _posterid 
         end
-        outcome[j] = round(Int64,rp.triggers[i,3]/10)
+        outcome[j] = round(Int64,floor.(rp.triggers[i,3]/10))
     end
     nspikes, posterid, outcome
 end
