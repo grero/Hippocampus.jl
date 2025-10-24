@@ -474,8 +474,11 @@ function adaptive_smoothing(spm::SpatialMap{T}, α=T(10000.0)^2;filter_unoccupie
 end
 
 function compute_sic(spm::AbstractSpatialMap)
+    compute_sic(spm.weight, spm.occupancy)
+end
 
-    x = spm.weight./spm.occupancy
+function compute_sic(weight, occupancy)
+    x = weight./occupancy
     idx = isfinite.(x)
     p = spm.occupancy[idx]./sum(spm.occupancy[idx])
     r = sum(p.*x[idx])
