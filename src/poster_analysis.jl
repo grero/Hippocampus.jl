@@ -281,3 +281,34 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
         fig
     end
 end
+
+function plot_view_and_place_fields()
+
+end
+
+function plot_view_and_place_fields(vm::ViewMapNew, spm::SpatialMapNew)
+    mm = get_maze_mesh()
+    D = distancematrix(mm)
+    m_floor = floor_topology3()
+    D_floor = distancematrix(m_floor)
+    f_sp = get_rate_map(spm)
+    f_sp[isnan.(f_sp)] .= 0.0
+    f_v = get_rate_map(vm)
+    f_v[isnan.(f_v)] .= 0.0
+
+    #smoothing
+    Zp = fill_in_neighbours2(f_sp, D_floor, 12, 4.0)
+    Zv = fill_in_neighbours2(vec(f_v), D, 12, 4.0)
+
+    fig = Hippocampus.explore(mm, Zv, m_floor, Zp;showsegments=false, colormap=:jet)
+
+end
+
+function plot_view_fields(patches::Vector{Vector{Vector{Int64}}})
+    mm = Hippocampus.get_maze_mesh()
+    Z,alpha = set_peaks(patches[1],mm,1.0)
+    for (i,patch) in enumerate(patches[2:end])
+        set_peaks!(Z, alpha, patch, i+!)
+    end
+    fig = explore(mm;color=Z, alpha=alpha,showsegments=true, floor_offset=-20, ceiling_offset=10.0,colormap=:brg)
+end
