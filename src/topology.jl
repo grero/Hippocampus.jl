@@ -345,11 +345,14 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     points, cnx
 end
 
-function get_maze_mesh(args...;kwargs...)
+function get_maze_mesh(args...;nrefinements=3, kwargs...)
     points,cnx = maze_topology3(args...;kwargs...)
     mm = SimpleMesh(points, connect.(cnx))
-    mm2 = refine(refine(refine(mm, QuadRefinement()), QuadRefinement()),QuadRefinement())
-    mm2 = SimpleMesh(mm2.vertices, convert(HalfEdgeTopology, mm2.topology))
+    for i in 1:nrefinements
+        mm = refine(mm, QuadRefinement())
+    end
+    #mm2 = refine(refine(refine(mm, QuadRefinement()), QuadRefinement()),QuadRefinement())
+    mm2 = SimpleMesh(mm.vertices, convert(HalfEdgeTopology, mm.topology))
     mm2
 end
 
