@@ -207,6 +207,7 @@ end
 
 each(X::AbstractVector{<:Any}) = X
 each(X::AbstractMatrix{<:Any}) = eachcol(X)
+each(X::Tuple{AbstractVector{<:Any}, AbstractVector{<:Any}}) = zip(X[1], X[2])
 
 function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepresentation{T1,T2} where T1 <: Real where T2 <: Real
     # save in a dictionary for now
