@@ -455,8 +455,8 @@ function SpatialMap(xbins, ybins;redo=false, do_save=false,kwargs...)
         UnityData()
     end
     spoc = SpatialOccupancy(udata, xbins, ybins)
-    spr = SpatialRepresentation(sp, rp, udata;kwargs...);
-    SpatialMap(spr, xbins, ybins, spoc)
+    spr = SpatialRepresentation(sp, rp, udata,spoc;kwargs...);
+    SpatialMap(spr, spoc)
 end
 
 function filter_occupancy(spm::SpatialMap{T}) where T <: Real
