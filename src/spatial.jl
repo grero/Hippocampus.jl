@@ -5,6 +5,116 @@ using MultivariateStats
 using LinearAlgebra
 using LinearRegressionUtils
 
+abstract type AbstractMap  end
+abstract type AbstractSpatialMap <: AbstractMap end
+
+"""
+Contains information about the total time spent in each spatial bin.
+"""
+struct SpatialOccupancy{T<:Real} <: AbstractSpatialMap
+    xbins::AbstractVector{T}
+    ybins::AbstractVector{T}
+    weight::Array{T,3}
+    bincount::Array{T,3}
+end
+
+function SpatialOccupancy(udata::UnityData, xbins::AbstractVector{T}, ybins::AbstractVector{T};trial_start=1,min_speed=0.0, min_duration=0.0, min_num_observations=0,gidx::Union{Vector{Vector{Bool}},Nothing}=nothing) where T <: Real
+    nt = numtrials(udata)
+    weight = zeros(T, length(xbins)-1, length(ybins)-1, nt)
+    w = fill!(similar(weight), zero(T))
+    bincount = zeros(T, size(weight)...)
+    for i in 1:nt
+        # keep track of observations per trial
+        fill!(w, zero(T))
+        tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
+        if gidx !== nothing
+            _gidx = gidx[i]
+        else
+            _gidx = fill(true, length(tu))
+        end
+        for j in 2:length(tu)
+            if !_gidx[j]
+                continue
+            end
+            Δt = tu[j]-tu[j-1]
+            ds = sqrt((posx[j] - posx[j-1])^2 + (posy[j]-posy[j-1])^2)
+            ds /= Δt
+            if ds > min_speed
+                xidx = searchsortedlast(xbins, posx[j-1])
+                yidx = searchsortedlast(ybins, posy[j-1])
+                if 0 < xidx <= size(weight,1) && 0 < yidx <= size(weight,2)
+                    w[xidx,yidx,i] += Δt
+                    bincount[xidx,yidx,i] += 1.0
+                end
+            end
+        end
+        # check number of observations per bin
+        weight .+= w
+    end
+    SpatialOccupancy(xbins, ybins, weight, bincount)
+end
+
+function SpatialOccupancy(xbins::AbstractVector{T},ybins=xbins;kwargs...) where T <: Real
+    udata = UnityData()
+    SpatialOccupancy(udata, xbins, ybins;kwargs...)
+end
+
+struct SpatialOccupancyNew{T<:Real} <: AbstractSpatialMap
+    mm::SimpleMesh
+    weight::Matrix{T}
+    bincount::Matrix{T}
+end
+
+function SpatialOccupancyNew(udata::UnityData,mm::SimpleMesh;trial_start=1,min_speed=0.0)
+    T = eltype(udata.position)
+    nt = numtrials(udata)
+    ne = nelements(mm)
+    weight = zeros(T, ne, nt)
+    w = zeros(T,ne) 
+    bincount = zeros(T, size(weight)...)
+    kn = KNearestSearch(mm, 1)
+    for i in 1:nt
+        # keep track of observations per trial
+        fill!(w, zero(T))
+        tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
+        for j in 2:length(tu)
+            Δt = tu[j]-tu[j-1]
+            ds = sqrt((posx[j] - posx[j-1])^2 + (posy[j]-posy[j-1])^2)
+            ds /= Δt
+            if ds > min_speed
+                _idx,_dd = searchdists(Meshes.Point(posx[j-1], posy[j-1],0.0), kn)
+                fidx = first(_idx)
+                w[fidx] += Δt
+                bincount[fidx,i] += 1.0
+            end
+        end
+        # check number of observations per bin
+        weight[:,i] .= w
+    end
+    SpatialOccupancyNew{T}(mm, weight, bincount)
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::SpatialOccupancyNew)
+end
+
+function SpatialOccupancyNew(;kwargs...)
+    m_floor = Hippocampus.floor_topology3();
+    udata = UnityData()
+    SpatialOccupancyNew(udata,m_floor;kwargs...)
+end
+
+function explore(spm::SpatialOccupancyNew{<:Real};min_duration=0.05, min_num_obs=5)
+    goodbinidx = findall(dropdims(sum(spm.weight .> min_duration,dims=2),dims=2) .>= min_num_obs)
+    tcolor = zeros(size(spm.weight,1))
+    tcolor[goodbinidx] = dropdims(sum(spm.weight[goodbinidx,:],dims=2),dims=2)
+    
+    mms = Shadow("xy")(spm.mm)
+    fig,ax = viz(mms;color=tcolor, showsegments=true)
+    Colorbar(fig[1,2], colorrange=extrema(tcolor), label="Duration [s]")
+    display(fig)
+    fig,ax
+end
+
 abstract type AbstractRepresentation{T1<:Real,T2<:Real} end
 """
 A spatial representation of events
