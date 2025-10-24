@@ -240,15 +240,20 @@ function population_decoder(nspikes::Matrix{T}, posterid::Vector{Int64};nruns=1)
     # whiten
     pca = fit(PCA, nspikes)
     y = predict(pca, nspikes)
+    ncells = size(nspikes,1)
 
     ntrain = round(Int64, 0.8*nt)
     ntest = nt - ntrain
     perf = fill(0.0, nruns)
+    w = fill(0.0, ncells, nruns)
     for r in 1:nruns
         train_idx = shuffle(1:nt)[1:ntrain]
         sort!(train_idx)
         test_idx = setdiff(1:nt, train_idx)
         lda = fit(MulticlassLDA, nc, y[:,train_idx], posterid[train_idx])
+        _w = pca.proj*lda.proj
+        w[:,r] .= dropdims(sum(abs2,_w,dims=2),dims=2)
+        w[:,r] ./= sum(w[:,r],dims=1)
         z = predict(lda, y[:,test_idx])
         cmeans = predict(lda, classmeans(lda))
         for j in 1:ntest
@@ -258,7 +263,7 @@ function population_decoder(nspikes::Matrix{T}, posterid::Vector{Int64};nruns=1)
         end
         perf[r] /= ntest
     end
-    perf
+    perf,w
 end
 
 function population_decoder(allcelldirs::Vector{String};nruns=10, kwargs...)
