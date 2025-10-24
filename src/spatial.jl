@@ -96,12 +96,15 @@ function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepr
     Q = Dict()
     for (i,_spr) in enumerate(spr)
         _position = get_rep(_spr)
-        for (kk,pos) in enumerate(_position)
-            for p in each(pos)
+        _time = _spr.time_window
+        for (kk,(pos,tt)) in enumerate(zip(_position,_time))
+            for (j,p) in enumerate(each(pos))
                 if !(p in keys(Q))
-                    Q[p] = fill(0, nr)
+                    Q[p] = Dict("count"=> fill(0, nr), "time" => 0.0)
                 end
-                Q[p][i] += 1
+                Q[p]["count"][i] += 1
+                Q[p]["time"] +=tt[j] 
+                 # TODO: We should also keep track of time windows here
             end
         end
     end
@@ -115,12 +118,14 @@ function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepr
         d = length(pq)
     end
     position = zeros(T1, d, nq)
+    time_window = zeros(T1, nq)
     X = zeros(T1, nr, nq)
     for (i,(q,v)) in enumerate(Q)
         position[:,i] = q
-        X[:,i] = v
+        X[:,i] .= v["count"]
+        time_window[i] = v["time"]
     end
-    X,position
+    X,position,time_window
 end
 
 numtrials(spr::SpatialRepresentation) = length(spr.position)
