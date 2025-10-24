@@ -484,15 +484,47 @@ function plot_spatial_decoding_analysis(;redo=false)
     end
 end
 
-function plot_spatial_decoding_results(km_results, mean_err::Vector{T}, mean_err_sh::Matrix{T}) where T <: Real
+function plot_spatial_decoding_results(km_results, mean_err::Vector{T}, mean_err_sh::Matrix{T};_plot_theme=plot_theme) where T <: Real
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_spatial_decoding_results!(lg, km_results, mean_err, mean_err_sh;_plot_theme=_plot_theme)
+        fig
+    end
+end
+
+function plot_spatial_decoding_results!(lg, km_results, mean_err::Vector{T}, mean_err_sh::Matrix{T};_plot_theme=plot_theme) where T <: Real
     err_zscore = (mean_err .- dropdims(mean(mean_err_sh,dims=2),dims=2))./dropdims(std(mean_err_sh, dims=2),dims=2)
     m_floor = Shadow("xy")(Hippocampus.floor_topology3())
     midx = err_zscore .< -2.0
-    with_theme(plot_theme) do
-        fig,ax = viz(m_floor;color=:lightgray)
+    with_theme(_plot_theme) do
+        ax = Axis(lg[1,1],aspect=1)
+        viz!(ax, m_floor;color=:lightgray)
         scatter!(ax, Point2f.(eachcol(km_results.centers[:,midx])), color=:red, markersize=12px)
         sc = scatter!(ax, Point2f.(eachcol(km_results.centers)), color=err_zscore, markersize=10px)
-        Colorbar(fig[1,2], sc, label="Z-scored error")
+        Colorbar(lg[1,2], sc, label="Z-scored error")
+    end
+end
+
+function plot_view_decoding_results(km_results, mean_err::Vector{T}, mean_err_sh::Matrix{T};_plot_theme=plot_theme) where T <: Real
+    with_theme(_plot_theme) do
+        fig = Figure(size=(556,538))
+        lg = GridLayout(fig[1,1])
+        plot_view_decoding_results!(lg, km_results, mean_err, mean_err_sh;_plot_theme=_plot_theme)
         fig
+    end
+end
+
+function plot_view_decoding_results!(lg, km_results, mean_err::Vector{T}, mean_err_sh::Matrix{T};_plot_theme=plot_theme) where T <: Real
+    zscored_err = (mean_err .- dropdims(mean(mean_err_sh,dims=2),dims=2))./dropdims(std(mean_err_sh, dims=2),dims=2)
+    mm = get_maze_mesh(;nrefinements=1)
+    markersize = fill(7.0, length(zscored_err))
+    markersize[zscored_err .< -2.0] .= sqrt(2)*7
+    with_theme(_plot_theme) do
+        lscene = LScene(lg[1,1],show_axis=false)
+        plotmesh!(lscene,mm;segmentcolor=:lightgray, showsegments=true, alpha=0.0, ceiling_offset=10, floor_offset=-20)
+        sc = scatter!(lscene, km_results.centers,mm, color=zscored_err, markersize=markersize)
+        Colorbar(lg[1,2],sc, label="Z-scored error")
+        lscene
     end
 end
