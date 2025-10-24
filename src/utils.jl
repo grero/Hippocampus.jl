@@ -117,6 +117,7 @@ function get_peaks(f::AbstractArray{T,N},domain=f;t=2,dmax=1) where T <: Real wh
             end
             did_change = true
             if f[_fidx[_qq]]>= μ+t*σ
+            #if (fm - f[_fidx[_qq]])<= 0.5*(fm-μ)
                 push!(patches[pidx],_fidx[_qq])
             end
             avail[qidx[_qq]] = false
