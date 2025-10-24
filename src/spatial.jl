@@ -290,6 +290,12 @@ struct SpatialMap{T<:Real} <: AbstractSpatialMap
     occupancy::Matrix{T}
 end
 
+struct SpatialMapNew{T<:Real} <: AbstractSpatialMap
+    mm::SimpleMesh
+    weight::Vector{T}
+    occupancy::Vector{T}
+end
+
 struct SmoothedSpatialMap{T<:Real} <: AbstractSpatialMap
     xbins::AbstractVector{T}
     ybins::AbstractVector{T}
@@ -301,19 +307,143 @@ end
 
 DPHT.level(::Type{<:AbstractSpatialMap}) = "cell"
 
-function SpatialMap(spr::SpatialRepresentation{T,T2}, spoc::SpatialOccupancy{T};kwargs...) where T <: Real where T2 <: Real
+function SpatialMap(spr::SpatialRepresentation{<:Real,<:Real}, spoc::SpatialOccupancy{T2};kwargs...) where T2 <: Real
     xbins = spoc.xbins
     ybins = spoc.ybins
-    spatial_count = zeros(T, length(xbins)-1, length(ybins)-1)
+    spatial_count = zeros(T2, length(xbins)-1, length(ybins)-1)
     nt = numtrials(spr)
+    goodbinidx = findall(dropdims(sum(spoc.weight .> 0.05,dims=3),dims=3) .>= 5)
     for i in 1:nt
         position = spr.position[i]
         xpos = [pos[1] for pos in position]
         ypos = [pos[2] for pos in position]
-        h = fit(Histogram, (xpos,ypos), (xbins, ybins))
-        spatial_count .+= h.weights
+        h = StatsBase.fit(Histogram, (xpos,ypos), (xbins, ybins))
+        # remove non-valid bin counts
+        spatial_count[goodbinidx] .+= h.weights[goodbinidx]
     end
-    SpatialMap(xbins,ybins, spatial_count, spoc.weight)
+    spoc_weight = zeros(T2, size(spoc.weight,1), size(spoc.weight,2))
+    spoc_weight[goodbinidx] .= dropdims(sum(spoc.weight[goodbinidx, :],dims=2),dims=2)
+    SpatialMap(xbins,ybins, spatial_count, spoc_weight)
+end
+
+function SpatialMapNew(spr::SpatialRepresentation{T,<:Real}, spoc::SpatialOccupancyNew{T2};min_duration=0.05, min_n_obs=5, kwargs...) where T2 <: Real where T <: Real
+    mm = spoc.mm
+    spatial_count = zeros(T2, size(spoc.weight,1))
+    nt = numtrials(spr)
+    goodbinidx = findall(dropdims(sum(spoc.weight .> min_duration,dims=2),dims=2) .>= min_n_obs)
+    f = in(goodbinidx)
+    for i in 1:nt
+        position = spr.position[i]
+        xpos = [pos[1] for pos in position]
+        ypos = [pos[2] for pos in position]
+        points = [(xp,yp, zero(T)) for (xp,yp) in zip(xpos,ypos)]
+        bidx = mapto(mm, points)
+        for k in bidx
+            for k1 in k
+                if f(k1) 
+                    spatial_count[k1] += 1.0
+                end
+            end
+        end
+    end
+    spoc_weight = zeros(T2, size(spoc.weight,1))
+    spoc_weight[goodbinidx] .= dropdims(sum(spoc.weight[goodbinidx, :],dims=2),dims=2)
+    SpatialMapNew(mm, spatial_count, spoc_weight)
+end
+
+function SpatialMapNew(;kwargs...)
+    spoc = cd(DPHT.process_level("session")) do
+        SpatialOccupancyNew()
+    end
+    spr = SpatialRepresentation(;kwargs...)
+    SpatialMapNew(spr, spoc;kwargs...)
+end
+
+function get_rate_map(spm::AbstractMap;filter_unvisited=true)
+    Z = spm.weight./spm.occupancy
+    unvisited = spm.occupancy.==0
+    if filter_unvisited
+        Z[unvisited] .= NaN
+    end
+    Z
+end
+
+function get_rate_map(spm::SmoothedMap;filter_unvisited=true)
+    Z = spm.weight./spm.occupancy
+    if filter_unvisited
+        Z[spm.unvisited] .= NaN
+    end
+    Z
+end
+
+
+function explore(sm::SmoothedMap;filter_unoccupied=true,goodbinidx::Union{Nothing, Vector{Int64}}=nothing, kwargs...)
+    mm = sm.mm
+    tcolor = sm.weight./sm.occupancy 
+    alpha = fill(1.0, length(tcolor))
+    alpha[tcolor.==0] .= 0.0
+    if goodbinidx !== nothing
+        badbinidx = setdiff(1:length(tcolor), goodbinidx)
+        tcolor[badbinidx] .= 0.0
+        alpha[badbinidx] .= 0.0
+    elseif filter_unoccupied
+        tcolor[sm.unvisited] .= 0.0 
+        alpha[sm.unvisited] .= 0.0
+    end
+    explore(mm;color=tcolor, alpha=alpha, showsegments=true, kwargs...)
+end
+
+function explore(spm::AbstractSpatialMap;separate_occupancy=false,filter_zeros=false)
+    mms = Shadow("xy")(spm.mm)
+    offset = 0 
+    figheight = 300 
+    if separate_occupancy
+        figwidth = 3*figheight 
+    else
+        figwidth = figheight
+    end
+    fig = Figure(size=(figwidth,figheight))
+    if separate_occupancy
+        ax1 = Axis(fig[1,1])
+        tcolor1 = spm.weight
+        alpha1 = fill(1.0, size(tcolor1)...) 
+        fidx1 = (!isfinite).(tcolor1)
+        alpha1[fidx1] .= 0.0
+        tcolor1[fidx1] .= 0.0
+        if filter_zeros
+            alpha1[tcolor1.==0.0] .= 0.0
+        end
+
+        viz!(ax1, mms;color=tcolor1, alpha=alpha1,showsegments=true)
+        Colorbar(fig[1,2], colorrange=extrema(tcolor1[alpha1.>0]),label="Spike count")
+
+        ax2 = Axis(fig[1,3])
+        tcolor2 = spm.occupancy
+        alpha2 = fill(1.0, size(tcolor2)...) 
+        fidx2 = (!isfinite).(tcolor2)
+        alpha2[fidx1] .= 0.0
+        tcolor2[fidx1] .= 0.0
+        if filter_zeros
+            alpha2[tcolor2.==0.0] .= 0.0
+        end
+        viz!(ax2, mms;color=tcolor2, alpha=alpha2,showsegments=true)
+        Colorbar(fig[1,4], colorrange=extrema(tcolor2[alpha2.>0]),label="Duration [s]")
+        offset = 4
+    end
+    tcolor = spm.weight./spm.occupancy
+    alpha = fill(1.0, size(tcolor)...) 
+    fidx = (!isfinite).(tcolor)
+    alpha[fidx] .= 0.0
+    tcolor[fidx] .= 0.0
+    if filter_zeros
+        alpha[tcolor.==0.0] .= 0.0
+    end
+    ax = Axis(fig[1,offset+1])
+    viz!(ax, mms;color=tcolor, alpha=alpha,showsegments=true)
+    Colorbar(fig[1,offset+2], colorrange=extrema(tcolor[alpha.>0]),label="Firing rate [Hz]")
+
+    display(fig)
+    fig
 end
 
 function SpatialMap(xbins, ybins;redo=false, do_save=false,kwargs...)
