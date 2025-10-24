@@ -122,6 +122,7 @@ A spatial representation of events
 struct SpatialRepresentation{T1<:Real,T2<:Real} <: AbstractRepresentation{T1,T2}
     position::Vector{Vector{Point{2, T1}}}
     timestamp::Vector{Vector{T2}}
+    time_window::Vector{Vector{T2}}
     event::Vector{Vector{T2}}
 end
 
@@ -147,6 +148,7 @@ function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityD
     nt = numtrials(udata)
     position = Vector{Vector{Point2f}}(undef, nt)
     timestamp = Vector{Vector{Float64}}(undef, nt)
+    time_window = Vector{Vector{Float64}}(undef, nt)
     events = Vector{Vector{Float64}}(undef, nt)
     sp = spikes.timestamps/1000.0 #convert to seconds
     for i in 1:nt
@@ -171,6 +173,7 @@ function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityD
         nspikes = idx1-idx0+1
         events[i] = Float64[] 
         timestamp[i] = Float64[]
+        time_window[i] = Float64[]
         position[i] = Point2f[]
         for j in 1:nspikes
             k = searchsortedlast(tp,sp_trial[j])
@@ -179,11 +182,12 @@ function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityD
                     push!(position[i], Point2f(posx[k],posy[k]))
                     push!(events[i], sp_trial[j])
                     push!(timestamp[i], tp[k])
+                    push!(time_window[i], tp[k+1]-tp[k])
                 end
             end
         end
     end
-    SpatialRepresentation(position,timestamp, events)
+    SpatialRepresentation(position,timestamp, time_window, events)
 end
 
 function SpatialRepresentation(;kwargs...)
