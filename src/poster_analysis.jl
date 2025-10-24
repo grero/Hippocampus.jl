@@ -1,10 +1,11 @@
 poster_theme = Theme(Axis=(xlabelsize=36, ylabelsize=36,
                            xticklabelsize=36, yticklabelsize=36,
                            topspinevisible=false, rightspinevisible=false,
-                           xgridvisible=false, ygridvisible=false,
-                           ),
+                           xgridvisible=false, ygridvisible=false,ylabelvisible=true,
+                           xticklabelsvisible=true, xlabelvisible=true),
                      Scatter=(markersize=10px,),
-                     Lines=(linewidth=3,))
+                     Lines=(linewidth=3,),
+                     fontsize=36)
 
 
 
