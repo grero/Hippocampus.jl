@@ -1121,21 +1121,38 @@ function visualize!(scenes::AbstractVector, objects;kwargs...)
     end
 end
 
-struct ViewRepresentation
-    position::Vector{Vector{Point3f}}
+struct ViewRepresentation <: AbstractRepresentation{Float32, Float64}
+    gaze::Vector{Vector{Point3f}}
+    position::Vector{Vector{Point2f}}
+    timestamp::Vector{Vector{Float64}}
+    time_window::Vector{Vector{Float64}}
     event::Vector{Vector{Float64}}
 end
 
-function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{GazeOnMaze,UnityRaytraceData})
+function ViewRepresentation(gaze::Vector{Vector{Point3f}}, timestamp::Vector{Vector{Float64}}, time_window, event)
+    position = [[Point2f(NaN) for _ in length(gaze[i])] for i in 1:length(gaze)]
+    ViewRepresentation(gaze, position, timestamp, time_window, event)
+end
+
+get_rep(vp::ViewRepresentation) = vp.position
+
+function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{GazeOnMaze,UnityRaytraceData};fixations_only=true, kwargs...)
     nt = numtrials(gdata)
-    position = Vector{Vector{Point3f}}(undef, nt)
+    gaze = Vector{Vector{Point3f}}(undef, nt)
+    pos = Vector{Vector{Point2f}}(undef, nt)
     events = Vector{Vector{Float64}}(undef, nt)
+    timestamp = Vector{Vector{Float64}}(undef, nt)
+    time_window = Vector{Vector{Float64}}(undef, nt)
+
     sp = spikes.timestamps/1000.0 #convert to seconds
     for i in 1:nt
-        tg,gaze,fixmask = get_trial(gdata,i)
+        tg,_gaze,_pos,fixmask,fo = get_trial(gdata,i)
         if length(tg) == 0
-            position[i] = Point3f[]
+            gaze[i] = Point3f[]
+            pos[i] = Point2f[]
             events[i] = Float64[]
+            timestamp[i] = Float64[]
+            time_window[i] = Float64[]
             continue
         end
         tg .= tg .- tg[1]
@@ -1145,21 +1162,33 @@ function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{Gaz
         # align to trial start
         sp_trial = sp[idx0:idx1] .- timestamps[1]
         nspikes = idx1-idx0+1
-        position[i] = Vector{Point3f}(undef, nspikes)
+        pos[i] = Vector{Point2f}(undef, nspikes)
+        gaze[i] = Vector{Point3f}(undef, nspikes)
         events[i] = Vector{Float64}(undef, nspikes)
+        timestamp[i] = Vector{Float64}(undef, nspikes)
+        time_window[i] = Vector{Float64}(undef, nspikes)
         js = 1
         for j in 1:nspikes
-            k = searchsortedfirst(tg,sp_trial[j])
-            if 0 < k <= size(gaze,2) && fixmask[k]
-                position[i][js] = Point3f(gaze[:,k])
+            k = searchsortedlast(tg,sp_trial[j])
+            if 0 < k < size(_gaze,2) && (fixmask[k] || !fixations_only)
+                if fo[k] in ["HintImage","CueImage"] 
+                    continue
+                end
+                gaze[i][js] = Point3f(_gaze[:,k])
+                pos[i][js] = Point2f(_pos[:,k])
                 events[i][js] = sp_trial[j]
+                timestamp[i][js] = tg[k]
+                time_window[i][js] = tg[k+1]-tg[k]
                 js += 1
             end
         end
-        position[i] = position[i][1:js-1]
+        pos[i] = pos[i][1:js-1]
+        gaze[i] = gaze[i][1:js-1]
         events[i] = events[i][1:js-1]
+        timestamp[i] = timestamp[i][1:js-1]
+        time_window[i] = time_window[i][1:js-1]
     end
-    ViewRepresentation(position, events)
+    ViewRepresentation(gaze, pos, timestamp, time_window, events)
 end
 
 function ViewRepresentation(gaze_type::Type{T};kwrgas...) where T <: Union{GazeOnMaze, UnityRaytraceData}
