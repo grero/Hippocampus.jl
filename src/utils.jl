@@ -86,12 +86,12 @@ function fix_markers(markers)
 end
 
 """
-    field_outline(f::Matrix{T};t=2) where T <: Real
+    get_peaks(f::AbstractArray{T,N},domain=f;t=2) where T <: Real where N
 
 Extract contiguous patches of activity from `f` where the activity exceeds μ+t σ
 where μ is the overall mean and σ is the overall standard deviation.
 """
-function field_outline(f::AbstractArray{T,N},domain=f;t=2) where T <: Real where N
+function get_peaks(f::AbstractArray{T,N},domain=f;t=2,dmax=1) where T <: Real where N
     fidx = findall(isfinite, f)
     σ = std(f[fidx])
     μ = mean(f[fidx])
@@ -133,6 +133,37 @@ function field_outline(f::AbstractArray{T,N},domain=f;t=2) where T <: Real where
         end
     end
     patches
+end
+
+function set_peaks(patches::Vector{Vector{Int64}}, mm::SimpleMesh,k::Real)
+    Z = zeros(nelements(mm))
+    alpha = zeros(nelements(mm))
+    set_peaks!(Z, alpha, patches, k)
+end
+
+function set_peaks!(Z::Vector{T},alpha::Vector{T}, patches::Vector{Vector{Int64}}, k::Real) where T <: Real
+    for (i,patch) in enumerate(patches)
+        Z[patch] .= k
+        alpha[patch] .= 1.0
+    end
+    Z, alpha
+end
+
+function get_outline(patch::Vector{CartesianIndex{2}}, xbins,ybins=xbins)
+    points = [Meshes.Point(xbins[ci.I[1]], ybins[ci.I[2]]) for ci in  patch]
+    chull = hull(points, GrahamScan())
+end
+
+function get_outline(patches::Vector{Vector{Vector{CartesianIndex{2}}}}, xbins,ybins=xbins)
+    chulls = Any[]
+    for pp in patches
+        for p in pp
+            if length(p) > 1
+                push!(chulls, get_outline(p, xbins, ybins))
+            end
+        end
+    end
+    chulls
 end
 
 struct Trial
