@@ -402,20 +402,20 @@ function explore(mm::SimpleMesh,tcolor::Vector{Vector{T}};kwargs...) where T <: 
     fig
 end
 
-function explore!(fig, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0, color=fill(0.0, nelements(mm)),alpha=fill(1.0, nelements(mm)),kwargs...)
-    # used for collision
-    kn = KNearestSearch(mm, 1)
-    lscene = LScene(fig[1,1])
-    cm=get(Dict(kwargs), :colormap, :viridis)
-    cb = Colorbar(fig[1,2]; limits=extrema(filter(isfinite, color)), colormap=cm)
-    zmax = maximum(mm.vertices).coords.z.val
+function plotmesh(mm::SimpleMesh;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lscene = LScene(fig[1,1])
+        plotmesh!(lscene, mm;kwargs...)
+        display(fig)
+        fig,lscene
+    end
+end
+
+function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,kwargs...)
     if (floor_offset != 0 || ceiling_offset != 0)
-        ppred(p1,p2) = ((p1.coords.z.val==0.0)&&(p2.coords.z.val==0.0))||((zmax > p1.coords.z.val > 0.0)&&(zmax > p2.coords.z.val>0.0))||((p1.coords.z.val==zmax)&&(p2.coords.z.val==zmax))
-        parts = partition(mm, PointPredicatePartition(ppred))
-        # the order is not consistent, but floor has the least number of elements, followed by the ceiling, and then the middle
-        midx = sortperm(nelements.(parts))
-        m_floor, m_ceiling, m_middle = parts[midx]
-        if floor_offset != 0
+        m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
+         if floor_offset != 0
             m_floor2 = Translate(0.0, 0.0, floor_offset)(m_floor)
         else
             m_floor2 = m_floor
@@ -425,38 +425,102 @@ function explore!(fig, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0, colo
         else
             m_ceiling2 = m_ceiling
         end
-        cr = extrema(color)
-        viz!(lscene, m_middle;color=color[m_middle.inds],alpha=alpha[m_middle.inds], colorrange=cr, kwargs...)
-        viz!(lscene, m_floor2;color=color[m_floor2.inds],alpha=alpha[m_floor2.inds], colorrange=cr, kwargs...)
-        viz!(lscene, m_ceiling2;color=color[m_ceiling2.inds],alpha=alpha[m_ceiling2.inds], colorrange=cr, kwargs...)
+        tcolor = get(kwargs, :color,:lightgray) 
+        use_color = Dict{Symbol,Any}()
+        if isa(tcolor, AbstractVector{<:Real})
+            # need to separate into floor, middle, and ceiling
+            cr = extrema(tcolor)
+            use_color[:middle] = tcolor[m_middle.inds]
+            use_color[:floor] = tcolor[m_floor2.inds]
+            use_color[:ceiling] = tcolor[m_ceiling2.inds]
+        else
+            use_color[:middle] = tcolor 
+            use_color[:floor] = tcolor 
+            use_color[:ceiling] = tcolor 
+            cr = nothing
+        end
+        talpha = get(kwargs, :alpha, 1.0)
+        use_alpha = Dict{Symbol,Any}()
+        if isa(talpha, AbstractVector{<:Real})
+            use_alpha[:middle] = talpha[m_middle.inds]
+            use_alpha[:floor] = talpha[m_floor2.inds]
+            use_alpha[:ceiling] = talpha[m_ceiling2.inds]
+        else
+            use_alpha[:middle] = talpha
+            use_alpha[:floor] = talpha
+            use_alpha[:ceiling] = talpha
+        end
+        viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
+        viz!(lscene, m_floor2;color=use_color[:floor],alpha=use_alpha[:floor], colorrange=cr, kwargs...)
+        viz!(lscene, m_ceiling2;color=use_color[:ceiling],alpha=use_alpha[:ceiling], colorrange=cr, kwargs...)
     else
-        viz!(lscene, mm;color=color,alpha=alpha, kwargs...)
+       viz!(lscene, mm;kwargs...) 
     end
+end
+
+function explore!(fig, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0, color=fill(0.0, nelements(mm)),alpha=fill(1.0, nelements(mm)),label::String="", show_axis=true, show_colorbar=true, kwargs...)
+    # used for collision
+    tcolor = zeros(length(color))
+    tcolor .= color
+    qidx = (!isfinite).(tcolor)
+    alpha[qidx] .= 0.0
+    tcolor[qidx] .= 0.0
+    kn = KNearestSearch(mm, 1)
+    lscene = LScene(fig[1,1],show_axis=show_axis)
+    cm=get(Dict(kwargs), :colormap, :viridis)
+    if show_colorbar
+        cb = Colorbar(fig[1,2]; limits=extrema(filter(isfinite, tcolor)), colormap=cm,label=label)
+    end
+    plotmesh!(lscene, mm;color=color, alpha=alpha,floor_offset=floor_offset, ceiling_offset=ceiling_offset,kwargs...)
     #set up camera
     lookat = Point3f(1.0, 0.0, 0.7)
-    cc = Makie.Camera3D(lscene.scene, projectiontype = Makie.Perspective, rotation_center=:eyeposition, center=false)
+    cc = cameracontrols(lscene.scene)
+    lookat0 = cc.lookat[]
+    eyepos0 = cc.eyeposition[]
+    upvector0 = cc.upvector[]
+    near = cc.near[]
+    far = cc.far[]
+
     eyepos = Point3f(0.0, 0.0, 0.7)
     v = lookat - eyepos 
     v = v./norm(v)
     #translate_cam!(lscene.scene, cc, Point3f(0.0, 0.0,2.5))
     update_cam!(lscene.scene, eyepos, lookat)
+    fp = false
     on(events(lscene.scene).keyboardbutton, priority=20) do event
-
+        if ispressed(lscene.scene, Keyboard.c)
+                fp = ~fp
+                if fp
+                    cc.eyeposition[] = eyepos 
+                    cc.lookat[] = eyepos + Makie.Vec(1.0, 0.0, 0.0)
+                    cc.upvector[] = Makie.Vec(0.0, 0.0, 1.0)
+                else
+                    cc.eyeposition[] = eyepos0 
+                    cc.lookat[] = lookat0
+                    cc.upvector[] = upvector0
+                    cc.near[] = near
+                    cc.far[] = far
+                end
+                update_cam!(lscene.scene, cc)
+        end
         if ispressed(lscene.scene, Keyboard.up) || ispressed(lscene.scene, Keyboard.down)
             if ispressed(lscene.scene, Keyboard.up)
                 dx = Point3f(0.0, 0.0, -0.1)
             else
                 dx = Point3f(0.0, 0.0, 0.1)
             end
-            translate_cam!(lscene.scene, cc, dx)
-            #check for collision
-            qq = cc.eyeposition[]
-            idx,dd = searchdists(Meshes.Point(qq...), kn)
-            if dd[1] <= 0.1*Unitful.m
-                # move back
-                # TODO: This doesn't quite work, but maybe we don't care
-                translate_cam!(lscene.scene, cc, -dx)
-                # last coordinate if foward movement (for some inexplicable reason))
+            if fp
+                translate_cam!(lscene.scene, cc, dx)
+                #check for collision
+                eyepos = cc.eyeposition[]
+                qq = cc.eyeposition[]
+                idx,dd = searchdists(Meshes.Point(qq...), kn)
+                if dd[1] <= 0.1*Unitful.m
+                    # move back
+                    # TODO: This doesn't quite work, but maybe we don't care
+                    translate_cam!(lscene.scene, cc, -dx)
+                    # last coordinate if foward movement (for some inexplicable reason))
+                end
             end
         end
         if ispressed(lscene.scene, Keyboard.right)
