@@ -191,14 +191,18 @@ function SpatialRepresentation(sp::AbstractVector{T}, rp::RippleData, udata::Uni
 end
 
 function SpatialRepresentation(;kwargs...)
-    sptrain = Spiketrain()
     rdata = cd(DPHT.process_level(level(RippleData))) do
         RippleData()
     end
     udata = cd(DPHT.process_level(level(UnityData))) do
         UnityData()
     end
-    SpatialRepresentation(sptrain, rdata, udata;kwargs...)
+    SpatialRepresentation(rdata, udata;kwargs...)
+end
+
+function SpatialRepresentation(rp::RippleData, udata::UnityData;kwargs...)
+    sptrain = Spiketrain()
+    SpatialRepresentation(sptrain, rp, udata;kwargs...)
 end
 
 each(X::AbstractVector{<:Any}) = X
