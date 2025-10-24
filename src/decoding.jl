@@ -324,12 +324,6 @@ function decode_place(X,Y,twin,f,domain, tidx=1:size(X,2), decoder=decode;prog=n
        nspikes = dropdims(sum(X[:,didx],dims=2),dims=2)
        prb = get_posterior(f, nspikes;τ=tw)
        cp = decoder(prb,domain)
-       #fidx = findall(isfinite.(prb))
-       #jk= fidx[argmax(prb[fidx])]
-       #cp = coords(centroid(m_floor[jk.I[1]]))
-       #cp = decoder(domain, jk)
-
-       #decoded_pos[:,i] = [cp.x.val, cp.y.val]
        decoded_pos[:,i] .= cp
        actual_pos[:,i] .= y
        next!(prog)
