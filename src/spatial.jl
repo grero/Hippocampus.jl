@@ -144,13 +144,17 @@ end
 
 get_rep(sr::SpatialRepresentation) = sr.position
 
-function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData;min_speed=0.0,trial_start=1, gidx::Union{Vector{Vector{Bool}}, Nothing}=nothing)
+function SpatialRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData;kwargs...)
+    sp = spikes.timestamps/1000.0 #convert to seconds
+    SpatialRepresentation(sp, rp, udata;kwargs...)
+end
+
+function SpatialRepresentation(sp::AbstractVector{T}, rp::RippleData, udata::UnityData;min_speed=0.0,trial_start=1, gidx::Union{Vector{Vector{Bool}}, Nothing}=nothing) where T <: Real
     nt = numtrials(udata)
     position = Vector{Vector{Point2f}}(undef, nt)
     timestamp = Vector{Vector{Float64}}(undef, nt)
     time_window = Vector{Vector{Float64}}(undef, nt)
     events = Vector{Vector{Float64}}(undef, nt)
-    sp = spikes.timestamps/1000.0 #convert to seconds
     for i in 1:nt
         tp,posx,posy,_ = get_trial(udata,i;trial_start=trial_start)
         tp .-= tp[1]
