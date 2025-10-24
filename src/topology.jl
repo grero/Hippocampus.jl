@@ -554,7 +554,7 @@ function Makie.convert_arguments(::Type{<:Scatter}, X::Matrix{T}, mm::SimpleMesh
     m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
     points = Tuple.(eachcol(X))
     # map to manifold
-    kidx = mapto(mm, points, (0.0f0, 0.0f0, 0.0f0);Δmax=100*Unitful.m)
+    kidx = mapto(mm, points, (zero(T), zero(T), zero(T));Δmax=100*Unitful.m)
     # find ceiling and floor points
     ceiling_idx = findall(in(m_ceiling.inds), first.(kidx))
     floor_idx = findall(in(m_floor.inds), first.(kidx))
