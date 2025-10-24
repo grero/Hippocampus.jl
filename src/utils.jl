@@ -112,7 +112,7 @@ function get_peaks(f::AbstractArray{T,N},domain=f;t=2,dmax=1) where T <: Real wh
         qidx = findall(avail)
         for _qq in qq
             _dd = minimum(D[_fidx[_qq], patches[pidx]])
-            if _dd > 1
+            if _dd > dmax 
                 continue
             end
             did_change = true
