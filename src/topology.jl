@@ -356,6 +356,15 @@ function get_maze_mesh(args...;nrefinements=3, kwargs...)
     mm2
 end
 
+function get_floor_and_ceiling(mm::SimpleMesh)
+    zmax = coords(maximum(mm.vertices)).z.val
+    ppred(p1,p2) = ((coords(p1).z.val==0.0)&&(coords(p2).z.val==0.0))||((zmax > coords(p1).z.val > 0.0)&&(zmax > coords(p2).z.val>0.0))||((coords(p1).z.val==zmax)&&(coords(p2).z.val==zmax))
+    parts = partition(mm, PointPredicatePartition(ppred))
+    # the order is not consistent, but floor has the least number of elements, followed by the ceiling, and then the middle
+    midx = sortperm(nelements.(parts))
+    m_floor, m_ceiling, m_middle = parts[midx]
+end
+
 function count_on_manifold(mm::SimpleMesh, X::Matrix{T},w::AbstractVector{T}=ones(T,size(X,2))) where T <: Real
     # look for the nearest element
     kn = KNearestSearch(mm, 1)
