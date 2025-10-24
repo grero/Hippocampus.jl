@@ -229,10 +229,14 @@ function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepr
     end
     nq = length(Q) 
     pq = first(keys(Q))
+    tq = false
     if typeof(pq) == Point{2,T1}
         d = 2
     elseif typeof(pq) == Point{3,T1}
         d = 3
+    elseif typeof(pq) == Tuple{Point{3,T1}, Point{2,T1}}
+        d = 5
+        tq = true
     else
         d = length(pq)
     end
@@ -240,7 +244,12 @@ function get_population_representation(spr::Vector{T3}) where T3 <: AbstractRepr
     time_window = zeros(T1, nq)
     X = zeros(T1, nr, nq)
     for (i,(q,v)) in enumerate(Q)
-        position[:,i] = q
+        if tq 
+            position[1:3,i] = q[1]
+            position[4:5,i] = q[2]
+        else
+            position[:,i] = q
+        end
         X[:,i] .= v["count"]
         time_window[i] = v["time"]
     end
