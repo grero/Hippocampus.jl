@@ -331,6 +331,32 @@ function decode_place(X,Y,twin,f,domain, tidx=1:size(X,2), decoder=decode;prog=n
     actual_pos, decoded_pos
 end
 
+function decode_place(X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},f1,f2, domain1, domain2, tidx=1:size(X,2), decoder=decode;prog=nothing)
+    d = size(Y,1)
+    decoded_pos = zeros(d, length(tidx))
+    actual_pos = zeros(d, length(tidx))
+    if prog === nothing
+        prog = Progress(length(tidx),"Decoding...")
+    end
+    d1 = embeddim(domain1)
+    d2 = embeddim(domain2)
+    Y1 = Y[1:d1, :]
+    Y2 = Y[d1+1:end,:]
+    for i in 1:length(tidx)
+       y1,y2,tw,didx = Hippocampus.merge_by_time(Y1, Y2, twin,tidx[i];tmax=0.2)
+       nspikes = dropdims(sum(X[:,didx],dims=2),dims=2)
+       prb1 = get_posterior(f1, nspikes;τ=tw)
+       prb2 = get_posterior(f2, nspikes;τ=tw)
+       cp1 = decoder(prb1,domain1)
+       cp2 = decoder(prb2,domain2)
+       decoded_pos[:,i] .= [cp1...;cp2...]
+       actual_pos[1:length(y1),i] .= y1
+       actual_pos[length(y1)+1:end,i] .= y2
+       next!(prog)
+    end
+    actual_pos, decoded_pos
+end
+
 function compute_place_error_surrogates(X,Y,twin,f,domain, tidx, km_results, decoder=decode;nruns=100)
     prog = Progress(length(tidx)*nruns, "Decoding surrogates...")
     mean_err = zeros(maximum(km_results.assignments), nruns)
@@ -339,6 +365,18 @@ function compute_place_error_surrogates(X,Y,twin,f,domain, tidx, km_results, dec
         actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, f, domain, tidx, decoder;prog=prog)
         err = sqrt.(dropdims(sum(abs2, decoded_pos .- actual_pos,dims=1),dims=1))
         mean_err[:,r] = vec(Hippocampus.merge_responses(reshape(err, 1, length(err)), km_results.assignments, km_results.counts))
+    end
+    mean_err
+end
+
+function compute_place_error_surrogates(X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},f1,f2,domain1,domain2, tidx, assignments1, assignments2, decoder=decode;nruns=100)
+    prog = Progress(length(tidx)*nruns, "Decoding surrogates...")
+    mean_err = fill(NaN, maximum(assignments1), maximum(assignments2),nruns)
+    for r in 1:nruns
+        qidx = shuffle(1:size(X,2))
+        actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, f1, f2, domain1,domain2, tidx, decoder;prog=prog)
+        err = sqrt.(dropdims(sum(abs2, decoded_pos .- actual_pos,dims=1),dims=1))
+        mean_err[:,:,r] = Hippocampus.merge_responses(reshape(err, 1, length(err)), [assignments1,assignments2])
     end
     mean_err
 end
