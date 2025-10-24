@@ -275,14 +275,17 @@ function population_decoder(allcelldirs::Vector{String};nruns=10, kwargs...)
     ncells = fill(0, nsessions) 
     perf = fill(0.0, nruns, nsessions)
     nt = fill(0, nsessions)
+    coding_contrib = fill(0.0, length(allcelldirs),nruns)
     for (ii,sessiondir) in enumerate(sessiondirs)
         cidx = findall(allsessiondirs.==sessiondir)
         ncells[ii] = length(cidx)
         nspikes, posterid = get_poster_cue_response(allcelldirs[cidx];kwargs...)
         nt[ii] = size(nspikes,1)
-        perf[:,ii] = population_decoder(permutedims(nspikes), posterid;nruns=nruns)
+        perf[:,ii],w = population_decoder(permutedims(nspikes), posterid;nruns=nruns)
+        # compute relative contribution for each cell
+        coding_contrib[cidx,:] .= w
     end
-    perf, nt, ncells, sessiondirs
+    perf, nt, ncells, coding_contrib, sessiondirs
 end
 
 function population_decoder(nspikes::Vector{Vector{Int64}}, posterid::Vector{Vector{Int64}})
