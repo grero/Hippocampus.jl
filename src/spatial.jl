@@ -264,8 +264,7 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, spr::SpatialRepresentat
     for pos in spr.position
         append!(points, Point2f.(pos))
     end
-    ax = S.Axis(plots=[S.Scatter(points)])
-    S.GridLayout(ax)
+    S.Scatter(points)
 end
 
 function visualize!(lscene, spr::SpatialRepresentation;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0))
