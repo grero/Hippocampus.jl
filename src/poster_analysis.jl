@@ -313,3 +313,20 @@ function plot_view_fields(patches::Vector{Vector{Vector{Int64}}})
     end
     fig = explore(mm;color=Z, alpha=alpha,showsegments=true, floor_offset=-20, ceiling_offset=10.0,colormap=:brg)
 end
+
+function plot_decoding_results()
+    #view coding
+    data_view = JLD2.load(joinpath(@__DIR__, "..","data","view_decoding_preliminary_shuffled_results.jld2"))
+    data_place = JLD2.load(joinpath(@__DIR__,"..","data","place_decoding_preliminary_results.jld2"))
+
+    with_theme(poster_theme) do
+        fig = Figure(size=(1448,698))
+        lgp = GridLayout(fig[1,1])
+        Label(lgp[1,1,TopLeft()],"A")
+        plot_spatial_decoding_results!(lgp, data_place["km_results"], data_place["mean_err"], data_place["mean_err_sh"];_plot_theme=poster_theme)
+        lgv = GridLayout(fig[1,2])
+        Label(lgv[1,1,TopLeft()], "B")
+        plot_view_decoding_results!(lgv, data_view["km_results"], data_view["mean_err"], data_view["mean_err_sh"];_plot_theme=poster_theme)
+        fig
+    end
+end
