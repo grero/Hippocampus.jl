@@ -438,6 +438,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
             m_ceiling2 = m_ceiling
         end
         tcolor = get(kwargs, :color,:lightgray) 
+        kwargs = filter(k->k[1]!=:color, kwargs)
         use_color = Dict{Symbol,Any}()
         if isa(tcolor, AbstractArray{<:Real})
             # need to separate into floor, middle, and ceiling
@@ -452,6 +453,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
             cr = nothing
         end
         talpha = get(kwargs, :alpha, 1.0)
+        kwargs = filter(k->k[1]!=:alpha, kwargs)
         use_alpha = Dict{Symbol,Any}()
         if isa(talpha, AbstractVector{<:Real})
             use_alpha[:middle] = talpha[m_middle.inds]
