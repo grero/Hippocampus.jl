@@ -439,7 +439,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
         end
         tcolor = get(kwargs, :color,:lightgray) 
         use_color = Dict{Symbol,Any}()
-        if isa(tcolor, AbstractVector{<:Real})
+        if isa(tcolor, AbstractArray{<:Real})
             # need to separate into floor, middle, and ceiling
             cr = extrema(tcolor)
             use_color[:middle] = tcolor[m_middle.inds]
