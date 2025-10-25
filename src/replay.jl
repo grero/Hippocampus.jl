@@ -1831,11 +1831,11 @@ end
 function save_jld2(vmpv::ViewAndPlaceMap{T};append_tag=true) where T <: Real
     fname = DPHT.filename(ViewAndPlaceMap)
     data = Dict("weight"=>vmpv.weight, "weight_smooth"=>vmpv.weight_smooth, "smoothing_params"=>vmpv.smoothing_params)
-    metadata = Dict()
+    metadata = Dict{String,Any}() 
     if append_tag
         tag!(metadata, storepatch=true)
     end
-    JLD2.save(fname, Dict("data"=>data, "meta"=>meta))
+    JLD2.save(fname, Dict("data"=>data, "meta"=>metadata))
 end
 
 function load_jld2(::Type{ViewAndPlaceMap})
