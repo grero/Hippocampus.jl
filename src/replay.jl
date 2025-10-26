@@ -1770,9 +1770,10 @@ struct ViewMap{T<:Real}
     occupancy::Array{T,3}
 end
 
-struct ViewMapNew{T2<:AbstractViewOccupancy, T<:Real}
-    voc::T2
+struct ViewMapNew{T<:Real} <: AbstractMap
+    mm::SimpleMesh
     weight::Vector{T}
+    occupancy::Vector{T}
 end
 
 struct SmoothedViewMap{T<:Real}
@@ -1784,9 +1785,9 @@ struct SmoothedViewMap{T<:Real}
 end
 
 function ViewMapNew(vrp::ViewRepresentation, voc::ViewOccupancyNew{T}) where T <: Real
-    gaze = get_positions(vrp)
+    gaze = get_gaze(vrp)
     Z = count_on_manifold(voc.mm, gaze)
-    ViewMapNew{ViewOccupancyNew{T}, T}(voc, Z)
+    ViewMapNew{T}(voc.mm, Z, voc.weight)
 end
 
 function ViewMapNew(vrp::ViewRepresentation, voc::ViewAndPlaceOccupancy{T}) where T <: Real
