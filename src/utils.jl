@@ -155,6 +155,35 @@ function get_outline(patch::Vector{CartesianIndex{2}}, xbins,ybins=xbins)
     chull = hull(points, GrahamScan())
 end
 
+function get_outline(patch::Vector{Int64}, mm::SimpleMesh)
+    # identity the border pixels as those with less than 4 neighbours
+    A = adjacencymatrix(mm)
+    D = distancematrix(mm)
+    nn = dropdims(sum(A[patch,patch],dims=1),dims=1)
+    border_elements = patch[findall(nn.<4)]
+    # find the next connected
+    avail = fill(true, length(border_elements))
+    avail[1] = false
+    idx = 1
+    path = [border_elements[idx]]
+    while sum(avail) > 0
+        aidx = findall(avail)
+        idx = findall(D[path[end],border_elements[avail]] .<=2)
+        if length(idx) > 1
+            # use Euclidean distance to disambiguate; probably not perfect
+            d = norm.(centroid(mm[path[end]]) .- centroid.(mm[border_elements[avail][idx]]))
+            _idx = idx[argmin(d)]
+        else
+            _idx = first(idx)
+        end
+        p1 = border_elements[aidx[_idx]] 
+        avail[aidx[_idx]] = false
+        push!(path, p1)
+    end
+    # append the remaining point
+    coords.(centroid.(mm[path]))
+end
+
 function get_outline(patches::Vector{Vector{Vector{CartesianIndex{2}}}}, xbins,ybins=xbins)
     chulls = Any[]
     for pp in patches
