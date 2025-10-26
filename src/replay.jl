@@ -1722,7 +1722,7 @@ function ViewOccupancy(;do_save=true, redo=false)
     vo
 end
 
-function ViewOccupancyNew(;do_save=true, redo=false)
+function ViewOccupancyNew(;do_save=true, redo=false,kwargs...)
     fname = DPHT.filename(ViewOccupancyNew)
     if !redo && isfile(fname)
         vo = DPHT.load(ViewOccupancyNew)
@@ -1732,7 +1732,7 @@ function ViewOccupancyNew(;do_save=true, redo=false)
         mm2 = refine(refine(refine(mm, QuadRefinement()), QuadRefinement()),QuadRefinement())
         mm2 = SimpleMesh(mm2.vertices, convert(HalfEdgeTopology, mm2.topology))
         gdata = UnityRaytraceData()
-        vo = ViewOccupancyNew(gdata,mm2)
+        vo = ViewOccupancyNew(gdata,mm2;kwargs...)
         if do_save
             save_jld2(vo)
         end
