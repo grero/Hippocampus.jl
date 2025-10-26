@@ -1497,6 +1497,23 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
+function ViewAndPlaceOccupancy(;do_save=true, redo=false)
+    fname = DPHT.filename(ViewAndPlaceOccupancy)
+    if isfile(fname) && !redo
+        vpp = load_jld2(ViewAndPlaceOccupancy)
+    else
+        udata = UnityData()
+        mm = get_maze_mesh()
+        m_floor = floor_topology3()
+        unity_gaze_data = UnityRaytraceData()
+        vpp = ViewAndPlaceOccupancy(unity_gaze_data, udata, mm,m_floor)
+        if do_save
+            save_jld2(vpp)
+        end
+    end
+    vpp
+end
+
 struct ViewAndPlaceRepresentation <: AbstractRepresentation{Float32,Float64}
     voc::ViewAndPlaceOccupancy{Float64}
     events::Vector{Vector{Float64}}
