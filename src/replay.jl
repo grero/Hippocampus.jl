@@ -1521,6 +1521,9 @@ struct ViewAndPlaceRepresentation <: AbstractRepresentation{Float32,Float64}
     viewidx::Vector{Vector{Int64}}
 end
 
+DPHT.level(::Type{ViewAndPlaceRepresentation}) = "cell"
+DPHT.level(::ViewAndPlaceRepresentation) = "cell"
+
 function ViewAndPlaceRepresentation(spikes::Spiketrain, rp::RippleData, udata::UnityData, gdata::UnityRaytraceData, voc::ViewAndPlaceOccupancy{T};fixation_only=false) where T <: Real
     sp = spikes.timestamps/1000.0 
     nt = numtrials(gdata)
@@ -1571,6 +1574,22 @@ function ViewAndPlaceRepresentation(spikes::Spiketrain, rp::RippleData, udata::U
     ViewAndPlaceRepresentation(voc, events, placeidx, viewidx)
 end
 
+function ViewAndPlaceRepresentation(;redo=false,do_save=true)
+    sp = Spiketrain()
+    rp = cd(DPHT.process_level(RippleData)) do
+        RippleData()
+    end
+    udata = cd(DPHT.process_level(UnityData))  do
+        UnityData()
+    end
+    vpp = cd(DPHT.process_level(ViewAndPlaceOccupancy)) do
+        ViewAndPlaceOccupancy()
+    end
+    unity_gaze_data = cd(DPHT.process_level(UnityRaytraceData)) do
+        UnityRaytraceData()
+    end
+    vprp = ViewAndPlaceRepresentation(sp, rp,udata, unity_gaze_data, vpp)
+end
 
 function create_path(posx::AbstractVector{T}, posy::AbstractVector{T}) where T <: Real
     p = [(posx[1], posy[1])]
