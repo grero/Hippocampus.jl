@@ -312,7 +312,7 @@ function decode(bins::Tuple{AbstractVector{T}, AbstractVector{T}}, jk) where T <
     (xbins[jk.I[1]], ybins[jk.I[2]])
 end
 
-function decode_place(X,Y,twin,f,domain, tidx=1:size(X,2), decoder=decode;prog=nothing)
+function decode_place(X,Y,twin,f,domain;tidx=1:size(X,2), decoder=decode,prog=nothing)
     d = size(Y,1)
     decoded_pos = zeros(d, length(tidx))
     actual_pos = zeros(d, length(tidx))
@@ -331,7 +331,7 @@ function decode_place(X,Y,twin,f,domain, tidx=1:size(X,2), decoder=decode;prog=n
     actual_pos, decoded_pos
 end
 
-function decode_place(X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},f1,f2, domain1, domain2, tidx=1:size(X,2), decoder=decode;prog=nothing)
+function decode_place(X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},f1,f2, domain1, domain2;tidx=1:size(X,2), decoder=decode,prog=nothing)
     d = size(Y,1)
     decoded_pos = zeros(d, length(tidx))
     actual_pos = zeros(d, length(tidx))
@@ -362,7 +362,7 @@ function compute_place_error_surrogates(X,Y,twin,f,domain, tidx, km_results, dec
     mean_err = zeros(maximum(km_results.assignments), nruns)
     for r in 1:nruns
         qidx = shuffle(1:size(X,2))
-        actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, f, domain, tidx, decoder;prog=prog)
+        actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, f, domain;tidx=tidx, decoder,prog=prog)
         err = sqrt.(dropdims(sum(abs2, decoded_pos .- actual_pos,dims=1),dims=1))
         mean_err[:,r] = vec(Hippocampus.merge_responses(reshape(err, 1, length(err)), km_results.assignments, km_results.counts))
     end
