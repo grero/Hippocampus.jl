@@ -1470,7 +1470,7 @@ function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
-function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixations_only=false, trial_start=1)
+function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixations_only=false, trial_start=1,kwargs...)
     nt = numtrials(gdata)
     m_floor = Shadow("xy")(floor_topology3())
     kn = KNearestSearch(mm,1)
