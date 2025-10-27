@@ -359,11 +359,11 @@ function SpatialMapNew(;kwargs...)
     SpatialMapNew(spr, spoc;kwargs...)
 end
 
-function get_rate_map(spm::AbstractMap;filter_unvisited=true)
+function get_rate_map(spm::AbstractMap;invalidate_unvisited=true)
     Z = spm.weight./spm.occupancy
     unvisited = spm.occupancy.==0
-    if filter_unvisited
-        Z[unvisited] .= NaN
+    if !invalidate_unvisited
+        Z[unvisited] .= zero(eltype(Z))
     end
     Z
 end
