@@ -132,21 +132,49 @@ function DPHT.save(gdata::T;append_tag=true) where T
     MAT.matwrite(fname, qdata)
 end
 
-function save_jld2(gdata::T;append_tag=true) where T
-    fname = DPHT.filename(T)
+function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true) where T
+    if SimpleMesh in fieldtypes(T)
+        # this is a bit hacky, needed because SimpleMesh does not save cleanly
+        qdata = Dict()
+        for k in fieldnames(T)
+            if fieldtype(T, k) <: SimpleMesh
+                continue
+            end
+            v = getfield(gdata, k)
+            qdata[k] = v
+        end
+    else
+        qdata = gdata
+    end
     fname = replace(fname, ".mat"=>".jld2")
     metadata = Dict{String,Any}() 
     if append_tag
         tag!(metadata, storepatch=true)
     end
-    JLD2.save(fname, Dict("data"=>gdata, "meta"=>metadata))
+    JLD2.save(fname, Dict("data"=>qdata, "meta"=>metadata))
 end
 
-function load_jld2(::Type{T}) where T
-    fname = DPHT.filename(T)
+function load_jld2(::Type{T},fname=DPHT.filename(T)) where T
     fname = replace(fname, ".mat"=>".jld2")
     meta,data = JLD2.load(fname, "meta","data")
-    data
+    ft = fieldtypes(T)
+    if SimpleMesh in ft 
+        midx = findfirst(ft.==SimpleMesh)
+        args = Any[]
+        for k in fieldnames(T)
+            if fieldtype(T, k) <: SimpleMesh
+                continue
+            end
+            v = data[k]
+            push!(args, v)
+        end
+        mm = get_maze_mesh()
+        insert!(args, midx, mm)
+        mdata = T(args...)
+    else
+        mdata = data
+    end
+    mdata
 end
 
 function DPHT.load(::Type{T}) where T
