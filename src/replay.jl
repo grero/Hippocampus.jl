@@ -1340,7 +1340,37 @@ function save_jld2(voc::ViewOccupancyNew{T};append_tag=true) where T <: Real
     if append_tag
         tag!(metadata, storepatch=true)
     end
-    JLD2.save(fname, Dict("data"=>Dict("counts"=>voc.counts), "meta"=>metadata))
+    JLD2.save(fname, Dict("data"=>Dict("weight"=>voc.weight), "meta"=>metadata))
+end
+
+function save_jld2(vpp::ViewAndPlaceOccupancy{T};append_tag=true) where T <: Real
+    fname = DPHT.filename(ViewAndPlaceOccupancy)
+    # convert to dictionary
+    weight_view_size = size(vpp.weight_view)
+    nzidx = findall(vpp.weight_view .!= 0)
+    data = Dict("weight_place"=>vpp.weight_place,
+                "placebin_idx"=>vpp.placebin_idx,
+                "weight_view"=>(idx=nzidx, val=vpp.weight_view[nzidx],vsize=weight_view_size),
+                "viewbin_idx"=>vpp.viewbin_idx)
+    metadata = Dict{String,Any}() 
+    if append_tag
+        tag!(metadata, storepatch=true)
+    end
+    JLD2.save(fname, Dict("data"=>data, "meta"=>metadata))
+end
+
+function load_jld2(::Type{ViewAndPlaceOccupancy})
+    fname = DPHT.filename(ViewAndPlaceOccupancy)
+    meta,data = JLD2.load(fname, "meta", "data")
+    weight_view_size = data["weight_view"].vsize
+    weight_view_values = data["weight_view"].val
+    weight_view_idx = data["weight_view"].idx
+    weight_view = zeros(eltype(weight_view_values), weight_view_size...)
+    weight_view[weight_view_idx] .= weight_view_values
+    mm = get_maze_mesh()
+    T = eltype(data["weight_place"])
+    ViewAndPlaceOccupancy{T}(data["weight_place"],data["placebin_idx"], weight_view,
+                             data["viewbin_idx"], mm)
 end
 
 function ViewOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, mm::MazeModel)
