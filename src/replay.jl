@@ -1475,10 +1475,10 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     m_floor = Shadow("xy")(floor_topology3())
     kn = KNearestSearch(mm,1)
     kn_floor = KNearestSearch(m_floor,1)
-    weight_place = zeros(nelements(m_floor),nt)
+    weight_place = zeros(Float64,nelements(m_floor),nt)
     placebin_idx = Vector{Vector{Int64}}(undef, nt)
     viewbin_idx = Vector{Vector{Int64}}(undef, nt)
-    weight_view = zeros(nelements(mm), size(weight_place,1),nt)
+    weight_view = zeros(Float64, nelements(mm), size(weight_place,1),nt)
     for i in 1:nt
         tt, gaze,pos,fixmask,fo = get_trial(gdata,i;trial_start=1)
         if isempty(tt)
