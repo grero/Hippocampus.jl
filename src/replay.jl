@@ -1461,7 +1461,7 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
         _placebin_idx = zeros(Int64, length(tt))
         _viewbin_idx = zeros(Int64, length(tt))
         for (j,(_pos, _gaze, _fo)) in enumerate(zip(eachcol(pos), eachcol(gaze), fo))
-            if _fo == "HintImage"
+            if _fo in ["HintImage","CueImage"]
                 continue
             end
             _idx, _idxv = (0,0)
