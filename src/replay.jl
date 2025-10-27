@@ -1312,9 +1312,9 @@ struct ViewOccupancyNew{T<:Real} <: AbstractViewOccupancy
 end
 
 struct ViewAndPlaceOccupancy{T<:Real}
-    weight_place::Vector{T}
+    weight_place::Matrix{T}
     placebin_idx::Vector{Vector{Int64}}
-    weight_view::Matrix{T}
+    weight_view::Array{T,3}
     viewbin_idx::Vector{Vector{Int64}}
     mm::SimpleMesh
 end
@@ -1442,14 +1442,13 @@ end
 
 function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixations_only=false, trial_start=1)
     nt = numtrials(gdata)
-    ss = Slice(x=(-12.5, 12.5), y=(-12.5, 12.5), z=(0.0, 0.0))
-    m_floor = ss(mm)
+    m_floor = Shadow("xy")(floor_topology3())
     kn = KNearestSearch(mm,1)
     kn_floor = KNearestSearch(m_floor,1)
-    weight_place = zeros(nelements(m_floor))
+    weight_place = zeros(nelements(m_floor),nt)
     placebin_idx = Vector{Vector{Int64}}(undef, nt)
     viewbin_idx = Vector{Vector{Int64}}(undef, nt)
-    weight_view = zeros(nelements(mm), size(weight_place,1))
+    weight_view = zeros(nelements(mm), size(weight_place,1),nt)
     for i in 1:nt
         tt, gaze,pos,fixmask,fo = get_trial(gdata,i;trial_start=1)
         if isempty(tt)
@@ -1473,7 +1472,7 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
             _mm = m_floor[_idx]
             Δ = mean(norm.(_mm.vertices .- centroid(_mm)))
             if dd[1] <= Δ
-                weight_place[_idx] += Δt[j] 
+                weight_place[_idx,i] += Δt[j] 
                 _placebin_idx[j] = _idx
             else
                 _idx = 0
@@ -1485,7 +1484,7 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
             _mm = mm[_idxv]
             Δ = mean(norm.(_mm.vertices .- centroid(_mm)))
             if dd[1] <= Δ
-                weight_view[_idxv,_idx] += Δt[j] 
+                weight_view[_idxv,_idx,i] += Δt[j] 
                 _viewbin_idx[j] = _idxv
             else
                 continue
