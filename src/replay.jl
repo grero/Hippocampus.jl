@@ -1467,7 +1467,7 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
             _idx, _idxv = (0,0)
             px,py = _pos[1:2] # don't use the z-coordinate here
             # place bin
-            idx,dd = searchdists(Meshes.Point(px,py,0.0), kn_floor)
+            idx,dd = searchdists(Meshes.Point(px,py), kn_floor)
             _idx = first(idx)
             _mm = m_floor[_idx]
             Δ = mean(norm.(_mm.vertices .- centroid(_mm)))
