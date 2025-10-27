@@ -283,26 +283,87 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
     end
 end
 
-function plot_view_and_place_fields()
+"""
+Plot the view and place field for 5 cells with both place and view selectivity
+"""
+function plot_place_and_view_selective_cells()
+    place_selective_cells = open("data/place_selective_cells.txt") do fid
+       readlines(fid)
+    end
+    view_selective_cells = open("data/view_selective_cells.txt") do fid
+       readlines(fid)
+    end
+    place_and_view_selective_cells = intersect(place_selective_cells, view_selective_cells)
+    vm1,spm1 = cd(place_and_view_selective_cells[3]) do
+        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
+        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
+        vm,spm
+    end
+    vm2,spm2 = cd(place_and_view_selective_cells[4]) do
+        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
+        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
+        vm,spm
+    end
+     vm3,spm3 = cd(place_and_view_selective_cells[5]) do
+        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
+        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
+        vm,spm
+    end
+    vm4,spm4 = cd(place_and_view_selective_cells[6]) do
+        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
+        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
+        vm,spm
+    end
 
+
+    with_theme(poster_theme) do
+        fig = Figure(size=(800,400))
+        lg1 = GridLayout(fig[1,1])
+        plot_view_and_place_fields!(lg1, vm1, spm1)
+        lg2 = GridLayout(fig[1,2])
+        plot_view_and_place_fields!(lg2, vm2, spm2;colorbar_label="")
+        lg3 = GridLayout(fig[1,3])
+        plot_view_and_place_fields!(lg3, vm3, spm3;colorbar_label="")
+        lg4 = GridLayout(fig[1,4])
+        plot_view_and_place_fields!(lg4, vm4, spm4;colorbar_label="")
+        fig
+    end
 end
 
-function plot_view_and_place_fields(vm::ViewMapNew, spm::SpatialMapNew)
+function plot_view_and_place_fields(celldir::String)
+    vm,spm = cd(celldir) do
+        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
+        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
+        vm,spm
+    end
+    with_theme(poster_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_view_and_place_fields!(lg, vm, spm)
+        fig
+    end
+end
+
+function plot_view_and_place_fields!(lg, vm::ViewMapNew{T1}, spm::SpatialMapNew{T2};colorbar_label="Firing rate [Hz]") where T1 <: Real where T2 <: Real
     mm = get_maze_mesh()
     D = distancematrix(mm)
     m_floor = floor_topology3()
     D_floor = distancematrix(m_floor)
-    f_sp = get_rate_map(spm)
-    f_sp[isnan.(f_sp)] .= 0.0
-    f_v = get_rate_map(vm)
-    f_v[isnan.(f_v)] .= 0.0
+    f_sp = get_rate_map(spm;invalidate_unvisited=false)
+    f_v = get_rate_map(vm;invalidate_unvisited=false)
 
     #smoothing
-    Zp = fill_in_neighbours2(f_sp, D_floor, 12, 4.0)
-    Zv = fill_in_neighbours2(vec(f_v), D, 12, 4.0)
+    Zp = fill_in_neighbours2(f_sp, D_floor, 12, T2(4.0))
+    Zv = fill_in_neighbours2(vec(f_v), D, 12, T1(4.0))
 
-    fig = Hippocampus.explore(mm, Zv, m_floor, Zp;showsegments=false, colormap=:jet)
-
+    lscene = LScene(lg[1,1])
+    plotmesh!(lscene, mm;floor_offset=-20, ceiling_offset=10, color=Zv,showsegments=false, colormap=:jet)
+    m_floor2 = Translate(0.0, 0.0, -30)(m_floor)
+    viz!(lscene, m_floor2;color=Zp,showsegments=false)
+    lg2 = GridLayout(lg[1,2])
+    Colorbar(lg2[1,1], colorrange=extrema(Zv), colormap=:jet, label=colorbar_label)
+    Colorbar(lg2[2,1], colorrange=extrema(Zp), label=colorbar_label)
+    lg
 end
 
 function plot_view_fields(patches::Vector{Vector{Vector{Int64}}})
