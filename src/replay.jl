@@ -1833,6 +1833,11 @@ struct ViewMapNew{T<:Real} <: AbstractMap
     occupancy::Vector{T}
 end
 
+DPHT.filename(::Type{ViewMapNew}) = "view_map.jld2"
+DPHT.filename(::Type{ViewMapNew{T}}) where T <: Real = "view_map.jld2"
+DPHT.level(::Type{ViewMapNew}) = "cell"
+DPHT.level(::Type{ViewMapNew{T}}) where T <: Real = "cell"
+
 struct SmoothedViewMap{T<:Real}
     mm::SimpleMesh
     weight::Vector{T}
@@ -1847,11 +1852,40 @@ function ViewMapNew(vrp::ViewRepresentation, voc::ViewOccupancyNew{T}) where T <
     ViewMapNew{T}(voc.mm, Z, voc.weight)
 end
 
-function ViewMapNew(vrp::ViewRepresentation, voc::ViewAndPlaceOccupancy{T}) where T <: Real
-
+function process_kwargs(::Type{<:AbstractMap};min_place_duration=0.05, min_view_duration=0.01, min_view_obs=5, min_place_obs=5,kwargs...)
+     h = UInt32(0)
+    # only store these if they are different from the default
+    if min_place_duration != 0.05
+        h = crc32c(string(:min_place_duration=>min_place_duration),h)
+    end
+    if min_view_duration != 0.01
+        h = crc32c(string(:min_view_duration=>min_view_duration),h)
+    end
+    if min_view_obs != 5
+        h = crc32c(string(:min_view_obs=>min_view_obs),h)
+    end
+    if min_place_obs != 5
+        h = crc32c(string(:min_place_obs=>min_place_obs),h)
+    end
+    h
 end
 
-function adaptive_smoothing(vm::ViewMapNew{T2, T}, α=T(10000.0)^2;filter_unoccupied=true) where T2 <: AbstractViewOccupancy where T <: Real
+function ViewMapNew(vrp::ViewRepresentation, vpoc::ViewAndPlaceOccupancy{T};min_place_duration=0.05, min_view_duration=0.01, min_place_obs=5, min_view_obs=5) where T <: Real
+    h = process_kwargs(ViewMapNew;min_place_duration=min_place_duration, min_place_obs=min_place_obs, min_view_obs=min_view_obs)
+    gaze = get_gaze(vrp)
+    good_place_bins = findall(dropdims(sum(dropdims(sum(vpoc.weight_view,dims=1),dims=1) .> min_place_duration,dims=2),dims=2) .> min_place_obs)
+    good_view_bins = findall(dropdims(sum(dropdims(sum(vpoc.weight_view[:,good_place_bins,:],dims=2),dims=2) .> min_view_duration,dims=2),dims=2) .> min_view_obs)
+    Z = count_on_manifold(vpoc.mm, gaze)
+    # sum over place to get view occupancy
+    Zo = dropdims(sum(vpoc.weight_view,dims=(2,3)),dims=(2,3))
+    occupancy = zero(Zo)
+    occupancy[good_view_bins] .= Zo[good_view_bins]
+    Zg = zero(Z)
+    Zg[good_view_bins] .= Z[good_view_bins]
+    ViewMapNew{T}(vpoc.mm, Zg, occupancy),h
+end
+
+function adaptive_smoothing(vm::ViewMapNew{T}, α=T(10000.0)^2;filter_unoccupied=true) where T <: Real
     unoccupied = findall(vm.voc.counts.==0)
     Z,X,Y = adaptive_smoothing(vm.weight, vm.voc.counts, vm.voc.mm, α)
     SmoothedViewMap(vm.voc.mm, X, Y, unoccupied,α)
