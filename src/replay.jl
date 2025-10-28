@@ -1860,18 +1860,17 @@ end
 ViewMap(xbins,ybins, zbins, weights) = ViewMap(xbins, ybins, zbins, weights, ones(eltype(weights), size(weights)...))
 
 
-struct ViewAndPlaceMap{T<:Real}
-    voc::ViewAndPlaceOccupancy{T}
+struct ViewAndPlaceMap{T<:Real} <: AbstractMap
+    mm::SimpleMesh
     weight::Matrix{T}
-    weight_smooth::Matrix{T}
-    smoothing_params::NamedTuple
+    occupancy::Matrix{T}
 end
 
 DPHT.filename(::Type{ViewAndPlaceMap}) = "view_and_place_map.jld2"
 DPHT.filename(::ViewAndPlaceMap{T}) where T <: Real = "view_and_place_map.jld2"
 
 DPHT.level(::Type{ViewAndPlaceMap}) = "cell"
-DPHT.filename(::ViewAndPlaceMap{T}) where T <: Real = "cell"
+DPHT.level(::ViewAndPlaceMap{T}) where T <: Real = "cell"
 
 
 function ViewAndPlaceMap(vprp::ViewAndPlaceRepresentation, vpp::ViewAndPlaceOccupancy{T};smoothing_params::NamedTuple=(method=:gaussian, σ=5)) where T <: Real
@@ -1885,24 +1884,55 @@ function ViewAndPlaceMap(vprp::ViewAndPlaceRepresentation, vpp::ViewAndPlaceOccu
             end
         end
     end
-    Zg,Xg, Yg = gaussian_smoothing(P, vpp.weight_view, vpp.mm,smoothing_params.σ) 
-    ViewAndPlaceMap{T}(vpp, P, Zg, smoothing_params)
+    occupancy = zeros(T, size(vpoc.weight_view)[1:2]...)
+    occupancy[good_view_bins, good_place_bins] .= dropdims(sum(vpoc.weight_view[good_view_bins, good_place_bins,:],dims=3),dims=3)
+    ViewAndPlaceMap{T}(vpoc.mm, P, occpancy)
+end
+
+
+function ViewAndPlaceMap(vrp::ViewRepresentation, vpoc::ViewAndPlaceOccupancy{T};min_view_duration=0.01, min_place_duration=0.05, min_view_obs=5, min_place_obs=5) where T <: Real
+    good_place_bins = findall(dropdims(sum(dropdims(sum(vpoc.weight_view,dims=1),dims=1) .> min_place_duration,dims=2),dims=2) .> min_place_obs)
+    good_view_bins = findall(dropdims(sum(dropdims(sum(vpoc.weight_view[:,good_place_bins,:],dims=2),dims=2) .> min_view_duration,dims=2),dims=2) .> min_view_obs)
+    mm = vpoc.mm
+    m_floor = Shadow("xy")(floor_topology3())
+    #project onto 2D
+    m_floor = Shadow("xy")(m_floor)
+    pos = get_positions(vrp)
+    gaze = get_gaze(vrp)
+    kidx_p = mapto(m_floor, Tuple.(eachcol(pos)))
+    kidx_g = mapto(mm, Tuple.(eachcol(gaze)))
+    P = zeros(T, nelements(mm), nelements(m_floor))
+    P2 = zeros(T, nelements(mm), nelements(m_floor))
+    for (kg,kp) in zip(kidx_g, kidx_p)
+        if !isempty(kg) && !isempty(kp)
+            P[kg,kp] .+= one(T)
+        end
+    end
+    P2[good_view_bins, good_place_bins] .= P[good_view_bins, good_place_bins]
+    occupancy = zeros(T, size(vpoc.weight_view)[1:2]...)
+    occupancy[good_view_bins, good_place_bins] .= dropdims(sum(vpoc.weight_view[good_view_bins, good_place_bins,:],dims=3),dims=3)
+    ViewAndPlaceMap{T}(vpoc.mm, P, occupancy)
 end
 
 function ViewAndPlaceMap(;redo=false, do_save=true,kwargs...)
     fname = DPHT.filename(ViewAndPlaceMap)
+    h = process_kwargs(ViewAndPlaceMap;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2","_$(hs).jld2")
+    end
     if isfile(fname) && !redo
-        vmpv = load_jld2(ViewAndPlaceMap)
+        vmpv = load_jld2(ViewAndPlaceMap,fname)
     else
-        vprp = cd(DPHT.process_level(ViewAndPlaceRepresentation)) do
-            ViewAndPlaceRepresentation()
+        vrp = cd(DPHT.process_level(ViewAndPlaceRepresentation)) do
+            ViewRepresentation(UnityRaytraceData;kwargs...)
         end
-        vpp = cd(DPHT.process_level(ViewAndPlaceOccupancy)) do
-            ViewAndPlaceOccupancy()
+        vpoc = cd(DPHT.process_level(ViewAndPlaceOccupancy)) do
+            ViewAndPlaceOccupancy(;kwargs...)
         end
-        vmpv = ViewAndPlaceMap(vprp, vpp;kwargs...)
+        vmpv = ViewAndPlaceMap(vrp, vpoc;kwargs...)
         if do_save
-            save_jld2(vmpv)
+            save_jld2(vmpv,fname)
         end
     end
     vmpv
