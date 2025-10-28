@@ -440,14 +440,18 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
         tcolor = get(kwargs, :color,:lightgray) 
         kwargs = filter(k->k[1]!=:color, kwargs)
         use_color = Dict{Symbol,Any}()
-        if isa(tcolor, AbstractArray{<:Real})
+        if isa(tcolor, AbstractArray{<:Any})
             # first filter out nans
             # need to separate into floor, middle, and ceiling
             nanidx = isnan.(tcolor)
             qcolor = zero(tcolor)
             qcolor .= tcolor
             qcolor[nanidx] .= zero(eltype(qcolor))
-            cr = extrema(qcolor)
+            if eltype(tcolor) <: Real
+                cr = extrema(qcolor)
+            else
+                cr = nothing
+            end
             use_color[:middle] = qcolor[m_middle.inds]
             use_color[:floor] = qcolor[m_floor2.inds]
             use_color[:ceiling] = qcolor[m_ceiling2.inds]
@@ -463,7 +467,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
         use_alpha = Dict{Symbol,Any}()
         if isa(talpha, AbstractVector{<:Real})
             if nanidx !== nothing
-                qalpha = one(talpha)
+                qalpha = fill!(similar(talpha), one(eltype(alpha)))
                 qalpha .= talpha
                 qalpha[nanidx] .= zero(eltype(qalpha)) 
             else
