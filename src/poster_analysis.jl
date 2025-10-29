@@ -391,3 +391,127 @@ function plot_decoding_results()
         fig
     end
 end
+
+function plot_knn_population_decoding_results(;kwargs...)
+    fname = joinpath(@__DIR__, "..","data","categorical_decoding_run_more_cells.jld2")
+    plot_knn_population_decoding_results(fname;kwargs...)
+end
+
+function plot_knn_population_decoding_results(fname::String;show_f1_score=false,_plot_theme=poster_theme)
+    data = JLD2.load(fname)
+    unique_categories = data["unique_categories"]
+    perf = data["perf"]
+    if "fp_rate" in keys(data)
+        fp_rate = data["fp_rate"]
+    else
+        fp_rate = zeros(size(perf)...)
+    end
+    if "fn_rate" in keys(data)
+        fn_rate = data["fn_rate"]
+    else
+        fn_rate = zeros(size(perf)...)
+    end
+    @show extrema(filter(isfinite, fp_rate))
+    view_idx = [_cat[1] for _cat in unique_categories]
+    place_idx = [_cat[2] for _cat in unique_categories]
+    perf_view = zeros(maximum(view_idx))
+    perf_place = zeros(maximum(place_idx))
+    fp_view = fill!(similar(perf_view), 0.0)
+    fn_view = fill!(similar(perf_view), 0.0)
+    fp_place = fill!(similar(perf_place), 0.0)
+    fn_place = fill!(similar(perf_place), 0.0)
+
+    n_view = zeros(maximum(view_idx))
+    n_place = zeros(maximum(place_idx))
+    for (j,_cat) in enumerate(unique_categories)
+        vidx = _cat[1]
+        pidx = _cat[2]
+        fidx = isfinite.(perf[j,:])
+        perf_view[vidx] += sum(perf[j,fidx])
+        fp_view[vidx] += sum(fp_rate[j,fidx])
+        fn_view[vidx] += sum(fn_rate[j,fidx])
+        perf_place[pidx] += sum(perf[j, fidx])
+        fp_place[pidx] += sum(fp_rate[j,fidx])
+        fn_place[pidx] += sum(fn_rate[j,fidx])
+
+        n_view[vidx] += sum(fidx)
+        n_place[pidx] += sum(fidx)
+    end
+    f1_place = 2*perf_place/(2*perf_place + fp_place + fn_place)
+    f1_view = 2*perf_view/(2*perf_view + fp_view + fn_view)
+    perf_view ./= n_view
+    perf_place ./= n_place
+
+    # create view decoding conditioned on place
+    pidx = sortperm(perf_place,rev=true)
+    perf_view_place = zeros(size(perf_view,1), 5)
+    f1_view_place = zeros(size(perf_view,1), 5)
+    n_view_place = zeros(size(perf_view,1))
+    fp_view_place = zeros(size(perf_view,1))
+    fn_view_place = zeros(size(perf_view,1))
+    for (i,_pidx) in enumerate(pidx[1:size(perf_view_place,2)])
+        fill!(n_view_place, 0.0)
+        fill!(fn_view_place, 0.0)
+        fill!(fp_view_place, 0.0)
+        vidx = findall([_cat[2]==_pidx for _cat in unique_categories])
+        view_idx = [_cat[1] for _cat in unique_categories[vidx]]
+        for (k,v) in enumerate(vidx)
+            fidx = isfinite.(perf[v,:])
+            perf_view_place[view_idx[k],i] = sum(perf[v,fidx])
+            fp_view_place[view_idx[k]] = sum(fp_rate[v,fidx])
+            fn_view_place[view_idx[k]] = sum(fn_rate[v,fidx])
+            n_view_place[view_idx[k]] = sum(fidx)
+        end
+        f1_view_place[:,i] = 2*perf_view_place[:,i]./(2*perf_view_place[:,i] .+ fp_view_place .+ fn_view_place)
+        perf_view_place[:,i] ./= n_view_place
+    end
+    mm = get_maze_mesh(;nrefinements=0)
+    m_floor = Translate(0.0, 0.0, -35)(floor_topology3(;nrefinements=0))
+    # categorise into floor, ceiling, walls and pillars
+    tidx = categorize(mm)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(2537, 563))
+        lg1 = GridLayout(fig[1,1])
+        lscene = LScene(lg1[1,1],show_axis=false)
+        if show_f1_score
+            _color = f1_view[tidx]
+            _label = "F1-score"
+        else
+            _color = perf_view[tidx]
+            _label = "Performance"
+        end
+
+        plotmesh!(lscene, mm;color=_color, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
+        viz!(lscene, m_floor;color=perf_place, colormap=:Greens, showsegments=true)
+        lg12 = GridLayout(lg1[1,2])
+        Colorbar(lg12[1,1], colorrange=extrema(perf_view), colormap=:Purples, label="$_label view")
+        Colorbar(lg12[2,1], colorrange=extrema(perf_place), colormap=:Greens, label="$_label place")
+
+        if show_f1_score
+            cr = extrema(filter(isfinite, f1_view_place))
+        else
+            cr = extrema(filter(isfinite, perf_view_place))
+        end
+        for k in 1:size(perf_view_place,2)
+            lg2 = GridLayout(fig[1,1+k])
+            # example of view from place decoding
+            #ccolor = zeros(nelements(mm))
+            #for (i,v) in enumerate(view_idx)
+            #    ccolor[tidx.==v] .= perf_view_place[i]
+            #end
+            #@show extrema(ccolor)
+            lg21 = GridLayout(lg2[1,1])
+            lscene2 = LScene(lg21[1,1], show_axis=false)
+            if show_f1_score
+                _color = f1_view_place[:,k][tidx]
+            else
+                _color = perf_view_place[:,k][tidx]
+            end
+            plotmesh!(lscene2, mm;color=_color, ceiling_offset=10, floor_offset=-10,colormap=:Purples,colorrange=cr, showsegments=true)
+            viz!(lscene2, m_floor;color=:lightgray, showsegments=true)
+            viz!(lscene2, centroid(m_floor[pidx[k]]), color=:red,pointsize=10)
+        end
+        Colorbar(fig[1,size(perf_view_place,2)+2], colorrange=cr, colormap=:Purples)
+        fig
+    end
+end
