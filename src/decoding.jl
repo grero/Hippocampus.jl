@@ -614,7 +614,27 @@ function categorize(Y::Matrix{T},mm::SimpleMesh) where T <: Real
     kidxv2
 end
 
-function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100) where T <: Real
+function categorize(mm::SimpleMesh)
+    tidx = 1:nelements(mm)
+    categorize(tidx, mm)
+end
+
+function categorize(tidx::AbstractVector{Int64}, mm::SimpleMesh)
+    _tidx = fill!(similar(tidx), 0)
+    grouped_idx = group_bins(mm)
+    _tidx[in(grouped_idx.ceiling_idx).(tidx)] .= 1
+    _tidx[in(grouped_idx.floor_idx).(tidx)] .= 2
+    _tidx[in(grouped_idx.north_wall_idx).(tidx)] .= 3
+    _tidx[in(grouped_idx.east_wall_idx).(tidx)] .= 4
+    _tidx[in(grouped_idx.south_wall_idx).(tidx)] .= 5
+    _tidx[in(grouped_idx.west_wall_idx).(tidx)] .= 6
+    for (i,j) in enumerate(grouped_idx.pillar_idx)
+        _tidx[tidx.==j] .= 6+i
+    end
+    _tidx
+end
+
+function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_pca=false) where T <: Real
     nt = size(X,2)
     ntrain = round(Int64, 0.8*nt)
 
