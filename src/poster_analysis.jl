@@ -494,12 +494,6 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         for k in 1:size(perf_view_place,2)
             lg2 = GridLayout(fig[1,1+k])
-            # example of view from place decoding
-            #ccolor = zeros(nelements(mm))
-            #for (i,v) in enumerate(view_idx)
-            #    ccolor[tidx.==v] .= perf_view_place[i]
-            #end
-            #@show extrema(ccolor)
             lg21 = GridLayout(lg2[1,1])
             lscene2 = LScene(lg21[1,1], show_axis=false)
             if show_f1_score
