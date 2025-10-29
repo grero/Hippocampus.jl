@@ -444,8 +444,8 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
 
     # create view decoding conditioned on place
     pidx = sortperm(perf_place,rev=true)
-    perf_view_place = zeros(size(perf_view,1), 5)
-    f1_view_place = zeros(size(perf_view,1), 5)
+    perf_view_place = zeros(size(perf_view,1), 6)
+    f1_view_place = zeros(size(perf_view,1), 6)
     n_view_place = zeros(size(perf_view,1))
     fp_view_place = zeros(size(perf_view,1))
     fn_view_place = zeros(size(perf_view,1))
@@ -453,9 +453,9 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         fill!(n_view_place, 0.0)
         fill!(fn_view_place, 0.0)
         fill!(fp_view_place, 0.0)
-        vidx = findall([_cat[2]==_pidx for _cat in unique_categories])
-        view_idx = [_cat[1] for _cat in unique_categories[vidx]]
-        for (k,v) in enumerate(vidx)
+        _vidx = findall([_cat[2]==_pidx for _cat in unique_categories])
+        view_idx = [_cat[1] for _cat in unique_categories[_vidx]]
+        for (k,v) in enumerate(_vidx)
             fidx = isfinite.(perf[v,:])
             perf_view_place[view_idx[k],i] = sum(perf[v,fidx])
             fp_view_place[view_idx[k]] = sum(fp_rate[v,fidx])
@@ -465,6 +465,30 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         f1_view_place[:,i] = 2*perf_view_place[:,i]./(2*perf_view_place[:,i] .+ fp_view_place .+ fn_view_place)
         perf_view_place[:,i] ./= n_view_place
     end
+
+    vidx = sortperm(perf_view, rev=true)
+    perf_place_view = zeros(size(perf_place,1), 6)
+    f1_place_view = zeros(size(perf_place,1), 6)
+    n_place_view = zeros(size(perf_place,1))
+    fp_place_view = zeros(size(perf_place,1))
+    fn_place_view = zeros(size(perf_place,1))
+    for (i,_vidx) in enumerate(vidx[1:size(perf_view_place,2)])
+        fill!(n_place_view, 0.0)
+        fill!(fn_place_view, 0.0)
+        fill!(fp_place_view, 0.0)
+        _pidx = findall([_cat[1]==_vidx for _cat in unique_categories])
+        place_idx = [_cat[2] for _cat in unique_categories[_pidx]]
+        for (k,v) in enumerate(_pidx)
+            fidx = isfinite.(perf[v,:])
+            perf_place_view[place_idx[k],i] = sum(perf[v,fidx])
+            fp_place_view[place_idx[k]] = sum(fp_rate[v,fidx])
+            fn_place_view[place_idx[k]] = sum(fn_rate[v,fidx])
+            n_place_view[place_idx[k]] = sum(fidx)
+        end
+        f1_place_view[:,i] = 2*perf_place_view[:,i]./(2*perf_place_view[:,i] .+ fp_place_view .+ fn_place_view)
+        perf_place_view[:,i] ./= n_place_view
+    end
+
     mm = get_maze_mesh(;nrefinements=0)
     m_floor = Translate(0.0, 0.0, -35)(floor_topology3(;nrefinements=0))
     # categorise into floor, ceiling, walls and pillars
@@ -487,15 +511,15 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         Colorbar(lg12[1,1], colorrange=extrema(perf_view), colormap=:Purples, label="$_label view")
         Colorbar(lg12[2,1], colorrange=extrema(perf_place), colormap=:Greens, label="$_label place")
 
+        # view probability conditioned on place
         if show_f1_score
             cr = extrema(filter(isfinite, f1_view_place))
         else
             cr = extrema(filter(isfinite, perf_view_place))
         end
+        lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(1,2),(1,3),(1,4),(2,2),(2,3),(2,4)]]
         for k in 1:size(perf_view_place,2)
-            lg2 = GridLayout(fig[1,1+k])
-            lg21 = GridLayout(lg2[1,1])
-            lscene2 = LScene(lg21[1,1], show_axis=false)
+            lscene2 = lscenes[k]
             if show_f1_score
                 _color = f1_view_place[:,k][tidx]
             else
@@ -505,7 +529,27 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             viz!(lscene2, m_floor;color=:lightgray, showsegments=true)
             viz!(lscene2, centroid(m_floor[pidx[k]]), color=:red,pointsize=10)
         end
-        Colorbar(fig[1,size(perf_view_place,2)+2], colorrange=cr, colormap=:Purples)
+        Colorbar(fig[2,5], colorrange=cr, colormap=:Purples)
+
+        # place probability conditioned on view
+        if show_f1_score
+            cr = extrema(filter(isfinite, f1_place_view))
+        else
+            cr = extrema(filter(isfinite, perf_place_view))
+        end
+        lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(3,2),(3,3),(3,4),(4,2),(4,3),(4,4)]]
+        for k in 1:size(perf_place_view,2)
+            lscene2 = lscenes[k]
+            if show_f1_score
+                _color = f1_place_view[:,k]
+            else
+                _color = perf_place_view[:,k]
+            end
+            plotmesh!(lscene2, mm;color=:lightgray, ceiling_offset=10, floor_offset=-10, showsegments=true)
+            viz!(lscene2, m_floor;color=_color, showsegments=true,colorrange=cr, colormap=:Greens)
+            viz!(lscene2, centroid(mm[vidx[k]]), color=:red,pointsize=10)
+        end
+        Colorbar(fig[4,5], colorrange=cr, colormap=:Greens)
         fig
     end
 end
