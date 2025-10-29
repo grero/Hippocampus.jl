@@ -489,6 +489,13 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         perf_place_view[:,i] ./= n_place_view
     end
 
+    #cluster in pca space
+    X = data["X"]
+    ridx = shuffle(1:size(X,2))[1:10_000]
+    sort!(ridx)
+    pca = fit(PCA, X[:,ridx])
+    Z = predict(pca, X[:,ridx])
+
     mm = get_maze_mesh(;nrefinements=0)
     m_floor = Translate(0.0, 0.0, -35)(floor_topology3(;nrefinements=0))
     m_floor2, m_ceiling, m_middle = Hippocampus.get_floor_and_ceiling(mm)
@@ -521,6 +528,10 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         else
             cr = extrema(filter(isfinite, perf_view_place))
         end
+        # cluster plot
+        lscenec = LScene(fig[2:3,1])
+        scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])))
+
         lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(1,2),(1,3),(1,4),(2,2),(2,3),(2,4)]]
         for k in 1:size(perf_view_place,2)
             lscene2 = lscenes[k]
