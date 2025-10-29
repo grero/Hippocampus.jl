@@ -560,3 +560,135 @@ function plot_view_decoding_results!(lg, km_results, mean_err::Vector{T}, mean_e
         lscene
     end
 end
+
+
+function population_decoder(X::Matrix{T}, Y::Matrix{T}) where T <: Real
+    nt = size(X,2)
+    ntrain = round(Int64, 0.8*nt)
+    trainidx = shuffle(1:nt)[1:ntrain]
+    sort!(trainidx)
+    testidx = setdiff(1:nt, trainidx)
+
+    # supervised approach; define the space we want to decode
+    # gassians for each X
+    km_results_g = kmeans(Y[1:3,trainidx], 1024)
+    km_results_p = kemans(Y[4:5, trainidx], 256)
+    for j in 1:ntrain
+
+    end
+end
+
+function group_bins()
+    mm = Hippocampus.get_maze_mesh(nrefinements=0)
+    group_bins(mm)
+end
+function group_bins(mm::SimpleMesh)
+    cm = coords.(centroid.(mm))
+    pillar_idx = findall([ (-12 < p.x.val < 12)&&(-12 < p.y.val < 12)&&( 4.5 > p.z.val > 0) for p in cm])
+    ceiling_idx = findall([p.z.val == 5.0 for p in cm])
+    north_wall_idx = findall([p.y.val == 12.5 for p in cm])
+    south_wall_idx = findall([p.y.val == -12.5 for p in cm])
+    west_wall_idx = findall([p.x.val == -12.5 for p in cm])
+    east_wall_idx = findall([p.x.val == 12.5 for p in cm])
+    floor_idx = findall([p.z.val == 0.0 for p in cm])
+    (pillar_idx=pillar_idx, ceiling_idx=ceiling_idx, north_wall_idx=north_wall_idx, 
+     south_wall_idx=south_wall_idx, west_wall_idx=west_wall_idx, east_wall_idx=east_wall_idx,
+     floor_idx=floor_idx)
+end
+
+function categorize(Y::Matrix{T},mm::SimpleMesh) where T <: Real
+    kidx_v = mapto(mm, Tuple.(eachcol(Y)))
+    _kidx_v = first.(kidx_v)
+    grouped_idx = group_bins(mm)
+    kidxv2 = zeros(Int64, length(kidx_v))
+    kidxv2 .= _kidx_v
+    kidxv2[in(grouped_idx.ceiling_idx).(_kidx_v)] .= 1
+    kidxv2[in(grouped_idx.floor_idx).(_kidx_v)] .= 2
+    kidxv2[in(grouped_idx.north_wall_idx).(_kidx_v)] .= 3
+    kidxv2[in(grouped_idx.east_wall_idx).(_kidx_v)] .= 4
+    kidxv2[in(grouped_idx.south_wall_idx).(_kidx_v)] .= 5
+    kidxv2[in(grouped_idx.west_wall_idx).(_kidx_v)] .= 6
+    for (i,j) in enumerate(grouped_idx.pillar_idx)
+        kidxv2[kidxv2.==j] .= 6+i
+    end
+    kidxv2
+end
+
+function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100) where T <: Real
+    nt = size(X,2)
+    ntrain = round(Int64, 0.8*nt)
+
+    mm = Hippocampus.get_maze_mesh(nrefinements=0)
+
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=0))
+    # TODO: Maybe group according to main walls, individual maze walls, floor and ceiling
+
+    kidx_v = categorize(Y[1:3,:], mm) 
+    kidx_p = mapto(m_floor, Tuple.(eachcol(Y[4:5,:])))
+
+    # floor has a centroid z-coordinate of 0, ceiling has a centroid z coordinate of 5
+    # pillars have x,y centroid x,y coordinate larger than -12 and less than 12
+    category = collect(zip(kidx_v, first.(kidx_p)))
+    unique_categories = unique(category)
+    ncat = length(unique_categories)
+    #k-nn decoder?
+
+    # create training and testing set by randomly combinig spike count for each category
+    # draw 50 trials per category for training and testing set
+    Xtrain = fill(NaN, size(X,1),50*ncat)
+    Xtest = fill(NaN,size(X,1),50*ncat)
+    perf = fill(0.0, ncat, nruns)
+    prog = Progress(nruns*50*ncat,"Decoding...")
+    for r in 1:nruns
+        fill!(Xtrain, NaN)
+        fill!(Xtest, NaN)
+        trainidx = shuffle(1:nt)[1:ntrain]
+        sort!(trainidx)
+        testidx = setdiff(1:nt, trainidx)
+
+        cat_train = category[trainidx]
+        cat_test = category[testidx]
+
+        offset = 0
+        cat_test_new = Vector{Tuple{Int64, Int64}}(undef, 50*ncat)
+        cat_train_new = Vector{Tuple{Int64, Int64}}(undef, 50*ncat)
+        for cat in unique_categories
+            vidx_train = findall(cc->cc==cat, cat_train)
+            vidx_test = findall(cc->cc==cat, cat_test)
+            if isempty(vidx_train) || isempty(vidx_test)
+                continue
+            end
+            nq = div(min(length(vidx_train),length(vidx_test)),2)
+            for j in 1:50
+                #shuffle!(vidx_train)
+                #shuffle!(vidx_test)
+                Xtrain[:,offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                Xtest[:,offset+j] = dropdims(sum(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
+                cat_test_new[offset+j] = cat
+                cat_train_new[offset+j] = cat
+            end
+            offset += 50
+        end
+        fidx = 1:offset
+        cat_test_new = cat_test_new[fidx]
+        cat_train_new = cat_train_new[fidx]
+        # decode
+        Xtrainf = Xtrain[:,fidx]
+        cat_decoded = Vector{Tuple{Int64, Int64}}(undef, length(cat_test_new))
+        nmax = 0
+        for (j,x) in enumerate(eachcol(Xtest[:,fidx]))
+            d = dropdims(sum(abs2, x .- Xtrainf,dims=1),dims=1)
+            sidx = sortperm(d)
+            _counts = countmap(cat_train_new[sidx[1:k]])
+            n,c = findmax(_counts)
+            cat_decoded[j] = c
+            nmax = max(n,nmax)
+            next!(prog)
+        end
+        for (j,_cat) in enumerate(unique_categories)
+            tidx = findall(cc->cc==_cat, cat_test_new)
+            perf[j,r] = sum(cat_test_new[tidx].==cat_decoded[tidx])/length(tidx)
+        end
+    end
+    perf, unique_categories
+end
