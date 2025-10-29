@@ -694,10 +694,19 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
         cat_train_new = cat_train_new[fidx]
         # decode
         Xtrainf = Xtrain[:,fidx]
+        if do_pca
+            pca = fit(PCA, Xtrainf)
+            Ztrainf = predict(pca, Xtrainf)
+            Ztestf = predict(pca, Xtest[:,fidx])
+        else
+            Ztrainf = Xtrainf
+            Ztestf = Xtest[:,fidx]
+        end
+
         cat_decoded = Vector{Tuple{Int64, Int64}}(undef, length(cat_test_new))
         nmax = 0
-        for (j,x) in enumerate(eachcol(Xtest[:,fidx]))
-            d = dropdims(sum(abs2, x .- Xtrainf,dims=1),dims=1)
+        for (j,x) in enumerate(eachcol(Ztestf))
+            d = dropdims(sum(abs2, x .- Ztrainf,dims=1),dims=1)
             sidx = sortperm(d)
             _counts = countmap(cat_train_new[sidx[1:k]])
             n,c = findmax(_counts)
