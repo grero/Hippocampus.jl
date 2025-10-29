@@ -658,6 +658,8 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
     Xtrain = fill(NaN, size(X,1),50*ncat)
     Xtest = fill(NaN,size(X,1),50*ncat)
     perf = fill(0.0, ncat, nruns)
+    fp_rate = fill(0.0, ncat, nruns)
+    fn_rate = fill(0.0, ncat, nruns)
     prog = Progress(nruns*50*ncat,"Decoding...")
     for r in 1:nruns
         fill!(Xtrain, NaN)
@@ -715,9 +717,12 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
             next!(prog)
         end
         for (j,_cat) in enumerate(unique_categories)
-            tidx = findall(cc->cc==_cat, cat_test_new)
+            tidx = findall(cc->cc==_cat, cat_decoded)
+            nidx = findall(cc->cc!=_cat, cat_decoded)
             perf[j,r] = sum(cat_test_new[tidx].==cat_decoded[tidx])/length(tidx)
+            fp_rate[j,r] = length(findall(cc->cc!=_cat, cat_test_new[tidx]))/length(tidx)
+            fn_rate[j,r] = length(findall(cc->cc==_cat, cat_test_new[nidx]))/length(nidx)
         end
     end
-    perf, unique_categories
+    perf, fp_rate, fn_rate, unique_categories
 end
