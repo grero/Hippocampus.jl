@@ -397,7 +397,7 @@ function plot_knn_population_decoding_results(;kwargs...)
     plot_knn_population_decoding_results(fname;kwargs...)
 end
 
-function plot_knn_population_decoding_results(fname::String;show_f1_score=false,_plot_theme=poster_theme)
+function plot_knn_population_decoding_results(fname::String;show_f1_score=false,_plot_theme=poster_theme,figsize=nothing)
     data = JLD2.load(fname)
     unique_categories = data["unique_categories"]
     perf = data["perf"]
@@ -494,7 +494,10 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
     # categorise into floor, ceiling, walls and pillars
     tidx = categorize(mm)
     with_theme(_plot_theme) do
-        fig = Figure(size=(2537, 563))
+        if figsize === nothing
+            figsize = (1488, 794)
+        end
+        fig = Figure(size=figsize)
         lg1 = GridLayout(fig[1,1])
         lscene = LScene(lg1[1,1],show_axis=false)
         if show_f1_score
