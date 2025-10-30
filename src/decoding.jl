@@ -634,7 +634,29 @@ function categorize(tidx::AbstractVector{Int64}, mm::SimpleMesh)
     _tidx
 end
 
-function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_pca=false) where T <: Real
+function generate_pseudosamples(X::Matrix{T}, categories;trials_per_category=50) where T <: Real
+    unique_categories = unique(categories)
+    ncat = length(unique_categories)
+    offset = 0
+    Xtrain = fill(NaN, size(X,1),trials_per_category*ncat)
+    cat_train_new = Vector{Tuple{Int64, Int64}}(undef, trials_per_category*ncat)
+    for cat in unique_categories
+        vidx_train = findall(cc->cc==cat, categories)
+        if isempty(vidx_train)
+            continue
+        end
+        nq = div(length(vidx_train),2)
+        for j in 1:50
+            Xtrain[:,offset+j] = dropdims(sum(X[:,rand(vidx_train,nq)],dims=2),dims=2)
+            cat_train_new[offset+j] = cat
+        end
+        offset += 50
+    end
+    fidx = 1:offset
+    Xtrain[:,fidx], cat_train_new[fidx]
+end
+
+function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_pca=false,decode_view=true, decode_place=true) where T <: Real
     nt = size(X,2)
     ntrain = round(Int64, 0.8*nt)
 
