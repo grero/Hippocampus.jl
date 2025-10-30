@@ -544,8 +544,8 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         plotmesh!(lscene, mm;color=_color, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
         viz!(lscene, m_floor;color=perf_place, colormap=:Greens, showsegments=true)
         lg12 = GridLayout(lg1[1,2])
-        Colorbar(lg12[1,1], colorrange=extrema(perf_view), colormap=:Purples, label="$_label view")
-        Colorbar(lg12[2,1], colorrange=extrema(perf_place), colormap=:Greens, label="$_label place")
+        Colorbar(lg12[1,1], colorrange=extrema(perf_view), colormap=:Purples, label="$_label\nview")
+        Colorbar(lg12[2,1], colorrange=extrema(perf_place), colormap=:Greens, label="$_label\nplace")
 
         # view probability conditioned on place
         if show_f1_score
