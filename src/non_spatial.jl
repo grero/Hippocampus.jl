@@ -177,7 +177,7 @@ function plot_psth!(ax, spa::TrialAlignedSpiketrain, rp::RippleData;tmax=20,bins
     color = to_colormap(:tab10)
     posterbins = unique(posterid)
     sort!(posterbins)
-    idx1 = searchsortedlast(bins, tmax)
+    idx1 = min(searchsortedlast(bins, tmax), size(weight,1))
     outcome = rp.triggers[:,3]
     cidx = findall(30 .<= outcome .< 40)
     for (i,b) in enumerate(posterbins)
@@ -223,15 +223,45 @@ function plot_raster_and_psth!(lg::GridLayout, spa::TrialAlignedSpiketrain, rp::
     ax2.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
 end
 
+function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa2::TrialAlignedSpiketrain, rp::RippleData;kwargs...)
+    ax11 = Axis(lg[1,1])
+    ax12 = Axis(lg[1,2])
+    # TODO: Plot both cue aligned and trial-end aligned raster
+
+    plot_raster!(ax11, spa1, rp;kwargs...)
+    plot_raster!(ax12, spa2, rp;kwargs...)
+    ax21 = Axis(lg[2,1])
+    ax22 = Axis(lg[2,2])
+    plot_psth!(ax21, spa1, rp;kwargs...)
+    plot_psth!(ax22, spa2, rp;kwargs...)
+    ax11.xticklabelsvisible = false
+    ax11.xticksvisible = false
+    ax12.xticklabelsvisible = false
+    ax12.xticksvisible = false
+    linkxaxes!(ax11, ax21)
+    linkxaxes!(ax12, ax22)
+    linkyaxes!(ax21,ax22)
+    if get(kwargs, :xlabelvisible, true)
+        ax21.xlabel = "Time from cue [s]"
+        ax22.xlabel = "Time from end [s]"
+    end
+    ax12.ylabelvisible = false
+    ax22.ylabelvisible = false
+    ax22.yticklabelsvisible = false
+    ax21.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
+    ax22.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
+end
+
 function plot_raster_and_psth!(lg::GridLayout, celldir::String;kwargs...)
-    spa,rp = cd(celldir) do
+    spa1,spa2, rp = cd(celldir) do
         rp = cd(DPHT.process_level("session")) do
             RippleData()
         end
-        spa = TrialAlignedSpiketrain()
-    spa, rp
+        spa1 = TrialAlignedSpiketrain(;alignto=1)
+        spa2 = TrialAlignedSpiketrain(;alignto=3)
+    spa1, spa2, rp
     end
-    plot_raster_and_psth!(lg, spa, rp;kwargs...)
+    plot_raster_and_psth!(lg, spa1, spa2, rp;kwargs...)
 end
 
 function population_decoder(nspikes::Matrix{T}, posterid::Vector{Int64};nruns=1) where T <: Real
