@@ -12,6 +12,19 @@ poster_theme = Theme(Axis=(xlabelsize=36, ylabelsize=36,
 find_place_selective_cells(celldirs::Vector{String};kwargs...) = find_selective_cells(is_place_selective, celldirs;kwargs...)
 find_view_selective_cells(celldirs::Vector{String};kwargs...) = find_selective_cells(is_view_selective, celldirs;kwargs...)
 
+function get_maze_category_colors()
+    cmap = to_colormap(:tab20)
+    _colors = reshape(cmap[[1:4;9:10;17:18;]], 2, 4)
+    pillar_colors = HSV{Float32}[]
+    for i in axes(_colors,2)
+        append!(pillar_colors, range(HSV(_colors[1,i]), stop=HSV(_colors[2,i]), length=4))
+    end
+    floor_color = cmap[5]
+    ceiling_color = cmap[19]
+    wall_colors = range(HSV(cmap[11]),stop=HSV(cmap[12]), length=4)
+    [ceiling_color;floor_color;wall_colors;pillar_colors]
+end
+
 function find_selective_cells(func::Function, celldirs::Vector{String};skip_error=true, kwargs...)
     _is_selective = fill(false, length(celldirs))
     for (i,celldir) in enumerate(celldirs)
