@@ -213,19 +213,24 @@ function plot_fields_with_outline!(ax, f::AbstractArray{T,3}) where T <: Real
     end
 end
 
-function plot_fields(patches::Vector{Vector{Vector{CartesianIndex{2}}}})
-    colors = to_colormap(:tab10)
+function plot_fields(patches::Vector{Vector{Vector{<:Union{CartesianIndex{2}, Int64}}}},args...;kwargs...)
     with_theme(plot_theme) do
         fig = Figure()
         ax = Axis(fig[1,1])
-        for (ii,patch) in enumerate(patches)
-            color = colors[mod(ii-1,10)+1] 
-            for p in patch
-                plot_field!(ax, p;color=color)
-            end
-        end
+        plot_fields!(ax, patches,args...;kwargs...)
         fig
     end
+end
+
+function plot_fields!(ax, patches::Vector{Vector{Vector{CartesianIndex{2}}}})
+    colors = to_colormap(:tab10)
+        for (ii,patch) in enumerate(patches)
+        color = colors[mod(ii-1,10)+1] 
+        for p in patch
+            plot_field!(ax, p;color=color)
+        end
+    end
+    ax
 end
 
 function plot_field!(ax, patch::Vector{CartesianIndex{2}};kwargs...)
@@ -240,15 +245,22 @@ function plot_field!(ax, patch::Vector{CartesianIndex{2}};kwargs...)
     end
 end
 
-function plot_field!(ax, patch::Vector{Int64},mm::SimpleMesh;kwargs...)
+function plot_field!(ax, patch::Vector{Int64},mm::SimpleMesh;zoffset=0.0, kwargs...)
     hulls = Any[]
-    points = [coords(centroid(mm[ci])) for ci in  patch]
+    points = [centroid(mm[ci]) for ci in  patch]
     chull = hull(points, JarvisMarch())
 
     b = boundary(chull)
     if b !== nothing
         viz!(ax, b;kwargs...)
     end
+end
+
+function plot_fields!(ax, patches::Vector{Vector{Int64}},mm::SimpleMesh;kwargs...)
+    for patch in patches
+        plot_field!(ax, patch, mm;kwargs...)
+    end
+    ax
 end
 
 function generate_pseudotrial(X::Matrix{T}, assignments::Vector{<:Integer},k::Integer, ntrials::Integer=1) where T <: Real
