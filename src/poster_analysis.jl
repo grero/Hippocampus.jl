@@ -559,8 +559,9 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
                 _color = perf_view_place[:,k][tidx]
             end
             plotmesh!(lscene2, mm;color=_color, ceiling_offset=10, floor_offset=-10,colormap=:Purples,colorrange=cr, showsegments=true)
-            viz!(lscene2, m_floor;color=:lightgray, showsegments=true)
-            viz!(lscene2, centroid(m_floor[pidx[k]]), color=:red,pointsize=10)
+            fcolor = fill(parse(Colorant, :lightgray), nelements(m_floor))
+            fcolor[pidx[k]] = parse(Colorant, :red)
+            viz!(lscene2, m_floor;color=fcolor, showsegments=true)
         end
         Colorbar(fig[2,5], colorrange=cr, colormap=:Purples)
 
