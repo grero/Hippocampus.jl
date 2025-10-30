@@ -520,7 +520,6 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
     X = data["X"]
     Xt,cat_t = generate_pseudosamples(X, category)
     catp = [findfirst(cc->cc==ct[1], 1:22) for ct in cat_t]
-    @show extrema(catp)
     pca = fit(PCA, Xt)
     Z = predict(pca, Xt)
 
