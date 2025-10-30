@@ -556,12 +556,12 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         # cluster plot
         lgcc = GridLayout(fig[2:4,1])
         lscenep = LScene(lgcc[1,1],show_axis=false)
-        _colors = resample_cmap(:tab20, 22)
+        _colors = HSV.(get_maze_category_colors())
         plotmesh!(lscenep, mm;color=_colors[tidx], ceiling_offset=10, floor_offset=-15, showsegments=true)
         lscenec = Axis3(lgcc[2,1],xticklabelsvisible=false, yticklabelsvisible=false, zticklabelsvisible=false,
                                   xgridvisible=true, ygridvisible=true,zgridvisible=true,
                                   xlabelvisible=false, ylabelvisible=false, zlabelvisible=false)
-        scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])),color=catp,colormap=:tab20)
+        scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])),color=_colors[catp])
 
         lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(1,2),(1,3),(1,4),(2,2),(2,3),(2,4)]]
         for k in 1:size(perf_view_place,2)
