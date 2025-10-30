@@ -489,18 +489,31 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         perf_place_view[:,i] ./= n_place_view
     end
 
-    #cluster in pca space
-    X = data["X"]
-    ridx = shuffle(1:size(X,2))[1:10_000]
-    sort!(ridx)
-    pca = fit(PCA, X[:,ridx])
-    Z = predict(pca, X[:,ridx])
-
     mm = get_maze_mesh(;nrefinements=0)
-    m_floor = Translate(0.0, 0.0, -35)(floor_topology3(;nrefinements=0))
-    m_floor2, m_ceiling, m_middle = Hippocampus.get_floor_and_ceiling(mm)
     # categorise into floor, ceiling, walls and pillars
     tidx = categorize(mm)
+    m_floor = floor_topology3(;nrefinements=0)
+    m_floor2, m_ceiling, m_middle = Hippocampus.get_floor_and_ceiling(mm)
+     # get the view categories
+     Y = data["Y"]
+    kidx_v = categorize(Y[1:3,:], mm) 
+    # get the place cateogires
+    kidx_p = mapto(Shadow("xy")(m_floor), Tuple.(eachcol(Y[4:5,:])))
+
+    # floor has a centroid z-coordinate of 0, ceiling has a centroid z coordinate of 5
+    # pillars have x,y centroid x,y coordinate larger than -12 and less than 12
+    category = collect(zip(kidx_v, first.(kidx_p)))
+
+    #cluster in pca space
+    X = data["X"]
+    Xt,cat_t = generate_pseudosamples(X, category)
+    catp = [findfirst(cc->cc==ct[1], 1:22) for ct in cat_t]
+    @show extrema(catp)
+    pca = fit(PCA, Xt)
+    Z = predict(pca, Xt)
+
+    m_floor = Meshes.Translate(0.0, 0.0, -30)(m_floor)
+
     with_theme(_plot_theme) do
         if figsize === nothing
             figsize = (1488, 794)
@@ -529,8 +542,14 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             cr = extrema(filter(isfinite, perf_view_place))
         end
         # cluster plot
-        lscenec = LScene(fig[2:3,1])
-        scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])))
+        lgcc = GridLayout(fig[2:4,1])
+        lscenep = LScene(lgcc[1,1],show_axis=false)
+        _colors = resample_cmap(:tab20, 22)
+        plotmesh!(lscenep, mm;color=_colors[tidx], ceiling_offset=10, floor_offset=-15, showsegments=true)
+        lscenec = Axis3(lgcc[2,1],xticklabelsvisible=false, yticklabelsvisible=false, zticklabelsvisible=false,
+                                  xgridvisible=true, ygridvisible=true,zgridvisible=true,
+                                  xlabelvisible=false, ylabelvisible=false, zlabelvisible=false)
+        scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])),color=catp,colormap=:tab20)
 
         lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(1,2),(1,3),(1,4),(2,2),(2,3),(2,4)]]
         for k in 1:size(perf_view_place,2)
