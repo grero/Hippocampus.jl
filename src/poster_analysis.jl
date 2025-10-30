@@ -411,7 +411,6 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
     else
         fn_rate = zeros(size(perf)...)
     end
-    @show extrema(filter(isfinite, fp_rate))
     view_idx = [_cat[1] for _cat in unique_categories]
     place_idx = [_cat[2] for _cat in unique_categories]
     perf_view = zeros(maximum(view_idx))
