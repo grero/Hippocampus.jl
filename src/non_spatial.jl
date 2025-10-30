@@ -161,7 +161,7 @@ function plot_raster!(ax, spa::TrialAlignedSpiketrain, rp::RippleData;tmax=20.0,
     else
         trial_end = trial_end[sidx]
     end
-    scatter!(ax, points,color=colors)
+    scatter!(ax, points,color=colors, markersize=get(kwargs, :markersize, 5px))
     scatter!(ax, Point2f.([(cp, i) for (i,cp) in enumerate(cue_period)]),color=:black, marker='|')
     scatter!(ax, Point2f.([(trial_end[i], i) for i in findall(trial_end .<= tmax)]),color=:black, marker='|')
     if get(kwargs, :ylabelvisible, true)
