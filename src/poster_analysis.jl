@@ -540,7 +540,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             _color = perf_view[tidx]
             _label = "Performance"
         end
-
+        Label(lg1[1,1,TopLeft()], "A")
         plotmesh!(lscene, mm;color=_color, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
         viz!(lscene, m_floor;color=perf_place, colormap=:Greens, showsegments=true)
         lg12 = GridLayout(lg1[1,2])
@@ -555,6 +555,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         # cluster plot
         lgcc = GridLayout(fig[2:4,1])
+        Label(lgcc[1,1,TopLeft()],"B")
         lscenep = LScene(lgcc[1,1],show_axis=false)
         _colors = HSV.(get_maze_category_colors())
         plotmesh!(lscenep, mm;color=_colors[tidx], ceiling_offset=10, floor_offset=-15, showsegments=true)
@@ -564,6 +565,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])),color=_colors[catp])
 
         lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(1,2),(1,3),(1,4),(2,2),(2,3),(2,4)]]
+        Label(fig[1,2,TopLeft()],"C")
         for k in 1:size(perf_view_place,2)
             lscene2 = lscenes[k]
             if show_f1_score
@@ -584,6 +586,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         else
             cr = extrema(filter(isfinite, perf_place_view))
         end
+        Label(fig[3,2,TopLeft()],"D")
         lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(3,2),(3,3),(3,4),(4,2),(4,3),(4,4)]]
         for k in 1:size(perf_place_view,2)
             lscene2 = lscenes[k]
