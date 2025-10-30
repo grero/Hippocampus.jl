@@ -374,7 +374,7 @@ function compute_place_error_surrogates(X::Matrix{<:Real},Y::Matrix{<:Real},twin
     mean_err = fill(NaN, maximum(assignments1), maximum(assignments2),nruns)
     for r in 1:nruns
         qidx = shuffle(1:size(X,2))
-        actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, f1, f2, domain1,domain2, tidx, decoder;prog=prog)
+        actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, f1, f2, domain1,domain2;tidx=tidx, decoder,prog=prog)
         err = sqrt.(dropdims(sum(abs2, decoded_pos .- actual_pos,dims=1),dims=1))
         mean_err[:,:,r] = Hippocampus.merge_responses(reshape(err, 1, length(err)), [assignments1,assignments2])
     end
