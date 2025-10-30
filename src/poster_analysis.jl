@@ -578,23 +578,10 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             else
                 _color = perf_place_view[:,k]
             end
-            plotmesh!(lscene2, mm;color=:lightgray, ceiling_offset=10, floor_offset=-10, showsegments=true)
+            mcolor = fill(parse(Colorant, :lightgray), nelements(mm))
+            mcolor[tidx.==vidx[k]] .= parse(Colorant, :red)
+            plotmesh!(lscene2, mm;color=mcolor, ceiling_offset=10, floor_offset=-10, showsegments=true)
             viz!(lscene2, m_floor;color=_color, showsegments=true,colorrange=cr, colormap=:Greens)
-            if vidx[k] in tidx[m_floor2.inds]
-                offset = -10
-            elseif vidx[k] in tidx[m_ceiling.inds]
-                offset = offset = 10
-            else
-                offset = 0
-            end
-            # find the centroid
-            points = coords.(centroid.(mm[findall(tidx.==vidx[k])]))
-            μ = zeros(3)
-            for p in points
-                μ .+= [p.x.val, p.y.val, p.z.val]
-            end
-            μ ./= length(points)
-            viz!(lscene2, Translate(0.0, 0.0, offset)(Meshes.Point(μ...)), color=:red,pointsize=10)
         end
         Colorbar(fig[4,5], colorrange=cr, colormap=:Greens)
         fig
