@@ -20,6 +20,10 @@ end
 
 
 
+function get_posterior(f::AbstractMatrix{T},nspikes::Vector{<:Real};τ=one(T)) where T <: Real
+    get_posterior(reshape(f, size(f,1),1,size(f,2)), nspikes)
+end
+
 function get_posterior(f::AbstractArray{T,3},nspikes::Vector{<:Real};τ=one(T)) where T <: Real
     if length(τ) == 1
         _τ = repeat([τ], 1,1, length(nspikes))
