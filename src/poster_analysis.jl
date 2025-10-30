@@ -531,7 +531,9 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         fig = Figure(size=figsize)
         lg1 = GridLayout(fig[1,1])
-        lscene = LScene(lg1[1,1],show_axis=false)
+        # TODO: There is something weird going on with the grid here
+        lgp1 = GridLayout(lg1[1,1])
+        lscene = LScene(lgp1[1,1],show_axis=false)
         if show_f1_score
             _color = f1_view[tidx]
             _label = "F1-score"
@@ -539,12 +541,12 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             _color = perf_view[tidx]
             _label = "Performance"
         end
-        Label(lg1[1,1,TopLeft()], "A")
+        Label(lgp1[1,1,TopLeft()], "A")
         plotmesh!(lscene, mm;color=_color, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
         viz!(lscene, m_floor;color=perf_place, colormap=:Greens, showsegments=true)
-        lg12 = GridLayout(lg1[1,2])
-        Colorbar(lg12[1,1], colorrange=extrema(perf_view), colormap=:Purples, label="$_label\nview")
-        Colorbar(lg12[2,1], colorrange=extrema(perf_place), colormap=:Greens, label="$_label\nplace")
+        lg12 = GridLayout(lgp1[1,2])
+        Colorbar(lg12[1,1], colorrange=extrema(perf_view), colormap=:Purples, label="$_label\nview",ticks=WilkinsonTicks(3))
+        Colorbar(lg12[2,1], colorrange=extrema(perf_place), colormap=:Greens, label="$_label\nplace",ticks=WilkinsonTicks(3))
 
         # view probability conditioned on place
         if show_f1_score
@@ -553,7 +555,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             cr = extrema(filter(isfinite, perf_view_place))
         end
         # cluster plot
-        lgcc = GridLayout(fig[2:4,1])
+        lgcc = GridLayout(lg1[2,1])
         Label(lgcc[1,1,TopLeft()],"B")
         lscenep = LScene(lgcc[1,1],show_axis=false)
         _colors = HSV.(get_maze_category_colors())
@@ -563,8 +565,9 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
                                   xlabelvisible=false, ylabelvisible=false, zlabelvisible=false)
         scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])),color=_colors[catp])
 
-        lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(1,2),(1,3),(1,4),(2,2),(2,3),(2,4)]]
-        Label(fig[1,2,TopLeft()],"C")
+        lg4 = GridLayout(fig[1,2])
+        lscenes = [LScene(lg4[r,c], show_axis=false) for (r,c) in [(1,1),(1,2),(1,3),(2,1),(2,2),(2,3)]]
+        Label(lg4[1,1,TopLeft()],"C")
         for k in 1:size(perf_view_place,2)
             lscene2 = lscenes[k]
             if show_f1_score
@@ -577,7 +580,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             fcolor[pidx[k]] = parse(Colorant, :red)
             viz!(lscene2, m_floor;color=fcolor, showsegments=true)
         end
-        Colorbar(fig[2,5], colorrange=cr, colormap=:Purples)
+        Colorbar(lg4[2,4], colorrange=cr, colormap=:Purples)
 
         # place probability conditioned on view
         if show_f1_score
@@ -585,8 +588,8 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         else
             cr = extrema(filter(isfinite, perf_place_view))
         end
-        Label(fig[3,2,TopLeft()],"D")
-        lscenes = [LScene(fig[r,c], show_axis=false) for (r,c) in [(3,2),(3,3),(3,4),(4,2),(4,3),(4,4)]]
+        Label(lg4[3,1,TopLeft()],"D")
+        lscenes = [LScene(lg4[r,c], show_axis=false) for (r,c) in [(3,1),(3,2),(3,3),(4,1),(4,2),(4,3)]]
         for k in 1:size(perf_place_view,2)
             lscene2 = lscenes[k]
             if show_f1_score
@@ -599,7 +602,8 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             plotmesh!(lscene2, mm;color=mcolor, ceiling_offset=10, floor_offset=-10, showsegments=true)
             viz!(lscene2, m_floor;color=_color, showsegments=true,colorrange=cr, colormap=:Greens)
         end
-        Colorbar(fig[4,5], colorrange=cr, colormap=:Greens)
+        Colorbar(lg4[4,4], colorrange=cr, colormap=:Greens)
+        colsize!(fig.layout, 1, Relative(0.3))
         fig
     end
 end
