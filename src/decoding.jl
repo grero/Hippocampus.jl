@@ -656,7 +656,7 @@ function generate_pseudosamples(X::Matrix{T}, categories;trials_per_category=50)
     Xtrain[:,fidx], cat_train_new[fidx]
 end
 
-function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_pca=false,decode_view=true, decode_place=true) where T <: Real
+function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_pca=false,decode_view=true, decode_place=true, joint=true) where T <: Real
     nt = size(X,2)
     ntrain = round(Int64, 0.8*nt)
 
@@ -666,8 +666,10 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
 
     # get the view categories
     kidx_v = categorize(Y[1:3,:], mm) 
+    nview = maximum(kidx_v)
     # get the place cateogires
     kidx_p = mapto(m_floor, Tuple.(eachcol(Y[4:5,:])))
+    nplace = maximum(first.(kidx_p))
 
     # floor has a centroid z-coordinate of 0, ceiling has a centroid z coordinate of 5
     # pillars have x,y centroid x,y coordinate larger than -12 and less than 12
@@ -687,12 +689,16 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
 
     # create training and testing set by randomly combinig spike count for each category
     # draw 50 trials per category for training and testing set
-    Xtrain = fill(NaN, size(X,1),50*ncat)
+    if joint
+        Xtrain = fill(NaN, size(X,1),50*ncat)
+    else
+        Xtrain = fill(NaN, size(X,1),50*(nview+nplace))
+    end
     Xtest = fill(NaN,size(X,1),50*ncat)
     perf = fill(0.0, ncat, nruns)
     fp_rate = fill(0.0, ncat, nruns)
     fn_rate = fill(0.0, ncat, nruns)
-    prog = Progress(nruns*50*ncat,"Decoding...")
+    prog = Progress(nruns,"Decoding...")
     for r in 1:nruns
         fill!(Xtrain, NaN)
         fill!(Xtest, NaN)
@@ -703,50 +709,116 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
         cat_train = category[trainidx]
         cat_test = category[testidx]
 
-        offset = 0
-        cat_test_new = Vector{eltype(category)}(undef, 50*ncat)
-        cat_train_new = Vector{eltype(category)}(undef, 50*ncat)
-        for cat in unique_categories
-            vidx_train = findall(cc->cc==cat, cat_train)
-            vidx_test = findall(cc->cc==cat, cat_test)
-            if isempty(vidx_train) || isempty(vidx_test)
-                continue
+        if joint
+            offset = 0
+            cat_test_new = Vector{eltype(category)}(undef, 50*ncat)
+            cat_train_new = Vector{eltype(category)}(undef, 50*ncat)
+            for cat in unique_categories
+                vidx_train = findall(cc->cc==cat, cat_train)
+                vidx_test = findall(cc->cc==cat, cat_test)
+                if isempty(vidx_train) || isempty(vidx_test)
+                    continue
+                end
+                nq = div(min(length(vidx_train),length(vidx_test)),2)
+                for j in 1:50
+                    #shuffle!(vidx_train)
+                    #shuffle!(vidx_test)
+                    Xtrain[:,offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    Xtest[:,offset+j] = dropdims(sum(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
+                    cat_test_new[offset+j] = cat
+                    cat_train_new[offset+j] = cat
+                end
+                offset += 50
             end
-            nq = div(min(length(vidx_train),length(vidx_test)),2)
-            for j in 1:50
-                #shuffle!(vidx_train)
-                #shuffle!(vidx_test)
-                Xtrain[:,offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
-                Xtest[:,offset+j] = dropdims(sum(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
-                cat_test_new[offset+j] = cat
-                cat_train_new[offset+j] = cat
+            train_offset = offset
+        else
+            nqs = countmap(category)
+            # train for view and place separately
+            cat_train_new = Vector{Int64}(undef, 50*(nview+nplace))
+            cat_test_new = Vector{eltype(category)}(undef, 50*ncat)
+            unique_view = unique([_cat[1] for _cat in unique_categories])
+            unique_place = unique([_cat[2] for _cat in unique_categories])
+            train_offset = 0
+            for cat in unique_view
+                vidx_train = findall(cc->cc[1]==cat, cat_train)
+                nq = round(Int64, median(values(filter(k->k[1][1]==cat, nqs))))
+                nq = div(nq, 2)
+                for j in 1:50
+                    Xtrain[:,train_offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    cat_train_new[train_offset+j] = cat 
+                end
+                train_offset += 50
             end
-            offset += 50
+            for cat in unique_place
+                vidx_train = findall(cc->cc[2]==cat, cat_train)
+                nq = round(Int64, median(values(filter(k->k[1][2]==cat, nqs))))
+                nq = div(nq, 2)
+                for j in 1:50
+                    Xtrain[:,train_offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    cat_train_new[train_offset+j] = cat 
+                end
+                train_offset += 50
+            end
+            offset = 0
+            for cat in unique_categories
+                vidx_test = findall(cc->cc==cat, cat_test)
+                if isempty(vidx_test)
+                    continue
+                end
+                nq = div(length(vidx_test), 2)
+                for j in 1:50
+                    #shuffle!(vidx_train)
+                    #shuffle!(vidx_test)
+                    Xtest[:,offset+j] = dropdims(sum(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
+                    cat_test_new[offset+j] = cat
+                end
+                offset += 50
+            end
         end
-        fidx = 1:offset
-        cat_test_new = cat_test_new[fidx]
-        cat_train_new = cat_train_new[fidx]
+        fidx_test = 1:offset
+        fidx_train = 1:train_offset
+        cat_test_new = cat_test_new[fidx_test]
+        cat_train_new = cat_train_new[fidx_train]
         # decode
-        Xtrainf = Xtrain[:,fidx]
+        Xtrainf = Xtrain[:,fidx_train]
         if do_pca
             pca = fit(PCA, Xtrainf)
             Ztrainf = predict(pca, Xtrainf)
-            Ztestf = predict(pca, Xtest[:,fidx])
+            Ztestf = predict(pca, Xtest[:,fidx_test])
         else
             Ztrainf = Xtrainf
-            Ztestf = Xtest[:,fidx]
+            Ztestf = Xtest[:,fidx_test]
         end
 
         cat_decoded = Vector{eltype(category)}(undef, length(cat_test_new))
         nmax = 0
-        for (j,x) in enumerate(eachcol(Ztestf))
-            d = dropdims(sum(abs2, x .- Ztrainf,dims=1),dims=1)
-            sidx = sortperm(d)
-            _counts = countmap(cat_train_new[sidx[1:k]])
-            n,c = findmax(_counts)
-            cat_decoded[j] = c
-            nmax = max(n,nmax)
-            next!(prog)
+        if joint
+            for (j,x) in enumerate(eachcol(Ztestf))
+                d = dropdims(sum(abs2, x .- Ztrainf,dims=1),dims=1)
+                sidx = sortperm(d)
+                _counts = countmap(cat_train_new[sidx[1:k]])
+                n,c = findmax(_counts)
+                cat_decoded[j] = c
+                nmax = max(n,nmax)
+            end
+        else
+            for (j,x) in enumerate(eachcol(Ztestf))
+                dv = dropdims(sum(abs2, x .- Ztrainf[:,1:50*nview],dims=1),dims=1)
+                sidx = sortperm(dv)
+                _counts = countmap(cat_train_new[sidx[1:k]])
+                n,c = findmax(_counts)
+                decoded_view = c
+                dp = dropdims(sum(abs2, x .- Ztrainf[:,50*nview+1:end],dims=1),dims=1)
+                sidx = sortperm(dp)
+                _counts = countmap(cat_train_new[50*nview .+ sidx[1:k]])
+                n,c = findmax(_counts)
+                decoded_place = c
+
+                cat_decoded[j] = (decoded_view, decoded_place) 
+
+                nmax = max(n,nmax)
+            end
+
         end
         for (j,_cat) in enumerate(unique_categories)
             tidx = findall(cc->cc==_cat, cat_decoded)
@@ -755,6 +827,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
             fp_rate[j,r] = length(findall(cc->cc!=_cat, cat_test_new[tidx]))/length(tidx)
             fn_rate[j,r] = length(findall(cc->cc==_cat, cat_test_new[nidx]))/length(nidx)
         end
+        next!(prog)
     end
     perf, fp_rate, fn_rate, unique_categories
 end
