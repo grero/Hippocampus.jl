@@ -663,14 +663,24 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
     mm = Hippocampus.get_maze_mesh(nrefinements=0)
 
     m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=0))
-    # TODO: Maybe group according to main walls, individual maze walls, floor and ceiling
 
+    # get the view categories
     kidx_v = categorize(Y[1:3,:], mm) 
+    # get the place cateogires
     kidx_p = mapto(m_floor, Tuple.(eachcol(Y[4:5,:])))
 
     # floor has a centroid z-coordinate of 0, ceiling has a centroid z coordinate of 5
     # pillars have x,y centroid x,y coordinate larger than -12 and less than 12
-    category = collect(zip(kidx_v, first.(kidx_p)))
+    if decode_view && decode_place
+        category = collect(zip(kidx_v, first.(kidx_p)))
+    elseif decode_view
+        category = kidx_v
+    elseif decode_place
+        category = first.(kidx_p)
+    else
+        error("Specify at least one of decode_view and decode_place")
+    end
+
     unique_categories = unique(category)
     ncat = length(unique_categories)
     #k-nn decoder?
@@ -694,8 +704,8 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
         cat_test = category[testidx]
 
         offset = 0
-        cat_test_new = Vector{Tuple{Int64, Int64}}(undef, 50*ncat)
-        cat_train_new = Vector{Tuple{Int64, Int64}}(undef, 50*ncat)
+        cat_test_new = Vector{eltype(category)}(undef, 50*ncat)
+        cat_train_new = Vector{eltype(category)}(undef, 50*ncat)
         for cat in unique_categories
             vidx_train = findall(cc->cc==cat, cat_train)
             vidx_test = findall(cc->cc==cat, cat_test)
@@ -727,7 +737,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
             Ztestf = Xtest[:,fidx]
         end
 
-        cat_decoded = Vector{Tuple{Int64, Int64}}(undef, length(cat_test_new))
+        cat_decoded = Vector{eltype(category)}(undef, length(cat_test_new))
         nmax = 0
         for (j,x) in enumerate(eachcol(Ztestf))
             d = dropdims(sum(abs2, x .- Ztrainf,dims=1),dims=1)
