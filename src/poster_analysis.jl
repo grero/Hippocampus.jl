@@ -232,11 +232,11 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
 
         lg21 = GridLayout(lg2[1,1])
         Label(lg21[1,1,TopLeft()], "A")
-        plot_raster_and_psth!(lg21, allcelldirs[cell_examples.previous_poster_selective];previous=true,xlabelvisible=false, xticklabelsvisible=false)
+        plot_raster_and_psth!(lg21, allcelldirs[cell_examples.previous_poster_selective];previous=true,xlabelvisible=false, xticklabelsvisible=false,binsize=0.1)
         rowsize!(lg21, 1, Relative(0.6))
         lg31 = GridLayout(lg2[2,1])
         rowsize!(lg31, 1, Relative(0.6))
-        plot_raster_and_psth!(lg31, allcelldirs[cell_examples.previous_poster_selective];previous=false)
+        plot_raster_and_psth!(lg31, allcelldirs[cell_examples.previous_poster_selective];previous=false, binsize=0.1)
 
         lg22 = GridLayout(lg2[1,2])
         Label(lg22[1,1,TopLeft()], "B")
@@ -248,11 +248,11 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
         rowsize!(lg23, 1, Relative(0.6))
         lg33 = GridLayout(lg2[2,3])
         rowsize!(lg33, 1, Relative(0.6))
-        plot_raster_and_psth!(lg22, allcelldirs[cell_examples.poster_selective];previous=true,ylabelvisible=false,xlabelvisible=false, xticklabelsvisible=false)
-        plot_raster_and_psth!(lg32, allcelldirs[cell_examples.poster_selective];previous=false, ylabelvisible=false)
+        plot_raster_and_psth!(lg22, allcelldirs[cell_examples.poster_selective];previous=true,ylabelvisible=false,xlabelvisible=false, xticklabelsvisible=false,binsize=0.1)
+        plot_raster_and_psth!(lg32, allcelldirs[cell_examples.poster_selective];previous=false, ylabelvisible=false, binsize=0.1)
 
-        plot_raster_and_psth!(lg23, allcelldirs[cell_examples.both];previous=true, ylabelvisible=false, xticklabelsvisible=false, xlabelvisible=false)
-        plot_raster_and_psth!(lg33, allcelldirs[cell_examples.both];previous=false, ylabelvisible=false)
+        plot_raster_and_psth!(lg23, allcelldirs[cell_examples.both];previous=true, ylabelvisible=false, xticklabelsvisible=false, xlabelvisible=false,binsize=0.1)
+        plot_raster_and_psth!(lg33, allcelldirs[cell_examples.both];previous=false, ylabelvisible=false, binsize=0.1)
         # tuning strength of individual cell vs contribution to decoder
         # plot performance on current poster vs previous poster
         lg1 = GridLayout(fig[2,1])
