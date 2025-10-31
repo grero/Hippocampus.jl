@@ -126,6 +126,11 @@ struct SpatialRepresentation{T1<:Real,T2<:Real} <: AbstractRepresentation{T1,T2}
     event::Vector{Vector{T2}}
 end
 
+DPHT.filename(::Type{SpatialRepresentation}) = "spatial_representation.jld2"
+DPHT.filename(::Type{SpatialRepresentation{T1, T2}}) where T1 <: Real where T2 <: Real = "spatial_representation.jld2"
+DPHT.filename(X::SpatialRepresentation{<:Real, <:Real}) = "spatial_representation.jld2"
+DPHT.level(::Type{SpatialRepresentation}) = "cell"
+
 """
 Return a matrix of all positions
 """
