@@ -310,6 +310,11 @@ struct SpatialMapNew{T<:Real} <: AbstractSpatialMap
     occupancy::Vector{T}
 end
 
+DPHT.filename(::Type{SpatialMapNew}) = "spatial_map.jld2"
+DPHT.filename(X::SpatialMapNew{T}) where T <: Real = "spatial_map.jld2"
+DPHT.level(::Type{SpatialMapNew}) = "cell"
+DPHT.level(X::SpatialMapNew{T}) where T <: Real = "cell"
+
 struct SmoothedSpatialMap{T<:Real} <: AbstractSpatialMap
     xbins::AbstractVector{T}
     ybins::AbstractVector{T}
