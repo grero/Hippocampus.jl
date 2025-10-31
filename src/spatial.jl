@@ -367,10 +367,23 @@ function SpatialMap(spr::SpatialRepresentation{<:Real,<:Real}, spoc::SpatialOccu
     SpatialMap(xbins,ybins, spatial_count, spoc_weight)
 end
 
+function process_kwargs(::Type{SpatialMapNew};min_duration=0.05, min_n_obs=5, kwargs...)
+    h = UInt32(0)
+    if min_duration != 0.05
+        h = crc32c(string(min_duration=>min_duration),h)
+    end
+    if min_n_obs != 5
+        h = crc32c(string(min_n_obs=>min_n_obs))
+    end
+    h
+end
+
 function SpatialMapNew(spr::SpatialRepresentation{T,<:Real}, spoc::SpatialOccupancyNew{T2};min_duration=0.05, min_n_obs=5, kwargs...) where T2 <: Real where T <: Real
+    h = process_kwargs(SpatialMapNew, min_duration=min_duration, min_n_obs=min_n_obs)
     mm = spoc.mm
     spatial_count = zeros(T2, size(spoc.weight,1))
     nt = numtrials(spr)
+    # TODO: Do we need to worry about view bins here?
     goodbinidx = findall(dropdims(sum(spoc.weight .> min_duration,dims=2),dims=2) .>= min_n_obs)
     f = in(goodbinidx)
     for i in 1:nt
@@ -389,7 +402,7 @@ function SpatialMapNew(spr::SpatialRepresentation{T,<:Real}, spoc::SpatialOccupa
     end
     spoc_weight = zeros(T2, size(spoc.weight,1))
     spoc_weight[goodbinidx] .= dropdims(sum(spoc.weight[goodbinidx, :],dims=2),dims=2)
-    SpatialMapNew(mm, spatial_count, spoc_weight)
+    SpatialMapNew(mm, spatial_count, spoc_weight), h
 end
 
 function SpatialMapNew(;kwargs...)
