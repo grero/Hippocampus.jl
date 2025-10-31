@@ -773,6 +773,50 @@ function fill_in_neighbours(X::Vector{T}, d::Vector{T}, r::Integer,σ::T) where 
     y/aa
 end
 
+function fill_in_neighbours2(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::T) where T <: Real
+    n = disc_area(r)
+    sidx = sortperm(d)
+    ds = d[sidx]
+    idx = 1:findlast(ds.<=r)
+    ns = length(idx)
+    σs = σ*ns/n
+    aa = gaussian_area(r, σs)
+    y = zero(T)
+    for j in idx
+        pq = exp(-ds[j]^2/(2*σs^2))
+        y += pq*X[sidx[j]]
+    end
+    y/aa
+end
+
+function fill_in_neighbours2(X::Matrix{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
+    n = disc_area(r)
+    Y = fill!(similar(X), zero(T))
+    for (i,d) in enumerate(eachcol(D))
+        sidx = sortperm(d)
+        ds = d[sidx]
+        idx = 1:findlast(ds.<=r)
+        ns = length(idx)
+        σs = σ*ns/n
+        aa = gaussian_area(r, σs)
+        for j in idx
+            pq = exp(-ds[j]^2/(2*σs^2))
+            Y[:,i] .+= pq*X[:,sidx[j]]
+        end
+        Y[:,i]./aa
+    end
+    Y
+end
+
+
+function fill_in_neighbours2(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
+    Y = zeros(T, size(X,1))
+    for i in axes(D,2)
+        Y[i] = fill_in_neighbours2(X, D[:,i], r, σ)
+    end
+    Y
+end
+
 function adaptive_smoothing(X::Vector{T}, Y::Vector{T}, mm::SimpleMesh, α::T;stop_at_nan=true,rmax=100) where T <: Real
     Xs = fill!(similar(X), zero(T))
     Ys = fill!(similar(X), zero(T))
