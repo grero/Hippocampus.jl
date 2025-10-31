@@ -739,8 +739,8 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
                 for j in 1:50
                     #shuffle!(vidx_train)
                     #shuffle!(vidx_test)
-                    Xtrain[:,offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
-                    Xtest[:,offset+j] = dropdims(sum(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
+                    Xtrain[:,offset+j] = dropdims(mean(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    Xtest[:,offset+j] = dropdims(mean(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
                     cat_test_new[offset+j] = cat
                     cat_train_new[offset+j] = cat
                 end
@@ -760,7 +760,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
                 nq = round(Int64, median(values(filter(k->k[1][1]==cat, nqs))))
                 nq = div(nq, 2)
                 for j in 1:50
-                    Xtrain[:,train_offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    Xtrain[:,train_offset+j] = dropdims(mean(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
                     cat_train_new[train_offset+j] = cat 
                 end
                 train_offset += 50
@@ -770,7 +770,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
                 nq = round(Int64, median(values(filter(k->k[1][2]==cat, nqs))))
                 nq = div(nq, 2)
                 for j in 1:50
-                    Xtrain[:,train_offset+j] = dropdims(sum(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    Xtrain[:,train_offset+j] = dropdims(mean(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
                     cat_train_new[train_offset+j] = cat 
                 end
                 train_offset += 50
@@ -785,7 +785,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
                 for j in 1:50
                     #shuffle!(vidx_train)
                     #shuffle!(vidx_test)
-                    Xtest[:,offset+j] = dropdims(sum(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
+                    Xtest[:,offset+j] = dropdims(mean(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
                     cat_test_new[offset+j] = cat
                 end
                 offset += 50
