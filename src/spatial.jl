@@ -405,12 +405,27 @@ function SpatialMapNew(spr::SpatialRepresentation{T,<:Real}, spoc::SpatialOccupa
     SpatialMapNew(mm, spatial_count, spoc_weight), h
 end
 
-function SpatialMapNew(;kwargs...)
-    spoc = cd(DPHT.process_level("session")) do
-        SpatialOccupancyNew()
+function SpatialMapNew(;redo=false, do_save=true, kwargs...)
+    h = process_kwargs(SpatialMapNew;kwargs...)
+    fname = DPHT.filename(SpatialMapNew)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+        spm = load_jld2(SpatialMap,fname)
     end
-    spr = SpatialRepresentation(;kwargs...)
-    SpatialMapNew(spr, spoc;kwargs...)
+    if !redo && isfile(fname)
+        spm = load_jld2(SpatialMapNew, fname)
+    else
+        spoc = cd(DPHT.process_level("session")) do
+            SpatialOccupancyNew()
+        end
+        spr = SpatialRepresentation(;kwargs...)
+        spm,h = SpatialMapNew(spr, spoc;kwargs...)
+        if do_save
+            save_jld2(spm, fname)
+        end
+    end
+    spm
 end
 
 function get_rate_map(spm::AbstractMap;invalidate_unvisited=true)
