@@ -324,6 +324,28 @@ struct SmoothedSpatialMap{T<:Real} <: AbstractSpatialMap
     α::T
 end
 
+struct SmoothedMap{T<:Real} <: AbstractMap
+    mm::SimpleMesh
+    weight::Vector{T}
+    occupancy::Vector{T}
+    unvisited::Vector{Int64}
+    smooth_params::NamedTuple
+end
+
+function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=false, α=1000.0^2,kwargs...)
+    if method == :gaussian
+        Zg, Xg, Yg = gaussian_smoothing(spm.weight, spm.occupancy, spm.mm, σ;m=m,kwargs...)
+        smooth_params = (method=method, σ=σ, m=m, edge_correct=edge_correct)
+    elseif method == :adaptive
+        Zg, Xg, Yg = adaptive_smoothing(spm.weight, spm.occupancy, spm.mm, α;kwargs...)
+        smooth_params = (method=method,α=α) 
+    else
+        error("Unkonwn smoothing method $method")
+    end
+    unvisited = findall(spm.occupancy .== 0)
+    SmoothedMap(spm.mm, Xg, Yg, unvisited, smooth_params)
+end
+
 DPHT.level(::Type{<:AbstractSpatialMap}) = "cell"
 
 function SpatialMap(spr::SpatialRepresentation{<:Real,<:Real}, spoc::SpatialOccupancy{T2};kwargs...) where T2 <: Real
