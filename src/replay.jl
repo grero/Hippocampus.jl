@@ -2050,6 +2050,29 @@ function ViewMap(;kwargs...)
     ViewMap(vrp, mm,voc)
 end
 
+function ViewMapNew(gaze_type::Type{T};redo=false, do_save=true, kwargs...) where T <: Union{GazeOnMaze, UnityRaytraceData}
+    fname = DPHT.filename(ViewMapNew)
+    h = process_kwargs(ViewMapNew;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo && isfile(fname)
+        vm = load_jld2(ViewMapNew)
+    else
+        vpoc = cd(DPHT.process_level(ViewAndPlaceOccupancy)) do
+            ViewAndPlaceOccupancy(;kwargs...)
+        end
+        vrp = ViewRepresentation(gaze_type;kwargs...)
+        # TODO: Save this
+        vm, h = ViewMapNew(vrp, vpoc)
+        if do_save
+            save_jld2(vm, fname)
+        end
+    end
+    vm
+end
+
 function smooth(vm::ViewMap;kwargs...)
     D, points, pidx,ll = compute_distance_matrix(vm.mm)
     Z = smooth(vm, D, pidx)
