@@ -1592,7 +1592,8 @@ function ViewAndPlaceRepresentation(spikes::Spiketrain, rp::RippleData, udata::U
         tg,gaze,pos, fixmask,fo = get_trial(gdata,i)
         if isempty(tg)
             events[i] = Float64[]
-            data[i] = Matrix{Float32}(undef, 0,0)
+            viewidx[i] = Int64[]
+            placeidx[i] = Int64[]
             continue
         end
         tg .-= tg[1]
