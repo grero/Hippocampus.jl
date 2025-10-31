@@ -195,14 +195,23 @@ function SpatialRepresentation(sp::AbstractVector{T}, rp::RippleData, udata::Uni
     SpatialRepresentation(position,timestamp, time_window, events)
 end
 
-function SpatialRepresentation(;kwargs...)
-    rdata = cd(DPHT.process_level(level(RippleData))) do
-        RippleData()
+function SpatialRepresentation(;redo=false, do_save=true, kwargs...)
+    fname = DPHT.filename(SpatialRepresentation)
+    if !redo && isfile(fname)
+        spr = load_jld2(SpatialRepresentation)
+    else
+        rdata = cd(DPHT.process_level(level(RippleData))) do
+            RippleData()
+        end
+        udata = cd(DPHT.process_level(level(UnityData))) do
+            UnityData()
+        end
+        spr = SpatialRepresentation(rdata, udata;kwargs...)
+        if do_save
+            save_jld2(spr)
+        end
     end
-    udata = cd(DPHT.process_level(level(UnityData))) do
-        UnityData()
-    end
-    SpatialRepresentation(rdata, udata;kwargs...)
+    spr
 end
 
 function SpatialRepresentation(rp::RippleData, udata::UnityData;kwargs...)
