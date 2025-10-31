@@ -732,10 +732,10 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
             for cat in unique_categories
                 vidx_train = findall(cc->cc==cat, cat_train)
                 vidx_test = findall(cc->cc==cat, cat_test)
-                if isempty(vidx_train) || isempty(vidx_test)
+                nq = div(min(length(vidx_train),length(vidx_test)),2)
+                if nq == 0
                     continue
                 end
-                nq = div(min(length(vidx_train),length(vidx_test)),2)
                 for j in 1:50
                     #shuffle!(vidx_train)
                     #shuffle!(vidx_test)
