@@ -441,7 +441,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
         if !isa(tqcolor,Observable)
             tcolor = Observable(tqcolor)
         else
-            tcolor = tqcolor
+            tcolor =tqcolor
         end
         kwargs = filter(k->k[1]!=:color, kwargs)
         use_color = Dict{Symbol,Observable{Any}}()
@@ -467,14 +467,14 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
                 use_color[:ceiling][] = qcolor[m_ceiling2.inds]
             else
                 nanidx = nothing
-                use_color[:middle][] = tcolor 
-                use_color[:floor][] = tcolor 
-                use_color[:ceiling][] = tcolor 
+                use_color[:middle][] = _tcolor 
+                use_color[:floor][] = _tcolor 
+                use_color[:ceiling][] = _tcolor 
                 cr[] = nothing
             end
         end
         # kind of dumb;trigger a change
-        tcolor[] = tcolor[]
+        tcolor[] = tcolor.val
         talpha = get(kwargs, :alpha, 1.0)
         kwargs = filter(k->k[1]!=:alpha, kwargs)
         use_alpha = Dict{Symbol,Any}()
