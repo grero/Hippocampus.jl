@@ -437,31 +437,44 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
         else
             m_ceiling2 = m_ceiling
         end
-        tcolor = get(kwargs, :color,:lightgray) 
-        kwargs = filter(k->k[1]!=:color, kwargs)
-        use_color = Dict{Symbol,Any}()
-        if isa(tcolor, AbstractArray{<:Any})
-            # first filter out nans
-            # need to separate into floor, middle, and ceiling
-            nanidx = isnan.(tcolor)
-            qcolor = zero(tcolor)
-            qcolor .= tcolor
-            qcolor[nanidx] .= zero(eltype(qcolor))
-            if eltype(tcolor) <: Real
-                cr = extrema(qcolor)
-            else
-                cr = nothing
-            end
-            use_color[:middle] = qcolor[m_middle.inds]
-            use_color[:floor] = qcolor[m_floor2.inds]
-            use_color[:ceiling] = qcolor[m_ceiling2.inds]
+        tqcolor = get(kwargs, :color,:lightgray) 
+        if !isa(tqcolor,Observable)
+            tcolor = Observable(tqcolor)
         else
-            nanidx = nothing
-            use_color[:middle] = tcolor 
-            use_color[:floor] = tcolor 
-            use_color[:ceiling] = tcolor 
-            cr = nothing
+            tcolor = tqcolor
         end
+        kwargs = filter(k->k[1]!=:color, kwargs)
+        use_color = Dict{Symbol,Observable{Any}}()
+        for k in [:ceiling, :middle, :floor]
+            use_color[k] = Observable(:lightgray)
+        end
+        cr = Observable(nothing)
+        on(tcolor) do _tcolor
+            if isa(_tcolor, AbstractArray{<:Any})
+                # first filter out nans
+                # need to separate into floor, middle, and ceiling
+                nanidx = isnan.(_tcolor)
+                qcolor = zero(_tcolor)
+                qcolor .= _tcolor
+                qcolor[nanidx] .= zero(eltype(qcolor))
+                if eltype(tcolor) <: Real
+                    cr[] = extrema(qcolor)
+                else
+                    cr[] = nothing
+                end
+                use_color[:middle][] = qcolor[m_middle.inds]
+                use_color[:floor][] = qcolor[m_floor2.inds]
+                use_color[:ceiling][] = qcolor[m_ceiling2.inds]
+            else
+                nanidx = nothing
+                use_color[:middle][] = tcolor 
+                use_color[:floor][] = tcolor 
+                use_color[:ceiling][] = tcolor 
+                cr[] = nothing
+            end
+        end
+        # kind of dumb;trigger a change
+        tcolor[] = tcolor[]
         talpha = get(kwargs, :alpha, 1.0)
         kwargs = filter(k->k[1]!=:alpha, kwargs)
         use_alpha = Dict{Symbol,Any}()
