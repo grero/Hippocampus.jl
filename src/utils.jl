@@ -829,7 +829,7 @@ function fill_in_neighbours2(X::Matrix{T}, D::Matrix{<:Real}, r::Integer,σ::T) 
             pq = exp(-ds[j]^2/(2*σs^2))
             Y[:,i] .+= pq*X[:,sidx[j]]
         end
-        Y[:,i]./aa
+        Y[:,i] ./= aa
     end
     Y
 end
