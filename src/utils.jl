@@ -732,7 +732,33 @@ function disc_area(r)
     n
 end
 
-function fill_in_neighbours(X::Vector{T}, D::Matrix{T}, r::Integer,σ::T) where T <: Real
+function gaussian_area(r,σ::T) where T <: Real
+    aa = zero(T) 
+    for i in -r:r
+        for j in -r:r
+            d2 = i^2+j^2  
+            if d2 <= r^2
+                aa += exp(-d2/(2*σ^2))
+            end
+        end
+    end
+    aa
+end
+
+function fill_in_neighbours2(X::Matrix{T}, mm1::SimpleMesh, mm2::SimpleMesh, r::Integer,σ::T) where T <: Real
+    D1 = distancematrix(mm1)
+    D2 = distancematrix(mm2)
+    Z = fill_in_neighbours2(permutedims(X), D1, r, σ)
+    Z = fill_in_neighbours2(permutedims(Z), D2, r, σ)
+    Z
+end
+
+function fill_in_neighbours2(X::Vector{T}, mm::SimpleMesh, r::Integer,σ::T) where T <: Real
+    D = distancematrix(mm)
+    fill_in_neighbours2(X, D, r, σ)
+end
+
+function fill_in_neighbours(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
     Y = zeros(T, size(X,1))
     for i in axes(D,2)
         Y[i] = fill_in_neighbours(X, D[:,i], r, σ)
