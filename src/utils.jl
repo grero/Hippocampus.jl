@@ -766,7 +766,7 @@ function fill_in_neighbours(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) w
     Y
 end
 
-function fill_in_neighbours(X::Vector{T}, d::Vector{T}, r::Integer,σ::T) where T <: Real
+function fill_in_neighbours(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::T) where T <: Real
     sidx = sortperm(d)
     ds = d[sidx]
     y = zero(T) 
