@@ -441,7 +441,7 @@ function decode(bins::Tuple{AbstractVector{T}, AbstractVector{T}}, jk) where T <
     (xbins[jk.I[1]], ybins[jk.I[2]])
 end
 
-function decode_place(X,Y,twin,f,domain...;tidx=1:size(X,2), decoder=decode,prog=nothing)
+function decode_place(X::Matrix{T},Y,twin,f,domain...;tidx=1:size(X,2), decoder=decode,prog=nothing) where T <: Real
     d = size(Y,1)
     decoded_pos = zeros(d, length(tidx))
     actual_pos = zeros(d, length(tidx))
