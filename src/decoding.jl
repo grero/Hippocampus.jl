@@ -452,8 +452,7 @@ function decode_place(X,Y,twin,f,domain...;tidx=1:size(X,2), decoder=decode,prog
        y,tw,didx = Hippocampus.merge_by_time(Y, twin,tidx[i];tmax=0.2)
        nspikes = dropdims(sum(X[:,didx],dims=2),dims=2)
        prb = get_posterior3(f, nspikes;τ=tw)
-       fidx = findall(isfinite, prb)
-       cp = decoder(prb[fidx],fidx, domain...)
+       cp = decoder(prb, domain...)
        decoded_pos[:,i] .= cp
        actual_pos[:,i] .= y
        next!(prog)
