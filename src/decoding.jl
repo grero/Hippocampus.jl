@@ -128,7 +128,7 @@ function decode_max_posterior(prob::Matrix{T}, mm::SimpleMesh) where T <: Real
     Tuple(cp)
 end
 
-function decode_max_posterior(prob::Matrix{T}, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
+function decode_max_posterior_slow(prob::Matrix{T}, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
     d1 = ndims(mm1)
     d2 = ndims(mm2)
     fidx = findall(isfinite, prob)
