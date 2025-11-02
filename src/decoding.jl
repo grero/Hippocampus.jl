@@ -176,6 +176,11 @@ function decode_max_posterior_slow(prob::Vector{T}, fidx, mm1::SimpleMesh, mm2::
     (Tuple(cp1)..., Tuple(cp2)...)
 end
 
+function decode_max_posterior2(prob::Matrix{T},  mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
+    fidx = findall(isfinite,prob)
+    decode_max_posterior(prob[fidx],fidx, mm1, mm2)
+end
+
 function decode_max_posterior(prob::Vector{T}, fidx::Vector{CartesianIndex{2}}, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
     d1 = ndims(mm1)
     d2 = ndims(mm2)
