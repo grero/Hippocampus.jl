@@ -38,6 +38,50 @@ function get_posterior(f::AbstractArray{T,3},nspikes::Vector{<:Real};τ=one(T)) 
     prb
 end
 
+function get_posterior2(f::AbstractArray{T,3},nspikes::Vector{<:Real};τ=one(T)) where T <: Real
+    aa = zeros(T, size(f,1),size(f,2))
+    bb = zeros(T, size(f,1),size(f,2))
+    lf = log.(f)
+    for i in axes(f,3)
+        aa .+= nspikes[i].*view(lf,:,:,i)
+        bb .+= view(f,:,:,i).*τ
+    end
+    aa .-= bb
+    bb .= exp.(aa)
+    bb ./= sum(filter(isfinite, bb))
+    bb
+end
+
+function get_posterior3(f::AbstractArray{T,3},nspikes::Vector{<:Real};τ=one(T)) where T <: Real
+    aa = zeros(T, size(f,1),size(f,2))
+    bb = zeros(T, size(f,1),size(f,2))
+    for i in axes(f,3)
+        nsp = nspikes[i]
+        @inbounds for j in axes(f,2)
+            for k in axes(f,1)
+                f_kji = f[k,j,i]
+                _aa = nsp*log(f_kji)
+                aa[k,j] += _aa
+                _bb = f_kji*τ
+                bb[k,j] +=  _bb
+            end
+        end
+    end
+    aa .-= bb
+    bb .= exp.(aa)
+    bbs = zero(T)
+    @inbounds for j in axes(bb,2)
+        for k in axes(bb,1)
+            bb_kj = bb[k,j]
+            if isfinite(bb_kj) 
+                bbs += bb_kj
+            end
+        end
+    end
+    bb ./= bbs
+    bb
+end
+
 function decode_mean_posterior(prob::Matrix{T}, bins::Tuple{T2,T2}) where T2 <: AbstractVector{<:Real} where T <: Real
     xbins,ybins = bins
     fidx = findall(isfinite, prob)
