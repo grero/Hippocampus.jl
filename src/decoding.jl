@@ -128,6 +128,31 @@ function decode_max_posterior(prob::Matrix{T}, mm::SimpleMesh) where T <: Real
     Tuple(cp)
 end
 
+function decode_max_posterior(prob::Matrix{T}, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
+    d1 = ndims(mm1)
+    d2 = ndims(mm2)
+    fidx = findall(isfinite, prob)
+    if isempty(fidx)
+        return Tuple(fill(NaN,d1+d2))
+    end
+    mxi = fidx[argmax(prob[fidx])]
+    cp1 = centroid(mm1[mxi.I[1]])
+    cp2 = centroid(mm2[mxi.I[2]])
+    (Tuple(cp1)..., Tuple(cp2)...)
+end
+
+function decode_max_posterior(prob::Vector{T}, fidx::Vector{CartesianIndex{2}}, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
+    d1 = ndims(mm1)
+    d2 = ndims(mm2)
+    if isempty(fidx)
+        return Tuple(fill(NaN,d1+d2))
+    end
+    mxi = fidx[argmax(prob)]
+    cp1 = centroid(mm1[mxi.I[1]])
+    cp2 = centroid(mm2[mxi.I[2]])
+    (Tuple(cp1)..., Tuple(cp2)...)
+end
+
 function decode_patch_posterior(prob::Matrix{T}, bins::Tuple{T2,T2}) where T2 <: AbstractVector{<:Real} where T <: Real
     xbins,ybins = bins
     patches = field_outline(prob;t=1.65)
