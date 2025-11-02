@@ -141,7 +141,30 @@ function decode_max_posterior(prob::Matrix{T}, mm1::SimpleMesh, mm2::SimpleMesh)
     (Tuple(cp1)..., Tuple(cp2)...)
 end
 
-function decode_max_posterior(prob::Vector{T}, fidx::Vector{CartesianIndex{2}}, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
+function decode_max_posterior(prob::Matrix{T}, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
+    d1 = ndims(mm1)
+    d2 = ndims(mm2)
+    mxi = [0,0]
+    mx = typemin(T)
+    for j in axes(prob,2)
+        for i in axes(prob,1)
+            _prob = prob[i,j]
+            if _prob > mx
+                mx = _prob
+                mxi[1] = i
+                mxi[2] = j
+            end
+        end
+    end
+    if sum(mxi) == 0
+        return Tuple(fill(NaN,d1+d2))
+    end
+    cp1 = centroid(mm1[mxi[1]])
+    cp2 = centroid(mm2[mxi[2]])
+    (Tuple(cp1)..., Tuple(cp2)...)
+end
+
+function decode_max_posterior_slow(prob::Vector{T}, fidx, mm1::SimpleMesh, mm2::SimpleMesh) where T <: Real
     d1 = ndims(mm1)
     d2 = ndims(mm2)
     if isempty(fidx)
