@@ -510,6 +510,18 @@ function compute_place_error_surrogates(X::Matrix{<:Real},Y::Matrix{<:Real},twin
     mean_err
 end
 
+function compute_place_error_surrogates(X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},ff::AbstractArray{<:Real,3},domain1, domain2, tidx, assignments1, assignments2, decoder=decode;nruns=100)
+    prog = Progress(length(tidx)*nruns, "Decoding surrogates...")
+    mean_err = fill(NaN, maximum(assignments1), maximum(assignments2),nruns)
+    for r in 1:nruns
+        qidx = shuffle(1:size(X,2))
+        actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, ff, domain1,domain2;tidx=tidx, decoder,prog=prog)
+        err = sqrt.(dropdims(sum(abs2, decoded_pos .- actual_pos,dims=1),dims=1))
+        mean_err[:,:,r] = Hippocampus.merge_responses(reshape(err, 1, length(err)), [assignments1,assignments2])
+    end
+    mean_err
+end
+
 
 function decode_place_simple(X,Y,twin,f,tidx=1:size(X,2))
     m_floor = Shadow("xy")(floor_topology3())
