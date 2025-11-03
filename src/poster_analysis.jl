@@ -547,9 +547,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         fig = Figure(size=figsize)
         lg1 = GridLayout(fig[1,1])
-        # TODO: There is something weird going on with the grid here
         lgp1 = GridLayout(lg1[1,1])
-        lscene = LScene(lgp1[1,1],show_axis=false)
         if show_f1_score
             _colorv = f1_view[tidx]
             _colorp = f1_place
@@ -561,12 +559,22 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         Label(lgp1[1,1,TopLeft()], "A")
 
-        plotmesh!(lscene, mm;color=_colorv, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
-        viz!(lscene, m_floor;color=_colorp, colormap=:Greens, showsegments=true)
-        lg12 = GridLayout(lgp1[1,2])
-        Colorbar(lg12[1,1], colorrange=extrema(filter(isfinite,_colorv)), colormap=:Purples, label="$_label\nview",ticks=WilkinsonTicks(3))
-        Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite,_colorp)), colormap=:Greens, label="$_label\nplace",ticks=WilkinsonTicks(3))
-
+        if plot_joint_matrix
+            _zidx = CartesianIndex{2}.(unique_categories)
+            ZZ = zeros(22,21)
+            ZZ[_zidx] .= dropdims(mean(f1_score,dims=2),dims=2)
+            axq = Axis(lgp1[1,1])
+            hh = heatmap!(axq, ZZ, colormap=:Reds)
+            Colorbar(lgp1[1,2], hh, label="F1-score")
+            rowsize!(lg1, 1, Relative(0.4))
+        else
+            lscene = LScene(lgp1[1,1],show_axis=false)
+            plotmesh!(lscene, mm;color=_colorv, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
+            viz!(lscene, m_floor;color=_colorp, colormap=:Greens, showsegments=true)
+            lg12 = GridLayout(lgp1[1,2])
+            Colorbar(lg12[1,1], colorrange=extrema(filter(isfinite,_colorv)), colormap=:Purples, label="$_label\nview",ticks=WilkinsonTicks(3))
+            Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite,_colorp)), colormap=:Greens, label="$_label\nplace",ticks=WilkinsonTicks(3))
+        end
         # view probability conditioned on place
         if show_f1_score
             cr = extrema(filter(isfinite, f1_view_place))
