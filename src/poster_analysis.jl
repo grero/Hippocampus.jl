@@ -568,6 +568,8 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             hh = heatmap!(axq, ZZ, colormap=:Reds)
             Colorbar(lgp1[1,2], hh, label="F1-score")
             rowsize!(lg1, 1, Relative(0.4))
+            axq.xlabel = "View bin"
+            axq.ylabel = "Place bin"
         else
             lscene = LScene(lgp1[1,1],show_axis=false)
             plotmesh!(lscene, mm;color=_colorv, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
