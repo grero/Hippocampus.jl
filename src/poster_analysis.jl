@@ -439,6 +439,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
     else
         fn_rate = zeros(size(perf)...)
     end
+    f1_score = 2*perf./(2*perf .+ fp_rate .+ fn_rate)
     view_idx = [_cat[1] for _cat in unique_categories]
     place_idx = [_cat[2] for _cat in unique_categories]
     perf_view = zeros(maximum(view_idx))
@@ -598,7 +599,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         scatter!(lscenepc, Point3f.(eachcol(Z[1:3,xidx_v])),color=_colors[cat_v])
 
         # view-conditioned place
-         Label(lgcc[1,2,TopLeft()],"B")
+         Label(lgcc[1,2,TopLeft()],"C")
         # TODO: One for view-conditioned space, one for space conditioned view
         lscenev = LScene(lgcc[1,2],show_axis=false)
         _colors = fill(parse(Colorant, :lightgray), 22)
@@ -614,7 +615,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
 
         lg4 = GridLayout(fig[1,2])
         lscenes = [LScene(lg4[r,c], show_axis=false) for (r,c) in [(1,1),(1,2),(1,3),(2,1),(2,2),(2,3)]]
-        Label(lg4[1,1,TopLeft()],"C")
+        Label(lg4[1,1,TopLeft()],"D")
         for k in 1:size(perf_view_place,2)
             lscene2 = lscenes[k]
             if show_f1_score
@@ -635,7 +636,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         else
             cr = extrema(filter(isfinite, perf_place_view))
         end
-        Label(lg4[3,1,TopLeft()],"D")
+        Label(lg4[3,1,TopLeft()],"E")
         lscenes = [LScene(lg4[r,c], show_axis=false) for (r,c) in [(3,1),(3,2),(3,3),(4,1),(4,2),(4,3)]]
         for k in 1:size(perf_place_view,2)
             lscene2 = lscenes[k]
