@@ -413,6 +413,21 @@ end
 function plot_knn_population_decoding_results(fname::String;show_f1_score=false,_plot_theme=poster_theme,figsize=nothing)
     data = JLD2.load(fname)
     unique_categories = data["unique_categories"]
+    mm = get_maze_mesh(;nrefinements=0)
+    # categorise into floor, ceiling, walls and pillars
+    tidx = categorize(mm)
+    m_floor = floor_topology3(;nrefinements=0)
+    m_floor2, m_ceiling, m_middle = Hippocampus.get_floor_and_ceiling(mm)
+    # get the view categories
+    Y = data["Y"]
+    kidx_v = categorize(Y[1:3,:], mm) 
+    # get the place cateogires
+    kidx_p = mapto(Shadow("xy")(m_floor), Tuple.(eachcol(Y[4:5,:])))
+
+    # floor has a centroid z-coordinate of 0, ceiling has a centroid z coordinate of 5
+    # pillars have x,y centroid x,y coordinate larger than -12 and less than 12
+    category = collect(zip(kidx_v, first.(kidx_p)))
+
     perf = data["perf"]
     if "fp_rate" in keys(data)
         fp_rate = data["fp_rate"]
@@ -435,22 +450,33 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
 
     n_view = zeros(maximum(view_idx))
     n_place = zeros(maximum(place_idx))
+    #TODO: Is this correct? Just taking the mean performance for each view, essentially
+    # I think we need to take the priors into account as well
+    prob_view = zeros(size(perf_view,1))
+    prob_place= zeros(size(perf_place,1))
+    for _cat in category
+        (v,p) = _cat
+        prob_view[v] += 1.0
+        prob_place[p] += 1.0
+    end
+    prob_view ./= sum(prob_view)
+    prob_place ./= sum(prob_place)
     for (j,_cat) in enumerate(unique_categories)
         vidx = _cat[1]
         pidx = _cat[2]
         fidx = isfinite.(perf[j,:])
-        perf_view[vidx] += sum(perf[j,fidx])
-        fp_view[vidx] += sum(fp_rate[j,fidx])
-        fn_view[vidx] += sum(fn_rate[j,fidx])
-        perf_place[pidx] += sum(perf[j, fidx])
-        fp_place[pidx] += sum(fp_rate[j,fidx])
-        fn_place[pidx] += sum(fn_rate[j,fidx])
+        perf_view[vidx] += sum(perf[j,fidx]).*prob_place[pidx]
+        fp_view[vidx] += sum(fp_rate[j,fidx]).*prob_place[pidx]
+        fn_view[vidx] += sum(fn_rate[j,fidx]).*prob_place[pidx]
+        perf_place[pidx] += sum(perf[j, fidx]).*prob_view[vidx]
+        fp_place[pidx] += sum(fp_rate[j,fidx]).*prob_view[vidx]
+        fn_place[pidx] += sum(fn_rate[j,fidx]).*prob_view[vidx]
 
-        n_view[vidx] += sum(fidx)
-        n_place[pidx] += sum(fidx)
+        n_view[vidx] += sum(fidx).*prob_place[pidx]
+        n_place[pidx] += sum(fidx).*prob_view[vidx]
     end
-    f1_place = 2*perf_place/(2*perf_place + fp_place + fn_place)
-    f1_view = 2*perf_view/(2*perf_view + fp_view + fn_view)
+    f1_place = 2*perf_place./(2*perf_place + fp_place + fn_place)
+    f1_view = 2*perf_view./(2*perf_view + fp_view + fn_view)
     perf_view ./= n_view
     perf_place ./= n_place
 
@@ -501,21 +527,6 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         perf_place_view[:,i] ./= n_place_view
     end
 
-    mm = get_maze_mesh(;nrefinements=0)
-    # categorise into floor, ceiling, walls and pillars
-    tidx = categorize(mm)
-    m_floor = floor_topology3(;nrefinements=0)
-    m_floor2, m_ceiling, m_middle = Hippocampus.get_floor_and_ceiling(mm)
-     # get the view categories
-     Y = data["Y"]
-    kidx_v = categorize(Y[1:3,:], mm) 
-    # get the place cateogires
-    kidx_p = mapto(Shadow("xy")(m_floor), Tuple.(eachcol(Y[4:5,:])))
-
-    # floor has a centroid z-coordinate of 0, ceiling has a centroid z coordinate of 5
-    # pillars have x,y centroid x,y coordinate larger than -12 and less than 12
-    category = collect(zip(kidx_v, first.(kidx_p)))
-
     #cluster in pca space
     X = data["X"]
     Xt,cat_t = generate_pseudosamples(X, category)
@@ -535,18 +546,21 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         lgp1 = GridLayout(lg1[1,1])
         lscene = LScene(lgp1[1,1],show_axis=false)
         if show_f1_score
-            _color = f1_view[tidx]
+            _colorv = f1_view[tidx]
+            _colorp = f1_place
             _label = "F1-score"
         else
-            _color = perf_view[tidx]
+            _colorv = perf_view[tidx]
+            _colorp = perf_place
             _label = "Performance"
         end
         Label(lgp1[1,1,TopLeft()], "A")
-        plotmesh!(lscene, mm;color=_color, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
-        viz!(lscene, m_floor;color=perf_place, colormap=:Greens, showsegments=true)
+
+        plotmesh!(lscene, mm;color=_colorv, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
+        viz!(lscene, m_floor;color=_colorp, colormap=:Greens, showsegments=true)
         lg12 = GridLayout(lgp1[1,2])
-        Colorbar(lg12[1,1], colorrange=extrema(perf_view), colormap=:Purples, label="$_label\nview",ticks=WilkinsonTicks(3))
-        Colorbar(lg12[2,1], colorrange=extrema(perf_place), colormap=:Greens, label="$_label\nplace",ticks=WilkinsonTicks(3))
+        Colorbar(lg12[1,1], colorrange=extrema(filter(isfinite,_colorv)), colormap=:Purples, label="$_label\nview",ticks=WilkinsonTicks(3))
+        Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite,_colorp)), colormap=:Greens, label="$_label\nplace",ticks=WilkinsonTicks(3))
 
         # view probability conditioned on place
         if show_f1_score
