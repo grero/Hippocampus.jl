@@ -530,7 +530,12 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
     #cluster in pca space
     X = data["X"]
     Xt,cat_t = generate_pseudosamples(X, category)
-    catp = [findfirst(cc->cc==ct[1], 1:22) for ct in cat_t]
+    # TODO: Place conditioned via and view-conditioned place
+    xidx_p = findall(cc->cc[1].===vidx[1], cat_t)
+    cat_p = [cc[2] for cc in cat_t[xidx_p]]
+    xidx_v = findall(cc->cc[2].==pidx[1], cat_t)
+    cat_v = [cc[1] for cc in cat_t[xidx_v]]
+
     pca = fit(PCA, Xt)
     Z = predict(pca, Xt)
 
@@ -569,15 +574,35 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             cr = extrema(filter(isfinite, perf_view_place))
         end
         # cluster plot
+        # place-conditioned view
         lgcc = GridLayout(lg1[2,1])
         Label(lgcc[1,1,TopLeft()],"B")
+        # TODO: One for view-conditioned space, one for space conditioned view
         lscenep = LScene(lgcc[1,1],show_axis=false)
         _colors = HSV.(get_maze_category_colors())
         plotmesh!(lscenep, mm;color=_colors[tidx], ceiling_offset=10, floor_offset=-15, showsegments=true)
-        lscenec = Axis3(lgcc[2,1],xticklabelsvisible=false, yticklabelsvisible=false, zticklabelsvisible=false,
+        floor_color = fill(parse(Colorant, :lightgray), nelements(m_floor))
+        floor_color[pidx[1]] = parse(Colorant, :red)
+        viz!(lscenep, m_floor;color=floor_color)
+        lscenepc = Axis3(lgcc[2,1],xticklabelsvisible=false, yticklabelsvisible=false, zticklabelsvisible=false,
                                   xgridvisible=true, ygridvisible=true,zgridvisible=true,
-                                  xlabelvisible=false, ylabelvisible=false, zlabelvisible=false)
-        scatter!(lscenec, Point3f.(eachcol(Z[1:3,:])),color=_colors[catp])
+                                  xlabelvisible=false, ylabelvisible=false, zlabelvisible=false, viewmode=:stretch)
+        scatter!(lscenepc, Point3f.(eachcol(Z[1:3,xidx_v])),color=_colors[cat_v])
+
+        # view-conditioned place
+         Label(lgcc[1,2,TopLeft()],"B")
+        # TODO: One for view-conditioned space, one for space conditioned view
+        lscenev = LScene(lgcc[1,2],show_axis=false)
+        _colors = fill(parse(Colorant, :lightgray), 22)
+        _colors[vidx[1]]  = parse(Colorant, :red)
+        plotmesh!(lscenev, mm;color=_colors[tidx], ceiling_offset=10, floor_offset=-15, showsegments=true)
+        pcolor = resample_cmap(:tab20, 21)
+        viz!(lscenev, m_floor;color=pcolor)
+        lscenevc = Axis3(lgcc[2,2],xticklabelsvisible=false, yticklabelsvisible=false, zticklabelsvisible=false,
+                                  xgridvisible=true, ygridvisible=true,zgridvisible=true,
+                                  xlabelvisible=false, ylabelvisible=false, zlabelvisible=false, viewmode=:stretch)
+
+        scatter!(lscenevc, Point3f.(eachcol(Z[1:3,xidx_p])),color=pcolor[cat_p])
 
         lg4 = GridLayout(fig[1,2])
         lscenes = [LScene(lg4[r,c], show_axis=false) for (r,c) in [(1,1),(1,2),(1,3),(2,1),(2,2),(2,3)]]
