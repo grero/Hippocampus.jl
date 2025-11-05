@@ -557,6 +557,28 @@ function compute_sic(weight, occupancy)
     sic = sum((p.*xr.*ll)[lidx])
 end
 
+"""
+Compute Skagg's SIC for per bin firing rate `λ` and per-bin `occupancy`
+"""
+function compute_skaggs_sic(λ::Vector{T}, occupancy::Vector{T}) where T <: Real
+    ps = occupancy./sum(occupancy)
+    l1 = ps.*λ
+    ll = sum(filter(isfinite, l1))
+    l1./= ll
+    l2 = log2.(λ./ll)
+    sum(filter(isfinite, l1.*l2))
+end
+
+function compute_skaggs_sic(sm::SmoothedMap)
+    weight = sm.weight
+    λ = weight./sm.occupancy
+    occupancy = similar(sm.occupancy)
+    occupancy .= sm.occupancy
+    occupancy[sm.unvisited] .= 0
+    λ[sm.unvisited] .= NaN
+    compute_skaggs_sic(λ, occupancy)
+end
+
 function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     pp = sp.weight./sum(sp.weight)
     -sum(filter(isfinite, pp.*log2.(pp)))
