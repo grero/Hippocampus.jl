@@ -299,7 +299,7 @@ end
 """
 Plot the view and place field for 5 cells with both place and view selectivity
 """
-function plot_place_and_view_selective_cells()
+function plot_place_and_view_selective_cells(;_plot_theme=poster_theme)
     place_selective_cells = open("data/place_selective_cells.txt") do fid
        readlines(fid)
     end
