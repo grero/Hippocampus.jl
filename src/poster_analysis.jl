@@ -349,25 +349,70 @@ function plot_view_and_place_fields(celldir::String;kwargs...)
     end
 end
 
-function plot_view_and_place_fields!(lg, vm::ViewMapNew{T1}, spm::SpatialMapNew{T2};colorbar_label="Firing rate [Hz]") where T1 <: Real where T2 <: Real
+function plot_view_and_place_fields!(lg, vm::ViewMapNew{T1}, spm::SpatialMapNew{T2};σp=T2(4.0), σv=T1(σp), colorbar_label="Firing rate [Hz]") where T1 <: Real where T2 <: Real
     mm = get_maze_mesh()
     D = distancematrix(mm)
     m_floor = floor_topology3()
-    D_floor = distancematrix(m_floor)
+    m_floor_flat = Shadow("xy")(m_floor)
+    D_floor = distancematrix(m_floor_flat)
     f_sp = get_rate_map(spm;invalidate_unvisited=false)
     f_v = get_rate_map(vm;invalidate_unvisited=false)
 
     #smoothing
-    Zp = fill_in_neighbours2(f_sp, D_floor, 12, T2(4.0))
-    Zv = fill_in_neighbours2(vec(f_v), D, 12, T1(4.0))
+    #Zp = fill_in_neighbours2(f_sp, D_floor, round(Int64, 3*σp), σp)
+    #Zv = fill_in_neighbours2(vec(f_v), D, round(Int64, 3*σv), σv)
+    Z_spm_s, X_spm_s, Y_spm_s = adaptive_smoothing(spm.weight, spm.occupancy, m_floor_flat, (10000.0)^2,rmax=10)
+    Y_spm_s[spm.occupancy.==0.0] .= 0.0
+    Z_spm_s[spm.occupancy .==0.0] .= NaN
+    Z_vm_s, X_vm_s, Y_vm_s = adaptive_smoothing(vm.weight, vm.occupancy, mm, (1000.0)^2,rmax=10)
+    Y_vm_s[vm.occupancy.==0.0] .= 0.0
+    #Z_vm_s[vm.occupancy .==0.0] .= NaN
+
+
+    sic_place = compute_sic(X_spm_s, Y_spm_s)
+    sic_view = compute_sic(X_vm_s, Y_vm_s)
 
     lscene = LScene(lg[1,1])
-    plotmesh!(lscene, mm;floor_offset=-20, ceiling_offset=10, color=Zv,showsegments=false, colormap=:jet)
+    plotmesh!(lscene, mm;floor_offset=-15, ceiling_offset=10, color=Z_vm_s,showsegments=false, colormap=:jet)
     m_floor2 = Translate(0.0, 0.0, -30)(m_floor)
-    viz!(lscene, m_floor2;color=Zp,showsegments=false)
+    viz!(lscene, m_floor2;color=Z_spm_s,showsegments=false)
+    # labels
+    text!(lscene, 0.0, 0.9, text="SIC = $(round(sic_view; sigdigits=2))", space=:relative,
+                            rotation=-π/2)
+    text!(lscene, 0.0, 0.3, text="SIC = $(round(sic_place;sigdigits=2))", space=:relative,
+                            rotation=-π/2)
     lg2 = GridLayout(lg[1,2])
-    Colorbar(lg2[1,1], colorrange=extrema(Zv), colormap=:jet, label=colorbar_label)
-    Colorbar(lg2[2,1], colorrange=extrema(Zp), label=colorbar_label)
+    Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite,Z_vm_s)), colormap=:jet, label=colorbar_label)
+    Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, Z_spm_s)), label=colorbar_label)
+    lg
+end
+
+function plot_view_and_place_fields!(lg, svm::SmoothedMap, sspm::SmoothedMap;colorbar_label="Firing rate [Hz]")
+    mm = get_maze_mesh()
+    mm_simple = get_maze_mesh(;nrefinements=0)
+    m_floor = floor_topology3()
+    m_floor_simple = floor_topology3(;nrefinements=0)
+    m_floor_flat = Shadow("xy")(m_floor)
+
+    sic_place = compute_skaggs_sic(sspm)
+    sic_view = compute_skaggs_sic(svm)
+    Z_vm_s = get_rate_map(svm;invalidate_unvisited=false)
+    Z_spm_s = get_rate_map(sspm;invalidate_unvisited=true)
+
+    lscene = LScene(lg[1,1])
+    plotmesh!(lscene, mm;floor_offset=-15, ceiling_offset=10, color=Z_vm_s,showsegments=false, colormap=:jet)
+    plotmesh!(lscene, mm_simple;floor_offset=-15, ceiling_offset=10, alpha=0,showsegments=true, colormap=:jet)
+    m_floor2 = Translate(0.0, 0.0, -30)(m_floor)
+    viz!(lscene, m_floor2;color=Z_spm_s,showsegments=false)
+    viz!(lscene, Translate(0.0, 0.0, -30)(m_floor_simple);alpha=0,showsegments=true)
+    # labels
+    text!(lscene, 0.0, 0.9, text="SIC = $(round(sic_view; sigdigits=2))", space=:relative,
+                            rotation=-π/2)
+    text!(lscene, 0.0, 0.3, text="SIC = $(round(sic_place;sigdigits=2))", space=:relative,
+                            rotation=-π/2)
+    lg2 = GridLayout(lg[1,2])
+    Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite,Z_vm_s)), colormap=:jet, label=colorbar_label)
+    Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, Z_spm_s)), label=colorbar_label)
     lg
 end
 
