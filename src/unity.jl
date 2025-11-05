@@ -963,7 +963,7 @@ function Posters(mm::MazeModelNew,_poster_pos=poster_pos_new;z=1.5)
     Posters(sprites)
 end
 
-function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5)
+function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5,rotate_flat=false)
     __poster_pos = Dict(k=>(p[1],p[2],z) for (k,p) in _poster_pos)
     rot = LinearMap(RotX(3π/2))
     images = Dict(k=>load(v) for (k,v) in poster_img)
@@ -999,6 +999,20 @@ function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5)
         θ = acos(sp2.normals[1]'*vn)
         rot2 = LinearMap(RotZ(θ))
         sp3 = trans(rot2(sp2))
+        if rotate_flat
+            # rotate so that the poster can been seen from above
+            # we want to rotate around whichever of v1 or v2 is orthogonal to the z-axis 
+            if v1[3] == 0
+                _vv = v1 
+            else
+                _vv = v2
+            end
+            # make sure to normalize
+            _vv = _vv./norm(_vv)
+            vq = π/2*(_vv)
+            _rot = RotationVec(vq...)
+            sp3 = LinearMap(_rot)(sp3)
+        end
         sprites[ii] = sp3
     end
     Posters(sprites)
