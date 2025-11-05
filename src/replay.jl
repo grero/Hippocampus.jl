@@ -168,7 +168,12 @@ function load_jld2(::Type{T},fname=DPHT.filename(T)) where T
             v = data[k]
             push!(args, v)
         end
-        mm = get_maze_mesh()
+        #hackis
+        if T <: SpatialMapNew
+            mm = Shadow("xy")(floor_topology3())
+        else
+            mm = get_maze_mesh()
+        end
         insert!(args, midx, mm)
         mdata = T(args...)
     else
