@@ -307,38 +307,25 @@ function plot_place_and_view_selective_cells(;_plot_theme=poster_theme)
        readlines(fid)
     end
     place_and_view_selective_cells = intersect(place_selective_cells, view_selective_cells)
-    vm1,spm1 = cd(place_and_view_selective_cells[3]) do
-        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
-        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
-        vm,spm
-    end
-    vm2,spm2 = cd(place_and_view_selective_cells[11]) do
-        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
-        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
-        vm,spm
-    end
-     vm3,spm3 = cd(place_and_view_selective_cells[7]) do
-        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
-        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
-        vm,spm
-    end
-    vm4,spm4 = cd(place_and_view_selective_cells[8]) do
-        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
-        spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
-        vm,spm
+    place_or_view_selective_cells = union(place_selective_cells, view_selective_cells)
+    svm_spm = map(place_or_view_selective_cells[[4,13,21,9]]) do celldir
+        cd(celldir) do
+            svm = Hippocampus.SmoothedMap(Hippocampus.ViewMapNew, Hippocampus.UnityRaytraceData;min_speed=2.0, trial_start=2,method=:adaptive, α=1000.0^2, rmax=10)
+            spm = Hippocampus.SmoothedMap(Hippocampus.SpatialMapNew;min_speed=2.0, trial_start=2,method=:adaptive, α=10000.0^2, rmax=10) 
+            svm,spm
+        end
     end
 
-
-    with_theme(poster_theme) do
+    with_theme(_plot_theme) do
         fig = Figure(size=(800,400))
         lg1 = GridLayout(fig[1,1])
-        plot_view_and_place_fields!(lg1, vm1, spm1)
+        plot_view_and_place_fields!(lg1, svm_spm[1]...)
         lg2 = GridLayout(fig[1,2])
-        plot_view_and_place_fields!(lg2, vm2, spm2;colorbar_label="")
+        plot_view_and_place_fields!(lg2, svm_spm[2]...;colorbar_label="")
         lg3 = GridLayout(fig[1,3])
-        plot_view_and_place_fields!(lg3, vm3, spm3;colorbar_label="")
+        plot_view_and_place_fields!(lg3, svm_spm[3]...;colorbar_label="")
         lg4 = GridLayout(fig[1,4])
-        plot_view_and_place_fields!(lg4, vm4, spm4;colorbar_label="")
+        plot_view_and_place_fields!(lg4, svm_spm[4]...;colorbar_label="")
         fig
     end
 end
