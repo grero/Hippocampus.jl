@@ -312,17 +312,17 @@ function plot_place_and_view_selective_cells()
         spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
         vm,spm
     end
-    vm2,spm2 = cd(place_and_view_selective_cells[4]) do
+    vm2,spm2 = cd(place_and_view_selective_cells[11]) do
         vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
         spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
         vm,spm
     end
-     vm3,spm3 = cd(place_and_view_selective_cells[5]) do
+     vm3,spm3 = cd(place_and_view_selective_cells[7]) do
         vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
         spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
         vm,spm
     end
-    vm4,spm4 = cd(place_and_view_selective_cells[6]) do
+    vm4,spm4 = cd(place_and_view_selective_cells[8]) do
         vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
         spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
         vm,spm
