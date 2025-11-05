@@ -330,16 +330,21 @@ function plot_place_and_view_selective_cells(;_plot_theme=poster_theme)
     end
 end
 
-function plot_view_and_place_fields(celldir::String)
+function plot_view_and_place_fields(celldir::String;kwargs...)
     vm,spm = cd(celldir) do
-        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2)
+        vm = Hippocampus.ViewMapNew(Hippocampus.UnityRaytraceData;min_speed=2.0,trial_start=2,do_save=false)
         spm = Hippocampus.SpatialMapNew(;min_speed=2.0,trial_start=2)
         vm,spm
     end
+    svm, spm = cd(celldir) do
+        svm = Hippocampus.SmoothedMap(Hippocampus.ViewMapNew, Hippocampus.UnityRaytraceData;min_speed=2.0, trial_start=2,method=:adaptive, α=1000.0^2, rmax=10)
+        spm = Hippocampus.SmoothedMap(Hippocampus.SpatialMapNew;min_speed=2.0, trial_start=2,method=:adaptive, α=10000.0^2, rmax=10)
+        svm, spm
+    end
     with_theme(poster_theme) do
-        fig = Figure()
+        fig = Figure(size=(700, 700))
         lg = GridLayout(fig[1,1])
-        plot_view_and_place_fields!(lg, vm, spm)
+        plot_view_and_place_fields!(lg, svm, spm;kwargs...)
         fig
     end
 end
