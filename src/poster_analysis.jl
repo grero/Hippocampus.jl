@@ -694,3 +694,218 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         fig
     end
 end
+
+function plot_independent_vs_joint_category_decoding(fname_independent::String, fname_joint::String;_plot_theme=poster_theme)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_independent_vs_joint_category_decoding!(lg, fname_independent, fname_joint;_plot_theme=_plot_theme)
+        fig
+    end
+end
+
+function plot_independent_vs_joint_category_decoding!(lg, fname_independent::String, fname_joint::String;_plot_theme=poster_theme)
+    ind_data = JLD2.load(fname_independent)
+    joint_data = JLD2.load(fname_joint)
+
+    # compute f1-score for bot
+    f1_score_ind = 2*ind_data["perf"]./(2*ind_data["perf"] .+ ind_data["fp_rate"] .+ ind_data["fn_rate"])
+    f1_score_joint= 2*joint_data["perf"]./(2*joint_data["perf"] .+ joint_data["fp_rate"] .+ joint_data["fn_rate"])
+
+    with_theme(_plot_theme) do
+        ax = Axis(lg[1,1])
+        scatter!(ax,dropdims(mean(f1_score_joint,dims=2),dims=2), dropdims(mean(f1_score_ind,dims=2),dims=2))
+        ablines!(ax, [0.0], [1.0], linestyle=:dot, color=:black)
+        ax.xlabel = "F1-score joint"
+        ax.ylabel = "F1-score independent"
+    end
+end
+
+function plot_view_and_place_decoding(fname_place::String, fnane_view::String;_plot_theme=poster_theme)
+    data_v = JLD2.load(fnane_view)
+    data_p = JLD2.load(fname_place)
+
+    f1_score_p = 2*data_p["perf"]./(2*data_p["perf"] .+ data_p["fp_rate"] .+ data_p["fn_rate"])
+    f1_score_v = 2*data_v["perf"]./(2*data_v["perf"] .+ data_v["fp_rate"] .+ data_v["fn_rate"])
+
+    mm = get_maze_mesh(;nrefinements=0)
+    tidx = categorize(mm)
+    m_floor = floor_topology3(;nrefinements=0)
+
+    cat_view = data_v["unique_categories"]
+    sidx = sortperm(cat_view)
+    color_v = dropdims(mean(f1_score_v,dims=2),dims=2)[sidx][tidx]
+    cat_place = data_p["unique_categories"]
+    sidx = sortperm(cat_place)
+    color_p = dropdims(mean(f1_score_p,dims=2),dims=2)[sidx]
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        lscene = LScene(lg[1,1], show_axis=false)
+        plotmesh!(lscene, mm;color=color_v, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
+        viz!(lscene, Translate(0.0, 0.0, -35.0)(m_floor);color=color_p, colormap=:Greens, showsegments=true)
+        lg12 = GridLayout(lg[1,2])
+        Colorbar(lg12[1,1], colorrange=extrema(filter(isfinite,color_v)), colormap=:Purples, label="F1-score\nview",ticks=WilkinsonTicks(3))
+        Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite,color_p)), colormap=:Greens, label="F1-scorel\nplace",ticks=WilkinsonTicks(3))
+        fig
+    end
+
+
+end
+
+function plot_occupancy(Y::Matrix{T},twin::Vector{T};_plot_theme=poster_theme) where T <: Real
+    mm = get_maze_mesh(;nrefinements=0)
+
+    m_floor = floor_topology3(;nrefinements=0)
+    m_floor_flat = Shadow("xy")(m_floor)
+    kidx_v = mapto(mm, Tuple.(eachcol(Y[1:3,:])))
+    kidx_p = mapto(m_floor_flat, Tuple.(eachcol(Y[4:5,:])))
+    duration_p = zeros(T, nelements(m_floor))
+    V
+    duration_v = zeros(T, maximum(tidx))
+    num_v = zeros(T, maximum(tidx))
+    num_p = zeros(T, nelements(m_floor)) 
+    for (i,t) in enumerate(twin)
+        duration_v[tidx[kidx_v[i]]] .+= t
+        num_v[tidx[kidx_v[i]]] .+= 1.0 
+        duration_p[kidx_p[i]] .+= t
+        num_p[kidx_p[i]] .+= 1.0
+    end
+    duration_v ./= counts(tidx) 
+    with_theme(_plot_theme) do
+        fig = Figure(size=(700,700))
+        lg = GridLayout(fig[1,1])
+        lscene = LScene(lg[1,1])
+        plotmesh!(lscene, mm;color=duration_v[tidx], ceiling_offset=10, floor_offset=-15, colormap=:Purples, showsegments=true)
+        viz!(lscene, Translate(0.0, 0.0, -30)(m_floor);color=duration_p, colormap=:Greens)
+        lgm = GridLayout(lg[1,2])
+        Colorbar(lgm[1,1], colorrange=extrema(duration_v), colormap=:Purples, label="Mean duration\nview [s]")
+        Colorbar(lgm[2,1], colorrange=extrema(duration_p), colormap=:Greens, label="Mean duration\nplace [s]")
+        fig
+    end
+end
+
+
+function plot_maze_with_posters(;kwargs...)
+    with_theme(poster_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_maze_with_posters!(lg;kwargs...)
+        fig
+    end
+end
+
+function illustrate_allocentric_vs_egocentric()
+    with_theme(poster_theme) do
+        fig = Figure()
+        lg1 = GridLayout(fig[1,1])
+        Label(lg1[1,1,TopLeft()],"A")
+        # 3D view of the maze
+        plot_maze_with_posters!(lg1)
+        lg2 = GridLayout(fig[1,2])
+        #lg21 = GridLayout(lg2[1,1])
+        # allocentric
+        plot_flat_maze_with_posters!(lg2;start_point=Point2f(-5.0, -10.0), end_point=Point2f(6.0, 10.0))
+        Label(lg2[1,1,TopLeft()], "B")
+        #egocentric
+        lg22 = GridLayout(fig[2,1:2])
+        illustrate_viewpoint_coding!(lg22)
+        Label(lg22[1,1,TopLeft()], "C")
+        rowsize!(fig.layout, 1, Relative(0.4))
+        fig
+    end
+end
+function illustrate_viewpoint_coding()
+    with_theme(poster_theme) do
+        fig = Figure(size=(800, 600))
+        lg = GridLayout(fig[1,1])
+        illustrate_viewpoint_coding!(lg)
+        fig
+    end
+end
+"""
+Illustrate how viewpoint coding gets you from the cat poster to the donkey poster
+"""
+function illustrate_viewpoint_coding!(lg)
+    with_theme(poster_theme) do
+        lg1 = GridLayout(lg[1,1])
+        Label(lg1[1,1,Top()],"1")
+        plot_maze_with_posters!(lg1;eyepos=Makie.Vec3f(-5.0, -10.0, 1.0), lookat=Makie.Vec3f(-4.5, -7.5, 1.0))
+        lg2 = GridLayout(lg[1,2])
+        Label(lg2[1,1,Top()],"2")
+        plot_maze_with_posters!(lg2;eyepos=Makie.Vec3f(-3.0, -10.0, 1.0), lookat=Makie.Vec3f(5.0, 2.5, 1.0))
+        lg3 = GridLayout(lg[2,1])
+        Label(lg3[1,1,Top()],"3")
+        plot_maze_with_posters!(lg3;eyepos=Makie.Vec3f(-3.0, 10.0, 1.0), lookat=Makie.Vec3f(5.0, 7.5, 1.0))
+        lg4 = GridLayout(lg[2,2])
+        Label(lg4[1,1,Top()],"4")
+        plot_maze_with_posters!(lg4;eyepos=Makie.Vec3f(6.0, 10.0, 1.0), lookat=Makie.Vec3f(4.5, 7.5, 1.0))
+    end
+end
+
+function plot_maze_with_posters!(lg;eyepos::Union{Makie.Vec3f,Nothing}=nothing, lookat::Union{Makie.Vec3f,Nothing}=nothing)
+    mm_simple = get_maze_mesh(nrefinements=0)
+    tidx = categorize(mm_simple)
+    mm = get_maze_mesh()
+    posters = Posters(mm, Hippocampus.poster_pos) 
+    # fill in colors
+    colors = fill(parse(Colorant, :lightgray),nelements(mm_simple))  
+    colors[tidx.==2] .= HSV(parse(Colorant, :bisque3))
+    colors[in([3,4,5,6]).(tidx)] .= HSV(parse(Colorant, :bisque2)) 
+    colors[in([7,8,9,10]).(tidx)] .= HSV(212,70,100)
+    colors[in([11,12,13,14]).(tidx)] .= HSV(119,70,100)
+    colors[in([15,16,17,18]).(tidx)] .= HSV(356,70,100) 
+    colors[in([19,20,21,22]).(tidx)] .= HSV(46,70,100)
+    if eyepos !== nothing || lookat !== nothing
+        hide_ceiling = false
+    else
+        hide_ceiling = true
+    end
+    with_theme(poster_theme) do
+        lscene = LScene(lg[1,1],show_axis=false)  
+        plot!(lscene, posters, shading=false)
+        Hippocampus.plotmesh!(lscene, mm_simple;color=colors,showsegments=true, hide_ceiling=hide_ceiling, floor_offset=0.0)
+        if eyepos !== nothing || lookat !== nothing
+            cc = cam3d!(lscene.scene, center=false, fov=60) 
+            update_cam!(lscene.scene, cc, eyepos, lookat)
+        end
+    end
+end
+
+function plot_flat_maze_with_posters()
+    with_theme(poster_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_flat_maze_with_posters!(lg)
+        fig
+    end
+end
+
+function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=nothing, end_point::Union{Nothing, Point2f}=nothing)
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    colors = [HSV(46,70,100), #yellow
+              HSV(212,70,100), #blue
+              HSV(356,70,100), #red
+              HSV(119,70,100) #geen
+            ] 
+
+    with_theme(poster_theme) do
+        ax = Axis(lg[1,1],backgroundcolor=:bisque3)
+        ax.xticksvisible = false
+        ax.xticklabelsvisible = false
+        ax.yticksvisible = false
+        ax.yticklabelsvisible = false
+        ax.topspinevisible = true
+        ax.rightspinevisible = true
+
+        limits!(ax, -12.5, 12.5, -12.5, 12.5)
+        scatter!(ax, [Point2f(-5,5), Point2f(-5,-5), Point2f(5,5), Point2f(5,-5)], marker=Rect, markerspace=:data,color=colors, markersize=5)
+        scatter!([Point2f(v[1:2]...) for (k,v) in poster_pos],  marker=[images[k] for (k,v) in poster_pos], markersize=4, markerspace=:data)
+        if start_point !== nothing
+            scatter!(ax, start_point, color=:gray)
+        end
+        if end_point !== nothing
+            scatter!(ax, end_point, color=:black)
+        end
+    end
+end
