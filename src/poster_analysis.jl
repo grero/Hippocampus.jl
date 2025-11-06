@@ -907,5 +907,6 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
         if end_point !== nothing
             scatter!(ax, end_point, color=:black)
         end
+        arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
     end
 end
