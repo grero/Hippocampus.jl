@@ -699,16 +699,21 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
     end
 end
 
-function plot_independent_vs_joint_category_decoding(fname_independent::String, fname_joint::String;_plot_theme=poster_theme)
+
+function plot_independent_vs_joint_category_decoding()
+    plot_independent_vs_joint_category_decoding("data/categorical_decoding_run_more_cells_pca_f1_score_train_independent_test_joint.jld2", "data/categorical_decoding_run_more_cells_pca_f1_score_train_joint_test_joint.jld2")
+end
+
+function plot_independent_vs_joint_category_decoding(fname_independent::String, fname_joint::String;_plot_theme=poster_theme,kwargs...)
     with_theme(_plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(640,554))
         lg = GridLayout(fig[1,1])
-        plot_independent_vs_joint_category_decoding!(lg, fname_independent, fname_joint;_plot_theme=_plot_theme)
+        plot_independent_vs_joint_category_decoding!(lg, fname_independent, fname_joint;_plot_theme=_plot_theme,kwargs...)
         fig
     end
 end
 
-function plot_independent_vs_joint_category_decoding!(lg, fname_independent::String, fname_joint::String;_plot_theme=poster_theme)
+function plot_independent_vs_joint_category_decoding!(lg, fname_independent::String, fname_joint::String;_plot_theme=poster_theme,nshuffles=1000)
     ind_data = JLD2.load(fname_independent)
     joint_data = JLD2.load(fname_joint)
 
@@ -716,9 +721,36 @@ function plot_independent_vs_joint_category_decoding!(lg, fname_independent::Str
     f1_score_ind = 2*ind_data["perf"]./(2*ind_data["perf"] .+ ind_data["fp_rate"] .+ ind_data["fn_rate"])
     f1_score_joint= 2*joint_data["perf"]./(2*joint_data["perf"] .+ joint_data["fp_rate"] .+ joint_data["fn_rate"])
 
+    f1_score_ind_mean = zeros(size(f1_score_ind,1))
+    for i in axes(f1_score_ind,1)
+        fidx = isfinite.(f1_score_ind[i,:])
+        f1_score_ind_mean[i] = mean(f1_score_ind[i,fidx])
+    end
+
+    f1_score_joint_mean = zeros(size(f1_score_joint,1))
+    for i in axes(f1_score_joint,1)
+        fidx = isfinite.(f1_score_joint[i,:])
+        f1_score_joint_mean[i] = mean(f1_score_joint[i,fidx])
+    end
+
+    #shuffle test
+    nq = sum(f1_score_joint_mean .> f1_score_ind_mean)
+    nqs = zeros(nshuffles)
+    f1_score_joint_mean_sh = fill!(similar(f1_score_joint_mean), 0.0)
+    f1_score_ind_mean_sh = fill!(similar(f1_score_ind_mean), 0.0)
+    f1_score_mean = [f1_score_joint_mean f1_score_ind_mean]
+    for i in 1:nshuffles
+        for j in 1:length(f1_score_joint_mean_sh)
+            i1,i2 = shuffle(1:2)
+            f1_score_joint_mean_sh[j] = f1_score_mean[j,i1]
+            f1_score_ind_mean_sh[j] = f1_score_mean[j,i2]
+        end
+        nqs[i] = sum(f1_score_joint_mean_sh .> f1_score_ind_mean_sh)
+    end
+    @show nq percentile(nqs, 99)
     with_theme(_plot_theme) do
         ax = Axis(lg[1,1])
-        scatter!(ax,dropdims(mean(f1_score_joint,dims=2),dims=2), dropdims(mean(f1_score_ind,dims=2),dims=2))
+        scatter!(ax,f1_score_joint_mean, f1_score_ind_mean)
         ablines!(ax, [0.0], [1.0], linestyle=:dot, color=:black)
         ax.xlabel = "F1-score joint"
         ax.ylabel = "F1-score independent"
