@@ -585,7 +585,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         fig = Figure(size=figsize)
         lg1 = GridLayout(fig[1,1])
-        lgp1 = GridLayout(lg1[1,1])
+        #lgp1 = GridLayout(lg1[2,1])
         if show_f1_score
             _colorv = f1_view[tidx]
             _colorp = f1_place
@@ -595,9 +595,12 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             _colorp = perf_place
             _label = "Performance"
         end
-        Label(lgp1[1,1,TopLeft()], "A")
+        Label(lg1[2,1,TopLeft()], "C")
 
-        if plot_joint_matrix
+        if !isempty(fname_ind)
+           lgpq = GridLayout(lg1[2,1])
+           plot_independent_vs_joint_category_decoding!(lgpq, fname_ind, fname;_plot_theme=_plot_theme) 
+        elseif plot_joint_matrix
             _zidx = CartesianIndex{2}.(unique_categories)
             ZZ = zeros(22,21)
             ZZ[_zidx] .= dropdims(mean(f1_score,dims=2),dims=2)
@@ -607,6 +610,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             rowsize!(lg1, 1, Relative(0.4))
             axq.xlabel = "View bin"
             axq.ylabel = "Place bin"
+
         else
             lscene = LScene(lgp1[1,1],show_axis=false)
             plotmesh!(lscene, mm;color=_colorv, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
@@ -623,8 +627,8 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         # cluster plot
         # place-conditioned view
-        lgcc = GridLayout(lg1[2,1])
-        Label(lgcc[1,1,TopLeft()],"B")
+        lgcc = GridLayout(lg1[1,1])
+        Label(lgcc[1,1,TopLeft()],"A")
         # TODO: One for view-conditioned space, one for space conditioned view
         lscenep = LScene(lgcc[1,1],show_axis=false)
         _colors = HSV.(get_maze_category_colors())
@@ -638,7 +642,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         scatter!(lscenepc, Point3f.(eachcol(Z[1:3,xidx_v])),color=_colors[cat_v])
 
         # view-conditioned place
-         Label(lgcc[1,2,TopLeft()],"C")
+         Label(lgcc[1,2,TopLeft()],"B")
         # TODO: One for view-conditioned space, one for space conditioned view
         lscenev = LScene(lgcc[1,2],show_axis=false)
         _colors = fill(parse(Colorant, :lightgray), 22)
