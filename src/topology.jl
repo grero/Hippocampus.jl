@@ -424,8 +424,12 @@ function plotmesh(mm::SimpleMesh;kwargs...)
     end
 end
 
-function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,kwargs...)
-    if (floor_offset != 0 || ceiling_offset != 0)
+function plotmesh(lg, ii::Observable{Int64}, mm::SimpleMesh, color::Matrix{T};kwargs...) where T <: Real
+
+end
+
+function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, indicate_north=true, kwargs...)
+    if (floor_offset != 0 || ceiling_offset != 0 || hide_ceiling)
         m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
          if floor_offset != 0
             m_floor2 = Translate(0.0, 0.0, floor_offset)(m_floor)
@@ -496,7 +500,12 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,k
         end
         viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
         viz!(lscene, m_floor2;color=use_color[:floor],alpha=use_alpha[:floor], colorrange=cr, kwargs...)
-        viz!(lscene, m_ceiling2;color=use_color[:ceiling],alpha=use_alpha[:ceiling], colorrange=cr, kwargs...)
+        if !hide_ceiling
+            viz!(lscene, m_ceiling2;color=use_color[:ceiling],alpha=use_alpha[:ceiling], colorrange=cr, kwargs...)
+        end
+        if indicate_north
+            arrows3d!(lscene, Point3f(0.0, 10.0, 0.0), Point3f(0.0, 2.0, 0.0), color=:black)
+        end
     else
        viz!(lscene, mm;kwargs...) 
     end
