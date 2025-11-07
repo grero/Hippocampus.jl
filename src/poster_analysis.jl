@@ -987,3 +987,31 @@ function plot_gaze_path!(lg, unity_data::UnityRaytraceData;_plot_theme=poster_th
         lines!(lscene, traj)
     end
 end
+
+"""
+Group trials by pairs of poster ids
+"""
+function group_trials(triggers::Matrix{T}) where T<:Union{T2, Missing} where T2 <: Integer
+    nt = size(triggers,1)
+    groups = Dict{Tuple{Int64, Int64}, Vector{Int64}}()
+
+    prev_posterid = 0
+    for i in 1:nt
+        # make sure the trial was correct
+        if ismissing(triggers[i,3])
+            continue
+        end
+        if !(30 < triggers[i,3] < 40)
+            posterid = 0
+        else
+            posterid = triggers[i,1] - 10
+            kk = (prev_posterid, posterid)
+            if !(kk in keys(groups))
+                groups[kk] = Int64[]
+            end
+            push!(groups[kk], i)
+        end
+        prev_posterid = posterid
+    end
+    groups
+end
