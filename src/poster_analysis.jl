@@ -946,3 +946,44 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
         arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
     end
 end
+
+function plot_gaze_path(unity_data::UnityRaytraceData;_plot_theme=poster_theme)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_gaze_path!(lg, unity_data;_plot_theme=_plot_theme)
+        fig
+    end
+end
+
+function plot_gaze_path!(lg, unity_data::UnityRaytraceData;_plot_theme=poster_theme)
+    mm = get_maze_mesh()
+    D = distancematrix(mm)
+    mm_simple = get_maze_mesh(;nrefinements=0)
+    tt,tg,tp,fixmask,fo = get_trial(unity_data, 1;trial_start=2)
+    # figure out which points are not on the maze walls
+    kidx = Hippocampus.mapto(mm, Tuple.(eachcol(tg))) 
+    fidx = findall((!isempty).(kidx))
+    # we also want to split up the path, such that we do not connect across regions that not connected 
+    qidx = Vector{Int64}[] 
+    push!(qidx, [fidx[1]])
+    for f in fidx[2:end] 
+        _kidx0 = first(kidx[qidx[end][end]])
+        _kidx1 = first(kidx[f])
+        if D[_kidx0, _kidx1] <= 2 
+            push!(qidx[end], f)
+        else
+            push!(qidx, [f])
+        end
+    end
+    traj = Point3f[]
+    for _qidx in qidx
+        append!(traj, Point3f.(eachcol(tg[:,_qidx])))
+        push!(traj, Point3f(NaN))
+    end
+    with_theme(_plot_theme) do
+        lscene = LScene(lg[1,1],show_axis=false)
+        plotmesh!(lscene, mm_simple;hide_ceiling=true, showsegments=true,alpha=0.0)
+        lines!(lscene, traj)
+    end
+end
