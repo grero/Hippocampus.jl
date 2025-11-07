@@ -833,7 +833,9 @@ end
 
 function illustrate_allocentric_vs_egocentric()
     with_theme(poster_theme) do
-        fig = Figure()
+        width = (40/2.5)*72
+        height = 0.8*width
+        fig = Figure(size=(width,height))
         lg1 = GridLayout(fig[1,1])
         Label(lg1[1,1,TopLeft()],"A")
         # 3D view of the maze
