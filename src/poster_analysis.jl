@@ -767,6 +767,8 @@ function plot_independent_vs_joint_category_decoding!(lg, fname_independent::Str
         ax = Axis(lg[1,1])
         scatter!(ax,f1_score_joint_mean, f1_score_ind_mean)
         ablines!(ax, [0.0], [1.0], linestyle=:dot, color=:black)
+        ax.xticks = WilkinsonTicks(3)
+        ax.yticks = WilkinsonTicks(3)
         ax.xlabel = "F1-score joint"
         ax.ylabel = "F1-score independent"
     end
