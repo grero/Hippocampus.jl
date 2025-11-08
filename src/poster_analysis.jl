@@ -732,7 +732,22 @@ function plot_independent_vs_joint_category_decoding!(lg, fname_independent::Str
         fidx = isfinite.(f1_score_joint[i,:])
         f1_score_joint_mean[i] = mean(f1_score_joint[i,fidx])
     end
+    
+    #make sure we are using the same categories
+    unique_cat_ind = ind_data["unique_categories"]
+    unique_cat_joint = joint_data["unique_categories"]
+    unique_categories = intersect(unique_cat_ind, unique_cat_joint)
+    qidx_ind = findall(in(unique_categories).(unique_cat_ind))
+    qidx_joint = findall(in(unique_categories).(unique_cat_joint))
 
+    #make sure they match up
+    qidx2_ind = [findfirst(qq->cc==qq, unique_categories) for cc in unique_cat_ind[qidx_ind]]
+    qidx2_joint = [findfirst(qq->cc==qq,unique_categories) for cc in unique_cat_joint[qidx_joint]]
+    qidx_ind = qidx_ind[qidx2_ind]
+    qidx_joint = qidx_joint[qidx2_joint]
+
+    f1_score_joint_mean = f1_score_joint_mean[qidx_joint]
+    f1_score_ind_mean = f1_score_ind_mean[qidx_ind]
     #shuffle test
     nq = sum(f1_score_joint_mean .> f1_score_ind_mean)
     nqs = zeros(nshuffles)
