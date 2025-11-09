@@ -200,6 +200,55 @@ function plot_psth!(ax, spa::TrialAlignedSpiketrain, rp::RippleData;tmax=20,bins
     end
 end
 
+function plot_poster_tuning!(ax, spa::TrialAlignedSpiketrain, rp::RippleData;tmin=0, tmax=:cue_onset, previous=false, future=false,kwargs...)
+    nt = numtrials(rp)
+    if (isa(tmax, Symbol) && tmax !== :cue_onset) || (isa(tmin, Symbol) && tmin !== :trial_end)
+        if isa(tmax)
+            error("Unknown symbol $tmax")
+        else
+            error("Unkonwn symbol $tmin")
+        end
+    end
+    # just grab the spike counts during the cue period
+    cue_onset = rp.timestamps[:,2] - rp.timestamps[:,1]
+    trial_end = rp.timestamps[:,3] - rp.timestamps[:,1]
+    spike_count = zeros(nt)
+    for i in 1:nt
+        if tmax == :cue_onset
+            spike_count[i] = sum(tmin .< spa.spiketimes[i] .<= cue_onset[i])
+        elseif tmin == :trial_end
+            spike_count[i] = sum(trial_end[i] .< spa.spiketimes[i] .<= trial_end[i]+tmax)
+        else
+            spike_count[i] = sum(tmin .< spa.spiketimes[i] .<= tmax)
+        end
+    end
+    posterid = rp.triggers[:,1] .- 10
+    color = to_colormap(:tab10)
+    posterbins = unique(posterid)
+    sort!(posterbins)
+    outcome = rp.triggers[:,3]
+    cidx = findall(30 .<= outcome .< 40)
+    label = fill(0, nt)
+    for (i,b) in enumerate(posterbins)
+        tidx = findall(posterid.==b)
+        if previous
+            # shift by one trial
+            tidx .-= 1
+            tidx = tidx[tidx .> 0]
+        elseif future
+            tidx .+= 1
+            tidx = tidx[tidx .<= nt]
+        end
+        #tidx = intersect(tidx, cidx) 
+        label[tidx] .= i
+    end
+    label[setdiff(1:nt, cidx)] .= 0
+    # set up boxplot
+    xx = label[label.>0]
+    yy = spike_count[label.>0]
+    boxplot!(ax, xx, yy, color=color[xx],show_notch=false, show_outliers=true)
+end
+
 function plot_raster_and_psth(args...;kwargs...)
     with_theme(plot_theme) do
         fig = Figure()
