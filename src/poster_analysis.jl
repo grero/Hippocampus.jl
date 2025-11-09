@@ -1044,3 +1044,58 @@ function group_trials(triggers::Matrix{T}) where T<:Union{T2, Missing} where T2 
     end
     groups
 end
+
+function run_lesion_simulation(;nruns=100,nbatch=20)
+    # get all cells
+    allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+        readlines(fid)
+    end
+    vpr = map(allcelldirs) do celldir
+             cd(celldir) do
+                  try
+                    return Hippocampus.ViewRepresentation(Hippocampus.UnityRaytraceData)
+                  catch ee
+                   return nothing
+                   end
+
+              end
+    end;
+    fidx = findall((!isnothing).(vpr))
+    place_selective_cells = open("data/place_selective_cells.txt") do fid
+        readlines(fid)
+    end
+    view_selective_cells = open("data/view_selective_cells.txt") do fid
+       readlines(fid)
+    end
+
+    place_or_view_selective_cells = union(place_selective_cells, view_selective_cells)
+
+    vidx = fidx[findall(in(place_or_view_selective_cells).(allcelldirs[fidx]))]
+    nidx = fidx[findall((!in(place_or_view_selective_cells)).(allcelldirs[fidx]))]
+
+    # 1) Remove all place or view selective cells
+    no_place_or_view_selective_cells = allcelldirs[nidx]
+
+    # 2) Remove an equivalent number that is not view or place selective
+    f1_score_mean = Vector{Vector{Float64}}(undef, nbatch)
+    unique_categories = Vector{Vector{Tuple{Int64, Int64}}}(undef, nbatch)
+    for i in 1:nbatch
+        pidx = setdiff(fidx, shuffle(nidx)[1:length(place_or_view_selective_cells)])
+        with_place_and_view_selective_cells = allcelldirs[pidx]
+        
+        @assert length(no_place_or_view_selective_cells) == length(with_place_and_view_selective_cells)
+        @assert isempty(intersect(no_place_or_view_selective_cells, place_or_view_selective_cells))
+        @assert sort(intersect(with_place_and_view_selective_cells,place_or_view_selective_cells)) == sort(place_or_view_selective_cells)
+
+        X,Y,twin = Hippocampus.get_population_representation(something.(vpr[pidx]))
+        perf,fp_rate,fn_rate,unique_categories[i] = Hippocampus.population_decoder_simple(X,Y;k=30,nruns=nruns,do_pca=true,decode_view=true, decode_place=true,joint=true)
+        f1_score = 2*perf./(2*perf .+ fp_rate .+ fn_rate)
+        _f1_score_mean = zeros(size(f1_score,1))
+        for i in axes(f1_score,1)
+            _fidx = isfinite.(f1_score[i,:])
+            _f1_score_mean[i] = mean(f1_score[i,_fidx])
+        end
+        f1_score_mean[i] = _f1_score_mean
+    end
+    f1_score_mean, unique_categories
+end
