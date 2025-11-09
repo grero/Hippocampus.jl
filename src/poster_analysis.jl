@@ -224,7 +224,7 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
     previous_poster_selectivity = data["previous_poster_selectivity_strength"]
 
     with_theme(poster_theme) do
-        width = 11.0*2.5*72
+        width = 53*72/2.5
         height = width
         fig = Figure(size=(width, height))
         # indivvidual cell responses
