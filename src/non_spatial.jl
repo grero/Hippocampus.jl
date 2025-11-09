@@ -258,21 +258,25 @@ function plot_raster_and_psth(args...;kwargs...)
     end
 end
 
-function plot_raster_and_psth!(lg::GridLayout, spa::TrialAlignedSpiketrain, rp::RippleData;kwargs...)
+function plot_raster_and_psth!(lg::GridLayout, spa::TrialAlignedSpiketrain, rp::RippleData;show_psth=true, kwargs...)
     ax1 = Axis(lg[1,1])
     plot_raster!(ax1, spa, rp;kwargs...)
     ax2 = Axis(lg[2,1])
-    plot_psth!(ax2, spa, rp;kwargs...)
+    if show_psth
+        plot_psth!(ax2, spa, rp;kwargs...)
+        linkxaxes!(ax1, ax2)
+        if get(kwargs, :xlabelvisible, true)
+            ax2.xlabel = "Time from cue [s]"
+        end
+    else
+        plot_poster_tuning!(ax2, spa,rp;kwargs...)
+    end
     ax1.xticklabelsvisible = false
     ax1.xticksvisible = false
-    linkxaxes!(ax1, ax2)
-    if get(kwargs, :xlabelvisible, true)
-        ax2.xlabel = "Time from cue [s]"
-    end
     ax2.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
 end
 
-function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa2::TrialAlignedSpiketrain, rp::RippleData;kwargs...)
+function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa2::TrialAlignedSpiketrain, rp::RippleData;show_psth=true, kwargs...)
     ax11 = Axis(lg[1,1])
     ax12 = Axis(lg[1,2])
     # TODO: Plot both cue aligned and trial-end aligned raster
@@ -281,8 +285,19 @@ function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa
     plot_raster!(ax12, spa2, rp;kwargs...)
     ax21 = Axis(lg[2,1])
     ax22 = Axis(lg[2,2])
-    plot_psth!(ax21, spa1, rp;kwargs...)
-    plot_psth!(ax22, spa2, rp;kwargs...)
+    if show_psth
+        plot_psth!(ax21, spa1, rp;kwargs...)
+        plot_psth!(ax22, spa2, rp;kwargs...)
+        linkxaxes!(ax11, ax21)
+        linkxaxes!(ax12, ax22)
+        if get(kwargs, :xlabelvisible, true)
+            ax21.xlabel = "Time from cue [s]"
+            ax22.xlabel = "Time from end [s]"
+        end
+    else
+        plot_poster_tuning!(ax21, spa1,rp;tmin=0.0, tmax=:cue_onset,kwargs...)
+        plot_poster_tuning!(ax22, spa1,rp;tmin=:trial_end, tmax=1.0,kwargs...)
+    end
     ax11.xticklabelsvisible = false
     ax11.xticksvisible = false
     ax12.xticklabelsvisible = false
@@ -290,10 +305,7 @@ function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa
     linkxaxes!(ax11, ax21)
     linkxaxes!(ax12, ax22)
     linkyaxes!(ax21,ax22)
-    if get(kwargs, :xlabelvisible, true)
-        ax21.xlabel = "Time from cue [s]"
-        ax22.xlabel = "Time from end [s]"
-    end
+    
     ax12.ylabelvisible = false
     ax22.ylabelvisible = false
     ax22.yticklabelsvisible = false
@@ -306,7 +318,7 @@ function plot_raster_and_psth!(lg::GridLayout, celldir::String;kwargs...)
         rp = cd(DPHT.process_level("session")) do
             RippleData()
         end
-        spa1 = TrialAlignedSpiketrain(;alignto=1)
+        spa1 = TrialAlignedSpiketrain(;alignto=1,Δt1=1.0)
         spa2 = TrialAlignedSpiketrain(;alignto=3)
     spa1, spa2, rp
     end
