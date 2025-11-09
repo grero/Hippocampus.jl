@@ -1099,3 +1099,64 @@ function run_lesion_simulation(;nruns=100,nbatch=20)
     end
     f1_score_mean, unique_categories
 end
+
+function plot_lesion_results()
+    fname = "data/categorical_decoding_run_remove_non_place_and_view_train_joint_test_joint_new.jld2"
+    qq = JLD2.load(fname)
+    fname2 = "data/categorical_decoding_run_no_place_or_view_cells_pca_f1_score_train_joint_test_joint.jld2"
+    qq2 = JLD2.load(fname2)
+    f1_score = 2*qq2["perf"]./(2*qq2["perf"] .+ qq2["fp_rate"] .+ qq2["fn_rate"])
+    _f1_score_mean = zeros(size(f1_score,1))
+    for i in axes(f1_score,1)
+        _fidx = isfinite.(f1_score[i,:])
+        _f1_score_mean[i] = mean(f1_score[i,_fidx])
+    end
+
+    f1_and_view = Dict()
+    for (i,k) in enumerate(qq2["unique_categories"])
+        a = f1_score[i]
+        b = Float64[]
+        for (j,(_f1_score, uq)) in enumerate(zip(qq["f1_scor_mean"], qq["unique_categories"]))
+            idx = findfirst(cc->cc==k, uq)
+            if idx !== nothing
+                push!(b, _f1_score[idx])
+            end
+        end
+        f1_and_view[k] = (a, b)
+    end
+    
+    with_theme(poster_theme) do
+        fig = Figure()
+        ax = Axis(fig[1,1])
+        xx = cat([f1_and_view[k][2] for k in keys(f1_and_view)]...,dims=1)
+        yy = cat([fill(f1_and_view[k][1], length(f1_and_view[k][2])) for k in keys(f1_and_view)]...,dims=1)
+        scatter!(ax, xx, yy)
+        @show sum(yy.>xx)./length(xx)
+        ablines!(ax, 0.0, 1.0, linestyle=:dot, color=:black)
+        ax.xlabel = "F1 Remove non-place/view cells"
+        ax.ylabel = "F1 Remove place-view cells"
+
+        ax2 = Axis(fig[2,1])
+        xx2 = 1:length(qq2["unique_categories"]) 
+        yy3_l = Float64[]
+        yy3_u = Float64[]
+        xx3 = Float64[]
+        @show qq2["unique_categories"]
+        for k in keys(f1_and_view)
+            _f1 = f1_and_view[k][2]
+            u,l = percentile(_f1, [25,75])
+            push!(yy3_u, u)
+            push!(yy3_l, l)
+            ii = findfirst(cc->cc=k, qq2["unique_categories"])
+            push!(xx3, ii)
+        end
+        #yy3_l = cat([percentile(f1_and_view[k][2],25) for k in keys(f1_and_view)]...,dims=1)
+        #yy3_u = cat([percentile(f1_and_view[k][2],75) for k in keys(f1_and_view)]...,dims=1)
+        #xx3 = cat([fill(findfirst(cc->cc==k, qq2["unique_categories"]),length(f1_and_view[k][2])) for k in keys(f1_and_view)]...,dims=1)
+        #xx3 = cat([findfirst(cc->cc==k, qq2["unique_categories"]) for k in keys(f1_and_view)]...,dims=1)
+        scatter!(ax2, xx3, yy3_l, color=Cycled(1))
+        scatter!(ax2, xx3, yy3_u,color=Cycled(1))
+        scatter!(ax2, xx2, _f1_score_mean)
+        fig
+    end
+end
