@@ -1035,6 +1035,76 @@ function plot_gaze_path!(lg, unity_data::UnityRaytraceData, trialidx::Observable
     end
 end
 
+function plot_gaze_trajectories(unity_data::UnityRaytraceData, udata::UnityData;_plot_theme=poster_theme)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_gaze_trajectories!(lg, unity_data, udata;_plot_theme=_plot_theme)
+        fig
+    end
+end
+
+function plot_gaze_trajectories!(lg, unity_data::UnityRaytraceData, udata::UnityData;_plot_theme=poster_theme, show_occupancy=false)
+    mm = get_maze_mesh()
+    D = distancematrix(mm)
+    trial_groups = group_trials(udata.triggers)
+    # get the starting and ending positions
+    start_end_pos = Dict{Tuple{Int64, Int64}, NTuple{2, Point3f}}()
+    for (k,v) in trial_groups
+        start_pos = zeros(3)
+        end_pos = zeros(3)
+        for i in v
+            tt,posx, posy,hd = get_trial(udata, i;trial_start=2)
+            start_pos .+= [posx[1], posy[1], 9.0]
+            end_pos .+= [posx[end], posy[end], 9.0]
+        end
+        start_end_pos[k] = (Point3f(start_pos./length(v)), Point3f(end_pos./length(v)))
+    end
+    # hard code 6 posters
+    with_theme(_plot_theme) do
+        lscenes = [LScene(lg[i,j], show_axis=false) for i in 1:6, j in 1:6]
+        _keys = collect(keys(trial_groups))
+        sort!(_keys)
+        for k in _keys
+            if (0 in k) || (k[1]==k[2])
+                continue
+            end
+            lscene = lscenes[k[1], k[2]]
+            plot_gaze_path!(lscene, unity_data, D, Observable(trial_groups[k]))
+            lq = [(Point3f(p[1:2]..., 0.0f0),p) for p in start_end_pos[k]]
+            linesegments!(lscene, lq, color=[:red, :black])
+            scatter!(lscene, [start_end_pos[k]...], color=[:red, :black])
+        end
+    end
+end
+
+
+function plot_position_and_gaze_trajectories()
+    sessiondir = "/Volumes/Hippocampus/Data/picasso-misc/20181101/session01"
+    plot_position_and_gaze_trajectories(sessiondir)
+end
+
+function plot_position_and_gaze_trajectories(sessiondir::String;kwargs...)
+    udata = cd(sessiondir) do
+       Hippocampus.UnityData()
+    end
+    unity_gaze_data = cd(sessiondir) do
+       Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
+    end
+    plot_position_and_gaze_trajectories(unity_gaze_data, udata;kwargs...)
+end
+
+function plot_position_and_gaze_trajectories(unity_data::UnityRaytraceData, udata::UnityData;_plot_theme=poster_theme)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg1 = GridLayout(fig[1,1])
+        lg2 = GridLayout(fig[1,2])
+        plot_trajectories!(lg1, udata;_plot_theme=_plot_theme)
+        plot_gaze_trajectories!(lg2, unity_data, udata;_plot_theme=_plot_theme)
+        fig
+    end
+end
+
 """
 Group trials by pairs of poster ids
 """
