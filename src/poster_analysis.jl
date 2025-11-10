@@ -256,6 +256,7 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
         # tuning strength of individual cell vs contribution to decoder
         # plot performance on current poster vs previous poster
         lg1 = GridLayout(fig[2,1])
+        colsize!(lg1, 1, Relative(0.4))
         lg11 = GridLayout(lg1[1,1])
         Label(lg11[1,1,TopLeft()],"D")
         ax = Axis(lg11[1,1])
@@ -267,6 +268,7 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
 
         lg12 = GridLayout(lg1[1,2])
         ax41 = Axis(lg12[1,1])
+        ax41.ylabel = "# cells"
         ax4 = Axis(lg12[2,1])
         linkxaxes!(ax4,ax41)
         ax41.xticklabelsvisible = false
@@ -289,6 +291,15 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
         vlines!(ax5, 1.0, linestyle=:dot, color=:black)
         vlines!(ax51, 1.0, linestyle=:dot, color=:black)
         ax5.xlabel = "Previous poster\nselectivity"
+        # panel to show marginal histogram of coding cotribution
+        lgpp = GridLayout(lg12[2,3])
+        ax7 = Axis(lgpp[1,1], xticks=WilkinsonTicks(2))
+        ax8 = Axis(lgpp[1,2], xticks=WilkinsonTicks(2))
+        ax8.yticklabelsvisible = false
+        hist!(ax7, dropdims(mean(contrib_current,dims=2),dims=2),direction=:x)
+        hist!(ax8, dropdims(mean(contrib_previous,dims=2),dims=2), direction=:x)
+        linkyaxes!(ax7, ax5, ax8)
+        ax7.xlabel = "# cells"
         rowsize!(fig.layout, 1, Relative(0.6))
         resize_to_layout!(fig)
         rowgap!(fig.layout, 1, 0)
