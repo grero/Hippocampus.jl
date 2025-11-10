@@ -277,7 +277,7 @@ function plot_raster_and_psth!(lg::GridLayout, spa::TrialAlignedSpiketrain, rp::
     ax2.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
 end
 
-function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa2::TrialAlignedSpiketrain, rp::RippleData;show_psth=true, tmin=-1.0, tmax=20.0, kwargs...)
+function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa2::TrialAlignedSpiketrain, rp::RippleData;show_psth=true, tmin=-1.0, tmax=20.0,show_connecting_lines=false,  kwargs...)
     ax11 = Axis(lg[1,1])
     ax12 = Axis(lg[1,2])
     # TODO: Plot both cue aligned and trial-end aligned raster
@@ -295,27 +295,73 @@ function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa
         plot_psth!(ax22, spa2, rp;kwargs...)
         linkxaxes!(ax11, ax21)
         linkxaxes!(ax12, ax22)
-        if get(kwargs, :xlabelvisible, true)
-            ax21.xlabel = "Time from cue [s]"
-            ax22.xlabel = "Time from end [s]"
-        end
     else
         plot_poster_tuning!(ax21, spa1,rp;tmin=0.0, tmax=:cue_onset,kwargs...)
         plot_poster_tuning!(ax22, spa1,rp;tmin=:trial_end, tmax=1.0,kwargs...)
     end
-    ax11.xticklabelsvisible = false
-    ax11.xticksvisible = false
-    ax12.xticklabelsvisible = false
-    ax12.xticksvisible = false
-    linkxaxes!(ax11, ax21)
-    linkxaxes!(ax12, ax22)
     linkyaxes!(ax21,ax22)
+    ax11.xticklabelsvisible = true 
+    ax11.xticksvisible = true 
+    ax12.xticklabelsvisible = true 
+    ax12.xticksvisible = true 
     
     ax12.ylabelvisible = false
     ax22.ylabelvisible = false
     ax22.yticklabelsvisible = false
     ax21.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
     ax22.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
+    ax21.xlabel = "Poster #"
+    ax22.xlabel = "Poster #"
+
+    #find the figure
+    if isa(lg, Figure)
+        parent_p = lg
+    else
+        parent_p = lg.parent
+        while !isa(parent_p, Figure)
+            parent_p = parent_p.parent
+        end
+    end
+    if show_connecting_lines
+        ll = ax21.finallimits[]
+        pos_fig_1 = pos_fig_obs(ax11, 0.0, 0.0)
+        pos_fig_2 = pos_fig_obs(ax21, ll.origin[1], ll.origin[2]+ll.widths[2])
+        pts1 = @lift [$pos_fig_1, $pos_fig_2]
+        lw = 1.0
+        #lines!(lg.parent.parent.parent.scene, pts1,color=:black, linewidth=lw)
+        lines!(parent_p.scene, pts1,color=:black, linewidth=lw)
+
+        pos_fig_3 = pos_fig_obs(ax11, 1.0, 0.0)
+        pos_fig_4 = pos_fig_obs(ax21, ll.origin[1]+ll.widths[1], ll.origin[2]+ll.widths[2])
+        pts2 = @lift [$pos_fig_3, $pos_fig_4]
+        #lines!(lg.parent.parent.parent.scene, pts2,color=:black, linewidth=lw)
+        lines!(parent_p.scene, pts2,color=:black, linewidth=lw)
+
+        ll = ax22.finallimits[]
+        pos_fig_5 = pos_fig_obs(ax12, 0.0, 0.0)
+        pos_fig_6 = pos_fig_obs(ax22, ll.origin[1], ll.origin[2]+ll.widths[2])
+        pts3 = @lift [$pos_fig_5, $pos_fig_6]
+        #lines!(lg.parent.parent.parent.scene, pts3,color=:black, linewidth=lw)
+        lines!(parent_p.scene, pts3,color=:black, linewidth=lw)
+
+        pts4 = @lift begin
+            ll = $(ax22.finallimits)
+            # I'm not sure why this doens't work some time
+            # I'm just going to hard code 
+            pos_fig_7 = $(pos_fig_obs(ax12, 1.0, 0.0))
+            # This does not work
+            #pos_fig_8 = $(pos_fig_obs(ax22, ll.origin[1]+ll.widths[1], ll.origin[2]+ll.widths[2]))
+            # for some reason, some times ll.origin[1] + ll.widths[1] == 10.0
+            pos_fig_8 = $(pos_fig_obs(ax22, 6.9, ll.origin[2]+ll.widths[2]))
+            #@show ll.origin[1] + ll.widths[1]
+            [Point2f(pos_fig_7), Point2f(pos_fig_8)]
+        end
+        #lines!(lg.parent.parent.parent.scene, pts4,color=:black, linewidth=lw)
+        lines!(parent_p.scene, pts4,color=:black, linewidth=lw)
+    else
+        # just show a gray bar
+        linesegments!(ax11, [(Point2f(0.0, -6.0), Point2f(1.0, -6.0))], color=:gray, linewidth=5.0)
+    end
 end
 
 function plot_raster_and_psth!(lg::GridLayout, celldir::String;kwargs...)
