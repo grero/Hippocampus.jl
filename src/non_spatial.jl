@@ -277,13 +277,17 @@ function plot_raster_and_psth!(lg::GridLayout, spa::TrialAlignedSpiketrain, rp::
     ax2.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
 end
 
-function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa2::TrialAlignedSpiketrain, rp::RippleData;show_psth=true, kwargs...)
+function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa2::TrialAlignedSpiketrain, rp::RippleData;show_psth=true, tmin=-1.0, tmax=20.0, kwargs...)
     ax11 = Axis(lg[1,1])
     ax12 = Axis(lg[1,2])
     # TODO: Plot both cue aligned and trial-end aligned raster
 
-    plot_raster!(ax11, spa1, rp;kwargs...)
-    plot_raster!(ax12, spa2, rp;kwargs...)
+    plot_raster!(ax11, spa1, rp;tmin=tmin, tmax=tmax, kwargs...)
+    plot_raster!(ax12, spa2, rp;tmin=-tmax, tmax=-tmin, kwargs...)
+    if get(kwargs, :xlabelvisible, true)
+        ax11.xlabel = "Time from cue [s]"
+        ax12.xlabel = "Time from end [s]"
+    end
     ax21 = Axis(lg[2,1])
     ax22 = Axis(lg[2,2])
     if show_psth
