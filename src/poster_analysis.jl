@@ -207,7 +207,11 @@ function plot_trajectories(udata::UnityData)
     end
 end
 
-function plot_poster_decoding_results(;cell_examples=(poster_selective=176, previous_poster_selective=292, both=9))
+"""
+TODO: [ ] Find less sparse cell examples
+      [ ] Show histogram of coding contribution as well
+"""
+function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previous_poster_selective=121, both=9),show_psth=false)
     allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
         readlines(fid)
     end
