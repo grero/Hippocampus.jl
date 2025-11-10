@@ -303,7 +303,8 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         hist!(ax7, dropdims(mean(contrib_current,dims=2),dims=2),direction=:x)
         hist!(ax8, dropdims(mean(contrib_previous,dims=2),dims=2), direction=:x)
         linkyaxes!(ax7, ax5, ax8)
-        ax7.xlabel = "# cells"
+        ax7.xlabel = "# cells\nCurrent"
+        ax8.xlabel = "# cells\nPrevious"
         ax8.yticklabelsvisible = false
         rowsize!(fig.layout, 1, Relative(0.6))
         resize_to_layout!(fig)
