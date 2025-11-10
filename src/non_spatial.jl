@@ -246,7 +246,8 @@ function plot_poster_tuning!(ax, spa::TrialAlignedSpiketrain, rp::RippleData;tmi
     # set up boxplot
     xx = label[label.>0]
     yy = spike_count[label.>0]
-    boxplot!(ax, xx, yy, color=color[xx],show_notch=false, show_outliers=true)
+    boxplot!(ax, xx, yy, color=color[xx],show_notch=get(kwargs, :show_notch, false),
+                        show_outliers=get(kwargs, :show_outliers, true))
 end
 
 function plot_raster_and_psth(args...;kwargs...)
