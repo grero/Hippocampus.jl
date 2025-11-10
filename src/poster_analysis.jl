@@ -300,6 +300,7 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=176, prev
         hist!(ax8, dropdims(mean(contrib_previous,dims=2),dims=2), direction=:x)
         linkyaxes!(ax7, ax5, ax8)
         ax7.xlabel = "# cells"
+        ax8.yticklabelsvisible = false
         rowsize!(fig.layout, 1, Relative(0.6))
         resize_to_layout!(fig)
         rowgap!(fig.layout, 1, 0)
