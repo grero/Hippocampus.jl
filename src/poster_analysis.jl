@@ -271,22 +271,21 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         ax.ylabel = "Performance previous"
 
         lg12 = GridLayout(lg1[1,2])
-        ax41 = Axis(lg12[1,1])
+        ax41 = Axis(lg12[1,2], xticks=WilkinsonTicks(3))
         ax41.ylabel = "# cells"
-        ax4 = Axis(lg12[2,1])
+        ax4 = Axis(lg12[2,2], xticks=WilkinsonTicks(3))
         linkxaxes!(ax4,ax41)
         ax41.xticklabelsvisible = false
         hist!(ax41, 1.0./current_poster_selectivity)
         scatter!(ax4, 1.0./current_poster_selectivity, dropdims(mean(contrib_current,dims=2),dims=2))
         ax4.xlabel = "Current poster\nselectivity"
-        ax4.ylabel = "Relative coding contrib"
         vlines!(ax4, 1.0, linestyle=:dot, color=:black)
         vlines!(ax41, 1.0, linestyle=:dot, color=:black)
         rowsize!(lg12, 1, Relative(0.4))
         Label(lg12[1,1,TopLeft()], "E")
 
-        ax51 = Axis(lg12[1,2])
-        ax5 = Axis(lg12[2,2])
+        ax51 = Axis(lg12[1,3], xticks=WilkinsonTicks(3))
+        ax5 = Axis(lg12[2,3], xticks=WilkinsonTicks(3))
         Label(lg12[1,2,TopLeft()], "F")
         linkxaxes!(ax5,ax51)
         ax51.xticklabelsvisible = false
@@ -295,18 +294,21 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         vlines!(ax5, 1.0, linestyle=:dot, color=:black)
         vlines!(ax51, 1.0, linestyle=:dot, color=:black)
         ax5.xlabel = "Previous poster\nselectivity"
+
         # panel to show marginal histogram of coding cotribution
-        lgpp = GridLayout(lg12[2,3])
-        ax7 = Axis(lgpp[1,1], xticks=WilkinsonTicks(2))
-        ax8 = Axis(lgpp[1,2], xticks=WilkinsonTicks(2))
+        ax7 = Axis(lg12[2,1], xticks=WilkinsonTicks(2))
+        ax8 = Axis(lg12[2,4], xticks=WilkinsonTicks(2))
         ax8.yticklabelsvisible = false
         hist!(ax7, dropdims(mean(contrib_current,dims=2),dims=2),direction=:x)
         hist!(ax8, dropdims(mean(contrib_previous,dims=2),dims=2), direction=:x)
         linkyaxes!(ax7, ax5, ax8)
         ax7.xlabel = "# cells\nCurrent"
+        ax7.ylabel = "Relative coding contrib"
+        ax7.yticklabelsvisible = false
+        ax7.xreversed = true
         ax8.xlabel = "# cells\nPrevious"
         ax8.yticklabelsvisible = false
-        rowsize!(fig.layout, 1, Relative(0.6))
+        rowsize!(fig.layout, 1, Relative(0.65))
         resize_to_layout!(fig)
         rowgap!(fig.layout, 1, 0)
         fig
