@@ -334,15 +334,14 @@ function plot_place_and_view_selective_cells(;_plot_theme=poster_theme)
     end
 
     with_theme(_plot_theme) do
-        fig = Figure(size=(800,400))
+        width = 46*72/2.5
+        fig = Figure(size=(width, 419))
         lg1 = GridLayout(fig[1,1])
         plot_view_and_place_fields!(lg1, svm_spm[1]...)
         lg2 = GridLayout(fig[1,2])
-        plot_view_and_place_fields!(lg2, svm_spm[2]...;colorbar_label="")
+        plot_view_and_place_fields!(lg2, svm_spm[3]...;colorbar_label="")
         lg3 = GridLayout(fig[1,3])
-        plot_view_and_place_fields!(lg3, svm_spm[3]...;colorbar_label="")
-        lg4 = GridLayout(fig[1,4])
-        plot_view_and_place_fields!(lg4, svm_spm[4]...;colorbar_label="")
+        plot_view_and_place_fields!(lg3, svm_spm[4]...;colorbar_label="")
         fig
     end
 end
