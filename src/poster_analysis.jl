@@ -399,20 +399,22 @@ function plot_view_and_place_fields!(lg, svm::SmoothedMap, sspm::SmoothedMap;col
     Z_vm_s = get_rate_map(svm;invalidate_unvisited=false)
     Z_spm_s = get_rate_map(sspm;invalidate_unvisited=true)
 
-    lscene = LScene(lg[1,1])
+    lscene = LScene(lg[1,2],show_axis=false)
     plotmesh!(lscene, mm;floor_offset=-15, ceiling_offset=10, color=Z_vm_s,showsegments=false, colormap=:jet)
     plotmesh!(lscene, mm_simple;floor_offset=-15, ceiling_offset=10, alpha=0,showsegments=true, colormap=:jet)
-    m_floor2 = Translate(0.0, 0.0, -30)(m_floor)
+    m_floor2 = Translate(0.0, 0.0, -40)(m_floor)
     viz!(lscene, m_floor2;color=Z_spm_s,showsegments=false)
-    viz!(lscene, Translate(0.0, 0.0, -30)(m_floor_simple);alpha=0,showsegments=true)
+    viz!(lscene, Translate(0.0, 0.0, -40)(m_floor_simple);alpha=0,showsegments=true)
+    # indicate north
+    arrows3d!(lscene, Point3f(0.0, 10.0, -40.0), Point3f(0.0, 3.0, 0.0),color=:black)
     # labels
-    text!(lscene, 0.0, 0.9, text="SIC = $(round(sic_view; sigdigits=2))", space=:relative,
+    text!(lscene, 0.9, 0.9, text="SIC = $(round(sic_view; sigdigits=2))", space=:relative,
                             rotation=-π/2)
-    text!(lscene, 0.0, 0.3, text="SIC = $(round(sic_place;sigdigits=2))", space=:relative,
+    text!(lscene, 0.9, 0.3, text="SIC = $(round(sic_place;sigdigits=2))", space=:relative,
                             rotation=-π/2)
-    lg2 = GridLayout(lg[1,2])
-    Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite,Z_vm_s)), colormap=:jet, label=colorbar_label)
-    Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, Z_spm_s)), label=colorbar_label)
+    lg2 = GridLayout(lg[1,1])
+    Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite,Z_vm_s)), colormap=:jet, label=colorbar_label,flipaxis=false)
+    Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, Z_spm_s)), label=colorbar_label,flipaxis=false)
     lg
 end
 
