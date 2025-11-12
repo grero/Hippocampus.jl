@@ -479,12 +479,18 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
         end
         # kind of dumb;trigger a change
         tcolor[] = tcolor.val
-        talpha = get(kwargs, :alpha, 1.0)
+        #talpha = get(kwargs, :alpha, fill(1.0, length(tcolor[])))
+        talpha = get(kwargs, :alpha, nothing)
+        if talpha === nothing
+            if isa(tcolor[], AbstractVector{<:Real})
+                talpha = fill(1.0, length(tcolor[]))
+            end
+        end
         kwargs = filter(k->k[1]!=:alpha, kwargs)
         use_alpha = Dict{Symbol,Any}()
         if isa(talpha, AbstractVector{<:Real})
             if nanidx !== nothing
-                qalpha = fill!(similar(talpha), one(eltype(alpha)))
+                qalpha = fill!(similar(talpha), one(eltype(talpha)))
                 qalpha .= talpha
                 qalpha[nanidx] .= zero(eltype(qalpha)) 
             else
