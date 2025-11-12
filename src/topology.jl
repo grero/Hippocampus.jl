@@ -453,6 +453,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             use_color[k] = Observable(:lightgray)
         end
         cr = Observable(nothing)
+        nanidx = nothing
         on(tcolor) do _tcolor
             if isa(_tcolor, AbstractArray{<:Any})
                 # first filter out nans
