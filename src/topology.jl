@@ -414,6 +414,15 @@ function explore(mm::SimpleMesh,tcolor::Vector{Vector{T}};kwargs...) where T <: 
     fig
 end
 
+"""
+For use with MakiePan to get the layout
+"""
+function plotmesh(lg;kwargs...)
+    lscene = LScene(lg[1,1];kwargs...)
+    cb = Colorbar(lg[1,2];kwargs...)
+    lscene,cb
+end
+
 function plotmesh(mm::SimpleMesh;kwargs...)
     with_theme(plot_theme) do
         fig = Figure()
