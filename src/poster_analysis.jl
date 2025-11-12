@@ -601,7 +601,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
 
     with_theme(_plot_theme) do
         if figsize === nothing
-            figsize = (1596,1229)
+            figsize = (1596,1317)
         end
         fig = Figure(size=figsize)
         lg1 = GridLayout(fig[1,1])
