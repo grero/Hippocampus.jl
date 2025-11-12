@@ -617,21 +617,35 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
         end
         Label(lg1[2,1,TopLeft()], "C")
 
-        if !isempty(fname_ind)
-           lgpq = GridLayout(lg1[2,1])
-           plot_independent_vs_joint_category_decoding!(lgpq, fname_ind, fname;_plot_theme=_plot_theme) 
-        elseif plot_joint_matrix
+       if plot_joint_matrix
+            lgp1 = GridLayout(lg1[2,1])
             _zidx = CartesianIndex{2}.(unique_categories)
             ZZ = zeros(22,21)
             ZZ[_zidx] .= dropdims(mean(f1_score,dims=2),dims=2)
             axq = Axis(lgp1[1,1])
             hh = heatmap!(axq, ZZ, colormap=:Reds)
             Colorbar(lgp1[1,2], hh, label="F1-score")
-            rowsize!(lg1, 1, Relative(0.4))
+            rowsize!(lg1, 2, Relative(0.35))
             axq.xlabel = "View bin"
             axq.ylabel = "Place bin"
+            if !isempty(fname_ind)
+                lgpq = GridLayout(fig[2,1:2])
+                Label(lgpq[1,1,TopLeft()], "F", padding=(10,10,10,10))
+                lgqq = GridLayout(lgpq[1,1])
+                _ax1 = plot_independent_vs_joint_category_decoding!(lgqq, fname, fname_ind;_plot_theme=_plot_theme,ylabel="F1-score joint",xlabel="F1-score ind")
+                if !isempty(fname_reduced)
+                    lgqq1 = GridLayout(lgpq[1,2])
+                    Label(lgqq1[1,1,TopLeft()], "G", padding=(10,10,10,10))
+                    _ax2 = plot_independent_vs_joint_category_decoding!(lgqq1, fname, fname_reduced;_plot_theme=_plot_theme,xlabel="F1-score view/place", ylabelvisible=false)
+                    linkyaxes!(_ax1, _ax2)
+                end
+            end
+        elseif !isempty(fname_ind)
+                lgpq = GridLayout(lg1[2,1])
+           plot_independent_vs_joint_category_decoding!(lgpq, fname_ind, fname;_plot_theme=_plot_theme) 
 
         else
+            lgp1 = GridLayout(lg1[2,1])
             lscene = LScene(lgp1[1,1],show_axis=false)
             plotmesh!(lscene, mm;color=_colorv, ceiling_offset=10, floor_offset=-10,colormap=:Purples,showsegments=true)
             viz!(lscene, m_floor;color=_colorp, colormap=:Greens, showsegments=true)
@@ -691,7 +705,7 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             fcolor[pidx[k]] = parse(Colorant, :red)
             viz!(lscene2, m_floor;color=fcolor, showsegments=true)
         end
-        Colorbar(lg4[2,4], colorrange=cr, colormap=:Purples)
+        Colorbar(lg4[2,4], colorrange=cr, colormap=:Purples,ticks=WilkinsonTicks(3), label="F1 score view")
 
         # place probability conditioned on view
         if show_f1_score
@@ -713,8 +727,9 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
             plotmesh!(lscene2, mm;color=mcolor, ceiling_offset=10, floor_offset=-10, showsegments=true)
             viz!(lscene2, m_floor;color=_color, showsegments=true,colorrange=cr, colormap=:Greens)
         end
-        Colorbar(lg4[4,4], colorrange=cr, colormap=:Greens)
+        Colorbar(lg4[4,4], colorrange=cr, colormap=:Greens, ticks=WilkinsonTicks(3), label="F1 score place")
         colsize!(fig.layout, 1, Relative(0.3))
+        rowsize!(fig.layout, 1, Relative(0.7))
         fig
     end
 end
@@ -733,7 +748,7 @@ function plot_independent_vs_joint_category_decoding(fname_independent::String, 
     end
 end
 
-function plot_independent_vs_joint_category_decoding!(lg, fname_independent::String, fname_joint::String;_plot_theme=poster_theme,nshuffles=1000)
+function plot_independent_vs_joint_category_decoding!(lg, fname_independent::String, fname_joint::String;_plot_theme=poster_theme,nshuffles=1000, xlabel="F1-score joint", ylabel="F1-score independent",kwargs...)
     ind_data = JLD2.load(fname_independent)
     joint_data = JLD2.load(fname_joint)
 
@@ -789,8 +804,26 @@ function plot_independent_vs_joint_category_decoding!(lg, fname_independent::Str
         ablines!(ax, [0.0], [1.0], linestyle=:dot, color=:black)
         ax.xticks = WilkinsonTicks(3)
         ax.yticks = WilkinsonTicks(3)
-        ax.xlabel = "F1-score joint"
-        ax.ylabel = "F1-score independent"
+        ax.xlabel = xlabel
+        ax.xlabelvisible = get(kwargs, :xlabelvisible, true)
+        ax.ylabel = ylabel
+        ax.ylabelvisible = get(kwargs, :ylabelvisible, true)
+        ax
+    end
+end
+
+function plot_knn_decoding_comparisons(;_plot_theme=poster_theme, kwargs...)
+    fname_all_cells_joint = joinpath(@__DIR__,"..","data/categorical_decoding_run_all_cells_pca_f1_score_new_train_joint_test_joint.jld2")
+    fname_all_cells_ind = joinpath(@__DIR__,"..","data/categorical_decoding_run_all_cells_pca_f1_score_new_train_independent_test_joint.jld2")
+    fname_place_or_view = joinpath(@__DIR__,".." ,"data/categorical_decoding_run_more_cells_pca_f1_score_train_joint_test_joint.jld2")
+
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg1 = GridLayout(fig[1,1])
+        plot_independent_vs_joint_category_decoding!(lg1, fname_all_cells_joint, fname_all_cells_ind;xlabel="F1-score independent", ylabel="F1-score joint")
+        lg2 = GridLayout(fig[1,2])
+        plot_independent_vs_joint_category_decoding!(lg2, fname_all_cells_joint, fname_place_or_view;ylabelvisible=false, xlabel="F1-score\nonly place or view")
+        fig
     end
 end
 
