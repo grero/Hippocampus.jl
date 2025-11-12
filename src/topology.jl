@@ -510,7 +510,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             viz!(lscene, m_ceiling2;color=use_color[:ceiling],alpha=use_alpha[:ceiling], colorrange=cr, kwargs...)
         end
         if indicate_north
-            arrows3d!(lscene, Point3f(0.0, 10.0, 0.0), Point3f(0.0, 2.0, 0.0), color=:black)
+            arrows3d!(lscene, Point3f(0.0, 10.0, 7.0+ceiling_offset), Point3f(0.0, 5.0, 0.0), color=:black)
         end
     else
        viz!(lscene, mm;kwargs...) 
