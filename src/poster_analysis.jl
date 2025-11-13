@@ -228,8 +228,8 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
     previous_poster_selectivity = data["previous_poster_selectivity_strength"]
 
     with_theme(poster_theme) do
-        width = 53*72/2.5
-        height = width
+        width = 51*72/2.5
+        height = 0.75*width
         fig = Figure(size=(width, height))
         # indivvidual cell responses
         lg2 = GridLayout(fig[1,1])
