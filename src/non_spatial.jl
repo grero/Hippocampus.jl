@@ -288,8 +288,8 @@ function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa
         ax11.xlabel = "Time from cue [s]"
         ax12.xlabel = "Time from end [s]"
     end
-    ax21 = Axis(lg[2,1])
-    ax22 = Axis(lg[2,2])
+    ax21 = Axis(lg[2,1],yticks=WilkinsonTicks(3))
+    ax22 = Axis(lg[2,2], yticks=WilkinsonTicks(3))
     if show_psth
         plot_psth!(ax21, spa1, rp;kwargs...)
         plot_psth!(ax22, spa2, rp;kwargs...)
