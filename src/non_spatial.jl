@@ -298,6 +298,9 @@ function plot_raster_and_psth!(lg::GridLayout, spa1::TrialAlignedSpiketrain, spa
     else
         plot_poster_tuning!(ax21, spa1,rp;tmin=0.0, tmax=:cue_onset,kwargs...)
         plot_poster_tuning!(ax22, spa1,rp;tmin=:trial_end, tmax=1.0,kwargs...)
+        if get(kwargs, :ylabelvisible, true)
+            ax21.ylabel = "λ" 
+        end
     end
     linkyaxes!(ax21,ax22)
     ax11.xticklabelsvisible = true 
