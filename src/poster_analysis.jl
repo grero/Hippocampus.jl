@@ -1142,6 +1142,96 @@ function plot_position_and_gaze_trajectories(unity_data::UnityRaytraceData, udat
     end
 end
 
+function plot_position_and_gaze(;kwargs...)
+    sessiondir = "/Volumes/Hippocampus/Data/picasso-misc/20181101/session01"
+    plot_position_and_gaze(sessiondir;kwargs...)
+end
+
+function plot_position_and_gaze(sessiondir::String;kwargs...)
+    udata = cd(sessiondir) do
+       Hippocampus.UnityData()
+    end
+    unity_gaze_data = cd(sessiondir) do
+       Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
+    end
+    plot_position_and_gaze(unity_gaze_data, udata;kwargs...)
+end
+
+function plot_position_and_gaze(unity_gaze_data, udata;_plot_theme=poster_theme, kwargs...)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(998,825))
+        lg = GridLayout(fig[1,1])
+        plot_position_and_gaze!(lg, unity_gaze_data, udata;_plot_theme=_plot_theme, kwargs...)
+        fig
+    end
+end
+
+function plot_position_and_gaze!(lg, unity_data::UnityRaytraceData, udata::UnityData;_plot_theme=poster_theme, show_position_trajectories=true, ceiling_offset=10, floor_offset=-15, poster_rows=1:6, kwargs...)
+    mm = get_maze_mesh()
+    mm_simple = get_maze_mesh(;nrefinements=0)
+    #m_floor = Translate(0.0, 0.0, -40)(floor_topology3())
+    D = distancematrix(mm)
+    trial_groups = group_trials(udata.triggers)
+    # get the starting and ending positions
+    start_end_pos = Dict{Tuple{Int64, Int64}, NTuple{2, Point3f}}()
+    trajectories = Dict{Tuple{Int64, Int64}, Vector{Point3f}}()
+    Z = Dict{Tuple{Int64,Int64},Vector{Float64}}()
+    for (k,v) in trial_groups
+        start_pos = zeros(3)
+        end_pos = zeros(3)
+        trajectories[k] = Point3f[]
+        Z[k] = zeros(nelements(mm))
+        for (j,i) in enumerate(v)
+            tt,posx, posy,hd = get_trial(udata, i;trial_start=2)
+            append!(trajectories[k] ,[Point3f(px,py, floor_offset) for (px,py) in zip(posx,posy)])
+            push!(trajectories[k], Point3f(NaN))
+
+            start_pos .+= [posx[1], posy[1], ceiling_offset+5]
+            end_pos .+= [posx[end], posy[end],ceiling_offset+5]
+            tg,gaze,pos, fm, fo = get_trial(unity_data, i;trial_start=2)
+            Z[k] .+= count_on_manifold(mm, gaze)
+        end
+        start_end_pos[k] = (Point3f(start_pos./length(v)), Point3f(end_pos./length(v)))
+    end
+    # hard code 6 posters
+    with_theme(_plot_theme) do
+        lscenes = [Axis3(lg[i,j], aspect=:data, protrusions=0, viewmode=:stretch) for i in 1:length(poster_rows), j in 1:5]
+        for ii in 1:length(poster_rows)-1
+            rowgap!(lg, 1, 0)
+        end
+        _keys = collect(keys(trial_groups))
+        sort!(_keys)
+        for k in _keys
+            if ((0 in k) || (k[1]==k[2]) || !(k[1] in poster_rows))
+                continue
+            end
+            vidx = setdiff(1:6, k[1])
+            lscene = lscenes[findfirst(k[1].==poster_rows), findfirst(vidx.==k[2])]
+            if isa(lscene, Axis3)
+                hidedecorations!(lscene)
+                lscene.xspinesvisible=false
+                lscene.yspinesvisible=false
+                lscene.zspinesvisible=false
+                lscene.elevation[] = 0.57
+            end
+            _alpha = fill(1.0, size(Z[k]))
+            _alpha[Z[k].==0.0] .= 0.0
+            plotmesh!(lscene, mm_simple;color=:lightgray, showsegments=true, segmentcolor=:gray,ceiling_offset=ceiling_offset, floor_offset=floor_offset)
+            plotmesh!(lscene, mm;color=Z[k], alpha=_alpha, ceiling_offset=ceiling_offset, floor_offset=floor_offset, showsegments=false, colormap=:imola)
+            if show_position_trajectories
+                #viz!(lscene, m_floor;color=:lightgray, showsegments=false)
+                lines!(lscene, trajectories[k],color=:black)
+                #scatter!(lscene, [start_end_pos[k]...], color=[:red, :orange])
+            end
+            scatter!(lscene, [start_end_pos[k]...], color=[:red, :orange])
+            linesegments!(lscene, [(p+Point3f(0.0, 0.0, -(ceiling_offset+5)+floor_offset),p) for p in start_end_pos[k]], color=[:red, :orange] )
+            # tweak the orientation of the axis
+            lscene.elevation[] = 0.31449218749999996
+            lscene.azimuth[] = 3.786975945826985
+        end
+    end
+end
+
 """
 Group trials by pairs of poster ids
 """
