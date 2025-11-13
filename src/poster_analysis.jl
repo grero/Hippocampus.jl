@@ -227,9 +227,12 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
     current_poster_selectivity = data["current_poster_selectivity_strength"]
     previous_poster_selectivity = data["previous_poster_selectivity_strength"]
 
+    data_previous_poster_end_trial = JLD2.load("data/previous_poster_id_population_decoding_trial_end.jld2")
+    data_current_poster_end_trial = JLD2.load("data/current_poster_id_population_decoding_trial_end.jld2")
+
     with_theme(poster_theme) do
         width = 51*72/2.5
-        height = 0.75*width
+        height = 0.9*width
         fig = Figure(size=(width, height))
         # indivvidual cell responses
         lg2 = GridLayout(fig[1,1])
@@ -241,9 +244,6 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         lg31 = GridLayout(lg2[2,1])
         rowsize!(lg31, 1, Relative(0.6))
         plot_raster_and_psth!(lg31, allcelldirs[cell_examples.previous_poster_selective];previous=false, binsize=0.1, show_psth=show_psth, show_outliers=false,tmin=tmin,tmax=tmax)
-        Label(lg2[1,0], "Grouped by previous poster", rotation=-π/2, valign=:center, halign=:center,fontsize=18)
-        Label(lg2[2,0], "Grouped by current poster", rotation=-π/2, valign=:center, halign=:center, fontsize=18)
-        colgap!(lg2,1,0)
         lg22 = GridLayout(lg2[1,2])
         Label(lg22[1,1,TopLeft()], "B")
         rowsize!(lg22, 1, Relative(0.6))
@@ -259,18 +259,32 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
 
         plot_raster_and_psth!(lg23, allcelldirs[cell_examples.both];previous=true, ylabelvisible=false, xticklabelsvisible=true, xlabelvisible=true,binsize=0.1, show_psth=show_psth, show_outliers=false, tmin=tmin, tmax=tmax)
         plot_raster_and_psth!(lg33, allcelldirs[cell_examples.both];previous=false, ylabelvisible=false, binsize=0.1,show_psth=show_psth,show_outliers=false, tmin=tmin, tmax=tmax)
+        Label(lg2[1,0], "Grouped by previous poster", rotation=π/2, valign=:center, halign=:center,fontsize=18,tellheight=false)
+        Label(lg2[2,0], "Grouped by current poster", rotation=π/2, valign=:center, halign=:center, fontsize=18, tellheight=false)
+        colgap!(lg2,1,0)
+
         # tuning strength of individual cell vs contribution to decoder
         # plot performance on current poster vs previous poster
         lg1 = GridLayout(fig[2,1])
         colsize!(lg1, 1, Relative(0.4))
         lg11 = GridLayout(lg1[1,1])
-        Label(lg11[1,1,TopLeft()],"D")
-        ax = Axis(lg11[1,1])
-        sc = scatter!(ax, μ_perf_c, μ_perf_p,color=ncells, markersize=30px)
-        Colorbar(lg11[1,2], sc, label="No cells")
-        ablines!(ax, 0.0, 1.0, linestyle=:dot, color=:black)
-        ax.xlabel = "Performance current"
-        ax.ylabel = "Performance previous"
+        Label(lg11[1,1,TopLeft()],"D", padding=(10,10,20,10))
+        ax_cue = Axis(lg11[1,1])
+        sc = scatter!(ax_cue, μ_perf_c, μ_perf_p,color=ncells, markersize=10px)
+        ablines!(ax_cue, 0.0, 1.0, linestyle=:dot, color=:black)
+        ax_cue.ylabel = "Perf\nprevious (cue)"
+        ax_cue.xlabel = "Perf current (cue)"
+        μ_perf_c_end  = dropdims(mean(data_current_poster_end_trial["perf"],dims=1),dims=1)
+        μ_perf_p_end  = dropdims(mean(data_previous_poster_end_trial["perf"],dims=1),dims=1)
+        @assert length(μ_perf_c_end) == length(μ_perf_p_end)
+        ax_end = Axis(lg11[2,1])
+        Label(lg11[2,1,TopLeft()],"E", padding=(10,10,20,10))
+        sc_end = scatter!(ax_end,μ_perf_c_end, μ_perf_p_end, color=ncells, markersize=10px)
+        ablines!(ax_end, 0.0, 1.0, linestyle=:dot, color=:black)
+        Colorbar(lg11[1:2,2], sc, label="No cells")
+        ax_end.xlabel = "Perf current (end)"
+        ax_end.ylabel = "Perf\nprevious (end)"
+        linkaxes!(ax_cue, ax_end)
 
         lg12 = GridLayout(lg1[1,2])
         ax41 = Axis(lg12[1,2], xticks=WilkinsonTicks(3))
@@ -284,11 +298,11 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         vlines!(ax4, 0.0, linestyle=:dot, color=:black)
         vlines!(ax41, 0.0, linestyle=:dot, color=:black)
         rowsize!(lg12, 1, Relative(0.4))
-        Label(lg12[1,1,TopLeft()], "E")
+        Label(lg12[1,2,TopLeft()], "F", padding=(10,10,10,10))
 
         ax51 = Axis(lg12[1,3], xticks=WilkinsonTicks(3))
         ax5 = Axis(lg12[2,3], xticks=WilkinsonTicks(3))
-        Label(lg12[1,2,TopLeft()], "F")
+        Label(lg12[1,3,TopLeft()], "G", padding=(10,10,10,10))
         linkxaxes!(ax5,ax51)
         ax51.xticklabelsvisible = false
         hist!(ax51, 1.0./previous_poster_selectivity .- 1.0)
@@ -311,8 +325,7 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         ax8.xlabel = "# cells\nPrevious"
         ax8.yticklabelsvisible = false
         rowsize!(fig.layout, 1, Relative(0.65))
-        resize_to_layout!(fig)
-        rowgap!(fig.layout, 1, 0)
+        rowgap!(fig.layout, 1, 5)
         fig
     end
 end
