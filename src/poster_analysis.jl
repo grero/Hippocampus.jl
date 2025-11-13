@@ -276,11 +276,11 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         ax4 = Axis(lg12[2,2], xticks=WilkinsonTicks(3))
         linkxaxes!(ax4,ax41)
         ax41.xticklabelsvisible = false
-        hist!(ax41, 1.0./current_poster_selectivity)
-        scatter!(ax4, 1.0./current_poster_selectivity, dropdims(mean(contrib_current,dims=2),dims=2))
+        hist!(ax41, 1.0./current_poster_selectivity .- 1.0)
+        scatter!(ax4, 1.0./current_poster_selectivity .- 1.0, dropdims(mean(contrib_current,dims=2),dims=2), markersize=5px)
         ax4.xlabel = "Current poster\nselectivity"
-        vlines!(ax4, 1.0, linestyle=:dot, color=:black)
-        vlines!(ax41, 1.0, linestyle=:dot, color=:black)
+        vlines!(ax4, 0.0, linestyle=:dot, color=:black)
+        vlines!(ax41, 0.0, linestyle=:dot, color=:black)
         rowsize!(lg12, 1, Relative(0.4))
         Label(lg12[1,1,TopLeft()], "E")
 
@@ -289,10 +289,10 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         Label(lg12[1,2,TopLeft()], "F")
         linkxaxes!(ax5,ax51)
         ax51.xticklabelsvisible = false
-        hist!(ax51, 1.0./previous_poster_selectivity)
-        scatter!(ax5, 1.0./previous_poster_selectivity, dropdims(mean(contrib_previous,dims=2),dims=2))
-        vlines!(ax5, 1.0, linestyle=:dot, color=:black)
-        vlines!(ax51, 1.0, linestyle=:dot, color=:black)
+        hist!(ax51, 1.0./previous_poster_selectivity .- 1.0)
+        scatter!(ax5, 1.0./previous_poster_selectivity .- 1.0, dropdims(mean(contrib_previous,dims=2),dims=2), markersize=5px)
+        vlines!(ax5, 0.0, linestyle=:dot, color=:black)
+        vlines!(ax51, 0.0, linestyle=:dot, color=:black)
         ax5.xlabel = "Previous poster\nselectivity"
 
         # panel to show marginal histogram of coding cotribution
