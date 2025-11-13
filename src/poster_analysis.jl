@@ -241,7 +241,9 @@ function plot_poster_decoding_results(;cell_examples=(poster_selective=71, previ
         lg31 = GridLayout(lg2[2,1])
         rowsize!(lg31, 1, Relative(0.6))
         plot_raster_and_psth!(lg31, allcelldirs[cell_examples.previous_poster_selective];previous=false, binsize=0.1, show_psth=show_psth, show_outliers=false,tmin=tmin,tmax=tmax)
-
+        Label(lg2[1,0], "Grouped by previous poster", rotation=-π/2, valign=:center, halign=:center,fontsize=18)
+        Label(lg2[2,0], "Grouped by current poster", rotation=-π/2, valign=:center, halign=:center, fontsize=18)
+        colgap!(lg2,1,0)
         lg22 = GridLayout(lg2[1,2])
         Label(lg22[1,1,TopLeft()], "B")
         rowsize!(lg22, 1, Relative(0.6))
