@@ -806,9 +806,9 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
     nt = size(X,2)
     ntrain = round(Int64, 0.8*nt)
 
-    mm = Hippocampus.get_maze_mesh(nrefinements=0)
+    mm = Hippocampus.get_maze_mesh()
 
-    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=0))
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3())
 
     # get the view categories
     kidx_v = categorize(Y[1:3,:], mm) 
