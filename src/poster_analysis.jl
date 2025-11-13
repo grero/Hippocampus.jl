@@ -647,11 +647,11 @@ function plot_knn_population_decoding_results(fname::String;show_f1_score=false,
                 lgpq = GridLayout(fig[2,1:2])
                 Label(lgpq[1,1,TopLeft()], "F", padding=(10,10,10,10))
                 lgqq = GridLayout(lgpq[1,1])
-                _ax1 = plot_independent_vs_joint_category_decoding!(lgqq, fname, fname_ind;_plot_theme=_plot_theme,ylabel="F1-score joint",xlabel="F1-score ind")
+                _ax1 = plot_independent_vs_joint_category_decoding!(lgqq, fname, fname_ind;_plot_theme=_plot_theme,ylabel="F1-score joint (360 cells)",xlabel="F1-score ind (360 cells)")
                 if !isempty(fname_reduced)
                     lgqq1 = GridLayout(lgpq[1,2])
                     Label(lgqq1[1,1,TopLeft()], "G", padding=(10,10,10,10))
-                    _ax2 = plot_independent_vs_joint_category_decoding!(lgqq1, fname, fname_reduced;_plot_theme=_plot_theme,xlabel="F1-score view/place", ylabelvisible=false)
+                    _ax2 = plot_independent_vs_joint_category_decoding!(lgqq1, fname, fname_reduced;_plot_theme=_plot_theme,xlabel="F1-score joint (43 place/view cells)", ylabel="F1-score joint (360 cells)", ylabelvisible=true)
                     linkyaxes!(_ax1, _ax2)
                 end
             end
