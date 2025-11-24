@@ -632,6 +632,39 @@ function regress_space(spr::Vector{SpatialRepresentation{T1,T2}};n_spatial_clust
     lq, pca, km_results, X2,X,Y 
 end
 
+function fit_spatial_glm(nspikes::Vector{T}, pos::Matrix{T}) where T <: Real
+    m = glm(pos, nspikes)
+end
+
+function fit_spatial_glm(spr, km_results,pos)
+    d,np = size(km_results.centers)
+    Σ = zeros(d,d,np)
+    for i in 1:np
+        Σ[:,:,i] = cov(pos[:,km_results.assignments.==i];dims=2)
+    end
+    Pm_xy = [MultivariateNormal(km_results.centers[:,i],Σ[:,:,i]) for i in 1:np]
+    P_xy = km_results.counts./sum(km_results.counts)
+    nspikes = zeros(np)
+    for trialpos in spr.position
+       for _pos in trialpos
+           idx = argmin(dropdims(sum(abs2, _pos .- km_results.centers,dims=1),dims=1))
+           nspikes[idx] += 1
+        end
+    end
+    m = glm(cat(permutedims(Float64.(km_results.centers)),fill(1.0, np),dims=2), round.(Int64, nspikes), Poisson())
+    # construct Poisson distribution
+    P_nspikes_xy = 1.0 .- cdf.(Poisson.(m.rr.mu), nspikes)
+    # fit the number of spikes regardless of position
+    # TODO: This is probably not quite correct
+    P_nspikes = fit(Poisson, Int64.(nspikes))
+    function P_xy_nspikes(x::Real,y::Real,nsp::Integer)
+        λ = exp(m.pp.beta0[1]*x + m.pp.beta0[2]*y + m.pp.beta0[3])
+        pxy = sum(pdf.(Pm_xy, [[x,y]]).*P_xy)
+        pp = (1.0 .- cdf(Poisson(λ),nsp))*pxy
+        pp./(1.0 .- cdf(P_nspikes,nsp))
+    end
+end
+
 function merge_responses(X::Matrix{T}, km_results::Vector{Clustering.KmeansResult{Matrix{T},T,Int64}}) where T <: Real
     assignments = [km.assignments for km in km_results]
     centers = [km.centers for km in km_results]
