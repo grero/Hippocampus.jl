@@ -8,6 +8,20 @@ using Random
 using Optim
 using GLM
 
+struct GLMFit
+    β_pos::Vector{Float64}
+    deviance_pos::Tuple{Float64, Float64}
+    β_gaze::Vector{Float64}
+    deviance_gaze::Tuple{Float64, Float64}
+    β_hd::Vector{Float64}
+    deviance_hd::Tuple{Float64, Float64}
+    β_all::Vector{Float64}
+    deviance_all::Tuple{Float64, Float64}
+end
+
+DPHT.filename(::Type{GLMFit}) = "glmfit.jld2"
+DPHT.level(::Type{GLMFit}) = "cell"
+
 function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy)
     mm = get_maze_mesh()
     m_floor = floor_topology3()
@@ -289,7 +303,7 @@ function fit_glm(pos::Matrix{T}, head_dir::Vector{T}, gaze::Matrix{T}, nspikes::
     end
     is_gaze_selective = deviance(q_gaze) < percentile(d_gaze_shuffled, 1)
 
-    θ = head_dir.*π/180
+    θ = head_dir
     X_hd = [cos.(θ) sin.(θ) ones(n)]
     q_hd = glm(X_hd, nspikes, Poisson())
     d_hd_shuffled = zeros(1000)
@@ -315,8 +329,55 @@ function fit_glm(pos::Matrix{T}, head_dir::Vector{T}, gaze::Matrix{T}, nspikes::
     # how do we shuffle this in a meaningful way?
     # we can shuffle e.g. view within each place bin for instance
     # compute place ll for data with view shuffled and view for data with place shuffed 
+    (deviance_pos = (deviance(q_pos), percentile(d_pos_shuffled, 1)),
+     β_pos = q_pos.pp.beta0,
+     deviance_gaze = (deviance(q_gaze),percentile(d_gaze_shuffled,1)),
+     β_gaze = q_gaze.pp.beta0,
+     deviance_hd = (deviance(q_hd), percentile(d_gaze_shuffled, 1)),
+     β_hd = q_hd.pp.beta0,
+     aic_all = (aic_pos_gaze, aic_ind),
+     β_all = q_pos_gaze.pp.beta0)
+end
 
-    is_pos_selective, is_hd_selective, is_gaze_selective, aic_pos_gaze, aic_ind
+function GLMFit(jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true)
+    fname = DPHT.filename(GLMFit)
+    if !redo && isfile(fname)
+        glmfit = load_jld2(GLMFit, fname)
+    else
+        vpvrp = ViewAndPlaceRepresentationNew()
+        nspikes, mpos, mgaze, mhd = fit_glm(vpvrp, jocc, unity_gaze_data)
+        res = fit_glm(mpos, mhd, mgaze, nspikes) 
+        glmfit = GLMFit(res.β_pos, res.deviance_pos, res.β_gaze, res.deviance_gaze, res.β_hd, res.deviance_hd, res.β_all, res.aic_all)
+        if do_save
+            save_jld2(glmfit, fname)
+        end
+    end
+    glmfit
+end
+
+function GLMFit(celldirs::Vector{String};kwargs...)
+    is_gaze_selective = fill(false, length(celldirs))
+    is_pos_selective = fill(false, length(celldirs))
+    is_hd_selective = fill(false, length(celldirs))
+    allsessiondirs = DPHT.get_level_path.("session", celldirs)
+    sessiondirs = unique(allsessiondirs)
+    @showprogress "Computing GLM fits..." for sessiondir in sessiondirs
+        jocc, unity_gaze_data = cd(sessiondir) do
+            jocc = JointOccupancy(;kwargs...)
+            unity_gaze_data = UnityRaytraceData(;kwargs...)
+            jocc, unity_gaze_data
+        end
+        cidx = findall(allsessiondirs.==sessiondir)
+        for (cc,celldir) in zip(cidx,celldirs[cidx])
+            glmfit = cd(celldir) do
+                GLMFit(jocc, unity_gaze_data)
+            end
+            is_gaze_selective[cc] = glmfit.deviance_gaze[1] < glmfit.deviance_gaze[2]
+            is_pos_selective[cc] = glmfit.deviance_pos[1] < glmfit.deviance_pos[2]
+            is_hd_selective[cc] = glmfit.deviance_hd[1] < glmfit.deviance_hd[2]
+        end
+    end
+    is_pos_selective, is_hd_selective, is_gaze_selective
 end
 
 function fit_glm(vpr::ViewRepresentation, vpoc::ViewAndPlaceOccupancy)
