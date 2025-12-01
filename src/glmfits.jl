@@ -199,10 +199,8 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
     mgaze = stack(Tuple.(centroid.(mm[getindex.(qidx,1)])))
     mhd = hdbins[getindex.(qidx,3)] 
     t2 = time()
-    @show t2-t1
     cc = get_num_spikes(vpvrp, jocc)
     nspikes = zeros(Int16, length(qidx))
-    @show length(intersect(qidx, keys(cc)))
     for (ii,k) in enumerate(qidx)
         if k in keys(cc)
             nspikes[ii] = cc[k]
