@@ -443,7 +443,23 @@ function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::Abs
     η = X'*β
     λ = exp.(η)
     ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
-    #ll2 =α*η'*L*η
+    ll2 =α*β'*L*β
+    ll1 + ll2
+end
+
+function lossfunc22(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, α::AbstractVector{<:Real})
+    η = X'*β
+    λ = exp.(η)
+    ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
+    ll2 =α.*β'*L*β
+    ll1 .+ ll2
+end
+
+function lossfunc23(β, X, y,L, α)
+    η = X'*β
+    λ = exp.(η)
+    ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
+    ll2 =α*β'*L*β
     ll1 + ll2
 end
 
