@@ -7,6 +7,8 @@ using SpecialFunctions
 using Random
 using Optim
 using GLM
+using ReverseDiff
+using ADTypes
 
 struct GLMFit
     β_pos::Vector{Float64}
@@ -443,6 +445,20 @@ function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::Abs
     ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
     #ll2 =α*η'*L*η
     ll1 + ll2
+end
+
+function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T)) where T <: Real
+    d,n = size(X)
+    if β0 === nothing
+        β0 = randn(T,d+1)
+    elseif size(β0,1) == size(X,1)
+        push!(β0, randn(T))
+    end
+    L2 = zeros(T, size(L,1)+1, size(L,2)+1)
+    L2[1:size(L,1), 1:size(L,2)] .= L
+    Xq = [X;ones(T, 1, n)]
+    lf(β) = lossfunc2(β, Xq, y,L2,α)
+    q = optimize(lf, β0, LBFGS(), Optim.Options(;show_trace=true);autodiff=AutoReverseDiff()) 
 end
 
 """
