@@ -441,16 +441,41 @@ function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::Abs
     η = X'*β
     λ = exp.(η)
     ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
-    ll2 =α*η'*L*η
+    #ll2 =α*η'*L*η
     ll1 + ll2
 end
 
-function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real};β0::Union{Nothing,T}=nothing,α::T=T(0.01)) where T <: Real
+"""
+Smooth function
+"""
+function lossfunc4(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real}, α::Matrix{<:Real})
+    η = X'*β
+    λ = exp.(η)
+    ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
+    #ll2 =α*η'*L*η
+    ll2 = β'*α*β #smoothing
+    ll1 + ll2
+end
+
+function get_diff_matrix(α::Vector{T}) where T <: Real
+    d = length(α)
+    A = zeros(T, d,d+1)
+    for i in 1:d
+        A[i,i:i+1] = [-α[i],α[i]]
+    end
+    A
+end
+
+function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer};β0::Union{Nothing,T}=nothing,α::Vector{T}=ones(T,size(X,1)-1)) where T <: Real
     d,n = size(X)
     if β0 === nothing
-        β0 = randn(T,d)
+        β0 = randn(T,d+1)
     end
-    lf(β) = lossfunc2(β, X, y,L,α)
+    A = zeros(d-1,d+1)
+    A[:,1:d] = get_diff_matrix(α)
+    A2 = A'*A
+    Xq = [X;ones(T, 1, n)]
+    lf(β) = lossfunc4(β, Xq, y,A2)
     q = optimize(lf, β0, LBFGS();autodiff=:forward) 
 end
 
