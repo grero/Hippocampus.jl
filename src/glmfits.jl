@@ -24,6 +24,48 @@ end
 DPHT.filename(::Type{GLMFit}) = "glmfit.jld2"
 DPHT.level(::Type{GLMFit}) = "cell"
 
+struct GLMFitH{N}
+    β::Array{Float64,3}
+    ll::Matrix{Float64}
+    α::Vector{Float64}
+    trainidx::Matrix{Int64}
+    nspikes::Vector{Int16}
+    dims::NTuple{N,Symbol}
+    qidx::Vector{CartesianIndex{4}}
+end
+
+DPHT.filename(::Type{GLMFitH{N}}) where N = "glmfith.jld2"
+
+function DPHT.filename(::Type{GLMFitH{N}},dims::NTuple{N,Symbol}) where N
+    nn = join(String.(dims),'_')
+    fname = "glmfith_$(nn).jld2"
+    fname
+end
+
+DPHT.level(::Type{GLMFitH{N}}) where N = "cell"
+
+function process_kwargs(::Type{GLMFitH{N}};α=[0.01, 0.001, 0.0001, 0.00001], nruns=10, kwargs...) where N
+    h = UInt32(0)
+    h = CRC32c.crc32c(string((:α=>α)),h)
+    h = CRC32c.crc32c(string((:nruns=>nruns)),h)
+    h
+end
+
+function get_best_α(glmfit::GLMFitH{N}) where N
+    nruns,nα = size(glmfit.ll)
+    nn = zeros(Int64, nα)
+    for i in 1:nα
+        for j in 1:nα
+            if i == j
+                continue
+            end
+            nn[i] += sum(glmfit.ll[:,i] .> glmfit.ll[:,j])
+        end
+    end
+    idx = argmax(nn)
+    glmfit.α[idx],idx
+end
+
 function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy)
     mm = get_maze_mesh()
     m_floor = floor_topology3()
@@ -481,6 +523,129 @@ function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix
     Xq = [X;ones(T, 1, n)]
     lf(β) = lossfunc2(β, Xq, y,L2,α)
     q = optimize(lf, β0, LBFGS(), Optim.Options(;show_trace=true);autodiff=AutoReverseDiff()) 
+end
+
+function get_trainidx(n::Integer, nruns::Integer)
+    ntrain = round(Int64, 0.8*n) 
+    trainidx = fill(0, ntrain, nruns)
+    for r in 1:nruns
+        _train_idx = shuffle(1:n)[1:round(Int64, 0.8*n)]
+        sort!(_train_idx)
+        trainidx[:,r] .= _train_idx
+    end
+    trainidx
+end
+
+function cross_validate(α::AbstractVector{T},X::AbstractMatrix{<:Real}, args...;nruns=10, kwargs...) where T <: Real
+    trainidx = get_trainidx(size(X,2),nruns)
+    dq = Dict{T,Dict{Symbol,Any}}()
+    for _α in α
+        β,ll = cross_validate(trainidx, X,args...;α=_α)
+        dq[_α] = Dict(:β => β, :ll => ll)
+    end
+    dq, trainidx
+end
+
+"""
+Run glm fit on `nruns` separate training and testing sets
+"""
+function cross_validate(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T),nruns=10) where T <: Real
+    trainidx = get_trainidx(size(X,2),nruns)
+    cross_validate(trainidx, X, y,L;α=α)
+end
+
+
+function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T)) where T <: Real
+    d,n = size(X)
+    nruns = size(trainidx,2)
+    ll = zeros(nruns)
+    β = zeros(d+1,nruns)
+    for r in 1:nruns
+        _train_idx = trainidx[:,r]
+        sort!(_train_idx)
+        test_idx = setdiff(1:n, _train_idx)
+        X_train = X[:,_train_idx]
+        y_train = y[_train_idx]
+
+        X_test = X[:,test_idx]
+        y_test = y[test_idx]
+
+        q = fit_glm_2(X_train, y_train, L;α=α)
+        ll[r] = logprob(q.minimizer, [X_test;ones(1,length(test_idx))], y_test)
+        β[:,r] .= q.minimizer
+    end
+    β,ll , trainidx
+end
+
+function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,α=10.0.^[-2,-3,-4,-5,-6],nruns=10) where N
+    fname = DPHT.filename(GLMFitH{N}, dims)
+    h = process_kwargs(GLMFitH{N};α=α,nruns=nruns)
+    if h != 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo && isfile(fname)
+        glmfit = load_jld2(GLMFitH{N}, fname)
+    else
+        mm = get_maze_mesh() 
+        m_floor = Shadow("xy")(floor_topology3())
+        # maybe make this more flexible
+        nhd_bins = 24
+        vpvrp = ViewAndPlaceRepresentationNew()
+        nspikes, mpos, mgaze, mhd,qidx = fit_glm(vpvrp, jocc, unity_gaze_data)
+        # construct X based on dims argument
+        d = Int64[] 
+        didx = Int64[]
+        for dd in dims
+            if dd == :g
+                push!(d,nelements(mm))
+                push!(didx, 1)
+            elseif dd == :p
+                push!(d, nelements(m_floor))
+                push!(didx,2)
+            elseif dd == :hd
+                push!(d,nhd_bins)
+                push!(didx, 3)
+            end
+        end
+        n = length(nspikes)
+        X = zeros(sum(d), n)
+        # set up laplacian
+        L = zeros(sum(d), sum(d))
+        offset = 0
+        for (nd,dd) in zip(d,dims)
+            if dd == :g
+                A = adjacencymatrix(mm)
+                L[offset+1:offset+nd, offset+1:offset+nd] = diagm(dropdims(sum(A,dims=2),dims=2)) - A
+            elseif dd == :p
+                A = adjacencymatrix(m_floor)
+                L[offset+1:offset+nd, offset+1:offset+nd] = diagm(dropdims(sum(A,dims=2),dims=2)) - A
+            elseif dd == :hd
+                A = get_circular_adjancency(nhd_bins)
+                L[offset+1:offset+nd, offset+1:offset+nd] = diagm(dropdims(sum(A,dims=2),dims=2)) - A
+            end
+            offset += nd
+        end
+
+        for (ii,qq) in enumerate(qidx)
+            for (j,_didx) in enumerate(didx)
+                offset = sum(d[1:j-1])
+                X[offset+qq.I[_didx],ii] = 1.0
+            end
+        end
+        dq,trainidx = cross_validate(α, X, nspikes, L;nruns=nruns)
+        β = zeros(size(X,1)+1, nruns, length(α))
+        ll = zeros(nruns, length(α))
+        for (i,_α) = enumerate(α)
+            β[:,:,i] = dq[_α][:β]
+            ll[:,i] = dq[_α][:ll]
+        end
+        glmfit = GLMFitH(β, ll, α, trainidx, nspikes, dims, qidx)
+        if do_save
+            save_jld2(glmfit, fname)
+        end
+    end
+    glmfit
 end
 
 """
