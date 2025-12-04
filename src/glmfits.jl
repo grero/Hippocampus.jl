@@ -489,6 +489,23 @@ function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::Abs
     ll1 + ll2
 end
 
+function lossfunc2_grad!(gg, β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, α::Real)
+    η = X'*β
+    δη = X
+    fill!(gg, 0.0)
+    for i in 1:length(y)
+        yi = y[i]
+        ηi = η[i]
+        eηi = exp(ηi)
+        for j in 1:length(β)
+            gg[j] += -yi.*δη[j,i] + eηi.*δη[j,i]
+        end
+    end
+    #δll1 = dropdims(mean(-reshape(y,1,length(y)).*δη + δλ,dims=2),dims=2)
+    gg ./= length(y)
+    gg .+= α*(L + L')*β
+end
+
 function lossfunc22(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, α::AbstractVector{<:Real})
     η = X'*β
     λ = exp.(η)
