@@ -557,7 +557,7 @@ function cross_validate(α::AbstractVector{T},X::AbstractMatrix{<:Real}, args...
     trainidx = get_trainidx(size(X,2),nruns)
     dq = Dict{T,Dict{Symbol,Any}}()
     for _α in α
-        β,ll = cross_validate(trainidx, X,args...;α=_α)
+        β,ll = cross_validate(trainidx, X,args...;α=_α,kwargs...)
         dq[_α] = Dict(:β => β, :ll => ll)
     end
     dq, trainidx
@@ -566,13 +566,13 @@ end
 """
 Run glm fit on `nruns` separate training and testing sets
 """
-function cross_validate(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T),nruns=10) where T <: Real
+function cross_validate(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T),nruns=10,kwargs...) where T <: Real
     trainidx = get_trainidx(size(X,2),nruns)
-    cross_validate(trainidx, X, y,L;α=α)
+    cross_validate(trainidx, X, y,L;α=α,kwargs...)
 end
 
 
-function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T)) where T <: Real
+function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T),kwargs...) where T <: Real
     d,n = size(X)
     nruns = size(trainidx,2)
     ll = zeros(nruns)
@@ -587,7 +587,7 @@ function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::Abstra
         X_test = X[:,test_idx]
         y_test = y[test_idx]
 
-        q = fit_glm_2(X_train, y_train, L;α=α)
+        q = fit_glm_2(X_train, y_train, L;α=α,kwargs...)
         ll[r] = logprob(q.minimizer, [X_test;ones(1,length(test_idx))], y_test)
         β[:,r] .= q.minimizer
     end
