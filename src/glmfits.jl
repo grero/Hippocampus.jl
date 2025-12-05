@@ -594,7 +594,7 @@ function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::Abstra
     β,ll , trainidx
 end
 
-function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,α=10.0.^[-2,-3,-4,-5,-6],nruns=10) where N
+function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};α=α,nruns=nruns)
     if h != 0
@@ -650,7 +650,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
                 X[offset+qq.I[_didx],ii] = 1.0
             end
         end
-        dq,trainidx = cross_validate(α, X, nspikes, L;nruns=nruns)
+        dq,trainidx = cross_validate(α, X, nspikes, L;nruns=nruns,show_trace=show_trace)
         β = zeros(size(X,1)+1, nruns, length(α))
         ll = zeros(nruns, length(α))
         for (i,_α) = enumerate(α)
