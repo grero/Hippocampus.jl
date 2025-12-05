@@ -528,7 +528,7 @@ function logprob(β, X, y)
     ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
 end
 
-function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T)) where T <: Real
+function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
     d,n = size(X)
     if β0 === nothing
         β0 = randn(T,d+1)
@@ -539,7 +539,13 @@ function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix
     L2[1:size(L,1), 1:size(L,2)] .= L
     Xq = [X;ones(T, 1, n)]
     lf(β) = lossfunc2(β, Xq, y,L2,α)
-    q = optimize(lf, β0, LBFGS(), Optim.Options(;show_trace=true);autodiff=AutoReverseDiff()) 
+    g!(g, β) = lossfunc2_grad!(g, β, Xq, y, L2, α)
+    prog = ProgressThresh(1e-8;desc="Minimizing...", enabled=show_progress,showspeed=true)
+    function callback(state)
+        ProgressMeter.update!(prog, state.g_norm)
+        return false
+    end
+    q = optimize(lf, g!, β0, LBFGS(), Optim.Options(;show_trace=show_trace, show_every=10, callback=callback)) 
 end
 
 function get_trainidx(n::Integer, nruns::Integer)
