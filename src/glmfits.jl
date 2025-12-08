@@ -733,7 +733,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         m_floor = Shadow("xy")(floor_topology3())
         # maybe make this more flexible
         nhd_bins = 24
-        vpvrp = ViewAndPlaceRepresentationNew()
+        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
         nspikes, mpos, mgaze, mhd,qidx = fit_glm(vpvrp, jocc, unity_gaze_data)
         # construct X based on dims argument
         d = Int64[] 
