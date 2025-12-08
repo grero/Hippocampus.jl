@@ -498,9 +498,11 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, mm::MazeModelNew)
     plots
 end
 
-function Makie.convert_arguments(::Type{<:Wireframe}, mm::MazeModelNew)
+function Makie.convert_arguments(::Type{<:Wireframe}, mm::MazeModelNew, hide_ceiling=false)
     plots = [S.Wireframe(mm.floor, color=(:black, 0.2),transparency=true)]
-    push!(plots, S.Wireframe(mm.ceiling, color=(:black, 0.2), transparency=true))
+    if !hide_ceiling
+        push!(plots, S.Wireframe(mm.ceiling, color=(:black, 0.2), transparency=true))
+    end
     for mw in mm.walls
         push!(plots, S.Wireframe(mw,color=(:black, 0.2), transparency=true))
     end
