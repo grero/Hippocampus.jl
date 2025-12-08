@@ -250,7 +250,7 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
             nspikes[ii] = cc[k]
         end
     end
-    nspikes, mpos, mgaze,mhd
+    nspikes, mpos, mgaze,mhd, qidx
 end
 
 function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy,unity_gaze_data::UnityRaytraceData)
