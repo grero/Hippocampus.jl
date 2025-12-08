@@ -416,27 +416,38 @@ function GLMFit(jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=fa
     glmfit
 end
 
-function GLMFit(celldirs::Vector{String};kwargs...)
+function do_GLMFit(::Type{T}, celldirs::Vector{String},args...;skip_error=true, kwargs...) where T <: Union{GLMFit, GLMFitH{<:Any}}
     is_gaze_selective = fill(false, length(celldirs))
     is_pos_selective = fill(false, length(celldirs))
     is_hd_selective = fill(false, length(celldirs))
     allsessiondirs = DPHT.get_level_path.("session", celldirs)
     sessiondirs = unique(allsessiondirs)
     @showprogress "Computing GLM fits..." for sessiondir in sessiondirs
-        jocc, unity_gaze_data = cd(sessiondir) do
-            jocc = JointOccupancy(;kwargs...)
-            unity_gaze_data = UnityRaytraceData(;kwargs...)
-            jocc, unity_gaze_data
-        end
-        cidx = findall(allsessiondirs.==sessiondir)
-        for (cc,celldir) in zip(cidx,celldirs[cidx])
-            glmfit = cd(celldir) do
-                GLMFit(jocc, unity_gaze_data)
+        try
+            jocc, unity_gaze_data = cd(sessiondir) do
+                jocc = JointOccupancy(;kwargs...)
+                unity_gaze_data = UnityRaytraceData(;kwargs...)
+                jocc, unity_gaze_data
             end
-            is_gaze_selective[cc] = glmfit.deviance_gaze[1] < glmfit.deviance_gaze[2]
-            is_pos_selective[cc] = glmfit.deviance_pos[1] < glmfit.deviance_pos[2]
-            is_hd_selective[cc] = glmfit.deviance_hd[1] < glmfit.deviance_hd[2]
-        end
+            cidx = findall(allsessiondirs.==sessiondir)
+            for (cc,celldir) in zip(cidx,celldirs[cidx])
+                glmfit = cd(celldir) do
+                    T(args..., jocc, unity_gaze_data;kwargs...)
+                end
+                if T <: GLMFit
+                    is_gaze_selective[cc] = glmfit.deviance_gaze[1] < glmfit.deviance_gaze[2]
+                    is_pos_selective[cc] = glmfit.deviance_pos[1] < glmfit.deviance_pos[2]
+                    is_hd_selective[cc] = glmfit.deviance_hd[1] < glmfit.deviance_hd[2]
+                end
+            end
+        catch ee
+            if skip_error
+                @show "Could not proocess $(sessiondir)"
+                continue
+            else
+                rethrow(ee)
+           end
+       end
     end
     is_pos_selective, is_hd_selective, is_gaze_selective
 end
