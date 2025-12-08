@@ -711,7 +711,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             β[:,:,i] = dq[_α][:β]
             ll[:,i] = dq[_α][:ll]
         end
-        glmfit = GLMFitH(β, ll, α, trainidx, nspikes, dims, qidx)
+        glmfit = GLMFitH(β, ll, α, trainidx, nspikes, dims, qidx,true)
         if do_save
             save_jld2(glmfit, fname)
         end
