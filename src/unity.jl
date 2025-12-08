@@ -223,6 +223,12 @@ function read_unity_file(fname::String)
         data = data[:,2:end]
     end
     data = convert(Matrix{Float64}, data)
+    # hack
+    header_new = Dict{Symbol, NTuple{3,Float64}}()
+    for (k,v) in header["PosterLocations"]
+        header_new[Symbol(k)] = v
+    end
+    header["PosterLocations"] = header_new
     data, header, column_names
 end
 
