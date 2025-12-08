@@ -431,13 +431,16 @@ function get_gaze(X::UnityRaytraceData;only_fixations=true)
     Y[:,1:offset], w[1:offset]
 end
 
-function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_fname="unityfile_eyelink.csv", extradir::String="")
+function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_fname="unityfile_eyelink.csv", extradir::String="",fix_eyelink=false, kwargs...)
     fname = DPHT.filename(UnityRaytraceData)
     if !redo && isfile(fname)
         t1 = time()
         ut = DPHT.load(UnityRaytraceData)
         t2 = time()-t1
-        @show t2
+        @debug "Time" t2
+        if !isfile(replace(fname, ".mat"=>".jld2"))
+            save_jld2(ut)
+        end
     else
         edata = cd(DPHT.process_level(EyelinkData)) do
             EyelinkData()
