@@ -1374,6 +1374,19 @@ DPHT.filename(::Type{ViewOccupancy}) = "view_occupancy.mat"
 DPHT.filename(::Type{ViewOccupancyNew{T}}) where T <: Real = "view_occupancy_new.jld2"
 DPHT.filename(::Type{ViewOccupancyNew}) = "view_occupancy_new.jld2"
 DPHT.filename(::Type{ViewAndPlaceOccupancy}) = "view_and_occupancy.jld2"
+DPHT.filename(::Type{ViewAndPlaceOccupancy{T}})  where T <: Real = "view_and_occupancy.jld2"
+DPHT.level(::Type{ViewAndPlaceOccupancy}) = "session"
+DPHT.level(::Type{ViewAndPlaceOccupancy{T}})  where T <: Real = "session"
+
+struct JointOccupancy{T<:Real}
+    weight::Dict{CartesianIndex{4},T}
+    index::Vector{Vector{CartesianIndex{3}}} # view × place × hd
+end
+
+DPHT.filename(::Type{JointOccupancy}) = "joint_occupancy.jld2"
+DPHT.filename(::Type{JointOccupancy{T}})  where T <: Real = "joint_occupancy.jld2"
+DPHT.level(::Type{JointOccupancy}) = "session"
+DPHT.level(::Type{JointOccupancy{T}})  where T <: Real = "session"
 
 function load_jld2(::Type{ViewOccupancyNew})
     fname = DPHT.filename(ViewOccupancyNew)
@@ -1576,7 +1589,73 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
-function ViewAndPlaceOccupancy(;do_save=true, redo=false)
+
+function JointOccupancy(gdata::UnityRaytraceData;trial_start=1)
+    nt = numtrials(gdata)
+    hd_bins = range(0.0, stop=2π, length=24)
+    m_floor = Shadow("xy")(floor_topology3())
+    kn_floor = KNearestSearch(m_floor,1)
+    mm = get_maze_mesh()
+    kn = KNearestSearch(mm,1)
+    weight = Dict{CartesianIndex{4},Float64}()
+    aindex = Vector{Vector{CartesianIndex{3}}}(undef, nt)
+    for i in 1:nt
+        tt, gaze,pos,fixmask,fo,hd = get_trial(gdata,i;trial_start=trial_start)
+        if isempty(tt)
+            aindex[i] = CartesianIndex{3}[]
+            continue
+        end
+        Δt = diff(tt)
+        push!(Δt, maximum(Δt))
+        aindex[i] = [CartesianIndex(0,0,0) for _ in 1:length(tt)]
+         for (j,(_pos, _gaze, _fo, _hd)) in enumerate(zip(eachcol(pos), eachcol(gaze), fo,hd))
+
+            if _fo in ["HintImage","CueImage"]
+                continue
+            end
+            # do head direction first
+            hidx = argmax(cos.(_hd .- hd_bins))
+            _idx, _idxv = (0,0)
+            px,py = _pos[1:2] # don't use the z-coordinate here
+            # place bin
+            idx,dd = searchdists(Meshes.Point(px,py), kn_floor)
+            _pidx = first(idx)
+            _mm = m_floor[_pidx]
+            Δ = mean(norm.(_mm.vertices .- centroid(_mm)))
+            if dd[1] > Δ
+                continue
+            end
+
+            idxv,dd = searchdists(Meshes.Point(_gaze...), kn)
+            _idxv = first(idxv)
+            _mm = mm[_idxv]
+            Δ = mean(norm.(_mm.vertices .- centroid(_mm)))
+            if dd[1] > Δ
+                continue
+            end
+            qq = CartesianIndex(_idxv, _pidx, hidx, i)
+            weight[qq] = get(weight, qq, 0.0) + Δt[j]
+            aindex[i][j] = CartesianIndex(_idxv, _pidx, hidx)
+        end
+    end
+    JointOccupancy(weight,aindex)
+end
+
+function JointOccupancy(;redo=false, do_save=true,kwargs...)
+    fname = DPHT.filename(JointOccupancy)
+    if isfile(fname) && !redo
+        jocc = load_jld2(JointOccupancy)
+    else 
+        unity_gaze_data = UnityRaytraceData(;kwargs...)
+        jocc = Hippocampus.JointOccupancy(unity_gaze_data)
+        if do_save
+            save_jld2(jocc)
+        end
+    end
+    jocc
+end
+
+function ViewAndPlaceOccupancy(;do_save=true, redo=false,kwargs...)
     fname = DPHT.filename(ViewAndPlaceOccupancy)
     if isfile(fname) && !redo
         vpp = load_jld2(ViewAndPlaceOccupancy)
