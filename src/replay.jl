@@ -470,7 +470,6 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
             θ = π*a/180.0
             # FIXME: This does not appear to be the actual eyelink timestamp!
             gx,gy,gz = (row[10],row[11],row[12])
-            fixated_object[i] = row[3]
             if (gx !== missing) && (gy !== missing) && (gz !== missing)
                 # gx,gy,gz is relative to player ?
                 # swap z and y
