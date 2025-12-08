@@ -715,7 +715,7 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
     glmfit
 end
 
-function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false) where N
+function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};α=α,nruns=nruns)
     if h != 0
