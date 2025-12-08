@@ -1330,10 +1330,11 @@ function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{2,Float64
     (pillar_idx=pillar_idx, pillar_wall_idx=wall_idx)
 end
 
-function assign_posters(mm::MazeModelNew, _poster_pos::Dict{Symbol,NTuple{2,Float64}}=poster_pos)
+function assign_posters(mm::MazeModelNew, _poster_pos::Dict{Symbol,NTuple{3,Float64}}=poster_pos)
     pillar_idx = Dict{Symbol,Int64}()
     wall_idx = Dict{Symbol,Int64}()
-    for (kp,pp) in _poster_pos
+    for (kp,ppl) in _poster_pos
+        pp = Point3f(ppl)
         d = Inf
         for (k,pillar) in enumerate(mm.pillars)
             for (j,_wall) in enumerate(pillar)
