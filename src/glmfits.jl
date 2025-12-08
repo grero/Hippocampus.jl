@@ -32,6 +32,11 @@ struct GLMFitH{N}
     nspikes::Vector{Int16}
     dims::NTuple{N,Symbol}
     qidx::Vector{CartesianIndex{4}}
+    converged::Bool
+end
+
+function GLMFitH{N}(β, ll, α, trainidx, nspikes, dims::NTuple{N,Symbol}, qidx) where N
+    GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true)
 end
 
 DPHT.filename(::Type{GLMFitH{N}}) where N = "glmfith.jld2"
