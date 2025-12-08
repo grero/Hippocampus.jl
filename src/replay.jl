@@ -4,6 +4,7 @@ using DataFrames
 using Makie
 using ProgressMeter
 
+abstract type AbstractViewMap <: AbstractMap end
 struct DummyCam
     pos::Point3f
     dir::Vec3f
@@ -2015,7 +2016,7 @@ function visualize!(lscene, voc::ViewOccupancy;kwargs...)
 end
 
 
-struct ViewMap
+struct ViewMapOld
     counts::Dict
     bins::Dict
     occupancy::Dict
