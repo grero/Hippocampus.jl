@@ -659,9 +659,13 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
+    fname_inprogress = replace(fname, ".jld2"=>".jld2.inprogress")
     if !redo && isfile(fname)
         glmfit = load_jld2(GLMFitH{N}, fname)
+    elseif isfile(fname_inprogress)
+        error("$(fname) is currently being computed by another process")
     else
+        touch(fname_inprogress)
         mm = get_maze_mesh() 
         m_floor = Shadow("xy")(floor_topology3())
         # maybe make this more flexible
@@ -720,6 +724,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         if do_save
             save_jld2(glmfit, fname)
         end
+        rm(fname_inprogress)
     end
     glmfit
 end
