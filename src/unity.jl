@@ -337,6 +337,17 @@ OrientedMesh(bins, normal::AbstractVector{T}) where T <: Real = OrientedMesh(bin
 
 Base.length(om::OrientedMesh) = 1
 
+function impacts(pos,mm::OrientedMesh)
+    a = true 
+    for (i,b) in enumerate(mm.bins)
+        if !(first(b) <= pos[i] <= last(b))
+            a = false
+            break
+        end
+    end
+    return a
+end
+
 """
 Get a rectangle encompassing the inner face of the mesh
 """
