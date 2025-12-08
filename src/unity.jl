@@ -1103,6 +1103,14 @@ function visualize!(lscene, posters::Posters;kwargs...)
     end
 end
 
+function Makie.convert_arguments(T::Type{<: AbstractPlot}, posters::Posters)
+    plots = [convert_arguments(T, posters.sprite[1])]
+    for sp in posters.sprite[2:end]
+        push!(plots, convert_arguments(T, sp))
+    end
+    plots
+end
+
 
 """
     create_mesh(lower_left::T, upper_right::T,Δb::Float64) where T <: NTuple{2,Float64}
