@@ -1349,7 +1349,9 @@ function JointRepresentation(::Type{T};kwargs...) where T <: Union{GazeOnMaze, U
     JointRepresentation(sp,rp,gdata,udata)
 end
 
-struct ViewOccupancy
+
+abstract type AbstractViewOccupancy end
+struct ViewOccupancy <: AbstractViewOccupancy
     counts::Dict
     bins::Dict
     binidx::Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}
@@ -1357,7 +1359,7 @@ struct ViewOccupancy
 end
 
 struct ViewOccupancyNew{T<:Real} <: AbstractViewOccupancy
-    counts::Vector{T}
+    weight::Vector{T}
     mm::SimpleMesh
 end
 
