@@ -66,6 +66,25 @@ function get_best_α(glmfit::GLMFitH{N}) where N
     glmfit.α[idx],idx
 end
 
+"""
+Get the probability that a null model produces the log-likelihoods found in 
+cross-validation fold `idx`.
+"""
+function get_significance_level(glmfit::GLMFitH{N},idx::Integer,α=0.05) where N
+    ll = glmfit.ll[:,idx]
+    nspikes = glmfit.nspikes
+    ll0 = zeros(length(ll))
+    for i in 1:length(ll0)
+        trainidx = glmfit.trainidx[:,i]
+        testidx = setdiff(1:length(nspikes), trainidx)
+        P = fit(Poisson,nspikes[trainidx])
+        ll0[i] = mean(logpdf.(P, nspikes[testidx]))
+    end
+    nn = sum(ll .> ll0)
+    pv = 1 - cdf(Binomial(length(ll),α),nn)
+    nn, pv
+end
+
 function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy)
     mm = get_maze_mesh()
     m_floor = floor_topology3()
