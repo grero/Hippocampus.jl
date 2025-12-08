@@ -528,7 +528,8 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         end
         ut = UnityRaytraceData(timestamps, position, direction,triggers, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object, fixating, raytrace_fname)
         if do_save
-            DPHT.save(ut;append_tag=append_tag)
+            save_jld2(ut;append_tag=append_tag)
+            #DPHT.save(ut;append_tag=append_tag)
         end
     end
     return ut
