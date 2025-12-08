@@ -86,6 +86,296 @@ function distancematrix(mm::SimpleMesh;rank=paramdim(mm))
     D
 end
 
+"""
+Compute the distance between point p1 and p2 confined to `mm`
+"""
+function distance(p1::Meshes.Point, p2::Meshes.Point, mm::SimpleMesh,A::AbstractMatrix{T})  where T <: Real
+    # project to mm
+    kn = KNearestSearch(mm,1)
+    idx1 =  search(p1, kn)
+    idx2 = search(p2, kn)
+    p1 = project_to(mm[first(idx1)], p1)
+    p2 = project_to(mm[first(idx2)], p2)
+    if idx1 == idx2
+        return norm(p1-p2), idx1
+    end
+    traj = trajectory(A, first(idx1), first(idx2)) 
+    # project to the edge of 
+    pii1 = find_nearest_edge_intersection(p1, centroid(mm[traj[2]]), mm[traj[1]])
+    d = norm(pii1-p1) 
+    if d.val > 0
+        d += 0.5*sqrt(measure(mm[traj[2]]))
+        traj_new = [p1;pii1]
+    else
+        traj_new = [p1]
+    end
+    append!(traj_new, centroid.(mm[traj[2:end-1]]))
+    pii2 = find_nearest_edge_intersection(p2, centroid(mm[traj[end-1]]), mm[traj[end]])
+    if pii2 === nothing
+        #@show p1 p2 traj
+    end
+
+    if norm(pii2-p2).val > 0
+        d += norm(pii2-p2) + 0.5*sqrt(measure(mm[traj[end-1]]))
+        append!(traj_new, [pii2;p2])
+    else
+        push!(traj_new, p2)
+    end
+    # then the rest
+    for (p1,p2) in zip(traj[2:end-2], traj[3:end-1])
+        d += 0.5*sqrt(measure(mm[p1])) + 0.5*sqrt(measure(mm[p2]))
+    end
+    d, traj_new
+end
+
+function distance(Xp::Vector{<:Meshes.Point}, idxp::Vector{Int64},mm::SimpleMesh, trajectories::Matrix{Vector{Int64}})
+    nn = length(Xp)
+    D = zeros(nn,nn)
+    @showprogress "Computing distance..." for j in 1:nn
+        for i in 1:nn
+            if i!=j
+                d,p = distance(Xp[j], idxp[j], Xp[i], idxp[i],mm,trajectories;return_trajectory=false)
+                D[i,j] = d.val
+            end
+        end
+    end
+    D
+end
+
+function distance(p1::Meshes.Point, p2::Meshes.Point, mm::SimpleMesh,trajectories::Matrix{Vector{Int64}};return_trajectory=true)
+    kn = KNearestSearch(mm,1)
+    idx1 =  search(p1, kn)
+    idx2 = search(p2, kn)
+    p1 = project_to(mm[first(idx1)], p1)
+    p2 = project_to(mm[first(idx2)], p2)
+    distance(p1,first(idx1), p2, first(idx2), mm, trajectories;return_trajectory=return_trajectory)
+end
+
+function distance(p1::Meshes.Point, p2::Vector{<:Meshes.Point}, mm::SimpleMesh,trajectories::Matrix{Vector{Int64}};return_trajectory=true)
+    kn = KNearestSearch(mm,1)
+    idx1 =  search(p1, kn)
+    p1 = project_to(mm[first(idx1)], p1)
+    D = zeros(length(p2))
+    for (ii,_p2) in enumerate(p2)
+        idx2 = search(_p2, kn)
+        _p2 = project_to(mm[first(idx2)], _p2)
+        d,p = distance(p1,first(idx1), _p2, first(idx2), mm, trajectories;return_trajectory=return_trajectory)
+        D[ii] = ustrip(d)
+    end
+    D
+end
+
+function distance(p1::Vector{T}, p2::Vector{T}, mm::SimpleMesh,trajectories::Matrix{Vector{Int64}}) where T <: Meshes.Point
+    kn = KNearestSearch(mm,1)
+    # project each point to the manifold
+    idx1 = fill(0,length(p1))
+    p1p = Vector{T}(undef, length(p1))
+    p2p = Vector{T}(undef, length(p2))
+    for (ii,_p) in enumerate(p1)
+        idx1[ii] = first(search(_p,kn))
+        p1p[ii] = project_to(mm[idx1[ii]], _p)
+    end
+    idx2 = fill(0, length(p2))
+    for (ii,_p) in enumerate(p2)
+        idx2[ii] = first(search(_p,kn))
+        p2p[ii] = project_to(mm[idx2[ii]], _p)
+    end
+    D = zeros(length(p2), length(p1))
+    @showprogress "Computing distance..." for (jj, (_idx1, _p1)) in enumerate(zip(idx1, p1p))
+        for (ii,(_idx2, _p2)) in enumerate(zip(idx2, p2p))
+            d,p = distance(_p1,_idx1, _p2, _idx2, mm, trajectories;return_trajectory=false)
+            D[ii,jj] = ustrip(d)
+        end
+    end
+    D
+end
+
+# TODO: Special case when eiterh p1 or p2 is itself a centroid
+function distance(p1::Meshes.Point,idx1::Integer, p2::Meshes.Point,idx2::Integer, mm::SimpleMesh,trajectories::Matrix{Vector{Int64}};return_trajectory=true)
+    # project to mm
+    if idx1 == idx2
+        return norm(p1-p2), idx1
+    end
+    traj = trajectories[first(idx2), first(idx1)] 
+    d = 0.0u"m"
+    if norm(p1-centroid(mm[idx1])).val > 0
+        # project to the edge of 
+        pii1 = find_nearest_edge_intersection(p1, centroid(mm[traj[2]]), mm[traj[1]])
+        if pii1 === nothing
+            return Inf, []
+        end
+        d = norm(pii1-p1) 
+        if d.val > 0
+            d += 0.5*sqrt(measure(mm[traj[2]]))
+            if return_trajectory
+                traj_new = [p1;pii1]
+            end
+        else
+            if return_trajectory
+                traj_new = [p1]
+            end
+        end
+        if return_trajectory
+            append!(traj_new, centroid.(mm[traj[2:end-1]]))
+        end
+        start_offset = 2
+    else
+        # p1 is identical to the centroid
+        start_offset = 1
+        if return_trajectory
+            traj_new = centroid.(mm[traj[1:end-1]])
+        end
+    end
+    pii2 = find_nearest_edge_intersection(p2, centroid(mm[traj[end-1]]), mm[traj[end]])
+    if pii2 === nothing
+        return Inf, Int64[]
+    end
+    if norm(pii2 - centroid(mm[traj[end]])).val > 0
+        if norm(pii2-p2).val > 0
+            d += norm(pii2-p2) + 0.5*sqrt(measure(mm[traj[end-1]]))
+            if return_trajectory
+                append!(traj_new, [pii2;p2])
+            end
+        else
+            if return_trajectory
+                push!(traj_new, p2)
+            end
+        end
+        end_offset = 2
+    else
+        end_offset = 1
+        push!(traj_new, centroid(traj[end]))
+    end
+    # then the rest
+    for (p1,p2) in zip(traj[start_offset:end-end_offset], traj[start_offset+1:end-(end_offset-1)])
+        d += 0.5*sqrt(measure(mm[p1])) + 0.5*sqrt(measure(mm[p2]))
+    end
+    if !return_trajectory
+        traj_new = nothing
+    end
+    d, traj_new
+end
+
+function distance(p1::Meshes.Point,idx1::Integer, idx2::Integer, mm::SimpleMesh,trajectories::Matrix{Vector{Int64}};return_trajectory=true)
+    nn = norm(p1-centroid(mm[idx1]))
+    if ustrip(nn) == 0
+        # just return the path
+        return sum(abs.(diff(centroid.(mm[trajectories[idx2,idx1]]))))
+    end
+    if idx1 == idx2
+        return nn
+    end
+    traj = trajectories[idx2, idx1]
+    pii1 = find_nearest_edge_intersection(p1, centroid(mm[traj[2]]), mm[traj[1]])  
+    if pii1 === nothing
+        return Inf
+    end
+    d = norm(pii1-p1) 
+    d += sum(norm.(diff(centroid.(mm[traj[2:end]]))))
+    d
+end
+
+function distance(idx1::Int64, p2::Meshes.Point,idx2::Integer, mm::SimpleMesh,trajectories::Matrix{Vector{Int64}};return_trajectory=true)
+    traj = trajectories[idx2, idx1]
+    centroids = centroid.(mm[traj])
+    nn = norm(p2-centroids[end])
+    if ustrip(nn) == 0
+        # just return the path
+        return sum(abs.(diff(centroids)))
+    end
+    if idx1 == idx2
+        return nn
+    end
+    pii2 = find_nearest_edge_intersection(p2, centroids[end-1], mm[traj[end]])  
+    if pii2 === nothing
+        return Inf
+    end
+    d = norm(pii2-p2) 
+    d += sum(norm.(diff(centroids[1:end-1])))
+    d
+end
+
+function distance(p1::Vector{T}, mm::SimpleMesh,trajectories::Matrix{Vector{Int64}},midx=1:nelements(mm);to_manifold=false) where T <: Meshes.Point
+    kn = KNearestSearch(mm,1)
+    idx1 = fill(0,length(p1))
+    p1p = Vector{T}(undef, length(p1))
+    for (ii,_p) in enumerate(p1)
+        idx1[ii] = first(search(_p,kn))
+        p1p[ii] = project_to(mm[idx1[ii]], _p)
+    end
+    if to_manifold
+        # from p1 to manifold
+        D = zeros(length(midx), length(p1))
+        @showprogress "Computing distance..." for (jj,(_p1, _idx1)) in enumerate(zip(p1p, idx1))
+            for (ii,_midx) in enumerate(midx)
+                d = distance(_p1, _idx1, _midx, mm, trajectories)
+                D[ii,jj] = ustrip(d)
+            end
+        end
+    else
+        # from manifold to p1
+        D = zeros(length(p1), length(midx))
+        @showprogress "Compute distance..." for (jj,_midx) in enumerate(midx)
+            for (ii,(_p1, _idx1)) in enumerate(zip(p1p, idx1))
+                d = distance(_midx, _p1, _idx1, mm, trajectories)
+                D[ii,jj] = ustrip(d)
+            end
+        end
+    end
+    D
+end
+
+function grammatrix(mm::SimpleMesh;kwargs...)
+    D = distancematrix(mm;kwargs...)
+    cm = centroid.(mm) .- Meshes.Point(zeros(embeddim(mm))...)
+    grammatrix(D, cm)
+end
+
+function grammatrix(D::AbstractMatrix{<:Real}, cm)
+    G = zeros(size(D)...) 
+    for i in 1:length(cm)
+        for j in 1:length(cm)
+            G[i,j] = (cm[i]'*cm[i] + cm[j]'*cm[j]).val
+        end
+    end
+    G .- D.^2
+end
+
+function trajectory(mm::SimpleMesh,p1::Meshes.Point,p2::Meshes.Point;rank=paramdim(mm))
+    idx1 = first(search(p1, KNearestSearch(mm,1)))
+    idx2 = first(search(p2, KNearestSearch(mm,1)))
+    A = adjacencymatrix(mm;rank=rank)
+    trajectory(A, idx1, idx2)
+end
+
+function trajectory(A,idx1::Integer,idx2::Integer)
+    if issymmetric(A)
+        G = SimpleGraph(A)
+    else
+        G = SimpleDiGraph(A)
+    end
+    dj = dijkstra_shortest_paths(G, idx1;trackvertices=false)
+    get_path(dj, idx2)
+end
+
+function trajectories(mm::SimpleMesh)
+    A = adjacencymatrix(mm)
+    if issymmetric(A)
+        G = SimpleGraph(A)
+    else
+        G = SimpleDiGraph(A)
+    end
+    nn = nelements(mm)
+    paths = Matrix{Vector{Int64}}(undef, nn,nn)
+    for i in 1:nn
+        dj = dijkstra_shortest_paths(G, i;trackvertices=false)
+        for j in 1:nn
+            paths[j,i] = get_path(dj,j)
+        end
+    end
+    paths
+end
+
 function distancematrix(mm::Matrix{T}) where T <: Real
     lidx = CartesianIndices((1:size(mm,1), 1:size(mm,2)))
     D = [norm(Tuple(i) .- Tuple(j)) for i in lidx, j in lidx]
