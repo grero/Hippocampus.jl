@@ -4,6 +4,14 @@ using GeometryBasics
 using StatsBase
 using StableRNGs
 
+@testset "Topology" begin
+    A = Hippocampus.get_circular_adjancency(5)
+    @test A == [1.0 1.0 0.0 0.0 1.0;
+                1.0 1.0 1.0 0.0 0.0;
+                0.0 1.0 1.0 1.0 0.0;
+                0.0 0.0 1.0 1.0 1.0;
+                1.0 0.0 0.0 1.0 1.0]
+end
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
     timestamps = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]

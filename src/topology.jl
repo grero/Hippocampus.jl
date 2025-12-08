@@ -55,6 +55,21 @@ function ballsearch(mm::SimpleMesh;rank=paramdim(mm))
     end
 end
 
+function get_circular_adjancency(n::Integer)
+    A = diagm(fill(1.0,n))
+    A[1,end] = 1.0
+    A[end,1] = 1.0
+
+    # each point is connected to two neighbors, in front and behind
+    for i in 2:n-1
+        A[i,i+1] = 1.0
+        A[i+1,i] = 1.0
+        A[i,i-1] = 1.0
+        A[i-1,i] = 1.0
+    end
+    A
+end
+
 function distancematrix(mm::SimpleMesh;rank=paramdim(mm))
     nn = length(mm.vertices)
     A = adjacencymatrix(mm;rank=rank)
