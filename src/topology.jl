@@ -489,7 +489,7 @@ function has_edges(cc::NTuple{4, <:Integer}, cnx::Vector{NTuple{4,Int64}})
     do_reverse
 end
 
-function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, zmax=5.0)
+function floor_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax;nrefinements=3)
     points = [(xmin, ymin, 0.0), (-7.5, ymin,0.0),(-7.5, -7.5,0.0),(xmin, -7.5, 0.0)] 
     cnx = [fix_connection((1,2,3,4),points)]
     append!(points, [(-7.5, -2.5, 0.0),(xmin, -2.5, 0.0)])
@@ -554,7 +554,92 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     _cnx = (33,34,30,29)
     _do_reverse = has_edges(_cnx, cnx)
     _cnx = fix_connection(_cnx, points;clockwise=!_do_reverse)
-    @show _cnx
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    push!(cnx, fix_connection((2,33,34,3),points))
+    append!(points, [(-2.5, -2.5, 0.0), (2.5, -2.5, 0.0)])
+    push!(cnx, fix_connection((34, 35, 36,30),points))
+    append!(points, [(-2.5, 2.5, 0.0), (2.5, 2.5, 0.0)])
+    push!(cnx, fix_connection((37, 13, 15,38),points)) 
+    #append!(points, [()])
+    #connect the inner points
+    push!(cnx, fix_connection((35, 36,38,37),points))
+    push!(cnx, fix_connection((5, 35, 37,8),points))
+    push!(cnx, fix_connection((36, 23, 21, 38),points))
+    cnx = unique(cnx)
+    points, cnx
+    mm = SimpleMesh(points, connect.(cnx);relations=true)
+    for i in 1:nrefinements
+        mm = refine(mm, QuadRefinement())
+    end
+    mm2 = SimpleMesh(mm.vertices, convert(HalfEdgeTopology, mm.topology))
+    mm2
+end
+
+function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, zmax=5.0;n_refinements=3)
+    points = [(xmin, ymin, 0.0), (-7.5, ymin,0.0),(-7.5, -7.5,0.0),(xmin, -7.5, 0.0)] 
+    cnx = [fix_connection((1,2,3,4),points)]
+    append!(points, [(-7.5, -2.5, 0.0),(xmin, -2.5, 0.0)])
+    _cnx = (4,3,5,6)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(xmin, 2.5, 0.0),(-7.5, 2.5, 0.0)])
+    _cnx = (5,6,7,8)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(-7.5, 7.5, 0.0), (xmin, 7.5, 0.0)])
+    _cnx = (7,8,9,10)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(xmin,ymax, 0.0),(-7.5, ymax, 0.0)])
+    _cnx = (9,10,11,12)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(-2.5, 7.5, 0.0),(-2.5, ymax, 0.0)])
+    _cnx = (9,13,14,12)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(2.5, 7.5, 0.0),(2.5, ymax, 0.0)])
+    _cnx = (13,15,16,14)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(7.5, 7.5, 0.0), (7.5, ymax, 0.0)])
+    _cnx = (15,17,18,16)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(xmax, 7.5, 0.0), (xmax, ymax, 0.0)])
+    _cnx = (17,19,20,18)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(7.5, 2.5, 0.0), (xmax, 2.5, 0.0)])
+    _cnx = (21,22,19,17)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(7.5, -2.5, 0.0), (xmax, -2.5, 0.0)])
+    _cnx = (23,24,22,21)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(7.5, -7.5, 0.0), (xmax, -7.5, 0.0)])
+    _cnx = (25,26,24,23)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(7.5, ymin, 0.0),(xmax, ymin, 0.0)])
+    _cnx = (27,28,26,25)
+    _do_reverse = has_edges(_cnx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(2.5, ymin, 0.0), (2.5, -7.5, 0.0)])
+    #push!(cnx, (29,27, 25,30))
+    idx = connect_points([(2.5, ymin, 0.0), (2.5, -7.5, 0.0), (7.5,-7.5, 0.0),(7.5,ymin, 0.0)], points)
+    _do_reverse = has_edges(idx, cnx)
+
+    push!(cnx, fix_connection(idx,points;clockwise=!_do_reverse))
+    append!(points, [(7.5, ymin, 0.0),(7.5, -7.5,0.0)])
+    _cnx = (27,29,30,25)
+    _do_reverse = has_edges(idx, cnx)
+    push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
+    append!(points, [(-2.5, ymin, 0.0), (-2.5, -7.5, 0.0)])
+    _cnx = (33,34,30,29)
+    _do_reverse = has_edges(_cnx, cnx)
+    _cnx = fix_connection(_cnx, points;clockwise=!_do_reverse)
     push!(cnx, fix_connection(_cnx,points;clockwise=!_do_reverse))
     push!(cnx, fix_connection((2,33,34,3),points))
     append!(points, [(-2.5, -2.5, 0.0), (2.5, -2.5, 0.0)])
@@ -570,8 +655,9 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     #add pillars
     # let's connect the pillar tops counter-clockwise
     # first pillar
-    append!(points, [(-7.5, -7.5, 2.5), (-7.5, -2.5, 2.5)])
-    append!(points, [(-2.5, -7.5, 2.5), (-2.5, -2.5, 2.5)])
+    pillar_top = 3.11
+    append!(points, [(-7.5, -7.5, pillar_top), (-7.5, -2.5, pillar_top)])
+    append!(points, [(-2.5, -7.5, pillar_top), (-2.5, -2.5, pillar_top)])
     push!(cnx, fix_connection((3, 39, 40, 5),points))
     push!(cnx, fix_connection((34, 41, 42,35),points))
     push!(cnx, fix_connection((3, 39, 41, 34),points))
@@ -579,8 +665,8 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     pillar_1_idx = (floor_idx[end]+1):length(points)
 
     #second pillar
-    append!(points, [(2.5, -7.5, 2.5), (2.5, -2.5, 2.5)]) 
-    append!(points, [(7.5, -7.5, 2.5), (7.5, -2.5, 2.5)]) 
+    append!(points, [(2.5, -7.5, pillar_top), (2.5, -2.5, pillar_top)]) 
+    append!(points, [(7.5, -7.5, pillar_top), (7.5, -2.5, pillar_top)]) 
     push!(cnx, fix_connection((30, 43, 44,36),points))
     push!(cnx, fix_connection((25, 45, 46, 23),points))
     push!(cnx, fix_connection((30,43, 45, 25),points))
@@ -588,8 +674,8 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
     pillar_2_idx = (pillar_1_idx[end]+1):length(points)
 
     #third pillar
-    append!(points, [(2.5, 2.5, 2.5), (2.5, 7.5, 2.5)]) 
-    append!(points, [(7.5, 2.5, 2.5), (7.5, 7.5, 2.5)]) 
+    append!(points, [(2.5, 2.5, pillar_top), (2.5, 7.5, pillar_top)]) 
+    append!(points, [(7.5, 2.5, pillar_top), (7.5, 7.5, pillar_top)]) 
     push!(cnx, fix_connection((38,47,48,15), points))
     push!(cnx, fix_connection((21,49,50,17),points))
     push!(cnx, fix_connection((38,47,49,21),points))
@@ -598,8 +684,8 @@ function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, z
 
 
     #fourth pillar
-    append!(points, [(-7.5, 2.5, 2.5),(-7.5, 7.5, 2.5)])
-    append!(points, [(-2.5, 2.5, 2.5),(-2.5, 7.5,2.5)])
+    append!(points, [(-7.5, 2.5, pillar_top),(-7.5, 7.5, pillar_top)])
+    append!(points, [(-2.5, 2.5, pillar_top),(-2.5, 7.5,pillar_top)])
     push!(cnx, fix_connection((8,51,52,9),points))
     push!(cnx, fix_connection((37,53,54,13),points))
     push!(cnx, fix_connection((8,51,53,37),points))
