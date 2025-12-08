@@ -570,7 +570,7 @@ end
 function logprob(β, X, y)
     η = X'*β
     λ = exp.(η)
-    ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
+    ll1 = mean(y.*η - loggamma.(y .+ 1) .-  λ)
 end
 
 function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
