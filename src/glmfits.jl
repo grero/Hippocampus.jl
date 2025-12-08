@@ -628,6 +628,7 @@ function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::Abstra
     nruns = size(trainidx,2)
     ll = zeros(nruns)
     β = zeros(d+1,nruns)
+    prog = Progress(nruns;desc="Running cross-validation", enabled=show_progress, showspeed=true)
     for r in 1:nruns
         _train_idx = trainidx[:,r]
         sort!(_train_idx)
@@ -641,6 +642,7 @@ function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::Abstra
         q = fit_glm_2(X_train, y_train, L;α=α,kwargs...)
         ll[r] = logprob(q.minimizer, [X_test;ones(1,length(test_idx))], y_test)
         β[:,r] .= q.minimizer
+        next!(prog)
     end
     β,ll , trainidx
 end
