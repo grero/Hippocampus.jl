@@ -7,6 +7,10 @@ using FileIO
 using StatsBase
 using ImageFiltering
 
+struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Vec2,T5<:Vec3}
+    sprite::Vector{Sprite{T, T2, T3, T4, T5}}
+end
+
 # TODO: Unclear if these are the latest values. Perhaps update?
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
 zBound = [12.5, 12.5, -12.5, -12.5, 12.5]
