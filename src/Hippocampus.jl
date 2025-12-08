@@ -7,6 +7,7 @@ using RippleTools
 using JLD2
 using ProgressMeter
 using Meshes
+using CRC32c
 
 const DPHT = DataProcessingHierarchyTools
 include("topology.jl")
