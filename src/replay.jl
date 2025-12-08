@@ -413,18 +413,22 @@ function get_gaze(X::UnityRaytraceData;only_fixations=true)
     nn = div.(length.(X.gaze),3)
     nt = sum(nn)
     Y = zeros(Float64, 3, nt)
+    w = zeros(Float64, nt)
     offset = 0
-    for (_fix,_gaze) in zip(X.fixating, X.gaze)
+    for (_fix,_gaze,tt) in zip(X.fixating, X.gaze, X.timestamps)
         if only_fixations
             fidx = _fix
         else
             fidx = fill(true, size(_gaze,2))
         end
+        Δt = diff(tt)
+        push!(Δt, mean(Δt))
         nf = sum(fidx)
         Y[:,offset+1:offset+nf] .= _gaze[:,fidx]
+        w[offset+1:offset+nf] .= Δt[fidx]
         offset += nf
     end
-    Y[:,1:offset]
+    Y[:,1:offset], w[1:offset]
 end
 
 function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_fname="unityfile_eyelink.csv", extradir::String="")
