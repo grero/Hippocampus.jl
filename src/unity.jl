@@ -991,13 +991,15 @@ function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5,rotate_flat=fal
     rot = LinearMap(RotX(3π/2))
     images = Dict(k=>load(v) for (k,v) in poster_img)
     # hack just to figure out the type
-    sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+    w = 2.23
+    h = 1.4
+    sp = sprite(first(images)[2], Rect2(-w/2, -h/2, w, h))
     sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
     kn = KNearestSearch(mm, 1)
     for (ii,pk) in enumerate(keys(__poster_pos))
         pp = _poster_pos[pk]
         img = images[pk]
-        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+        sp = sprite(img, Rect2(-w/2, -h/2, w, h))
         sp2 = rot(sp)
         μ = mean(sp2.points) 
         # trans is relative
@@ -1025,16 +1027,38 @@ function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5,rotate_flat=fal
         if rotate_flat
             # rotate so that the poster can been seen from above
             # we want to rotate around whichever of v1 or v2 is orthogonal to the z-axis 
+            
             if v1[3] == 0
                 _vv = v1 
+                _vu = v2
             else
                 _vv = v2
+                _vu = v1
             end
             # make sure to normalize
+            # TODO: rotate so that up is up
+            #true up is now along y, i.e. (0.0, 1.0, 0.0)
             _vv = _vv./norm(_vv)
+            _vu = _vu./norm(_vu)
             vq = π/2*(_vv)
             _rot = RotationVec(vq...)
-            sp3 = LinearMap(_rot)(sp3)
+            _vu = LinearMap(_rot)(_vu)
+            if _vu[2] < 0 
+                ϕ = π
+            elseif _vu[2] == 0
+                if _vu[1] < 0
+                    ϕ = π/2
+                else
+                    ϕ = -π/2
+                end
+            else
+                ϕ = 0.0
+            end
+
+            vϕ = ϕ*([0.0, 0.0, 1.0])
+            _rotϕ = LinearMap(RotationVec(vϕ...))
+            _trans = LinearMap(Translation(0.0, 0.0, -z))
+            sp3 =_rotϕ(_trans(LinearMap(_rot)(sp3)))
         end
         sprites[ii] = sp3
     end
