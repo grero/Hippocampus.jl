@@ -592,7 +592,9 @@ end
 """
 Wrapper type to visualize the raytracing
 """
-struct RaytraceViewer
+abstract type AbstractRaytraceViewer end;
+
+struct RaytraceViewer <: AbstractRaytraceViewer
     udata::UnityData
     gazemaze::GazeOnMaze
 end
