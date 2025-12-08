@@ -1784,13 +1784,13 @@ function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata
     ViewAndPlaceRepresentationNew(events, placeviewidx)
 end
 
-function ViewAndPlaceRepresentationNew(;redo=false, do_save=true)
+function ViewAndPlaceRepresentationNew(;redo=false, do_save=true, kwargs...)
      sp = Spiketrain()
     rp = cd(DPHT.process_level(RippleData)) do
         RippleData()
     end
     unity_gaze_data = cd(DPHT.process_level(UnityRaytraceData)) do
-        UnityRaytraceData()
+        UnityRaytraceData(;kwargs...)
     end
     vprp = ViewAndPlaceRepresentationNew(sp, rp, unity_gaze_data)
 end
