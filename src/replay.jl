@@ -495,7 +495,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
         #t0 = edata.analogtime[1]
         te,_,_, = get_trial(edata, 1)
         t0 = te[1]
-
+        triggers = edata.timestamps .- t0
         for i in 1:nt
             if any(ismissing.(edata.triggers[i,:]))
                 trial_fixations[i] = zeros(3,0)
@@ -526,7 +526,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
             end
             fixating[i] = _fm
         end
-        ut = UnityRaytraceData(timestamps, position, direction, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object, fixating)
+        ut = UnityRaytraceData(timestamps, position, direction,triggers, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object, fixating, raytrace_fname)
         if do_save
             DPHT.save(ut;append_tag=append_tag)
         end
