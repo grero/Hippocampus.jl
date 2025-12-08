@@ -506,7 +506,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
                 fixating[i] = Bool[]
                 continue
             end
-            te,_,_,fm = get_trial(edata, i)
+            te,_,_,fm = get_trial(edata, i;trial_start=2)
             # unit raytraced data use time relative to start of recording
             te .-= t0
             idx0 = searchsortedfirst(timestamps, te[1])
