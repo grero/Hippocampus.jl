@@ -1733,6 +1733,105 @@ function ViewAndPlaceRepresentation(spikes::Spiketrain, rp::RippleData, udata::U
     ViewAndPlaceRepresentation(voc, events, placeidx, viewidx)
 end
 
+
+struct ViewAndPlaceRepresentationNew <: AbstractRepresentation{Float32,Float64}
+    events::Vector{Vector{Float64}}
+    placeviewidx::Vector{Vector{Int64}}
+end
+
+DPHT.level(::Type{ViewAndPlaceRepresentationNew}) = "cell"
+DPHT.level(::ViewAndPlaceRepresentationNew) = "cell"
+
+function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false)
+    sp = spikes.timestamps/1000.0 
+    nt = numtrials(gdata)
+    events = Vector{Vector{Float64}}(undef, nt)
+    placeviewidx = Vector{Vector{Int64}}(undef, nt)
+    for i in 1:nt
+        tg,gaze,pos, fixmask,fo = get_trial(gdata,i)
+        if isempty(tg)
+            events[i] = Float64[]
+            placeviewidx[i] = Int64[]
+            continue
+        end
+        tg .-= tg[1]
+        timestamps = rp.timestamps[i,:]
+        
+        # find the index of of each spike in this trial
+        idx0 = searchsortedfirst(sp, timestamps[1])
+        idx1 = searchsortedlast(sp, timestamps[3])
+
+        sp_trial = sp[idx0:idx1] .- timestamps[1]
+        nspikes = idx1-idx0+1
+        trialevents = zeros(Float64, nspikes)
+        _placeviewidx = zeros(Int64, nspikes)
+        js = 1
+        for j in 1:nspikes
+            kg = searchsortedlast(tg,sp_trial[j])
+            if (0 < kg <= size(gaze,2) && (fixmask[kg] || !fixation_only))
+                #if (voc.placebin_idx[i][ku] != 0) && (voc.viewbin_idx[i][kg] != 0)
+                trialevents[js] = sp_trial[j]
+                _placeviewidx[js] = kg
+                js += 1
+                #end
+            end
+        end
+        events[i] = trialevents[1:js-1]
+        placeviewidx[i] = _placeviewidx[1:js-1]
+    end
+    ViewAndPlaceRepresentationNew(events, placeviewidx)
+end
+
+function ViewAndPlaceRepresentationNew(;redo=false, do_save=true)
+     sp = Spiketrain()
+    rp = cd(DPHT.process_level(RippleData)) do
+        RippleData()
+    end
+    unity_gaze_data = cd(DPHT.process_level(UnityRaytraceData)) do
+        UnityRaytraceData()
+    end
+    vprp = ViewAndPlaceRepresentationNew(sp, rp, unity_gaze_data)
+end
+
+function compute_speed(pos::Matrix{T}, timestamp::Array{T}, binidx::Vector{Int64},bmax=maximum(binidx)) where T <: Real
+    ds = zero(T)
+    dt = zero(T) 
+    t0 = timestamp[1] 
+    p0 = pos[:,1]
+    vv = zeros(bmax)
+    current_b = binidx[1] 
+    for (p,t,b) in zip(eachcol(pos)[2:end], timestamp[2:end], binidx[2:end])
+        if b == 0
+            continue
+        end
+        if b == current_b
+            ds += norm(p-p0)
+            dt += t-t0
+        else
+            if current_b > 0
+                vv[current_b] += ds/dt
+            end
+            ds = zero(T)
+            dt = zero(T)
+            current_b = b
+        end
+        t0 = t
+        p0 .= p
+    end
+    vv
+end
+
+function compute_speed(pos::Vector{Matrix{T}}, timestamp::Vector{Vector{T}}, binidx::Vector{Vector{Int64}},bmax=maximum(maximum.(binidx))) where T <: Real
+    vv = zeros(bmax, length(timestamp))
+    for i in 1:size(vv,2)
+        if isempty(timestamp[i])
+            continue
+        end
+        vv[:,i] = compute_speed(pos[i], timestamp[i], binidx[i], bmax)
+    end
+    vv
+end
+
 function ViewAndPlaceRepresentation(;redo=false,do_save=true)
     sp = Spiketrain()
     rp = cd(DPHT.process_level(RippleData)) do
