@@ -56,6 +56,53 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     h
 end
 
+function plot_glmfit(glmfit::GLMFitH{N},args...;kwargs...) where N
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_glmfit!(lg, glmfit,args...;kwargs...)
+        fig
+    end
+end
+function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing;kwargs...) where N
+    #show log-likelihoods for each cross-validation fold and the resulting map
+    if aidx === nothing
+        α,aidx = get_best_α(glmfit)
+    end
+    if :g in(glmfit.dims)
+        pax = LScene 
+        mm = get_maze_mesh()
+    else
+        pax = Axis
+        mm = floor_topology3()
+    end
+    ll = glmfit.ll
+    xx = repeat([1:size(ll,2);], 1,size(ll,1))[:]
+    yy = permutedims(glmfit.ll)[:]
+    points = Point2f[]
+    for i in 1:size(ll,1)
+        for j in 1:size(ll,2)
+            push!(points, Point2f(j,ll[i,j]))
+        end
+        push!(points, Point2f(NaN))
+    end
+    ax1 = Axis(lg[1,1])
+    lines!(ax1, points)
+    scatter!(ax1, xx,yy)
+    ax1.xticks = (1:size(ll,2), string.(round.(glmfit.α, sigdigits=1)))
+    if get(kwargs, :ylabelvisible, true)
+        ax1.ylabel = "Mean log-likelihood"
+    end
+    if get(kwargs, :xlabelvisible, true)
+        ax1.xlabel = "Smoothing factor"
+    end
+    vlines!(ax1, aidx, color=:black, linestyle=:dot)
+
+    axp = pax(lg[1,2])
+    plotmesh!(axp, mm;showsegments=false, color=color=glmfit.β[1:end-1, 1,aidx], ceiling_offset=10, floor_offset=-20,shading=false)
+    ax1,axp
+end
+
 function get_best_α(glmfit::GLMFitH{N}) where N
     nruns,nα = size(glmfit.ll)
     nn = zeros(Int64, nα)
