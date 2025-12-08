@@ -49,7 +49,7 @@ end
 
 DPHT.level(::Type{GLMFitH{N}}) where N = "cell"
 
-function process_kwargs(::Type{GLMFitH{N}};α=[0.01, 0.001, 0.0001, 0.00001], nruns=10, kwargs...) where N
+function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, kwargs...) where N
     h = UInt32(0)
     h = CRC32c.crc32c(string((:α=>α)),h)
     h = CRC32c.crc32c(string((:nruns=>nruns)),h)
