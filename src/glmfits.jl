@@ -617,13 +617,13 @@ end
 """
 Run glm fit on `nruns` separate training and testing sets
 """
-function cross_validate(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T),nruns=10,kwargs...) where T <: Real
+function cross_validate(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real};α::T=one(T),nruns=10,kwargs...) where T <: Real
     trainidx = get_trainidx(size(X,2),nruns)
     cross_validate(trainidx, X, y,L;α=α,kwargs...)
 end
 
 
-function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};α::T=one(T),kwargs...) where T <: Real
+function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real};α::T=one(T),show_progress=false, kwargs...) where T <: Real
     d,n = size(X)
     nruns = size(trainidx,2)
     ll = zeros(nruns)
