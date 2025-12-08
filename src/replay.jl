@@ -597,6 +597,35 @@ struct RaytraceViewer
     gazemaze::GazeOnMaze
 end
 
+function get_trial(raytrace::RaytraceViewer)
+    tu,px,py,hh = get_trial(raytrace.udata, _trial.i)
+    tg, ga = get_trial(raytrace.gazemaze, _trial.i)
+    tg,ga,tu,px,py,hh
+end
+
+struct UnityRaytraceViewer <: AbstractRaytraceViewer
+    raytrace_data::UnityRaytraceData
+end
+
+function get_trial(raytrace::UnityRaytraceViewer,i::Integer;trial_start=1)
+    tt = raytrace.timestamps[i]
+    tg = raytrace.gaze[i]
+    fixmask = fill(true, size(tg,2))
+    tt,tg,fixmask
+end
+
+function get_trial(raytrace::UnityRaytraceData,i::Integer;trial_start=1,not_on=["HintImage","CueImage","Robot"])
+    tt = raytrace.timestamps[i]
+    tg = raytrace.gaze[i]
+    tp = raytrace.position[i]
+    hd = raytrace.head_direction[i]
+    fixmask = raytrace.fixating[i]
+    fo = raytrace.fixated_object[i]
+    # filter out objects that we don't want to include, amending fixmask accordingly
+    fixmask .&= (!in(not_on)).(raytrace.fixated_object[i])
+    tt,tg,tp,fixmask,fo,hd
+end
+
 function visualize!(lscene, raytrace::RaytraceViewer;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),kwargs...)
     data_trial = lift(trial) do _trial
         tu,px,py,hh = get_trial(raytrace.udata, _trial.i)
