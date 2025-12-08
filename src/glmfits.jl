@@ -573,7 +573,7 @@ function logprob(β, X, y)
     ll1 = mean(y.*η - loggamma.(y .+ 1) .-  λ)
 end
 
-function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Matrix{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
+function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
     d,n = size(X)
     if β0 === nothing
         β0 = randn(T,d+1)
