@@ -388,6 +388,7 @@ struct UnityRaytraceData
     analogtime::Vector{UInt64}
     positions::Matrix{Float32}
     directions::Vector{Float32}
+    triggers::Matrix{Union{UInt64,Missing}}
 
     gaze::Vector{Matrix{Float64}}
     position::Vector{Matrix{Float64}}
@@ -395,8 +396,14 @@ struct UnityRaytraceData
     timestamps::Vector{Vector{Float64}}
     fixated_object::Vector{Vector{String}}
     fixating::Vector{Vector{Bool}}
+    unityfile::String
 end
 
+function UnityRaytraceData(analogtime, positions, direction, gaze::Vector{Vector{Matrix{Float64}}}, position, head_direction, timestamps,fixated_object,fixating)
+    nt = length(gaze)
+    triggers = fill(typemax(UInt64), nt, 3)
+    UnityRaytraceData(analogtime, positions, direction, triggers, gaze, position, head_direction, timestamps, fixated_object, fixating, "unityfile_eyelink.csv")
+end
 """
     get_gaze(X::UnityRaytraceData)
 
