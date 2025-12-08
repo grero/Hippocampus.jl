@@ -652,6 +652,27 @@ function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::Abstra
     β,ll , trainidx
 end
 
+function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
+    fname = DPHT.filename(GLMFitH{N}, dims)
+    h = process_kwargs(GLMFitH{N};kwargs...)
+    if h != 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    @show fname
+    if !redo && isfile(fname)
+        glmfit = load_jld2(GLMFitH{N}, fname)
+    else 
+        jocc, unity_raytrace = cd(DPHT.process_level("session")) do
+            jocc = Hippocampus.JointOccupancy(;redo=false)
+            ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
+            jocc, ud
+        end
+        glmfit = GLMFitH(dims, jocc, unity_raytrace;redo=redo, kwargs...)
+    end
+    glmfit
+end
+
 function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};α=α,nruns=nruns)
