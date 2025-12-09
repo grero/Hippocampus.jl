@@ -121,7 +121,7 @@ end
 Get the probability that a null model produces the log-likelihoods found in 
 cross-validation fold `idx`.
 """
-function get_significance_level(glmfit::GLMFitH{N},idx::Integer,α=0.05) where N
+function get_significance_level(glmfit::GLMFitH{N},idx::Integer;α=0.05) where N
     ll = glmfit.ll[:,idx]
     nspikes = glmfit.nspikes
     ll0 = zeros(length(ll))
