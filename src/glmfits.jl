@@ -701,9 +701,12 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
-    @show fname
     if !redo && isfile(fname)
         glmfit = load_jld2(GLMFitH{N}, fname)
+        if isa(glmfit, JLD2.ReconstructedMutable)
+            # missing field
+            glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true)
+        end
     else 
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
             jocc = Hippocampus.JointOccupancy(;redo=false)
@@ -725,6 +728,10 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
     fname_inprogress = replace(fname, ".jld2"=>".jld2.inprogress")
     if !redo && isfile(fname)
         glmfit = load_jld2(GLMFitH{N}, fname)
+         if isa(glmfit, JLD2.ReconstructedMutable)
+            # missing field
+            glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true)
+        end
     elseif isfile(fname_inprogress)
         error("$(fname) is currently being computed by another process")
     else
