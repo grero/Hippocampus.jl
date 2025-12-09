@@ -913,14 +913,16 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         Ls = Symmetric(L)
         if length(dims) == 1
             dq,trainidx = cross_validate(α, X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+            β = zeros(size(X,1)+1, nruns, length(α))
+            ll = zeros(nruns, length(α))
+            for (i,_α) = enumerate(α)
+                β[:,:,i] = dq[_α][:β]
+                ll[:,i] = dq[_α][:ll]
+            end
         else
-            dq,trainidx = cross_validate(X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
-        end
-        β = zeros(size(X,1)+1, nruns, length(α))
-        ll = zeros(nruns, length(α))
-        for (i,_α) = enumerate(α)
-            β[:,:,i] = dq[_α][:β]
-            ll[:,i] = dq[_α][:ll]
+            β,ll,trainidx = cross_validate(X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+            β = reshape(β, size(β)...,1)
+            ll = reshape(ll, size(ll)...,1)
         end
         glmfit = GLMFitH(β, ll, use_α, trainidx, nspikes, dims, qidx,true)
         if do_save
