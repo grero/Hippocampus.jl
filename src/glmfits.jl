@@ -94,7 +94,11 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
     vlines!(ax1, aidx, color=:black, linestyle=:dot)
 
     axp = pax(lg[1,2])
-    plotmesh!(axp, mm;showsegments=false, color=color=glmfit.β[1:end-1, 1,aidx], ceiling_offset=10, floor_offset=-20,shading=false)
+    if isa(axp, LScene)
+        plotmesh!(axp, mm;showsegments=false, color=color=glmfit.β[1:end-1, 1,aidx], ceiling_offset=10, floor_offset=-20,shading=false)
+    else
+        viz!(axp, mm;showsegments=false, color=glmfit.β[1:end-1,1,aidx])
+    end
     ax1,axp
 end
 
