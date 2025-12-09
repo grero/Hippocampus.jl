@@ -406,8 +406,8 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
         end
     end
     # replace with goodbinidx 
-    mpos = stack(Tuple.(centroid.(m_floor[getindex.(qidx,2)])))
-    mgaze = stack(Tuple.(centroid.(mm[getindex.(qidx,1)])))
+    mpos = stack(ustrip.(Meshes.to.(centroid.(m_floor[getindex.(qidx,2)]))))
+    mgaze = stack(ustrip.(Meshes.to.(centroid.(mm[getindex.(qidx,1)]))))
     mhd = hdbins[getindex.(qidx,3)] 
     t2 = time()
     cc = get_num_spikes(vpvrp, jocc)
