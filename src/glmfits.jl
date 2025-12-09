@@ -810,7 +810,11 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             end
         end
         Ls = Symmetric(L)
-        dq,trainidx = cross_validate(α, X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+        if length(dims) == 1
+            dq,trainidx = cross_validate(α, X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+        else
+            dq,trainidx = cross_validate(X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+        end
         β = zeros(size(X,1)+1, nruns, length(α))
         ll = zeros(nruns, length(α))
         for (i,_α) = enumerate(α)
