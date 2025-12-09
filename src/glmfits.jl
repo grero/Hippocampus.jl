@@ -112,30 +112,50 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
         mm = floor_topology3()
     end
     ll = glmfit.ll
-    xx = repeat([1:size(ll,2);], 1,size(ll,1))[:]
+    nspikes = glmfit.nspikes
+    # establish null likelihood
+    ll0 = zeros(size(ll,1))
+    for i in 1:length(ll0)
+        trainidx = glmfit.trainidx[:,i]
+        testidx = setdiff(1:length(nspikes), trainidx)
+        P = fit(Poisson,nspikes[trainidx])
+        ll0[i] = mean(logpdf.(P, nspikes[testidx]))
+    end
+    xx = repeat(glmfit.α, 1,size(ll,1))[:]
     yy = permutedims(glmfit.ll)[:]
     points = Point2f[]
     for i in 1:size(ll,1)
         for j in 1:size(ll,2)
-            push!(points, Point2f(j,ll[i,j]))
+            push!(points, Point2f(glmfit.α[j],ll[i,j]))
         end
         push!(points, Point2f(NaN))
     end
-    ax1 = Axis(lg[1,1])
+    lg2 = lg[1,1]
+    ax1 = Axis(lg2[1,1],xscale=log10)
+    Label(lg2[1,1,TopLeft()],"A")
     lines!(ax1, points)
     scatter!(ax1, xx,yy)
-    ax1.xticks = (1:size(ll,2), string.(round.(glmfit.α, sigdigits=1)))
     if get(kwargs, :ylabelvisible, true)
         ax1.ylabel = "Mean log-likelihood"
     end
     if get(kwargs, :xlabelvisible, true)
         ax1.xlabel = "Smoothing factor"
     end
-    vlines!(ax1, aidx, color=:black, linestyle=:dot)
-
+    vlines!(ax1, glmfit.α[aidx], color=:black, linestyle=:dot)
+    ax2 = Axis(lg2[2,1])
+    Label(lg2[2,1,TopLeft()],"B")
+    scatter!(ax2, ll[:,aidx], ll0)
+    ax2.xlabel = "Log-likelihood"
+    ax2.ylabel = "Log-likelihood null"
+    ablines!(ax2, 0.0, 1.0, linestyle=:dot, color=:black)
+    ax2.xticklabelrotation = -π/7
     axp = pax(lg[1,2])
+    Label(lg[1,2,TopLeft()],"C")
     if isa(axp, LScene)
         plotmesh!(axp, mm;showsegments=false, color=color=glmfit.β[1:end-1, 1,aidx], ceiling_offset=10, floor_offset=-20,shading=false)
+    elseif first(glmfit.dims) == :hd
+        θ = range(0.0, stop=2π, length=24)
+        lines!(axp, θ, glmfit.β[1:end-1,1,aidx])
     else
         viz!(axp, mm;showsegments=false, color=glmfit.β[1:end-1,1,aidx])
     end
