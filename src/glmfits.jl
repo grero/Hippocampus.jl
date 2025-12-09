@@ -736,6 +736,18 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         error("$(fname) is currently being computed by another process")
     else
         touch(fname_inprogress)
+        # TODO: If we doing joint fit, get the cross-validated alpha from the individua fits first 
+        if length(dims) > 1
+            use_α = zeros(length(dims))
+            validate_α = false
+            for (i,d) in enumerate(dims)
+                _glmfit = GLMFitH((d,), jocc, unity_gaze_data;α=α,nruns=nruns)
+                use_α[i],aidx = get_best_α(_glmfit)
+            end
+        else
+            validate_α = true
+            use_α = α
+        end
         mm = get_maze_mesh() 
         m_floor = Shadow("xy")(floor_topology3())
         # maybe make this more flexible
