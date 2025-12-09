@@ -136,6 +136,39 @@ function get_significance_level(glmfit::GLMFitH{N},idx::Integer;α=0.05) where N
     nn, pv
 end
 
+function get_significance_level(glmfit::GLMFitH{N};α=0.05) where N
+    nruns = size(glmfit.ll,1)
+    trainidx = glmfit.trainidx
+    if length(glmfit.dims) > 1
+        # compare signfiance level to the product of the individuals
+        ll = zeros(nruns) 
+        for (i,d) in enumerate(glmfit.dims)
+            # need to load the corresponding object
+            files = glob("glmfith_$(d)_*.jld2")
+            for f in files
+                _glmfit = JLD2.load(f)
+                if size(_glmfit["data"].ll,1) == nruns
+                    aidx = findfirst(_glmfit["data"].α .== glmfit.α[i])
+                    if aidx !== nothing
+                        β = _glmfit["data"].β[:,:,aidx]
+
+                        ll .+= _glmfit["data"].ll[:,aidx]
+
+                        break
+                    end
+                end
+            end
+        end
+        nn = sum(glmfit.ll[:,1] .> ll)
+        pv = 1 - cdf(Binomial(nruns,α), nn)
+        return nn, pv
+    else
+        aidx = get_best_α(glmfit)
+        get_significance_level(glmfit, aidx;α=α)
+    end
+
+end
+
 function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy)
     mm = get_maze_mesh()
     m_floor = floor_topology3()
