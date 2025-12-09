@@ -59,6 +59,46 @@ function plot_glmfit(glmfit::GLMFitH{N},args...;kwargs...) where N
         fig
     end
 end
+
+function plot_glmfit!(lg, glmfit_joint::GLMFitH{N}, glmfit::Vector{GLMFitH{1}}) where N
+    nspikes = glmfit_joint.nspikes
+    nruns = size(glmfit_joint.ll,1)
+    trainidx = glmfit_joint.trainidx
+    ntest = length(nspikes) - size(trainidx,1)
+    ll = zeros(nruns)
+    for (i,_glmfit) in enumerate(glmfit)
+        aidx = findfirst(_glmfit.α.==glmfit_joint.α[i])
+        β = _glmfit.β[:,:,aidx]
+        if _glmfit.dims[1] == :p
+            mm = floor_topology3()
+            nb = nelements(mm)
+            m = 2
+        elseif _glmfit.dims[1] == :g
+            mm = get_maze_mesh()
+            nb = nelements(mm)
+            m = 1
+        else
+            nb = 24
+            m = 3
+        end
+        X = zeros(nb+1, ntest)
+        X[nb+1,:] .= 1.0
+        for (j,_trainidx) in enumerate(eachcol(trainidx))
+            testidx = setdiff(1:length(nspikes), _trainidx)
+            for (k,qq) in enumerate(glmfit_joint.qidx[testidx])
+                X[qq.I[m],k] = 1.0
+            end
+            ll[j] += logprob(β[:,j], X, nspikes[testidx])
+        end
+    end
+
+    ax = Axis(lg[1,1])
+    scatter!(ax, glmfit_joint.ll[:,1], ll)
+    ablines!(ax, 0.0, 1.0, linestyle=:dot, color=:black)
+    ax.xlabel = "log-likelihood joint"
+    ax.ylabel = "log-likelihood ind"
+end
+
 function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing;kwargs...) where N
     #show log-likelihoods for each cross-validation fold and the resulting map
     if aidx === nothing
