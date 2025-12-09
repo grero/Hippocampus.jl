@@ -774,16 +774,31 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         # set up laplacian
         L = zeros(sum(d), sum(d))
         offset = 0
-        for (nd,dd) in zip(d,dims)
+        for (j,(nd,dd)) in enumerate(zip(d,dims))
             if dd == :g
                 A = adjacencymatrix(mm)
-                L[offset+1:offset+nd, offset+1:offset+nd] = diagm(dropdims(sum(A,dims=2),dims=2)) - A
+                if validate_α
+                    a = 1.0
+                else
+                    a = use_α[j]
+                end
+                L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
             elseif dd == :p
                 A = adjacencymatrix(m_floor)
-                L[offset+1:offset+nd, offset+1:offset+nd] = diagm(dropdims(sum(A,dims=2),dims=2)) - A
+                if validate_α
+                    a = 1.0
+                else
+                    a = use_α[j]
+                end
+                L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
             elseif dd == :hd
+                if validate_α
+                    a = 1.0
+                else
+                    a = use_α[j]
+                end
                 A = get_circular_adjancency(nhd_bins)
-                L[offset+1:offset+nd, offset+1:offset+nd] = diagm(dropdims(sum(A,dims=2),dims=2)) - A
+                L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
             end
             offset += nd
         end
