@@ -34,6 +34,10 @@ function GLMFitH{N}(β, ll, α, trainidx, nspikes, dims::NTuple{N,Symbol}, qidx)
     GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true)
 end
 
+function GLMFitH(β, ll, α, trainidx, nspikes, dims::NTuple{N,Symbol}, qidx) where N
+    GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true)
+end
+
 DPHT.filename(::Type{GLMFitH{N}}) where N = "glmfith.jld2"
 
 function DPHT.filename(::Type{GLMFitH{N}},dims::NTuple{N,Symbol}) where N
