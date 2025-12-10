@@ -115,10 +115,13 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
         pax = Axis
         mm = floor_topology3()
     end
+    _dof = size(glmfit.β,1)
     ll = glmfit.ll
     nspikes = glmfit.nspikes
     # establish null likelihood
+    _dof0 = 1
     ll0 = zeros(size(ll,1))
+    ntest = length(glmfit.nspikes) - size(glmfit.trainidx,1)
     for i in 1:length(ll0)
         trainidx = glmfit.trainidx[:,i]
         testidx = setdiff(1:length(nspikes), trainidx)
@@ -148,9 +151,9 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
     vlines!(ax1, glmfit.α[aidx], color=:black, linestyle=:dot)
     ax2 = Axis(lg2[2,1])
     Label(lg2[2,1,TopLeft()],"B")
-    scatter!(ax2, ll[:,aidx], ll0)
-    ax2.xlabel = "Log-likelihood"
-    ax2.ylabel = "Log-likelihood null"
+    scatter!(ax2, _dof .- ntest*ll[:,aidx], _dof0 .- ntest*ll0)
+    ax2.xlabel = "AIC"
+    ax2.ylabel = "AIC null"
     ablines!(ax2, 0.0, 1.0, linestyle=:dot, color=:black)
     ax2.xticklabelrotation = -π/7
     axp = pax(lg[1,2])
