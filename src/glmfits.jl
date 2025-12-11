@@ -64,15 +64,21 @@ function plot_glmfit(glmfit::GLMFitH{N},args...;kwargs...) where N
     end
 end
 
-function plot_glmfit!(lg, glmfit_joint::GLMFitH{N}, glmfit::Vector{GLMFitH{1}}) where N
+function plot_glmfit!(lg, glmfit_joint::GLMFitH{N}, glmfit::Vector{GLMFitH{1}};use_aic=false) where N
+    # TODO: Use AIC instead of log-likelihood directly to account for different number of degres of freedom
     nspikes = glmfit_joint.nspikes
     nruns = size(glmfit_joint.ll,1)
     trainidx = glmfit_joint.trainidx
     ntest = length(nspikes) - size(trainidx,1)
-    ll = zeros(nruns)
-    for (i,_glmfit) in enumerate(glmfit)
+    ll = zeros(nruns,length(glmfit))
+    dg_joint = size(glmfit_joint.β,1)
+    dg_ind = 0
+    lgs = [GridLayout(lg[1,i]) for i in 1:length(glmfit)]
+    labels = string.(range('A', length=3*length(lgs)+1,step=1))
+    for (i,(_lg,_glmfit)) in enumerate(zip(lgs,glmfit))
         aidx = findfirst(_glmfit.α.==glmfit_joint.α[i])
         β = _glmfit.β[:,:,aidx]
+        dg_ind += size(β,1)
         if _glmfit.dims[1] == :p
             mm = floor_topology3()
             nb = nelements(mm)
@@ -92,18 +98,29 @@ function plot_glmfit!(lg, glmfit_joint::GLMFitH{N}, glmfit::Vector{GLMFitH{1}}) 
             for (k,qq) in enumerate(glmfit_joint.qidx[testidx])
                 X[qq.I[m],k] = 1.0
             end
-            ll[j] += logprob(β[:,j], X, nspikes[testidx])
+            ll[j,i] += logprob(β[:,j], X, nspikes[testidx])
         end
+        plot_glmfit!(_lg, _glmfit, aidx,labels=labels[(i-1)*3+1:i*3];ylabelvisible=i==1)
     end
-
-    ax = Axis(lg[1,1])
-    scatter!(ax, glmfit_joint.ll[:,1], ll)
-    ablines!(ax, 0.0, 1.0, linestyle=:dot, color=:black)
-    ax.xlabel = "log-likelihood joint"
-    ax.ylabel = "log-likelihood ind"
+    #lg2 = GridLayout(lg[2,1])
+    Label(lg[2,1,TopLeft()],labels[end])
+    ax1 = Axis(lg[2,1])
+    ax2 = Axis(lg[2,2])
+    if use_aic
+        scatter!(ax1, dg_joint .- ntest*glmfit_joint.ll[:,1], dg_ind .- ntest*ll)
+    else
+        scatter!(ax1, ll[:,1], glmfit_joint.ll[:,1])
+        ablines!(ax1, 0.0, 1.0, linestyle=:dot, color=:black)
+        scatter!(ax2, ll[:,2], glmfit_joint.ll[:,1])
+        ablines!(ax2, 0.0, 1.0, linestyle=:dot, color=:black)
+    end
+    rowsize!(lg, 1, Relative(0.8))
+    ax1.xlabel = "LL $(glmfit[1].dims[1])"
+    ax2.xlabel = "LL $(glmfit[2].dims[1])"
+    ax1.ylabel = "LL joint"
 end
 
-function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing;kwargs...) where N
+function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing;use_aic=false, labels=["A","B","C"], kwargs...) where N
     #show log-likelihoods for each cross-validation fold and the resulting map
     if aidx === nothing
         α,aidx = get_best_α(glmfit)
@@ -111,8 +128,10 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
     if :g in(glmfit.dims)
         pax = LScene 
         mm = get_maze_mesh()
+        pax_kwargs = (;)
     else
         pax = Axis
+        pax_kwargs = (;)
         mm = floor_topology3()
     end
     _dof = size(glmfit.β,1)
@@ -137,27 +156,38 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
         end
         push!(points, Point2f(NaN))
     end
-    lg2 = lg[1,1]
+    lg2 = lg[2,1]
     ax1 = Axis(lg2[1,1],xscale=log10)
-    Label(lg2[1,1,TopLeft()],"A")
+    Label(lg2[1,1,TopLeft()],labels[2])
     lines!(ax1, points)
     scatter!(ax1, xx,yy)
     if get(kwargs, :ylabelvisible, true)
-        ax1.ylabel = "Mean log-likelihood"
+        ax1.ylabel = "LL"
     end
     if get(kwargs, :xlabelvisible, true)
         ax1.xlabel = "Smoothing factor"
     end
     vlines!(ax1, glmfit.α[aidx], color=:black, linestyle=:dot)
     ax2 = Axis(lg2[2,1])
-    Label(lg2[2,1,TopLeft()],"B")
-    scatter!(ax2, _dof .- ntest*ll[:,aidx], _dof0 .- ntest*ll0)
-    ax2.xlabel = "AIC"
-    ax2.ylabel = "AIC null"
+    Label(lg2[2,1,TopLeft()],labels[3])
+    if use_aic
+        scatter!(ax2, _dof .- ntest*ll[:,aidx], _dof0 .- ntest*ll0)
+        ax2.xlabel = "AIC"
+        
+        if get(kwargs, :ylabelvisible, true)
+            ax2.ylabel = "AIC null"
+        end
+    else
+        scatter!(ax2, ll[:,aidx], ll0)
+        ax2.xlabel = "LL"
+        if get(kwargs, :ylabelvisible, true)
+            ax2.ylabel = "LL null"
+        end
+    end
     ablines!(ax2, 0.0, 1.0, linestyle=:dot, color=:black)
-    ax2.xticklabelrotation = -π/7
-    axp = pax(lg[1,2])
-    Label(lg[1,2,TopLeft()],"C")
+    #ax2.xticklabelrotation = -π/7
+    axp = pax(lg[1,1];pax_kwargs...)
+    Label(lg[1,1,TopLeft()],labels[1])
     if isa(axp, LScene)
         plotmesh!(axp, mm;showsegments=false, color=color=glmfit.β[1:end-1, 1,aidx], ceiling_offset=10, floor_offset=-20,shading=false)
     elseif first(glmfit.dims) == :hd
