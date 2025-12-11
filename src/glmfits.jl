@@ -218,22 +218,33 @@ end
 Get the probability that a null model produces the log-likelihoods found in 
 cross-validation fold `idx`.
 """
-function get_significance_level(glmfit::GLMFitH{N},idx::Integer;α=0.05) where N
+function get_significance_level(glmfit::GLMFitH{N},idx::Integer;α=0.05,use_aic=false, use_signed_rank=false) where N
+    # TODO: Why is everything significant?
     ll = glmfit.ll[:,idx]
     nspikes = glmfit.nspikes
     ll0 = zeros(length(ll))
+    _dof0 = 1
+    _dof = size(glmfit.β,1)
+    ntest = length(glmfit.nspikes) - size(glmfit.trainidx,1)
     for i in 1:length(ll0)
         trainidx = glmfit.trainidx[:,i]
         testidx = setdiff(1:length(nspikes), trainidx)
         P = fit(Poisson,nspikes[trainidx])
         ll0[i] = mean(logpdf.(P, nspikes[testidx]))
     end
-    nn = sum(ll .> ll0)
+    if use_aic
+        nn = sum(_dof .- ntest*ll .< _dof0 .- ntest*ll0)
+    elseif use_signed_rank
+        qq =  SignedRankTest(ll, ll0)
+        return qq, pvalue(qq, tail=:right)
+    else
+        nn = sum(ll .> ll0)
+    end
     pv = 1 - cdf(Binomial(length(ll),α),nn)
     nn, pv
 end
 
-function get_significance_level(glmfit::GLMFitH{N};α=0.05) where N
+function get_significance_level(glmfit::GLMFitH{N};α=0.05,use_aic=false, use_signed_rank=false) where N
     nruns = size(glmfit.ll,1)
     trainidx = glmfit.trainidx
     if length(glmfit.dims) > 1
@@ -260,8 +271,8 @@ function get_significance_level(glmfit::GLMFitH{N};α=0.05) where N
         pv = 1 - cdf(Binomial(nruns,α), nn)
         return nn, pv
     else
-        aidx = get_best_α(glmfit)
-        get_significance_level(glmfit, aidx;α=α)
+        αb, aidx = get_best_α(glmfit)
+        get_significance_level(glmfit, aidx;α=α,use_aic=use_aic,use_signed_rank=use_signed_rank)
     end
 
 end
