@@ -55,6 +55,36 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     h
 end
 
+function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}) where N
+    ntest = length(glmfit.nspikes) - size(trainidx,1)
+    α,aidx = get_best_α(glmfit)
+    β = glmfit.β[:,:,aidx] 
+    if glmfit.dims[1] == :p
+        mm = floor_topology3()
+        nb = nelements(mm)
+        m = 2
+    elseif glmfit.dims[1] == :g
+        mm = get_maze_mesh()
+        nb = nelements(mm)
+        m = 1
+    else
+        nb = 24
+        m = 3
+    end
+    X = zeros(nb+1, ntest)
+    X[nb+1,:] .= 1.0
+    ll = zeros(size(trainidx,2))
+    nspikes = glmfit.nspikes
+    for (j,_trainidx) in enumerate(eachcol(trainidx))
+        testidx = setdiff(1:length(nspikes), _trainidx)
+        for (k,qq) in enumerate(glmfit.qidx[testidx])
+            X[qq.I[m],k] = 1.0
+        end
+        ll[j] = logprob(β[:,j], X, nspikes[testidx])
+    end
+    ll
+end
+
 function plot_glmfit(glmfit::GLMFitH{N},args...;kwargs...) where N
     with_theme(plot_theme) do
         fig = Figure()
