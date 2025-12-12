@@ -275,14 +275,16 @@ function get_significance_level(glmfit::GLMFitH{N},idx::Integer;α=0.05,use_aic=
 end
 
 function get_significance_level(glmfit_joint::GLMFitH{N},glmfit::Vector{GLMFitH{1}};α=0.05,use_aic=false, use_signed_rank=false,kwargs...) where N
-    ll = glmfit_joint.ll[:,1]
+    ll_joint = glmfit_joint.ll[:,1]
     pv = zeros(length(glmfit))
+    ll = zeros(size(ll_joint,1), length(glmfit))
     for (i,_glmfit) in enumerate(glmfit)
         α, aidx = get_best_α(_glmfit)
-        qq = HypothesisTests.SignedRankTest(ll, _glmfit.ll[:,aidx])
+        ll[:,i] .= logprob(_glmfit, glmfit_joint.trainidx)
+        qq = HypothesisTests.SignedRankTest(ll[:,i], _glmfit.ll[:,aidx])
         pv[i]  = pvalue(qq, tail=:left)
     end
-    pv
+    ll,pv
 end
 
 function get_significance_level(dims::NTuple{N,Symbol};kwargs...) where N
