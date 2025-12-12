@@ -244,7 +244,36 @@ function get_significance_level(glmfit::GLMFitH{N},idx::Integer;α=0.05,use_aic=
     nn, pv
 end
 
-function get_significance_level(glmfit::GLMFitH{N};α=0.05,use_aic=false, use_signed_rank=false) where N
+function get_significance_level(glmfit_joint::GLMFitH{N},glmfit::Vector{GLMFitH{1}};α=0.05,use_aic=false, use_signed_rank=false,kwargs...) where N
+    ll = glmfit_joint.ll[:,1]
+    pv = zeros(length(glmfit))
+    for (i,_glmfit) in enumerate(glmfit)
+        α, aidx = get_best_α(_glmfit)
+        qq = HypothesisTests.SignedRankTest(ll, _glmfit.ll[:,aidx])
+        pv[i]  = pvalue(qq, tail=:left)
+    end
+    pv
+end
+
+function get_significance_level(dims::NTuple{N,Symbol};kwargs...) where N
+    glmfit_joint = GLMFitH(dims;kwargs...)
+    glmfit = map(dims) do d
+        GLMFitH((d,);kwargs...)
+    end
+    pv = zeros(length(dims))
+    for (i,gg) in enumerate(glmfit)
+        _,pv[i] = get_significance_level(gg;kwargs...)
+    end
+    pv_joint = get_significance_level(glmfit_joint, [glmfit...,];kwargs...)
+    (pv_joint=pv_joint, pv=pv)
+end
+
+function get_significance_level(dims::Symbol;kwargs...) where N
+    glmfit = GLMFitH((dims,);kwargs...)
+    get_significance_level(glmfit;kwargs...)
+end
+
+function get_significance_level(glmfit::GLMFitH{N};α=0.05,use_aic=false, use_signed_rank=true,kwargs...) where N
     nruns = size(glmfit.ll,1)
     trainidx = glmfit.trainidx
     if length(glmfit.dims) > 1
