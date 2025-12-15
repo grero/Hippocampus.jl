@@ -1622,14 +1622,28 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
+function process_kwargs(::Type{JointOccupancy};trial_start=1, nrefinements=(p=3, g=3),kwargs...)
+    h = zero(UInt32)
+    if trial_start != 1
+        h = crc32c(string((:trial_start=>trial_start)),h)
+    end
+    if nrefinements.p != 3
+        h = crc32c(string((:nrefinements_p=>nrefinements.p)),h)
+    end
+    if nrefinements.g != 3
+        h = crc32c(string((:nrefinements_g=>nrefinements.g)),h)
+    end
+    h
+end
 
-function JointOccupancy(gdata::UnityRaytraceData;trial_start=1)
+function JointOccupancy(gdata::UnityRaytraceData;trial_start=1,nrefinements=(p=3, g=3))
     nt = numtrials(gdata)
     hd_bins = range(0.0, stop=2π, length=24)
-    m_floor = Shadow("xy")(floor_topology3())
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
     kn_floor = KNearestSearch(m_floor,1)
-    mm = get_maze_mesh()
+    mm = get_maze_mesh(;nrefinements=nrefinements.g)
     kn = KNearestSearch(mm,1)
+    @show nelements(mm) nelements(m_floor)
     weight = Dict{CartesianIndex{4},Float64}()
     aindex = Vector{Vector{CartesianIndex{3}}}(undef, nt)
     for i in 1:nt
@@ -1676,11 +1690,16 @@ end
 
 function JointOccupancy(;redo=false, do_save=true,kwargs...)
     fname = DPHT.filename(JointOccupancy)
+    h = process_kwargs(JointOccupancy;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
     if isfile(fname) && !redo
         jocc = load_jld2(JointOccupancy)
     else 
         unity_gaze_data = UnityRaytraceData(;kwargs...)
-        jocc = Hippocampus.JointOccupancy(unity_gaze_data)
+        jocc = Hippocampus.JointOccupancy(unity_gaze_data;kwargs...)
         if do_save
             save_jld2(jocc)
         end
