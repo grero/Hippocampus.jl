@@ -1643,7 +1643,6 @@ function JointOccupancy(gdata::UnityRaytraceData;trial_start=1,nrefinements=(p=3
     kn_floor = KNearestSearch(m_floor,1)
     mm = get_maze_mesh(;nrefinements=nrefinements.g)
     kn = KNearestSearch(mm,1)
-    @show nelements(mm) nelements(m_floor)
     weight = Dict{CartesianIndex{4},Float64}()
     aindex = Vector{Vector{CartesianIndex{3}}}(undef, nt)
     for i in 1:nt
@@ -1701,7 +1700,7 @@ function JointOccupancy(;redo=false, do_save=true,kwargs...)
         unity_gaze_data = UnityRaytraceData(;kwargs...)
         jocc = Hippocampus.JointOccupancy(unity_gaze_data;kwargs...)
         if do_save
-            save_jld2(jocc)
+            save_jld2(jocc,fname)
         end
     end
     jocc
