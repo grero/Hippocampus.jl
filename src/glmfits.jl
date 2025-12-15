@@ -28,15 +28,17 @@ struct GLMFitH{N}
     dims::NTuple{N,Symbol}
     qidx::Vector{CartesianIndex{4}}
     converged::Bool
+    nrefinements::Vector{Int64}
 end
 
 function GLMFitH{N}(β, ll, α, trainidx, nspikes, dims::NTuple{N,Symbol}, qidx) where N
-    GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true)
+    GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true,[3])
 end
 
 function GLMFitH(β, ll, α, trainidx, nspikes, dims::NTuple{N,Symbol}, qidx) where N
-    GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true)
+    GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true, [3])
 end
+
 
 DPHT.filename(::Type{GLMFitH{N}}) where N = "glmfith.jld2"
 
@@ -48,10 +50,13 @@ end
 
 DPHT.level(::Type{GLMFitH{N}}) where N = "cell"
 
-function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, kwargs...) where N
+function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), kwargs...) where N
     h = UInt32(0)
     h = CRC32c.crc32c(string((:α=>α)),h)
     h = CRC32c.crc32c(string((:nruns=>nruns)),h)
+    if nrefinements !== 3
+        h = CRC32c.crc32c(string((:nrefinements=>nrefinements)),h)
+    end
     h
 end
 
@@ -914,8 +919,20 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
             glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true)
         end
     else 
+        _nrefinements = get(kwargs, :nrefinements, [3])
+        nrf = [3,3]
+        nk = (:p,:g)
+        for (p,k) in zip(nk,nrf)
+            if p in dims
+                ii = findfirst(dims.==p)
+                jj = findfirst(nk.==p)
+                nrf[jj] = _nrefinements[ii]
+            end
+        end
+        nrefinements = NamedTuple{nk}(nrf)
+        @show nrefinements
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
-            jocc = Hippocampus.JointOccupancy(;redo=false)
+            jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements)
             ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
             jocc, ud
         end
@@ -924,9 +941,9 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
     glmfit
 end
 
-function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,kwargs...) where N
+function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
-    h = process_kwargs(GLMFitH{N};α=α,nruns=nruns)
+    h = process_kwargs(GLMFitH{N};α=α,nruns=nruns, nrefinements=nrefinements)
     if h != 0
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
@@ -938,6 +955,8 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             # missing field
             glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true)
         end
+    elseif load_only
+        return nothing
     elseif isfile(fname_inprogress)
         error("$(fname) is currently being computed by another process")
     else
@@ -954,8 +973,6 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             validate_α = true
             use_α = α
         end
-        mm = get_maze_mesh() 
-        m_floor = Shadow("xy")(floor_topology3())
         # maybe make this more flexible
         nhd_bins = 24
         vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
@@ -963,11 +980,13 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         # construct X based on dims argument
         d = Int64[] 
         didx = Int64[]
-        for dd in dims
+        for (nf,dd) in zip(nrefinements,dims)
             if dd == :g
+                mm = get_maze_mesh(;nrefinements=nf) 
                 push!(d,nelements(mm))
                 push!(didx, 1)
             elseif dd == :p
+                m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
                 push!(d, nelements(m_floor))
                 push!(didx,2)
             elseif dd == :hd
@@ -980,8 +999,9 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         # set up laplacian
         L = zeros(sum(d), sum(d))
         offset = 0
-        for (j,(nd,dd)) in enumerate(zip(d,dims))
+        for (j,(nd,dd,nf)) in enumerate(zip(d,dims,nrefinements))
             if dd == :g
+                mm = get_maze_mesh(;nrefinements=nf) 
                 A = adjacencymatrix(mm)
                 if validate_α
                     a = 1.0
@@ -990,6 +1010,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
                 end
                 L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
             elseif dd == :p
+                m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
                 A = adjacencymatrix(m_floor)
                 if validate_α
                     a = 1.0
@@ -1029,7 +1050,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             β = reshape(β, size(β)...,1)
             ll = reshape(ll, size(ll)...,1)
         end
-        glmfit = GLMFitH(β, ll, use_α, trainidx, nspikes, dims, qidx,true)
+        glmfit = GLMFitH(β, ll, use_α, trainidx, nspikes, dims, qidx,true,nrefinements)
         if do_save
             save_jld2(glmfit, fname)
         end
