@@ -1636,7 +1636,7 @@ function process_kwargs(::Type{JointOccupancy};trial_start=1, nrefinements=(p=3,
     h
 end
 
-function JointOccupancy(gdata::UnityRaytraceData;trial_start=1,nrefinements=(p=3, g=3))
+function JointOccupancy(gdata::UnityRaytraceData;trial_start=1,nrefinements=(p=3, g=3),kwargs...)
     nt = numtrials(gdata)
     hd_bins = range(0.0, stop=2π, length=24)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
