@@ -954,7 +954,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         glmfit = load_jld2(GLMFitH{N}, fname)
          if isa(glmfit, JLD2.ReconstructedMutable)
             # missing field
-            glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true)
+            glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true, [3])
         end
     elseif load_only
         return nothing
