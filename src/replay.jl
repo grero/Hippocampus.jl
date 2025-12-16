@@ -1695,7 +1695,7 @@ function JointOccupancy(;redo=false, do_save=true,kwargs...)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
     if isfile(fname) && !redo
-        jocc = load_jld2(JointOccupancy)
+        jocc = load_jld2(JointOccupancy, fname)
     else 
         unity_gaze_data = UnityRaytraceData(;kwargs...)
         jocc = Hippocampus.JointOccupancy(unity_gaze_data;kwargs...)
