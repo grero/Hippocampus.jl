@@ -931,7 +931,6 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
             end
         end
         nrefinements = NamedTuple{nk}(nrf)
-        @show nrefinements
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
             jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements,kwargs2...)
             ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
