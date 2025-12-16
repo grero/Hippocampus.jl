@@ -674,23 +674,25 @@ function GLMFit(jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=fa
     glmfit
 end
 
-function do_GLMFit(::Type{T}, celldirs::Vector{String},args...;skip_error=true, kwargs...) where T <: Union{GLMFit, GLMFitH{<:Any}}
+function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, args...;skip_error=true, kwargs...) where T <: Union{GLMFit, GLMFitH{<:Any}} where N
     is_gaze_selective = fill(false, length(celldirs))
     is_pos_selective = fill(false, length(celldirs))
     is_hd_selective = fill(false, length(celldirs))
     allsessiondirs = DPHT.get_level_path.("session", celldirs)
     sessiondirs = unique(allsessiondirs)
+    nrefinements, kwargs2 = process_refinements(dims;kwargs...)
     @showprogress "Computing GLM fits..." for sessiondir in sessiondirs
         try
             jocc, unity_gaze_data = cd(sessiondir) do
-                jocc = JointOccupancy(;kwargs...)
+                jocc = JointOccupancy(;nrefinements=nrefinements, kwargs2...)
                 unity_gaze_data = UnityRaytraceData(;kwargs...)
                 jocc, unity_gaze_data
             end
+            @show 
             cidx = findall(allsessiondirs.==sessiondir)
             for (cc,celldir) in zip(cidx,celldirs[cidx])
                 glmfit = cd(celldir) do
-                    T(args..., jocc, unity_gaze_data;kwargs...)
+                    T(dims,args..., jocc, unity_gaze_data;kwargs...)
                 end
                 if T <: GLMFit
                     is_gaze_selective[cc] = glmfit.deviance_gaze[1] < glmfit.deviance_gaze[2]
@@ -905,6 +907,22 @@ function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::Abstra
     β,ll , trainidx
 end
 
+function process_refinements(dims::NTuple{N,Symbol};kwargs...) where N
+    _nrefinements = get(kwargs, :nrefinements, [3])
+    kwargs2 = filter(k->k[1]!=:nrefinements, kwargs)
+    nrf = [3,3]
+    nk = (:p,:g)
+    for (p,k) in zip(nk,nrf)
+        if p in dims
+            ii = findfirst(dims.==p)
+            jj = findfirst(nk.==p)
+            nrf[jj] = _nrefinements[ii]
+        end
+    end
+    nrefinements = NamedTuple{nk}(nrf) 
+    nrefinements, kwargs2
+end
+
 function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};kwargs...)
@@ -919,18 +937,7 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
             glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true,[3])
         end
     else 
-        _nrefinements = get(kwargs, :nrefinements, [3])
-        kwargs2 = filter(k->k[1]!=:nrefinements, kwargs)
-        nrf = [3,3]
-        nk = (:p,:g)
-        for (p,k) in zip(nk,nrf)
-            if p in dims
-                ii = findfirst(dims.==p)
-                jj = findfirst(nk.==p)
-                nrf[jj] = _nrefinements[ii]
-            end
-        end
-        nrefinements = NamedTuple{nk}(nrf)
+        nrefinements,kwargs2 = process_refinements(dims;kwargs...) 
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
             jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements,kwargs2...)
             ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
