@@ -920,6 +920,7 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
         end
     else 
         _nrefinements = get(kwargs, :nrefinements, [3])
+        kwargs2 = filter(k->k[1]!=:nrefinements, kwargs)
         nrf = [3,3]
         nk = (:p,:g)
         for (p,k) in zip(nk,nrf)
@@ -932,7 +933,7 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
         nrefinements = NamedTuple{nk}(nrf)
         @show nrefinements
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
-            jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements)
+            jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements,kwargs2...)
             ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
             jocc, ud
         end
