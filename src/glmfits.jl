@@ -174,14 +174,7 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
     nspikes = glmfit.nspikes
     # establish null likelihood
     _dof0 = 1
-    ll0 = zeros(size(ll,1))
-    ntest = length(glmfit.nspikes) - size(glmfit.trainidx,1)
-    for i in 1:length(ll0)
-        trainidx = glmfit.trainidx[:,i]
-        testidx = setdiff(1:length(nspikes), trainidx)
-        P = fit(Poisson,nspikes[trainidx])
-        ll0[i] = mean(logpdf.(P, nspikes[testidx]))
-    end
+    ll0 = logprob(glmfit.nspikes, glmfit.dt, glmfit.trainidx)
     xx = repeat(glmfit.α, 1,size(ll,1))[:]
     yy = permutedims(glmfit.ll)[:]
     points = Point2f[]
