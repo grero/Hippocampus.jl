@@ -519,11 +519,13 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
     # get the speed per place bin
     vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,nelements(m_floor))
     qidx = CartesianIndex{4}[]
-    for k in keys(jocc.weight)
+    ww = Float64[]
+    for (k,v) in jocc.weight
         pidx = k.I[2]
         tidx = k.I[4]
         if ff(pidx) && (vv[pidx,tidx]  > 1.0)
-            push!(qidx, k)
+            push!(qidx,k)
+            push!(ww, v)
         end
     end
     # replace with goodbinidx 
@@ -538,7 +540,7 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
             nspikes[ii] = cc[k]
         end
     end
-    nspikes, mpos, mgaze,mhd, qidx
+    nspikes, mpos, mgaze,mhd,qidx,ww
 end
 
 function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy,unity_gaze_data::UnityRaytraceData)
