@@ -55,7 +55,7 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     h = UInt32(0)
     h = CRC32c.crc32c(string((:α=>α)),h)
     h = CRC32c.crc32c(string((:nruns=>nruns)),h)
-    if nrefinements !== 3
+    if nrefinements != fill(3,N) 
         h = CRC32c.crc32c(string((:nrefinements=>nrefinements)),h)
     end
     h
