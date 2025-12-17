@@ -689,7 +689,7 @@ function GLMFit(jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=fa
     glmfit
 end
 
-function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, args...;skip_error=true, kwargs...) where T <: Union{GLMFit, GLMFitH{<:Any}} where N
+function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, args...;skip_error=true, redo=false, kwargs...) where T <: Union{GLMFit, GLMFitH{<:Any}} where N
     is_gaze_selective = fill(false, length(celldirs))
     is_pos_selective = fill(false, length(celldirs))
     is_hd_selective = fill(false, length(celldirs))
@@ -703,11 +703,10 @@ function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, a
                 unity_gaze_data = UnityRaytraceData(;kwargs...)
                 jocc, unity_gaze_data
             end
-            @show 
             cidx = findall(allsessiondirs.==sessiondir)
             for (cc,celldir) in zip(cidx,celldirs[cidx])
                 glmfit = cd(celldir) do
-                    T(dims,args..., jocc, unity_gaze_data;kwargs...)
+                    T(dims,args..., jocc, unity_gaze_data;redo=redo, kwargs...)
                 end
                 if T <: GLMFit
                     is_gaze_selective[cc] = glmfit.deviance_gaze[1] < glmfit.deviance_gaze[2]
