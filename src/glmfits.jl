@@ -249,6 +249,17 @@ function get_best_α(glmfit::GLMFitH{N}) where N
     glmfit.α[idx],idx
 end
 
+function logprob(nspikes, w, trainidx::Matrix{Int64})
+    ll = zeros(size(trainidx,2))
+    for i in 1:length(ll)
+        _trainidx = trainidx[:,i]
+        testidx = setdiff(1:length(nspikes), _trainidx)
+        λ = mean(nspikes[_trainidx]./w[_trainidx])
+        y = nspikes[testidx]
+        ll[i] = mean(y.*log.(λ.*w[testidx]) - loggamma.(y.+1) - λ.*w[testidx])
+    end
+    ll
+end
 """
 Get the probability that a null model produces the log-likelihoods found in 
 cross-validation fold `idx`.
