@@ -540,7 +540,9 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
             nspikes[ii] = cc[k]
         end
     end
-    nspikes, mpos, mgaze,mhd,qidx,ww
+    # ensure that we are only using non-zero weights
+    fidx = ww.>0
+    nspikes[fidx], mpos[:,fidx], mgaze[:,fidx],mhd[fidx],qidx[fidx],ww[fidx]
 end
 
 function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy,unity_gaze_data::UnityRaytraceData)
