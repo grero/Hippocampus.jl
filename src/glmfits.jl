@@ -784,10 +784,10 @@ function fit_glm(gaze::AbstractVector{T2},mm::SimpleMesh) where T2 <: AbstractVe
     cc, flat_gaze, flat_idx
 end
 
-function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, α::Real)
+function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, w::AbstractVector{<:Real}, α::Real)
     η = X'*β
-    λ = exp.(η)
-    ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
+    λ = exp.(η).*w
+    ll1 = mean(-y.*(η.+log.(w)) + loggamma.(y .+ 1) .+  λ)
     ll2 =α*β'*L*β
     ll1 + ll2
 end
@@ -800,17 +800,19 @@ function α_penalty!(gg, β::AbstractVector{<:Real}, L::Symmetric{<:Real}, α::R
     gg .+= 2*α*L*β
 end
 
-function lossfunc2_grad!(gg, β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, α::Real)
+function lossfunc2_grad!(gg, β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, w::AbstractVector{<:Real}, α::Real)
     η = X'*β
     δη = X
     fill!(gg, 0.0)
     ny = length(y)
     @assert size(X,2) == ny
+    @assert length(w) == ny
     @assert size(X,1) == length(β)
     for i in eachindex(y) 
         @inbounds yi = y[i]
         @inbounds ηi = η[i]
-        eηi = exp(ηi)
+        @inbounds wi = w[i]
+        eηi = exp(ηi)*wi
         for j in eachindex(β) 
             @inbounds δηji = δη[j,i] 
             @inbounds gg[j] += -yi*δηji + eηi*δηji
@@ -840,13 +842,13 @@ function lossfunc23(β, X, y,L, α)
     ll1 + ll2
 end
 
-function logprob(β, X, y)
+function logprob(β, X, y,w)
     η = X'*β
-    λ = exp.(η)
-    ll1 = mean(y.*η - loggamma.(y .+ 1) .-  λ)
+    λ = exp.(η).*w
+    ll1 = mean(y.*(η.+log.(w)) - loggamma.(y .+ 1) .-  λ)
 end
 
-function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
+function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},w::AbstractVector{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
     d,n = size(X)
     if β0 === nothing
         β0 = randn(T,d+1)
@@ -856,8 +858,8 @@ function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Abstra
     L2 = zeros(T, size(L,1)+1, size(L,2)+1)
     L2[1:size(L,1), 1:size(L,2)] .= L
     Xq = [X;ones(T, 1, n)]
-    lf(β) = lossfunc2(β, Xq, y,L2,α)
-    g!(g, β) = lossfunc2_grad!(g, β, Xq, y, L2, α)
+    lf(β) = lossfunc2(β, Xq, y,L2,w, α)
+    g!(g, β) = lossfunc2_grad!(g, β, Xq, y, L2, w, α)
     prog = ProgressThresh(1e-8;desc="Minimizing...", enabled=show_progress,showspeed=true)
     function callback(state)
         ProgressMeter.update!(prog, state.g_norm)
@@ -890,13 +892,13 @@ end
 """
 Run glm fit on `nruns` separate training and testing sets
 """
-function cross_validate(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real};α::T=one(T),nruns=10,kwargs...) where T <: Real
+function cross_validate(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},ww::AbstractVector{<:Real};α::T=one(T),nruns=10,kwargs...) where T <: Real
     trainidx = get_trainidx(size(X,2),nruns)
-    cross_validate(trainidx, X, y,L;α=α,kwargs...)
+    cross_validate(trainidx, X, y,L,ww;α=α,kwargs...)
 end
 
 
-function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real};α::T=one(T),show_progress=false, kwargs...) where T <: Real
+function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},ww::AbstractVector{<:Real};α::T=one(T),show_progress=false, kwargs...) where T <: Real
     d,n = size(X)
     nruns = size(trainidx,2)
     ll = zeros(nruns)
@@ -908,12 +910,14 @@ function cross_validate(trainidx::Matrix{Int64}, X::AbstractMatrix{T}, y::Abstra
         test_idx = setdiff(1:n, _train_idx)
         X_train = X[:,_train_idx]
         y_train = y[_train_idx]
+        w_train = ww[_train_idx]
 
         X_test = X[:,test_idx]
         y_test = y[test_idx]
+        w_test = ww[test_idx]
 
-        q = fit_glm_2(X_train, y_train, L;α=α,kwargs...)
-        ll[r] = logprob(q.minimizer, [X_test;ones(1,length(test_idx))], y_test)
+        q = fit_glm_2(X_train, y_train, L, w_train;α=α,kwargs...)
+        ll[r] = logprob(q.minimizer, [X_test;ones(1,length(test_idx))], y_test, w_test)
         β[:,r] .= q.minimizer
         next!(prog)
     end
@@ -996,7 +1000,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         # maybe make this more flexible
         nhd_bins = 24
         vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
-        nspikes, mpos, mgaze, mhd,qidx = fit_glm(vpvrp, jocc, unity_gaze_data)
+        nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data)
         # construct X based on dims argument
         d = Int64[] 
         didx = Int64[]
@@ -1058,7 +1062,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         end
         Ls = Symmetric(L)
         if length(dims) == 1
-            dq,trainidx = cross_validate(α, X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+            dq,trainidx = cross_validate(α, X, nspikes, Ls,ww;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
             β = zeros(size(X,1)+1, nruns, length(α))
             ll = zeros(nruns, length(α))
             for (i,_α) = enumerate(α)
@@ -1066,11 +1070,11 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
                 ll[:,i] = dq[_α][:ll]
             end
         else
-            β,ll,trainidx = cross_validate(X, nspikes, Ls;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+            β,ll,trainidx = cross_validate(X, nspikes, Ls,ww;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
             β = reshape(β, size(β)...,1)
             ll = reshape(ll, size(ll)...,1)
         end
-        glmfit = GLMFitH(β, ll, use_α, trainidx, nspikes, dims, qidx,true,nrefinements)
+        glmfit = GLMFitH(β, ll, use_α, trainidx, nspikes, ww, dims, qidx,true,nrefinements)
         if do_save
             save_jld2(glmfit, fname)
         end
