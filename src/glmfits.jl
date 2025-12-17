@@ -25,6 +25,7 @@ struct GLMFitH{N}
     α::Vector{Float64}
     trainidx::Matrix{Int64}
     nspikes::Vector{Int16}
+    dt::Vector{Float64}
     dims::NTuple{N,Symbol}
     qidx::Vector{CartesianIndex{4}}
     converged::Bool
