@@ -1819,7 +1819,7 @@ function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata
         js = 1
         for j in 1:nspikes
             kg = searchsortedlast(tg,sp_trial[j])
-            if (0 < kg <= size(gaze,2) && (fixmask[kg] || !fixation_only))
+            if (0 < kg < size(gaze,2) && (fixmask[kg] || !fixation_only))
                 #if (voc.placebin_idx[i][ku] != 0) && (voc.viewbin_idx[i][kg] != 0)
                 trialevents[js] = sp_trial[j]
                 _placeviewidx[js] = kg
