@@ -162,12 +162,12 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
     end
     if :g in(glmfit.dims)
         pax = LScene 
-        mm = get_maze_mesh()
+        mm = get_maze_mesh(;nrefinements=glmfit.nrefinements[1])
         pax_kwargs = (;)
     else
         pax = Axis
         pax_kwargs = (;)
-        mm = floor_topology3()
+        mm = floor_topology3(;nrefinements=glmfit.nrefinements[1])
     end
     _dof = size(glmfit.β,1)
     ll = glmfit.ll
