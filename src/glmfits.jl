@@ -61,33 +61,30 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     h
 end
 
-function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}) where N
-    ntest = length(glmfit.nspikes) - size(trainidx,1)
+function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_sample=false) where N
+    if in_sample
+        _trialidx = _trainidx
+    else
+        _trialidx = stack(setdiff.([1:length(glmfit.nspikes)], eachcol(trainidx)))
+    end
     α,aidx = get_best_α(glmfit)
     β = glmfit.β[:,:,aidx] 
+    nb = size(β,1)-1
     if glmfit.dims[1] == :p
-        mm = floor_topology3()
-        nb = nelements(mm)
         m = 2
     elseif glmfit.dims[1] == :g
-        mm = get_maze_mesh()
-        nb = nelements(mm)
         m = 1
     else
         nb = 24
         m = 3
     end
-    X = zeros(nb+1, ntest)
-    X[nb+1,:] .= 1.0
-    ll = zeros(size(trainidx,2))
     nspikes = glmfit.nspikes
-    for (j,_trainidx) in enumerate(eachcol(trainidx))
-        testidx = setdiff(1:length(nspikes), _trainidx)
-        for (k,qq) in enumerate(glmfit.qidx[testidx])
-            X[qq.I[m],k] = 1.0
-        end
-        ll[j] = logprob(β[:,j], X, nspikes[testidx])
+    X = zeros(nb+1, length(nspikes))
+    X[nb+1,:] .= 1.0
+    for (k,qq) in enumerate(glmfit.qidx)
+        X[qq.I[m],k] = 1.0
     end
+    ll = logprob(β, X, nspikes, glmfit.dt,_trialidx)
     ll
 end
 
