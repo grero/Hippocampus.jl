@@ -243,6 +243,11 @@ function get_best_α(glmfit::GLMFitH{N}) where N
     glmfit.α[idx],idx
 end
 
+function logprob(nspikes, w, nruns::Int64)
+    trainidx = get_trainidx(length(nspikes),nruns)
+    logprob(nspikes, w, trainidx)
+end
+
 function logprob(nspikes, w, trainidx::Matrix{Int64})
     ll = zeros(size(trainidx,2))
     for i in 1:length(ll)
