@@ -248,17 +248,28 @@ function logprob(nspikes, w, nruns::Int64)
     logprob(nspikes, w, trainidx)
 end
 
-function logprob(nspikes, w, trainidx::Matrix{Int64})
+function logprob(nspikes, w, trainidx::Matrix{Int64};in_sample=false)
     ll = zeros(size(trainidx,2))
     for i in 1:length(ll)
         _trainidx = trainidx[:,i]
-        testidx = setdiff(1:length(nspikes), _trainidx)
         λ = mean(nspikes[_trainidx]./w[_trainidx])
+        if !in_sample
+            testidx = setdiff(1:length(nspikes), _trainidx)
+        else
+            testidx = _trainidx
+        end
         y = nspikes[testidx]
         ll[i] = mean(y.*log.(λ.*w[testidx]) - loggamma.(y.+1) - λ.*w[testidx])
     end
     ll
 end
+
+function logprob(nspikes, w)
+    λ = mean(nspikes./w)
+    y = nspikes
+    ll = mean(y.*log.(λ.*w) - loggamma.(y.+1) - λ.*w)
+end
+
 """
 Get the probability that a null model produces the log-likelihoods found in 
 cross-validation fold `idx`.
