@@ -859,6 +859,16 @@ function logprob(β, X, y,w)
     ll1 = mean(y.*(η.+log.(w)) - loggamma.(y .+ 1) .-  λ)
 end
 
+
+function logprob(β::Matrix{Float64}, X, y,w, trainidx::Matrix{Int64})
+    ll = zeros(size(trainidx,2))
+    for i in 1:length(ll)
+        _trainidx = trainidx[:,i]
+        ll[i] = logprob(β[:,i], X[:,_trainidx], y[_trainidx], w[_trainidx])
+    end
+    ll
+end
+
 function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},w::AbstractVector{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
     d,n = size(X)
     if β0 === nothing
