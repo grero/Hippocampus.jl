@@ -225,6 +225,54 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
     ax1,axp
 end
 
+function plot_ll_analysis(glmfit::GLMFitH{N}) where N
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_ll_analysis!(lg, glmfit)
+        fig
+    end
+end
+
+function plot_ll_analysis!(lg, glmfit::GLMFitH{N}) where N
+    # get in and out-of sample loglikelihoods for both null and full model
+    ll0_in = logprob(glmfit.nspikes, glmfit.dt, glmfit.trainidx;in_sample=true)
+    ll0_out = logprob(glmfit.nspikes, glmfit.dt, glmfit.trainidx;in_sample=false)
+    ll1_in = logprob(glmfit, glmfit.trainidx;in_sample=true)
+    ll1_out = logprob(glmfit, glmfit.trainidx;in_sample=false)
+    ax = Axis(lg[1,2])
+    ax1 = Axis(lg[1,1])
+    ax2 = Axis(lg[2,2])
+    ax3 = Axis(lg[2,1])
+    scatter!(ax, ll1_out, ll0_out,color=ll1_out.>ll0_out)
+    scatter!(ax2, ll1_out, ll1_in)
+    scatter!(ax1, ll0_in, ll0_out)
+    scatter!(ax3, ll0_in, ll1_in,color=ll1_in.>ll0_in)
+    
+    linkyaxes!(ax, ax1)
+    linkxaxes!(ax, ax2)
+
+    linkyaxes!(ax3, ax2)
+    linkxaxes!(ax3, ax1)
+    ablines!(ax, 0.0, 1.0, color=:black, linestyle=:dot)
+    ablines!(ax1, 0.0, -1.0, color=:red, linestyle=:dot)
+    ablines!(ax1, 0.0, 1.0, color=:black, linestyle=:dot)
+    ablines!(ax2, 0.0, -1.0, color=:red, linestyle=:dot)
+    ablines!(ax1, 0.0, 1.0, color=:black, linestyle=:dot)
+    ablines!(ax3, 0.0, 1.0, color=:black, linestyle=:dot)
+    ax2.xlabel = "ll out"
+    ax2.yticklabelsvisible = false
+    ax3.ylabel = "ll in"
+    ax3.xlabel = "ll0 in"
+    ax.yticklabelsvisible = false
+    ax.xticklabelsvisible = false
+    ax1.ylabel = "ll0 out"
+    ax1.xticklabelsvisible = false
+    for _ax in [ax3,ax2]
+        _ax.xticklabelrotation = -π/8
+    end
+end
+
 function get_best_α(glmfit::GLMFitH{N}) where N
     nruns,nα = size(glmfit.ll)
     nn = zeros(Int64, nα)
