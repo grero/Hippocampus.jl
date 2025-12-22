@@ -1013,13 +1013,21 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
+    do_compute = false
     if !redo && isfile(fname)
         glmfit = load_jld2(GLMFitH{N}, fname)
         if isa(glmfit, JLD2.ReconstructedMutable)
             # missing field
-            glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true,[3])
+            if !(:dt in fieldnames(typeof(glmfit)))
+                do_compute = true
+            else
+                glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dt, glmfit.dims, glmfit.qidx, true,[3])
+            end
         end
-    else 
+    else
+        do_compute = true
+    end
+    if do_compute
         nrefinements,kwargs2 = process_refinements(dims;kwargs...) 
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
             jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements,kwargs2...)
@@ -1039,17 +1047,26 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
     fname_inprogress = replace(fname, ".jld2"=>".jld2.inprogress")
+    do_compute = false
     if !redo && isfile(fname)
         glmfit = load_jld2(GLMFitH{N}, fname)
          if isa(glmfit, JLD2.ReconstructedMutable)
             # missing field
-            glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dims, glmfit.qidx, true, [3])
+            if !(:dt in fieldnames(typeof(glmfit)))
+                # redo
+                do_compute = true
+            else
+                glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dt, glmfit.dims, glmfit.qidx, true, [3])
+            end
         end
     elseif load_only
         return nothing
     elseif isfile(fname_inprogress)
         error("$(fname) is currently being computed by another process")
     else
+        do_compute = true
+    end
+    if do_compute
         touch(fname_inprogress)
         # TODO: If we doing joint fit, get the cross-validated alpha from the individua fits first 
         if length(dims) > 1
