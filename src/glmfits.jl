@@ -1056,7 +1056,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             use_α = zeros(length(dims))
             validate_α = false
             for (i,d) in enumerate(dims)
-                _glmfit = GLMFitH((d,), jocc, unity_gaze_data;α=α,nruns=nruns)
+                _glmfit = GLMFitH((d,), jocc, unity_gaze_data;α=α,nruns=nruns,kwargs...)
                 use_α[i],aidx = get_best_α(_glmfit)
             end
         else
