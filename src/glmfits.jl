@@ -63,7 +63,7 @@ end
 
 function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_sample=false) where N
     if in_sample
-        _trialidx = _trainidx
+        _trialidx = trainidx
     else
         _trialidx = stack(setdiff.([1:length(glmfit.nspikes)], eachcol(trainidx)))
     end
