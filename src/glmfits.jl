@@ -1093,7 +1093,44 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
     glmfit
 end
 
-function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), kwargs...) where N
+function get_laplacian(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}, α::NTuple{N,<:Real}) where N
+    d = Int64[] 
+    didx = Int64[]
+    for (nf,dd) in zip(nrefinements,dims)
+        if dd == :g
+            mm = get_maze_mesh(;nrefinements=nf) 
+            push!(d,nelements(mm))
+            push!(didx, 1)
+        elseif dd == :p
+            m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
+            push!(d, nelements(m_floor))
+            push!(didx,2)
+        elseif dd == :hd
+            push!(d,nhd_bins)
+            push!(didx, 3)
+        end
+    end
+    L = zeros(sum(d), sum(d))
+    offset = 0
+    for (j,(nd,dd,nf,a)) in enumerate(zip(d,dims,nrefinements,α))
+        if dd == :g
+            mm = get_maze_mesh(;nrefinements=nf) 
+            A = adjacencymatrix(mm)
+            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
+        elseif dd == :p
+            m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
+            A = adjacencymatrix(m_floor)
+            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
+        elseif dd == :hd
+            A = get_circular_adjancency(nhd_bins)
+            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
+        end
+        offset += nd
+    end
+    L
+end
+
+function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData,vpvrp::Union{ViewAndPlaceRepresentationNew,Nothing}=nothing;redo=false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};α=α,nruns=nruns, nrefinements=nrefinements)
     if h != 0
