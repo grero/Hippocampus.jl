@@ -88,6 +88,60 @@ function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_s
     ll
 end
 
+function compute_edf(::Type{GLMFitH{N}}, dims::NTuple{N,Symbol}, args...;redo=false, do_save=true, kwargs...) where N
+    h = process_kwargs(GLMFitH{N};kwargs...)
+    fname = DPHT.filename(GLMFitH{N}, dims)
+    fname = replace(fname, ".jld2"=>"_edf.jld2")
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo && isfile(fname)
+        nf = JLD2.load(fname, "nf")
+    else
+        glmfit = GLMFitH(dims, args...;kwargs...)
+        if length(dims) > 1
+            α = glmfit.α
+            aidx = 1
+        else
+            α,aidx = get_best_α(glmfit)
+        end
+        L = get_laplacian(dims, (glmfit.nrefinements...,), (α...,))
+        nf = compute_edf(glmfit, aidx, L)
+        if do_save
+            metadata = Dict{String,Any}() 
+            if append_tag
+                tag!(metadata, storepatch=true)
+            end
+            JLD2.save(fname, Dict("meta"=>metadata, "nf"=>nf))
+        end
+    end
+    nf
+end
+
+"""
+Compute the effective number of degrees of freedom
+"""
+function compute_edf(glmfit_p, aidx::Integer, L::Matrix{<:Real})
+
+    β = glmfit_p.β[:,:,aidx]
+    L2 = zeros(size(β,1),size(β,1))
+    L2[1:end-1,1:end-1] .= L
+    α = glmfit_p.α[aidx]
+    X = zeros(size(glmfit_p.β,1), length(glmfit_p.nspikes))
+    X[end,:] .= 1.0
+    for (i,qq) in enumerate(glmfit_p.qidx)
+        X[qq.I[2],i] = 1.0
+    end
+    nf = zeros(size(glmfit_p.β,2))
+    for i in 1:length(nf)
+         W = Diagonal(vec(β[:,i]'*X))
+         H = X'*inv(X*W*X' + α*L2)*X*W
+         nf[i] = tr(H)
+    end
+    nf
+end
+
 function plot_glmfit(glmfit::GLMFitH{N},args...;kwargs...) where N
     with_theme(plot_theme) do
         fig = Figure()
