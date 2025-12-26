@@ -88,7 +88,23 @@ function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_s
     ll
 end
 
-function compute_edf(::Type{GLMFitH{N}}, dims::NTuple{N,Symbol}, args...;redo=false, do_save=true, kwargs...) where N
+function compute_edf(dirs::Vector{String}, ::Type{GLMFitH{N}}, args...;skip_error=false, kwargs...) where N
+    nf = Dict{String, Vector{Float64}}()
+    @showprogress "Computing EDF..." for d in dirs
+        cd(d) do
+            try
+                nf[d] = compute_edf(GLMFitH{N}, args...;kwargs...)
+            catch ee
+                if !skip_error
+                    rethrow(ee)
+                end
+            end
+        end
+    end
+    nf
+end
+
+function compute_edf(::Type{GLMFitH{N}}, dims::NTuple{N,Symbol}, args...;redo=false, do_save=true, append_tag=true, kwargs...) where N
     h = process_kwargs(GLMFitH{N};kwargs...)
     fname = DPHT.filename(GLMFitH{N}, dims)
     fname = replace(fname, ".jld2"=>"_edf.jld2")
