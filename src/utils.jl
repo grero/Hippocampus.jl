@@ -3,6 +3,39 @@ using GeometryBasics
 using GeometryBasics: Point, Rect, Vec, faces,Mat
 using LinearAlgebra
 
+function kmean_it(X::Matrix{T}, k::Integer,m::Integer;n_iter=1000) where T <: Real
+    d,n = size(X)
+    # random cluster center initialization
+    cidx = shuffle(1:n)[1:k]
+    μ = X[:,cidx]
+    Xm = zeros(T, d, m)
+    nc = fill(0, k)
+    qi = [1:n;]
+    midx= [1:m;]
+    for i in 1:n_iter
+        shuffle!(qi)
+        copy!(midx, view(qi, 1:m))
+        sort!(midx)
+        copy!(Xm, view(X, :, midx))
+        # compute distances
+        for xm in eachcol(Xm)
+            d = Inf
+            ki = 0
+            for (j,xc) in enumerate(eachcol(μ))
+                _d = sum(abs2, xm .- xc)
+                if _d < d
+                    d = _d
+                    ki = j
+                end
+            end
+            nc[ki] += 1
+            γ = 1/nc[ki]
+            μ[:,ki] .+= γ*(xm - μ[:,ki])
+        end
+    end
+    μ 
+end
+
 function reshape_triggers(markers::AbstractVector{T1}, timestamps::AbstractVector{T2},session_start::Vector{UInt64}=UInt64[];perform_fix=false) where T1 <: Real where T2 <: Real
     # the first marker is a session start; the remaining come in trios
     nn = length(markers)
