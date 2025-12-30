@@ -998,6 +998,60 @@ function logprob(β::Matrix{Float64}, X, y,w, trainidx::Matrix{Int64})
     ll
 end
 
+"""
+Get the dimensions of the GLM model.
+"""
+function get_dims(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}) where N
+    d = Int64[] 
+    didx = Int64[]
+    for (nf,dd) in zip(nrefinements,dims)
+        if dd == :g
+            mm = get_maze_mesh(;nrefinements=nf) 
+            push!(d,nelements(mm))
+            push!(didx, 1)
+        elseif dd == :p
+            m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
+            push!(d, nelements(m_floor))
+            push!(didx,2)
+        elseif dd == :hd
+            push!(d,nhd_bins)
+            push!(didx, 3)
+        end
+    end
+    d,didx
+end
+
+function glm_fit_setup(nt, dims, nrefinements)
+    d,didx = get_dims(dims, nrefinements)
+    nd = sum(d)+1
+    β = to_rarray(randn(nd))
+    L = to_rarray(zeros(nd,nd))
+    y = to_rarray(zeros(Int16, nt))
+    X = to_rarray(zeros(nd,nt))
+    dt = to_rarray(fill(1.0, nt))
+    α = ConcreteRNumber(1.0)
+    gg = to_rarray(zeros(nd))
+    f = @compile lossfunc2(β, X, y, L, dt,α)
+    g! = @compile lossfunc2_grad2!(gg, β, X, y, L, dt, α)
+    f,g!
+end
+
+
+function glm_fit_setup2(nt, dims, nrefinements)
+    d,didx = get_dims(dims, nrefinements)
+    nd = sum(d)+1
+    β = randn(nd)
+    L = zeros(nd,nd)
+    y = zeros(Int16, nt)
+    X = zeros(nd,nt)
+    dt = fill(1.0, nt)
+    α = 1.0
+    gg = zeros(nd)
+    f = @compile lossfunc2(β, X, y, L, dt,α)
+    g! = @compile lossfunc2_grad2!(gg, β, X, y, L, dt, α)
+    f,g!
+end
+
 function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},w::AbstractVector{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
     d,n = size(X)
     if β0 === nothing
@@ -1124,22 +1178,7 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
 end
 
 function get_laplacian(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}, α::NTuple{N,<:Real}) where N
-    d = Int64[] 
-    didx = Int64[]
-    for (nf,dd) in zip(nrefinements,dims)
-        if dd == :g
-            mm = get_maze_mesh(;nrefinements=nf) 
-            push!(d,nelements(mm))
-            push!(didx, 1)
-        elseif dd == :p
-            m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
-            push!(d, nelements(m_floor))
-            push!(didx,2)
-        elseif dd == :hd
-            push!(d,nhd_bins)
-            push!(didx, 3)
-        end
-    end
+    d,didx = get_dims(dims, nrefinements)
     L = zeros(sum(d), sum(d))
     offset = 0
     for (j,(nd,dd,nf,a)) in enumerate(zip(d,dims,nrefinements,α))
