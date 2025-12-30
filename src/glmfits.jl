@@ -6,8 +6,6 @@ using ReverseDiff
 using ADTypes
 using HypothesisTests
 using SparseArrays
-using Reactant
-using Reactant: to_rarray
 
 struct GLMFit
     β_pos::Vector{Float64}
