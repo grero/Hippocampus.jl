@@ -1200,26 +1200,15 @@ function get_laplacian(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}
 end
 
 function get_X(glmfit::GLMFitH{N}) where N
-    d = Int64[] 
-    didx = Int64[]
-    n = length(glmfit.nspikes)
-    for (nf,dd) in zip(glmfit.nrefinements,glmfit.dims)
-        if dd == :g
-            mm = get_maze_mesh(;nrefinements=nf) 
-            push!(d,nelements(mm))
-            push!(didx, 1)
-        elseif dd == :p
-            m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
-            push!(d, nelements(m_floor))
-            push!(didx,2)
-        elseif dd == :hd
-            push!(d,nhd_bins)
-            push!(didx, 3)
-        end
-    end
+    get_X(glmfit.qidx, glmfit.dims, (glmfit.nrefinements...,))
+end
+
+function get_X(qidx, dims, nrefinements)
+    n = length(qidx)
+    d,didx = get_dims(dims, nrefinements)
     X = zeros(sum(d)+1, n)
     X[end,:] .= 1.0
-    for (ii,qq) in enumerate(glmfit.qidx)
+    for (ii,qq) in enumerate(qidx)
         for (j,_didx) in enumerate(didx)
             offset = sum(d[1:j-1])
             X[offset+qq.I[_didx],ii] = 1.0
