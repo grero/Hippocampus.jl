@@ -135,20 +135,31 @@ function compute_edf(::Type{GLMFitH{N}}, dims::NTuple{N,Symbol}, args...;redo=fa
     nf
 end
 
+function compute_edf(glmfit)
+    X = get_X(glmfit)
+    if length(glmfit.dims) > 1
+        α = glmfit.α
+        aidx = 1
+    else
+        α,aidx = get_best_α(glmfit)
+    end
+    β = glmfit.β[:,:,aidx]
+    L = get_laplacian(glmfit.dims, (glmfit.nrefinements...,), (α...,))
+    compute_edf(β,X, L)
+end
+
 """
 Compute the effective number of degrees of freedom
 """
-function compute_edf(glmfit_p, aidx::Integer, L::Matrix{<:Real})
+function compute_edf(β::Matrix{<:Real}, X::Matrix{<:Real}, L::Matrix{<:Real})
 
-    β = glmfit_p.β[:,:,aidx]
     L2 = zeros(size(β,1),size(β,1))
     L2[1:end-1,1:end-1] .= L
-    α = glmfit_p.α[aidx]
-    X = get_X(glmfit_p)
-    nf = zeros(size(glmfit_p.β,2))
+    # α should already be embedded in L
+    nf = zeros(size(β,2))
     for i in 1:length(nf)
          W = Diagonal(vec(β[:,i]'*X))
-         H = X'*inv(X*W*X' + α*L2)*X*W
+         H = X'*inv(X*W*X' + L2)*X*W
          nf[i] = tr(H)
     end
     nf
