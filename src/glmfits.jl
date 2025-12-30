@@ -1023,37 +1023,6 @@ function get_dims(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}) whe
     d,didx
 end
 
-function glm_fit_setup(nt, dims, nrefinements)
-    d,didx = get_dims(dims, nrefinements)
-    nd = sum(d)+1
-    β = to_rarray(randn(nd))
-    L = to_rarray(zeros(nd,nd))
-    y = to_rarray(zeros(Int16, nt))
-    X = to_rarray(zeros(nd,nt))
-    dt = to_rarray(fill(1.0, nt))
-    α = ConcreteRNumber(1.0)
-    gg = to_rarray(zeros(nd))
-    f = @compile lossfunc2(β, X, y, L, dt,α)
-    g! = @compile lossfunc2_grad2!(gg, β, X, y, L, dt, α)
-    f,g!
-end
-
-
-function glm_fit_setup2(nt, dims, nrefinements)
-    d,didx = get_dims(dims, nrefinements)
-    nd = sum(d)+1
-    β = randn(nd)
-    L = zeros(nd,nd)
-    y = zeros(Int16, nt)
-    X = zeros(nd,nt)
-    dt = fill(1.0, nt)
-    α = 1.0
-    gg = zeros(nd)
-    f = @compile lossfunc2(β, X, y, L, dt,α)
-    g! = @compile lossfunc2_grad2!(gg, β, X, y, L, dt, α)
-    f,g!
-end
-
 function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},w::AbstractVector{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
     d,n = size(X)
     if β0 === nothing
