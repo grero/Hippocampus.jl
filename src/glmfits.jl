@@ -4,6 +4,10 @@ using Optim
 using GLM
 using ReverseDiff
 using ADTypes
+using HypothesisTests
+using SparseArrays
+using Reactant
+using Reactant: to_rarray
 
 struct GLMFit
     β_pos::Vector{Float64}
@@ -138,21 +142,21 @@ function compute_edf(glmfit)
     end
     β = glmfit.β[:,:,aidx]
     L = get_laplacian(glmfit.dims, (glmfit.nrefinements...,), (α...,))
-    compute_edf(β,X, L)
+    compute_edf(β,X, L,glmfit.trainidx)
 end
 
 """
 Compute the effective number of degrees of freedom
 """
-function compute_edf(β::Matrix{<:Real}, X::Matrix{<:Real}, L::Matrix{<:Real})
-
+function compute_edf(β::Matrix{<:Real}, X::Matrix{<:Real}, L::Matrix{<:Real}, trainidx::Matrix{<:Integer})
     L2 = zeros(size(β,1),size(β,1))
     L2[1:end-1,1:end-1] .= L
-    # α should already be embedded in L
+    # α should already be embedded in L at this point
     nf = zeros(size(β,2))
-    for i in 1:length(nf)
-         W = Diagonal(vec(β[:,i]'*X))
-         H = X'*inv(X*W*X' + L2)*X*W
+    @showprogress "Computing edf..." for (i,_trainidx) in enumerate(eachcol(trainidx))
+        _X = sparse(X[:,_trainidx])
+         W = Diagonal(vec(β[:,i]'*_X))
+         H = _X'*inv(_X*W*_X' + L2)*_X*W
          nf[i] = tr(H)
     end
     nf
