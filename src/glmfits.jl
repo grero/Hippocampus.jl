@@ -160,7 +160,7 @@ function compute_llrt(::Type{GLMFitH{N}}, args...;kwargs...) where N
     compute_llrt(glmfit, nf)
 end
 
-function compute_llrt(glmfit_p::GLMFitH{N}, nf::Vector{<:Real}) where N
+function compute_llrt(glmfit_p::GLMFitH{N}, nf::Vector{<:Real};kwargs...) where N
     ll0_in = logprob(glmfit_p.nspikes, glmfit_p.dt, glmfit_p.trainidx;in_sample=true)
     ll1_in = logprob(glmfit_p, glmfit_p.trainidx;in_sample=true)
     llrt = 2*size(glmfit_p.trainidx,1)*(ll1_in .- ll0_in)
