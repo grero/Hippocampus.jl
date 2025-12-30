@@ -116,14 +116,7 @@ function compute_edf(::Type{GLMFitH{N}}, dims::NTuple{N,Symbol}, args...;redo=fa
         nf = JLD2.load(fname, "nf")
     else
         glmfit = GLMFitH(dims, args...;kwargs...)
-        if length(dims) > 1
-            α = glmfit.α
-            aidx = 1
-        else
-            α,aidx = get_best_α(glmfit)
-        end
-        L = get_laplacian(dims, (glmfit.nrefinements...,), (α...,))
-        nf = compute_edf(glmfit, aidx, L)
+        nf = compute_edf(glmfit) 
         if do_save
             metadata = Dict{String,Any}() 
             if append_tag
