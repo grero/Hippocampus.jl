@@ -1229,7 +1229,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
     end
     if do_compute
         touch(fname_inprogress)
-        # TODO: If we doing joint fit, get the cross-validated alpha from the individua fits first 
+        # TODO: If we are doing joint fit, get the cross-validated alpha from the individua fits first 
         if length(dims) > 1
             use_α = zeros(length(dims))
             validate_α = false
