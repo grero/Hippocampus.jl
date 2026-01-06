@@ -165,7 +165,8 @@ function compute_edf(β::Matrix{<:Real}, X::Matrix{<:Real}, L::Matrix{<:Real}, t
     nf = zeros(size(β,2))
     @showprogress "Computing edf..." for (i,_trainidx) in enumerate(eachcol(trainidx))
         _X = sparse(X[:,_trainidx])
-         W = Diagonal(vec(β[:,i]'*_X))
+         W = exp.(Diagonal(vec(β[:,i]'*_X)))
+         #W = Diagonal(vec(β[:,i]'*_X))
          H = _X'*inv(_X*W*_X' + L2)*_X*W
          nf[i] = tr(H)
     end
