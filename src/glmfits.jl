@@ -1086,11 +1086,16 @@ function get_trainidx(n::Integer, nruns::Integer)
     trainidx
 end
 
-function cross_validate(α::AbstractVector{T},X::AbstractMatrix{<:Real}, args...;nruns=10, kwargs...) where T <: Real
+function cross_validate(α::AbstractVector{T},X::AbstractMatrix{<:Real}, y,L,w;nruns=10, kwargs...) where T <: Real
     trainidx = get_trainidx(size(X,2),nruns)
+    cross_validate(α,trainidx, X, y, L, w;kwargs...)
+end
+
+function cross_validate(α::AbstractVector{T},trainidx::Matrix{<:Integer}, X::AbstractMatrix{<:Number}, y,L,w;kwargs...) where T <: Real
     dq = Dict{T,Dict{Symbol,Any}}()
+    # TODO: We need to compile to reactant here
     for _α in α
-        β,ll = cross_validate(trainidx, X,args...;α=_α,kwargs...)
+        β,ll = cross_validate(trainidx, X,y,L,w;α=_α,kwargs...)
         dq[_α] = Dict(:β => β, :ll => ll)
     end
     dq, trainidx
