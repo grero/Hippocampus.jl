@@ -186,6 +186,25 @@ function compute_llrt(glmfit_p::GLMFitH{N}, nf::Vector{<:Real};kwargs...) where 
     pv, llrt
 end
 
+function compute_llrt(celldirs::Vector{String}, ::Type{GLMFitH{N}}, args...;skip_error=true, kwargs...) where N
+    nn = length(celldirs)
+    pv = fill(NaN, nn)
+    @showprogress "Computing llrt...." for (i,c) in enumerate(celldirs)
+        cd(c) do
+            try
+                _pv, _llrt = compute_llrt(GLMFitH{N},args...;kwargs...)
+                nq = sum(_pv .< 0.05)
+                pv[i] = 1 - cdf(Binomial(length(_pv), 0.05),nq)
+            catch ee
+                if !skip_error
+                    rethrow(ee)
+                end
+            end
+        end
+    end
+    pv
+end
+
 function plot_glmfit(glmfit::GLMFitH{N},args...;kwargs...) where N
     with_theme(plot_theme) do
         fig = Figure()
