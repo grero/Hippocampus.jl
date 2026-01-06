@@ -53,6 +53,11 @@ end
 
 DPHT.level(::Type{GLMFitH{N}}) where N = "cell"
 
+"""
+    process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), kwargs...) where N
+
+Return a hash of the supplied keywords.
+"""
 function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), kwargs...) where N
     h = UInt32(0)
     h = CRC32c.crc32c(string((:α=>α)),h)
@@ -63,6 +68,13 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     h
 end
 
+
+"""
+    logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_sample=false) where N
+
+Compute the log-probability of the spiking activity `glmfit.nspikes` recorded using `glmfit.dt` windows
+with the fitted coefficients `glmfit.β`.
+"""
 function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_sample=false) where N
     if in_sample
         _trialidx = trainidx
