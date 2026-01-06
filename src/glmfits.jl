@@ -1337,12 +1337,14 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             end
         end
         Ls = Symmetric(L)
-        trainidx = get_trainidx(length(nspikes),nruns)
+        if trainidx === nothing
+            trainidx = get_trainidx(length(nspikes),nruns)
+        end
         α0 = use_α
         β0 = zeros(size(X,1)+1, nruns, length(use_α)) 
         ll0 = zeros(nruns,length(use_α))
         idx1 = 1:length(use_α)
-        if appendto !== Nothing
+        if appendto !== nothing
             # check if there is object we can append to
             # use the same training idx
             trainidx .= appendto.trainidx
