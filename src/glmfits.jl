@@ -1147,7 +1147,7 @@ function process_refinements(dims::NTuple{N,Symbol};kwargs...) where N
     nrefinements, kwargs2
 end
 
-function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
+function GLMFitH(dims::NTuple{N,Symbol};redo=false, do_append=false, kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};kwargs...)
     if h != 0
@@ -1169,13 +1169,18 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, kwargs...) where N
         do_compute = true
     end
     if do_compute
+        if do_append
+            glmfit_a = find_appendable(GLMFitH{N},dims;kwargs...)
+        else
+            glmfit_a = nothing
+        end
         nrefinements,kwargs2 = process_refinements(dims;kwargs...) 
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
             jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements,kwargs2...)
             ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
             jocc, ud
         end
-        glmfit = GLMFitH(dims, jocc, unity_raytrace;redo=redo, kwargs...)
+        glmfit = GLMFitH(dims, jocc, unity_raytrace;redo=redo, appendto=glmfit_a, kwargs...)
     end
     glmfit
 end
@@ -1327,20 +1332,38 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             end
         end
         Ls = Symmetric(L)
+        trainidx = get_trainidx(length(nspikes),nruns)
+        α0 = use_α
+        β0 = zeros(size(X,1)+1, nruns, length(use_α)) 
+        ll0 = zeros(nruns,length(use_α))
+        idx1 = 1:length(use_α)
+        if appendto !== Nothing
+            # check if there is object we can append to
+            # use the same training idx
+            trainidx .= appendto.trainidx
+            α_ = appendto.α
+            α0 = sort(unique([α_;use_α]),rev=true)
+            idx0 = [findfirst(α0.==a0) for a0 in α_]
+            idx1 = setdiff(1:length(α0), idx0)
+            ll0 = zeros(nruns, length(α0)) 
+            ll0[:,idx0] .= appendto.ll
+            β0 = zeros(size(X,1)+1, nruns, length(α0)) 
+            β0[:,:,idx0] = appendto.β
+        end
         if length(dims) == 1
-            dq,trainidx = cross_validate(α, X, nspikes, Ls,ww;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
-            β = zeros(size(X,1)+1, nruns, length(α))
-            ll = zeros(nruns, length(α))
-            for (i,_α) = enumerate(α)
-                β[:,:,i] = dq[_α][:β]
-                ll[:,i] = dq[_α][:ll]
+            dq,_ = cross_validate(α0[idx1], trainidx, X, nspikes, Ls,ww;show_trace=show_trace,show_progress=show_progress)
+            for (i,_α) = enumerate(α0[idx1])
+                β0[:,:,idx1[i]] = dq[_α][:β]
+                ll0[:,idx1[i]] = dq[_α][:ll]
             end
         else
-            β,ll,trainidx = cross_validate(X, nspikes, Ls,ww;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+            β,ll,_ = cross_validate(trainidx, X, nspikes, Ls,ww;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
             β = reshape(β, size(β)...,1)
+            β0[:,:,idx1] .= β
             ll = reshape(ll, size(ll)...,1)
+            ll0[:,idx1] .= ll
         end
-        glmfit = GLMFitH(β, ll, use_α, trainidx, nspikes, ww, dims, qidx,true,nrefinements)
+        glmfit = GLMFitH(β0, ll0, α0, trainidx, nspikes, ww, dims, qidx,true,nrefinements)
         if do_save
             save_jld2(glmfit, fname)
         end
