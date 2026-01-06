@@ -1220,7 +1220,7 @@ function get_X(qidx, dims, nrefinements)
     X
 end
 
-function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData,vpvrp::Union{ViewAndPlaceRepresentationNew,Nothing}=nothing;redo=false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), kwargs...) where N
+function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData,vpvrp::Union{ViewAndPlaceRepresentationNew,Nothing}=nothing;appendto::Union{Nothing, GLMFitH{N}}=nothing, redo=false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};α=α,nruns=nruns, nrefinements=nrefinements)
     if h != 0
@@ -1263,7 +1263,9 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         end
         # maybe make this more flexible
         nhd_bins = 24
-        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        if vpvrp === nothing
+            vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        end
         nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data)
         # construct X based on dims argument
         d = Int64[] 
