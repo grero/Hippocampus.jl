@@ -1164,7 +1164,7 @@ end
 function process_refinements(dims::NTuple{N,Symbol};kwargs...) where N
     _nrefinements = get(kwargs, :nrefinements, [3])
     kwargs2 = filter(k->k[1]!=:nrefinements, kwargs)
-    nrf = [3,3]
+    nrf = [3,2]
     nk = (:p,:g)
     for (p,k) in zip(nk,nrf)
         if p in dims
