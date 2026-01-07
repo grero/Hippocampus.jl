@@ -61,6 +61,9 @@ Return a hash of the supplied keywords.
 function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), trainidx::Union{Matrix{<:Integer}, Nothing}=nothing, kwargs...) where N
     h = UInt32(0)
     h = CRC32c.crc32c(string((:α=>α)),h)
+    if trainidx !== nothing
+        nruns = size(trainidx,2)
+    end
     h = CRC32c.crc32c(string((:nruns=>nruns)),h)
     if nrefinements != fill(3,N) 
         h = CRC32c.crc32c(string((:nrefinements=>nrefinements)),h)
