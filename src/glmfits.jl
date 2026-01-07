@@ -927,6 +927,38 @@ function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, a
     is_pos_selective, is_hd_selective, is_gaze_selective
 end
 
+"""
+    fit_glm_all(;kwargs...)
+
+Fit location, gaze, head direction, and combinations of these variables to the cell in the
+current directory.
+
+Cross-validation is first performed separately on location and gaze to determine the optimal smoothin
+factor for each. The default is to search across 5 values ranging from 10^(-6) to 10^(-2). The
+optimal smoothing factor is then used to re-fit using 20 nruns, again for both location and gaze.
+We make sure that the same location/gaze bins are used for training of both location and gaze models.
+Finally, a model with both location and gaze is trained, again using the optimal smoothign values found above.
+"""
+function fit_glm_all(;kwargs...)
+    # load the base gaze object first
+    g = Hippocampus.GLMFitH((:g,);redo=false,trial_start=2, show_progress=true, nrefinements=[2])
+    # get the optimal smoothign factor
+    α,_ = Hippocampus.get_best_α(g)
+    # re-fit for that single α value with more runs
+    gg = Hippocampus.GLMFitH((:g,);redo=false,trial_start=2, show_progress=true, nrefinements=[2],α=[α],nruns=20, raytrace_fname="unityfile_eyelink_new.csv")
+    # get the base location object
+    p = Hippocampus.GLMFitH((:p,);redo=false,trial_start=2, show_progress=true, nrefinements=[3])
+    # find the optimal smoothing factor
+    α,_ = Hippocampus.get_best_α(p)
+    # re-fit using the same training idx as for the gaze object above, using the optimal smoothing 
+    # factor for location.
+    pp = Hippocampus.GLMFitH((:p,);redo=false,trial_start=2, show_progress=true, nrefinements=[3],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv")
+
+    # fit joint pg using the same training idx
+    pg = Hippocampus.GLMFitH((:p,:g);trial_start=2, show_progress=true, nrefinements=[3,2], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
+    (glmfit_g = gg, glmfit_p = pp, glmfit_pg=pg)
+end
+
 function fit_glm(vpr::ViewRepresentation, vpoc::ViewAndPlaceOccupancy)
     # TODO: Use k-means to cluster 
     mm = vpoc.mm
