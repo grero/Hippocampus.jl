@@ -1428,7 +1428,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
                 ll0[:,idx1[i]] = dq[_α][:ll]
             end
         else
-            β,ll,_ = cross_validate(trainidx, X, nspikes, Ls,ww;nruns=nruns,show_trace=show_trace,show_progress=show_progress)
+            β,ll,_ = cross_validate(trainidx, X, nspikes, Ls,ww;show_trace=show_trace,show_progress=show_progress)
             β = reshape(β, size(β)...,1)
             β0[:,:,idx1] .= β
             ll = reshape(ll, size(ll)...,1)
