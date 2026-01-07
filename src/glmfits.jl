@@ -58,15 +58,40 @@ DPHT.level(::Type{GLMFitH{N}}) where N = "cell"
 
 Return a hash of the supplied keywords.
 """
-function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), kwargs...) where N
+function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), trainidx::Union{Matrix{<:Integer}, Nothing}=nothing, kwargs...) where N
     h = UInt32(0)
     h = CRC32c.crc32c(string((:α=>α)),h)
     h = CRC32c.crc32c(string((:nruns=>nruns)),h)
     if nrefinements != fill(3,N) 
         h = CRC32c.crc32c(string((:nrefinements=>nrefinements)),h)
     end
+    if trainidx !== nothing
+        h = CRC32c.crc32c(string((:trainidx=>trainidx)),h)
+    end
     h
 end
+
+"""
+    find_apαpendable(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], kwargs...) where N
+
+Return a GLMFitH{N} object where some subset of the specified \alpha s has already been computed. If
+no such object can be found, return nothing.
+"""
+function find_appendable(::Type{GLMFitH{N}}, dims::NTuple{N,Symbol};α=10.0.^[-2,-3,-4,-5,-6], kwargs...) where N
+    fname = DPHT.filename(GLMFitH{N}, dims)
+    for i in 1:length(α)-1
+        h = process_kwargs(GLMFitH{N};α=α[end-i:end],kwargs...)
+        hs = string(h, base=16)
+        fname_ = replace(fname, ".jld2"=>"_$(hs).jld2")
+        if isfile(fname_) 
+            glmfit = load_jld2(GLMFitH{N},fname_)
+            return glmfit
+        end
+    end
+    return nothing
+end
+
+
 
 
 """
