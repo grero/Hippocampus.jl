@@ -1284,12 +1284,20 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
     end
     if do_compute
         touch(fname_inprogress)
+        if vpvrp === nothing
+            vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        end
+        nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data)
+        if trainidx === nothing
+            trainidx = get_trainidx(length(nspikes),nruns)
+        end
+        nruns = size(trainidx, 2)
         # TODO: If we are doing joint fit, get the cross-validated alpha from the individua fits first 
         if length(dims) > 1
             use_α = zeros(length(dims))
             validate_α = false
             for (i,(d,rf)) in enumerate(zip(dims,nrefinements))
-                _glmfit = GLMFitH((d,), jocc, unity_gaze_data;α=α,nruns=nruns,nrefinements=[rf],kwargs...)
+                _glmfit = GLMFitH((d,), jocc, unity_gaze_data;α=α,nruns=nruns,nrefinements=[rf],trainidx=trainidx, kwargs...)
                 use_α[i],aidx = get_best_α(_glmfit)
             end
         else
@@ -1298,10 +1306,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         end
         # maybe make this more flexible
         nhd_bins = 24
-        if vpvrp === nothing
-            vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
-        end
-        nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data)
+        
         # construct X based on dims argument
         d = Int64[] 
         didx = Int64[]
@@ -1362,10 +1367,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             end
         end
         Ls = Symmetric(L)
-        if trainidx === nothing
-            trainidx = get_trainidx(length(nspikes),nruns)
-            nruns = size(trainidx, 2)
-        end
+        
         α0 = use_α
         β0 = zeros(size(X,1)+1, nruns, length(use_α)) 
         ll0 = zeros(nruns,length(use_α))
