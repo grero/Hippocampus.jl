@@ -1364,6 +1364,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         Ls = Symmetric(L)
         if trainidx === nothing
             trainidx = get_trainidx(length(nspikes),nruns)
+            nruns = size(trainidx, 2)
         end
         α0 = use_α
         β0 = zeros(size(X,1)+1, nruns, length(use_α)) 
