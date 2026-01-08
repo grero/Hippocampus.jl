@@ -954,9 +954,17 @@ function fit_glm_all(;kwargs...)
     # factor for location.
     pp = Hippocampus.GLMFitH((:p,);redo=false,trial_start=2, show_progress=true, nrefinements=[3],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv")
 
+    # head direction
+    h = GLMFitH((:h,), trial_start=2, show_progress=true, nrefinements=[1], raytrace_fname="unityfile_eyelink_new.csv")
+    α,_ = Hippocampus.get_best_α(h)
+    hh = Hippocampus.GLMFitH((:h,);redo=false,trial_start=2, show_progress=true, nrefinements=[1],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv")
+
     # fit joint pg using the same training idx
     pg = Hippocampus.GLMFitH((:p,:g);trial_start=2, show_progress=true, nrefinements=[3,2], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
-    (glmfit_g = gg, glmfit_p = pp, glmfit_pg=pg)
+    ph = Hippocampus.GLMFitH((:p,:h);trial_start=2, show_progress=true, nrefinements=[3,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
+    gh = Hippocampus.GLMFitH((:g,:h);trial_start=2, show_progress=true, nrefinements=[2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
+    pgh = Hippocampus.GLMFitH((:p,:g,:h);trial_start=2, show_progress=true, nrefinements=[3,2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
+    (glmfit_g = gg, glmfit_p = pp, glmfit_h=hh, glmfit_pg=pg, glmfit_ph=ph, glmfit_gh=gh, glmfit_pgh=pgh)
 end
 
 function fit_glm(vpr::ViewRepresentation, vpoc::ViewAndPlaceOccupancy)
