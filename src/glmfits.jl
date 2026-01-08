@@ -1238,6 +1238,9 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, do_append=false, kwargs...) 
                 glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dt, glmfit.dims, glmfit.qidx, true,[3])
             end
         end
+    elseif get(kwargs, :load_only, false)
+        # no file exist but we requested load only
+        return nothing
     else
         do_compute = true
     end
