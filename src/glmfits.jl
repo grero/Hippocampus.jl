@@ -6,6 +6,7 @@ using ReverseDiff
 using ADTypes
 using HypothesisTests
 using SparseArrays
+using Dates
 
 struct GLMFit
     β_pos::Vector{Float64}
@@ -1220,7 +1221,15 @@ function process_refinements(dims::NTuple{N,Symbol};kwargs...) where N
     nrefinements, kwargs2
 end
 
-function GLMFitH(dims::NTuple{N,Symbol};redo=false, do_append=false, kwargs...) where N
+function isolderthan(fname, tt=now())
+    st = stat(fname)
+    if unix2datetime(st.ctime) < tt
+        return true
+    end
+    return false
+end
+
+function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=false, kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};kwargs...)
     if h != 0
@@ -1228,7 +1237,7 @@ function GLMFitH(dims::NTuple{N,Symbol};redo=false, do_append=false, kwargs...) 
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
     do_compute = false
-    if !redo && isfile(fname)
+    if !redo(fname) && isfile(fname)
         glmfit = load_jld2(GLMFitH{N}, fname)
         if isa(glmfit, JLD2.ReconstructedMutable)
             # missing field
@@ -1301,7 +1310,7 @@ function get_X(qidx, dims, nrefinements)
     X
 end
 
-function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData,vpvrp::Union{ViewAndPlaceRepresentationNew,Nothing}=nothing;appendto::Union{Nothing, GLMFitH{N}}=nothing, redo=false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), trainidx::Union{Matrix{<:Integer},Nothing}=nothing, kwargs...) where N
+function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData,vpvrp::Union{ViewAndPlaceRepresentationNew,Nothing}=nothing;appendto::Union{Nothing, GLMFitH{N}}=nothing, redo::Function=fname->false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), trainidx::Union{Matrix{<:Integer},Nothing}=nothing, testidx::Union{Matrix{<:Integer}, Nothing}=nothing, kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};α=α,nruns=nruns, nrefinements=nrefinements,trainidx=trainidx)
     if h != 0
@@ -1310,7 +1319,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
     end
     fname_inprogress = replace(fname, ".jld2"=>".jld2.inprogress")
     do_compute = false
-    if !redo && isfile(fname)
+    if !redo(fname) && isfile(fname)
         glmfit = load_jld2(GLMFitH{N}, fname)
          if isa(glmfit, JLD2.ReconstructedMutable)
             # missing field
