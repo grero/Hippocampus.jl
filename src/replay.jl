@@ -1833,16 +1833,67 @@ function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata
     ViewAndPlaceRepresentationNew(events, placeviewidx)
 end
 
-function ViewAndPlaceRepresentationNew(;redo=false, do_save=true, kwargs...)
-     sp = Spiketrain()
-    rp = cd(DPHT.process_level(RippleData)) do
-        RippleData()
+function ViewAndPlaceRepresentationNew(;redo::Function=fname->false, do_save=true, kwargs...)
+    fname = DPHT.filename(ViewAndPlaceRepresentationNew)
+    h = process_kwargs(ViewAndPlaceRepresentationNew;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
-    unity_gaze_data = cd(DPHT.process_level(UnityRaytraceData)) do
-        UnityRaytraceData(;kwargs...)
+    if !redo(fname) && isfile(fname) 
+        vprp = load_jld2(ViewAndPlaceRepresentationNew, fname)
+    else
+        sp = Spiketrain()
+        rp = cd(DPHT.process_level(RippleData)) do
+            RippleData()
+        end
+        unity_gaze_data = cd(DPHT.process_level(UnityRaytraceData)) do
+            UnityRaytraceData(;kwargs...)
+        end
+        vprp = ViewAndPlaceRepresentationNew(sp, rp, unity_gaze_data)
+        if do_save
+            save_jld2(vprp, fname)
+        end
     end
-    vprp = ViewAndPlaceRepresentationNew(sp, rp, unity_gaze_data)
+    vprp
 end
+
+function Makie.convert_arguments(::Type{<:Scatter}, vpvrp::ViewAndPlaceRepresentationNew, unity_data::UnityRaytraceData)
+    points = Point2f[]
+    for i in 1:length(vpvrp.placeviewidx)
+        append!(points, Point2f.(eachcol(unity_data.position[i][:,vpvrp.placeviewidx[i]])))
+    end
+    S.Scatter(points)
+end
+
+function Makie.convert_arguments(::Type{<:Scatter}, vpvrp::ViewAndPlaceRepresentationNew, unity_data::UnityRaytraceData, jocc::JointOccupancy)
+    goodbinidx = get_goodbins(jocc)
+    func = in(goodbinidx)
+    points = Point2f[]
+    for i in 1:length(vpvrp.placeviewidx)
+        pvidx = vpvrp.placeviewidx[i]
+        fidx = findall(ii->func(getindex(ii,2)), jocc.index[i][pvidx])
+        append!(points, Point2f.(eachcol(unity_data.position[i][:,pvidx[fidx]])))
+    end
+    S.Scatter(points)
+end
+
+function get_spike_counts(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,nbins::Union{Integer, Nothing}=nothing)
+    goodbinidx = get_goodbins(jocc)
+    func = in(goodbinidx)
+    if nbins === nothing
+        nbins = maximum(getindex.(collect(keys(jocc.weight)),2))
+    end
+    Z = zeros(nbins)
+    for i in 1:length(vpvrp.placeviewidx)
+        pvidx = vpvrp.placeviewidx[i]
+        pidx = getindex.(jocc.index[i][pvidx],2)
+        fidx = findall(func, pidx)
+        Z[pidx[fidx]] .+= 1.0
+    end
+    Z
+end
+
 
 function compute_speed(pos::Matrix{T}, timestamp::Array{T}, binidx::Vector{Int64},bmax=maximum(binidx)) where T <: Real
     ds = zero(T)
