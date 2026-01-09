@@ -1401,7 +1401,11 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         end
         nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data)
         if trainidx === nothing
-            trainidx = get_trainidx(length(nspikes),nruns)
+            trainidx,testidx = get_train_test_idx(length(nspikes),nruns,5)
+        else
+            if testidx === nothing
+                testidx = get_testidx(length(nspikes), trainidx)
+            end
         end
         nruns = size(trainidx, 2)
         # TODO: If we are doing joint fit, get the cross-validated alpha from the individua fits first 
