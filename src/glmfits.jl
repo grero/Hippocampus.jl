@@ -1504,19 +1504,19 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             β0[:,:,idx0] = appendto.β
         end
         if length(dims) == 1
-            dq,_ = cross_validate(α0[idx1], trainidx, X, nspikes, Ls,ww;show_trace=show_trace,show_progress=show_progress)
+            dq,_ = cross_validate(α0[idx1], trainidx, testidx, X, nspikes, Ls,ww;show_trace=show_trace,show_progress=show_progress,kwargs...)
             for (i,_α) = enumerate(α0[idx1])
                 β0[:,:,idx1[i]] = dq[_α][:β]
                 ll0[:,idx1[i]] = dq[_α][:ll]
             end
         else
-            β,ll,_ = cross_validate(trainidx, X, nspikes, Ls,ww;show_trace=show_trace,show_progress=show_progress)
+            β,ll,_ = cross_validate(trainidx, testidx, X, nspikes, Ls,ww;show_trace=show_trace,show_progress=show_progress,kwargs...)
             β = reshape(β, size(β)...,1)
             β0[:,:,idx1] .= β
             ll = reshape(ll, size(ll)...,1)
             ll0[:,idx1] .= ll
         end
-        glmfit = GLMFitH(β0, ll0, α0, trainidx, nspikes, ww, dims, qidx,true,nrefinements)
+        glmfit = GLMFitH(β0, ll0, α0, trainidx, testidx, nspikes, ww, dims, qidx,true,nrefinements)
         if do_save
             save_jld2(glmfit, fname)
         end
