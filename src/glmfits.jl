@@ -1332,7 +1332,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         end
     elseif load_only
         return nothing
-    elseif isfile(fname_inprogress)
+    elseif isfile(fname_inprogress) && do_save
         error("$(fname) is currently being computed by another process")
     else
         do_compute = true
