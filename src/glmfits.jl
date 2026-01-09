@@ -958,6 +958,7 @@ Finally, a model with both location and gaze is trained, again using the optimal
 """
 function fit_glm_all(; load_only=false, kwargs...)
     # preload these since we need them for all subsequent analysis
+    raytrace_fname="unityfile_eyelink_new.csv"
     if load_only
         args = tuple()
     else
@@ -970,7 +971,7 @@ function fit_glm_all(; load_only=false, kwargs...)
         args = (jocc, unity_raytrace, vpvrp)
     end
     # load the base gaze object first
-    g = Hippocampus.GLMFitH((:g,),args...; trial_start=2, show_progress=true, nrefinements=[2],load_only=load_only,kwargs...)
+    g = Hippocampus.GLMFitH((:g,),args...; trial_start=2, show_progress=true, nrefinements=[2],load_only=load_only,raytrace_fname=raytrace_fname, kwargs...)
     if g === nothing
         return (;)
     end
@@ -990,7 +991,7 @@ function fit_glm_all(; load_only=false, kwargs...)
     α,_ = Hippocampus.get_best_α(p)
     # re-fit using the same training idx as for the gaze object above, using the optimal smoothing 
     # factor for location.
-    pp = Hippocampus.GLMFitH((:p,),args...;trial_start=2, show_progress=true, nrefinements=[3],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    pp = Hippocampus.GLMFitH((:p,),args...;trial_start=2, show_progress=true, nrefinements=[3],α=[α],trainidx=gg.trainidx, testidx=gg.testidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
     if pp === nothing
         return (;glmfit_g=gg)
     end
@@ -1001,25 +1002,25 @@ function fit_glm_all(; load_only=false, kwargs...)
         return (glmfit_p=pp, glmfit_g=gg)
     end
     α,_ = Hippocampus.get_best_α(h)
-    hh = Hippocampus.GLMFitH((:hd,),args...;trial_start=2, show_progress=true, nrefinements=[1],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    hh = Hippocampus.GLMFitH((:hd,),args...;trial_start=2, show_progress=true, nrefinements=[1],α=[α],trainidx=gg.trainidx, testidx=gg.testidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
     if hh === nothing
         return (glmfit_p=pp, glmfit_g=gg)
     end
 
     # fit joint pg using the same training idx
-    pg = Hippocampus.GLMFitH((:p,:g),args...;trial_start=2, show_progress=true, nrefinements=[3,2], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    pg = Hippocampus.GLMFitH((:p,:g),args...;trial_start=2, show_progress=true, nrefinements=[3,2], trainidx=gg.trainidx,testidx=gg.testidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
     if pg === nothing
         return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh)
     end
-    ph = Hippocampus.GLMFitH((:p,:hd),args...;trial_start=2, show_progress=true, nrefinements=[3,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    ph = Hippocampus.GLMFitH((:p,:hd),args...;trial_start=2, show_progress=true, nrefinements=[3,1], trainidx=gg.trainidx,testidx=gg.testidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
     if ph === nothing
         return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh, glmfit_pg=pg)
     end
-    gh = Hippocampus.GLMFitH((:g,:hd),args...;trial_start=2, show_progress=true, nrefinements=[2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    gh = Hippocampus.GLMFitH((:g,:hd),args...;trial_start=2, show_progress=true, nrefinements=[2,1], trainidx=gg.trainidx,testidx=gg.testidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
     if gh === nothing
         return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh, glmfit_pg=pg, glmfit_ph=ph)
     end
-    pgh = Hippocampus.GLMFitH((:p,:g,:hd),args...;trial_start=2, show_progress=true, nrefinements=[3,2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    pgh = Hippocampus.GLMFitH((:p,:g,:hd),args...;trial_start=2, show_progress=true, nrefinements=[3,2,1], trainidx=gg.trainidx,testidx=gg.testidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
     if pgh === nothing
         return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh, glmfit_pg=pg, glmfit_ph=ph, glmfit_gh=gh)
     end
