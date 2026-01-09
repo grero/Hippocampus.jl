@@ -1128,12 +1128,15 @@ function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Abstra
     d,n = size(X)
     if β0 === nothing
         β0 = randn(T,d+1)
-    elseif size(β0,1) == size(X,1)
-        push!(β0, randn(T))
     end
-    L2 = zeros(T, size(L,1)+1, size(L,2)+1)
-    L2[1:size(L,1), 1:size(L,2)] .= L
-    Xq = [X;ones(T, 1, n)]
+    if size(β0,1) > size(X,1)
+        L2 = zeros(T, size(L,1)+1, size(L,2)+1)
+        L2[1:size(L,1), 1:size(L,2)] .= L
+        Xq = [X;ones(T, 1, n)]
+    else
+        L2 = L
+        Xq = X
+    end
     lf(β) = lossfunc2(β, Xq, y,L2,w, α)
     g!(g, β) = lossfunc2_grad!(g, β, Xq, y, L2, w, α)
     prog = ProgressThresh(1e-8;desc="Minimizing...", enabled=show_progress,showspeed=true)
