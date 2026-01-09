@@ -577,9 +577,6 @@ function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlace
 end
 
 function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy)
-    mm = get_maze_mesh()
-    m_floor = floor_topology3()
-    # use 24 bins for head direction
     nt = length(vpvrp.events)
     cc = Dict{CartesianIndex{4}, Int16}()
     for i in 1:nt
