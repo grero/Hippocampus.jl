@@ -1026,7 +1026,7 @@ function fit_glm(gaze::AbstractVector{T2},mm::SimpleMesh) where T2 <: AbstractVe
     cc, flat_gaze, flat_idx
 end
 
-function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, w::AbstractVector{<:Real}, α::Real)
+function lossfunc2(β::AbstractVector{<:Number}, X::AbstractMatrix{<:Number}, y::AbstractVector{<:Number},L::AbstractMatrix{<:Number}, w::AbstractVector{<:Number}, α::Number)
     η = X'*β
     λ = exp.(η).*w
     ll1 = mean(-y.*(η.+log.(w)) + loggamma.(y .+ 1) .+  λ)
@@ -1034,15 +1034,15 @@ function lossfunc2(β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::Abs
     ll1 + ll2
 end
 
-function α_penalty!(gg, β::AbstractVector{<:Real}, L::AbstractMatrix{<:Real},α::Real)
+function α_penalty!(gg, β::AbstractVector{<:Number}, L::AbstractMatrix{<:Number},α::Number)
     gg .+= α*(L + L')*β
 end
 
-function α_penalty!(gg, β::AbstractVector{<:Real}, L::Symmetric{<:Real}, α::Real)
+function α_penalty!(gg, β::AbstractVector{<:Number}, L::Symmetric{<:Number}, α::Number)
     gg .+= 2*α*L*β
 end
 
-function lossfunc2_grad!(gg, β::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real},L::AbstractMatrix{<:Real}, w::AbstractVector{<:Real}, α::Real)
+function lossfunc2_grad!(gg, β::AbstractVector{<:Number}, X::AbstractMatrix{<:Number}, y::AbstractVector{<:Number},L::AbstractMatrix{<:Number}, w::AbstractVector{<:Number}, α::Number)
     η = X'*β
     δη = X
     fill!(gg, 0.0)
