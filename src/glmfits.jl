@@ -967,7 +967,7 @@ function fit_glm_all(; load_only=false, kwargs...)
             ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
             jocc, ud
         end
-        vpvrp = ViewAndPlaceRepresentationNew(;redo=fname->false, kwargs...)
+        vpvrp = ViewAndPlaceRepresentationNew(;redo=fname->false, raytrace_fname=raytrace_fname, kwargs...)
         args = (jocc, unity_raytrace, vpvrp)
     end
     # load the base gaze object first
