@@ -1792,14 +1792,24 @@ end
 
 DPHT.level(::Type{ViewAndPlaceRepresentationNew}) = "cell"
 DPHT.level(::ViewAndPlaceRepresentationNew) = "cell"
+DPHT.filename(::Type{ViewAndPlaceRepresentationNew}) = "view_and_place_representation.jld2"
 
-function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false)
+function process_kwargs(::Type{ViewAndPlaceRepresentationNew};trial_start=2,kwargs...)
+    h = UInt32(0)
+    if trial_start != 2
+        h = crc32c(string((:trial_start=>trial_start)),h)
+    end
+    return h
+end
+
+function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false,trial_start=2)
+    # TODO: Implement Spiketrain shuffling
     sp = spikes.timestamps/1000.0 
     nt = numtrials(gdata)
     events = Vector{Vector{Float64}}(undef, nt)
     placeviewidx = Vector{Vector{Int64}}(undef, nt)
     for i in 1:nt
-        tg,gaze,pos, fixmask,fo = get_trial(gdata,i)
+        tg,gaze,pos, fixmask,fo = get_trial(gdata,i;trial_start=trial_start)
         if isempty(tg)
             events[i] = Float64[]
             placeviewidx[i] = Int64[]
