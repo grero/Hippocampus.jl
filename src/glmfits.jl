@@ -1258,25 +1258,33 @@ function cross_validate(trainidx::Matrix{Int64}, testidx::Matrix{Int64}, X::Abst
     nruns = size(trainidx,2)
     ll = zeros(nruns)
     β = zeros(d+1,nruns)
+    has_converged = fill(false, nruns)
     prog = Progress(nruns;desc="Running cross-validation", enabled=show_progress, showspeed=true)
     for r in 1:nruns
         _train_idx = filter(x->x>0, trainidx[:,r])
         sort!(_train_idx)
         _test_idx = filter(x->x>0, testidx[:,r])
         X_train = X[:,_train_idx]
-        y_train = y[_train_idx]
-        w_train = ww[_train_idx]
+        if do_confound
+            _train_idx = filter(x->x>0, trainidx[:,rand(setdiff(1:nruns, r))])
+            y_train = y[_train_idx]
+            w_train = ww[_train_idx]
+        else
+            y_train = y[_train_idx]
+            w_train = ww[_train_idx]
+        end
 
-        X_test = X[:,test_idx]
-        y_test = y[test_idx]
-        w_test = ww[test_idx]
+        X_test = X[:,_test_idx]
+        y_test = y[_test_idx]
+        w_test = ww[_test_idx]
 
         q = fit_glm_2(X_train, y_train, L, w_train;α=α,kwargs...)
         ll[r] = logprob(q.minimizer, [X_test;ones(1,length(_test_idx))], y_test, w_test)
         β[:,r] .= q.minimizer
+        has_converged[r] = Optim.converged(q)
         next!(prog)
     end
-    β,ll , trainidx
+    β,ll , trainidx, has_converged
 end
 
 function process_refinements(dims::NTuple{N,Symbol};kwargs...) where N
