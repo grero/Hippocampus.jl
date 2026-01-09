@@ -1045,8 +1045,8 @@ end
 
 function lossfunc2(β::AbstractVector{<:Number}, X::AbstractMatrix{<:Number}, y::AbstractVector{<:Number},L::AbstractMatrix{<:Number}, w::AbstractVector{<:Number}, α::Number)
     η = X'*β
-    λ = exp.(η).*w
-    ll1 = mean(-y.*(η.+log.(w)) + loggamma.(y .+ 1) .+  λ)
+    λ = exp.(η)
+    ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
     ll2 =α*β'*L*β
     ll1 + ll2
 end
@@ -1065,13 +1065,11 @@ function lossfunc2_grad!(gg, β::AbstractVector{<:Number}, X::AbstractMatrix{<:N
     fill!(gg, 0.0)
     ny = length(y)
     @assert size(X,2) == ny
-    @assert length(w) == ny
     @assert size(X,1) == length(β)
     for i in eachindex(y) 
         @inbounds yi = y[i]
         @inbounds ηi = η[i]
-        @inbounds wi = w[i]
-        eηi = exp(ηi)*wi
+        eηi = exp(ηi)
         for j in eachindex(β) 
             @inbounds δηji = δη[j,i] 
             @inbounds gg[j] += -yi*δηji + eηi*δηji
@@ -1103,8 +1101,8 @@ end
 
 function logprob(β, X, y,w)
     η = X'*β
-    λ = exp.(η).*w
-    ll1 = mean(y.*(η.+log.(w)) - loggamma.(y .+ 1) .-  λ)
+    λ = exp.(η)
+    ll1 = mean(y.*η - loggamma.(y .+ 1) .-  λ)
 end
 
 
