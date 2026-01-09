@@ -638,6 +638,25 @@ function get_data(vpoc::ViewAndPlaceOccupancy, unity_gaze_data::UnityRaytraceDat
     pos[:,1:offset], hd[1:offset], gaze[:,1:offset], flat_idx[:,1:offset], qidx2
 end
 
+function get_goodbins(jocc::JointOccupancy;min_place_duration=0.02, min_place_observations=5)
+    nt = length(jocc.index)
+    nbins = maximum(getindex.(collect(keys(jocc.weight)),2))
+    place_weight = zeros(nbins,nt)
+    placebin_idx = Vector{Vector{Int64}}(undef, nt)
+    for (k,v) in jocc.weight
+        vidx,pidx,hidx,tidx = Tuple(k)
+        place_weight[pidx,tidx] += v
+    end
+    for i in 1:nt
+        aidx = jocc.index[i]
+        placebin_idx[i] = fill(0, length(aidx))
+        for (j,kk) in enumerate(aidx)
+            placebin_idx[i][j] = kk.I[2]
+        end
+    end
+    goodbinidx = findall(dropdims(sum(place_weight .> min_place_duration,dims=2),dims=2).> min_place_observations)
+end
+
 function get_data(jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData)
     # find place bins with minimum amount of occpuancy
     nt = numtrials(unity_gaze_data)
