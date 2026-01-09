@@ -1140,7 +1140,7 @@ function get_dims(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}) whe
     d,didx
 end
 
-function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},w::AbstractVector{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false) where T <: Real
+function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},w::AbstractVector{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false,kwargs...) where T <: Real
     d,n = size(X)
     if β0 === nothing
         β0 = randn(T,d+1)
