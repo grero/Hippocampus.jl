@@ -27,6 +27,7 @@ struct GLMFitH{N}
     ll::Matrix{Float64}
     α::Vector{Float64}
     trainidx::Matrix{Int64}
+    testidx::Matrix{Int64}
     nspikes::Vector{Int16}
     dt::Vector{Float64}
     dims::NTuple{N,Symbol}
@@ -41,6 +42,22 @@ end
 
 function GLMFitH(β, ll, α, trainidx, nspikes, dims::NTuple{N,Symbol}, qidx) where N
     GLMFitH{N}(β, ll, α, trainidx, nspikes, dims, qidx, true, [3])
+end
+
+"""
+    GLMFitH(β::Array{Float64,3}, ll::Matrix{Float64}, α::Vector{Float64}, trainidx::Matrix{Int64}, nspikes::Vector{Int64}, dt, dims::NTuple{N,Symbol}, qidx, converged, nrefinements) where N
+
+Constructor for missing testidx
+"""
+function GLMFitH(β::Array{Float64,3}, ll::Matrix{Float64}, α::Vector{Float64}, trainidx::Matrix{Int64}, nspikes::Vector{Int16}, dt, dims::NTuple{N,Symbol}, qidx, converged, nrefinements) where N
+    n = length(nspikes)
+    ntrain, nruns = size(trainidx)
+    ntest = n - ntrain
+    testidx = fill(0, ntest, nruns)
+    for r in 1:nruns
+        testidx[:,r] = setdiff(1:n, trainidx[:,r])
+    end
+    GLMFitH{N}(β, ll, α, trainidx, testidx, nspikes, dt, dims, qidx, converged, nrefinements)
 end
 
 
@@ -59,7 +76,7 @@ DPHT.level(::Type{GLMFitH{N}}) where N = "cell"
 
 Return a hash of the supplied keywords.
 """
-function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), trainidx::Union{Matrix{<:Integer}, Nothing}=nothing, kwargs...) where N
+function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, nrefinements=fill(3, N), trainidx::Union{Matrix{<:Integer}, Nothing}=nothing, testidx::Union{Matrix{<:Integer}, Nothing}=nothing, kwargs...) where N
     h = UInt32(0)
     h = CRC32c.crc32c(string((:α=>α)),h)
     if trainidx !== nothing
@@ -71,6 +88,9 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     end
     if trainidx !== nothing
         h = CRC32c.crc32c(string((:trainidx=>trainidx)),h)
+    end
+    if testidx !== nothing
+        h = CRC32c.crc32c(string((:testidx=>testidx)),h)
     end
     h
 end
