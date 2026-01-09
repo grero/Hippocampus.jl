@@ -1111,7 +1111,7 @@ end
 function logprob(β::Matrix{Float64}, X, y,w, trainidx::Matrix{Int64})
     ll = zeros(size(trainidx,2))
     for i in 1:length(ll)
-        _trainidx = trainidx[:,i]
+        _trainidx = filter(x->x>0, trainidx[:,i])
         ll[i] = logprob(β[:,i], X[:,_trainidx], y[_trainidx], w[_trainidx])
     end
     ll
