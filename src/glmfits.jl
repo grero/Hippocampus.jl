@@ -1493,6 +1493,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             # check if there is object we can append to
             # use the same training idx
             trainidx .= appendto.trainidx
+            testidx .= appendto.testidx
             α_ = appendto.α
             α0 = sort(unique([α_;use_α]),rev=true)
             idx0 = [findfirst(α0.==a0) for a0 in α_]
