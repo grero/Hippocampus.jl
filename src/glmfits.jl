@@ -956,31 +956,73 @@ optimal smoothing factor is then used to re-fit using 20 nruns, again for both l
 We make sure that the same location/gaze bins are used for training of both location and gaze models.
 Finally, a model with both location and gaze is trained, again using the optimal smoothign values found above.
 """
-function fit_glm_all(;kwargs...)
+function fit_glm_all(; load_only=false, kwargs...)
+    # preload these since we need them for all subsequent analysis
+    if load_only
+        args = tuple()
+    else
+        jocc, unity_raytrace = cd(DPHT.process_level("session")) do
+            jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=(p=3,g=2))
+            ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
+            jocc, ud
+        end
+        vpvrp = ViewAndPlaceRepresentationNew(;redo=fname->false, kwargs...)
+        args = (jocc, unity_raytrace, vpvrp)
+    end
     # load the base gaze object first
-    g = Hippocampus.GLMFitH((:g,);redo=false,trial_start=2, show_progress=true, nrefinements=[2])
+    g = Hippocampus.GLMFitH((:g,),args...; trial_start=2, show_progress=true, nrefinements=[2],load_only=load_only,kwargs...)
+    if g === nothing
+        return (;)
+    end
     # get the optimal smoothign factor
     α,_ = Hippocampus.get_best_α(g)
     # re-fit for that single α value with more runs
-    gg = Hippocampus.GLMFitH((:g,);redo=false,trial_start=2, show_progress=true, nrefinements=[2],α=[α],nruns=20, raytrace_fname="unityfile_eyelink_new.csv")
+    gg = Hippocampus.GLMFitH((:g,), args...;trial_start=2, show_progress=true, nrefinements=[2],α=[α],nruns=20, raytrace_fname="unityfile_eyelink_new.csv", load_only=load_only,kwargs...)
+    if gg === nothing
+        return (;)
+    end
     # get the base location object
-    p = Hippocampus.GLMFitH((:p,);redo=false,trial_start=2, show_progress=true, nrefinements=[3])
+    p = Hippocampus.GLMFitH((:p,),args...;trial_start=2, show_progress=true, nrefinements=[3],load_only=load_only,kwargs...)
+    if p === nothing
+        return (;glmfit_g=gg)
+    end
     # find the optimal smoothing factor
     α,_ = Hippocampus.get_best_α(p)
     # re-fit using the same training idx as for the gaze object above, using the optimal smoothing 
     # factor for location.
-    pp = Hippocampus.GLMFitH((:p,);redo=false,trial_start=2, show_progress=true, nrefinements=[3],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv")
+    pp = Hippocampus.GLMFitH((:p,),args...;trial_start=2, show_progress=true, nrefinements=[3],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    if pp === nothing
+        return (;glmfit_g=gg)
+    end
 
     # head direction
-    h = GLMFitH((:hd,), trial_start=2, show_progress=true, nrefinements=[1], raytrace_fname="unityfile_eyelink_new.csv")
+    h = GLMFitH((:hd,),args...; trial_start=2, show_progress=true, nrefinements=[1], raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    if h === nothing
+        return (glmfit_p=pp, glmfit_g=gg)
+    end
     α,_ = Hippocampus.get_best_α(h)
-    hh = Hippocampus.GLMFitH((:hd,);redo=false,trial_start=2, show_progress=true, nrefinements=[1],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv")
+    hh = Hippocampus.GLMFitH((:hd,),args...;trial_start=2, show_progress=true, nrefinements=[1],α=[α],trainidx=gg.trainidx, raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    if hh === nothing
+        return (glmfit_p=pp, glmfit_g=gg)
+    end
 
     # fit joint pg using the same training idx
-    pg = Hippocampus.GLMFitH((:p,:g);trial_start=2, show_progress=true, nrefinements=[3,2], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
-    ph = Hippocampus.GLMFitH((:p,:hd);trial_start=2, show_progress=true, nrefinements=[3,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
-    gh = Hippocampus.GLMFitH((:g,:hd);trial_start=2, show_progress=true, nrefinements=[2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
-    pgh = Hippocampus.GLMFitH((:p,:g,:hd);trial_start=2, show_progress=true, nrefinements=[3,2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv")
+    pg = Hippocampus.GLMFitH((:p,:g),args...;trial_start=2, show_progress=true, nrefinements=[3,2], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    if pg === nothing
+        return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh)
+    end
+    ph = Hippocampus.GLMFitH((:p,:hd),args...;trial_start=2, show_progress=true, nrefinements=[3,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    if ph === nothing
+        return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh, glmfit_pg=pg)
+    end
+    gh = Hippocampus.GLMFitH((:g,:hd),args...;trial_start=2, show_progress=true, nrefinements=[2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    if gh === nothing
+        return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh, glmfit_pg=pg, glmfit_ph=ph)
+    end
+    pgh = Hippocampus.GLMFitH((:p,:g,:hd),args...;trial_start=2, show_progress=true, nrefinements=[3,2,1], trainidx=gg.trainidx,raytrace_fname="unityfile_eyelink_new.csv",load_only=load_only,kwargs...)
+    if pgh === nothing
+        return (glmfit_p=pp, glmfit_g=gg, glmfit_h=hh, glmfit_pg=pg, glmfit_ph=ph, glmfit_gh=gh)
+    end
     (glmfit_g = gg, glmfit_p = pp, glmfit_h=hh, glmfit_pg=pg, glmfit_ph=ph, glmfit_gh=gh, glmfit_pgh=pgh)
 end
 
