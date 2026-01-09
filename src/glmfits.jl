@@ -1296,10 +1296,12 @@ function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=f
         glmfit = load_jld2(GLMFitH{N}, fname)
         if isa(glmfit, JLD2.ReconstructedMutable)
             # missing field
-            if !(:dt in fieldnames(typeof(glmfit)))
+            # this is super hacky
+            if !(:dt in typeof(glmfit).parameters[2])
                 do_compute = true
             else
-                glmfit = GLMFitH{N}(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dt, glmfit.dims, glmfit.qidx, true,[3])
+                # we should be able to reconstruct here
+                glmfit = GLMFitH(glmfit.β, glmfit.ll, glmfit.α, glmfit.trainidx, glmfit.nspikes, glmfit.dt, glmfit.dims, glmfit.qidx, true,glmfit.nrefinements)
             end
         end
     elseif get(kwargs, :load_only, false)
