@@ -1155,6 +1155,51 @@ function get_trainidx(n::Integer, nruns::Integer)
     trainidx
 end
 
+function get_testidx(n::Integer, trainidx::Matrix{Int64})
+    ntrain,nruns = size(trainidx)
+    ntest = n - ntrain
+    testidx = fill(0, ntest, nruns)
+    for r in 1:nruns
+        testidx[:,r] = setdiff(1:n, trainidx[:,r])
+    end
+    testidx
+end
+
+function get_train_test_idx(n::Integer, nruns::Integer, nchunks::Integer;use_contiguous_chunks=true)
+    # divide into chunks first
+    if use_contiguous_chunks
+        # split into (roughly) equal chunks
+        chunksize = round(Int64, floor(n/nchunks))
+        cidx = fill(0,n)
+        for i in 1:nchunks
+            cidx[(i-1)*chunksize+1:i*chunksize] .= i
+        end
+        cidx[cidx.==0] .= nchunks 
+    else
+        cidx = rand(1:chunksize, n)
+    end
+    trainidx = fill(0, n, nruns)
+    testidx = fill(0, n, nruns)
+    offset_train = 0
+    offset_test = 0
+    for c in 1:chunksize
+        tidx = findall(cidx.==c)
+        m = length(tidx)
+        ntrain = round(Int64, 0.8*m)
+        ntest = m - ntrain
+        for r in 1:nruns
+            _trainidx = shuffle(tidx)[1:ntrain]
+            sort!(_trainidx)
+            trainidx[offset_train+1:offset_train+ntrain,r] .= _trainidx
+            _testidx = setdiff(tidx, _trainidx)
+            testidx[offset_test+1:offset_test+ntest,r] .= _testidx
+        end
+        offset_train += ntrain
+        offset_test += ntest
+    end
+    trainidx, testidx
+end
+
 function cross_validate(α::AbstractVector{T},X::AbstractMatrix{<:Real}, y,L,w;nruns=10, kwargs...) where T <: Real
     trainidx = get_trainidx(size(X,2),nruns)
     cross_validate(α,trainidx, X, y, L, w;kwargs...)
