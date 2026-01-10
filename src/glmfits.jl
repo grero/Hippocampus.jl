@@ -476,6 +476,18 @@ function logprob(nspikes, w, trainidx::Matrix{Int64};in_sample=false)
     ll
 end
 
+function logprob(nspikes, w, trainidx::Matrix{Int64}, testidx::Matrix{Int64})
+    ll = zeros(size(testidx,2))
+    for i in 1:length(ll)
+        _trainidx = filter(x->x>0, trainidx[:,i])
+        λ = mean(nspikes[_trainidx]./w[_trainidx])
+        _testidx = filter(x->x>0, testidx[:,i])
+        y = nspikes[_testidx]
+        ll[i] = mean(y.*log.(λ.*w[_testidx]) - loggamma.(y.+1) - λ.*w[_testidx])
+    end
+    ll
+end
+
 function logprob(nspikes, w)
     λ = mean(nspikes./w)
     y = nspikes
