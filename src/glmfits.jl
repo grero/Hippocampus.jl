@@ -744,7 +744,8 @@ function get_data(jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData)
     pos[:,1:offset], hd[1:offset], gaze[:,1:offset], flat_idx[1:offset], qidx
 end
 
-function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unity_gaze_data::UnityRaytraceData)
+function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unity_gaze_data::UnityRaytraceData;min_place_dur=0.05, min_place_obs=5,min_speed=1.0, min_gaze_dur=0.02, min_gaze_obs=5,kwargs...)
+    # TODO: Make sure that vpvrp and jocc use the same trial start reference
     nt = numtrials(unity_gaze_data)
     t1 = time()
     m_floor = Shadow("xy")(floor_topology3())
@@ -752,28 +753,36 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
     m_floor = floor_topology3()
     hdbins = range(0.0, stop=2π,length=24)
     place_weight = zeros(nelements(m_floor),nt)
+    gaze_weight = zeros(nelements(mm),nt)
     placebin_idx = Vector{Vector{Int64}}(undef, nt)
+    gazebin_idx = Vector{Vector{Int64}}(undef, nt)
     for (k,v) in jocc.weight
         vidx,pidx,hidx,tidx = Tuple(k)
         place_weight[pidx,tidx] += v
+        gaze_weight[vidx,tidx] += v
     end
     for i in 1:nt
         aidx = jocc.index[i]
         placebin_idx[i] = fill(0, length(aidx))
+        gazebin_idx[i] = fill(0, length(aidx))
         for (j,kk) in enumerate(aidx)
             placebin_idx[i][j] = kk.I[2]
+            gazebin_idx[i][j] = kk.I[1]
         end
     end
-    goodbinidx = findall(dropdims(sum(place_weight .> 0.02,dims=2),dims=2).> 5)
+    goodbinidx = findall(dropdims(sum(place_weight .> min_place_dur,dims=2),dims=2).> min_place_obs)
+    goodbinidx_g = findall(dropdims(sum(gaze_weight .> min_gaze_dur,dims=2),dims=2).> min_gaze_obs)
     ff = in(goodbinidx)
+    ff_g = in(goodbinidx_g)
     # get the speed per place bin
     vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,nelements(m_floor))
     qidx = CartesianIndex{4}[]
     ww = Float64[]
     for (k,v) in jocc.weight
+        vidx = k.I[1]
         pidx = k.I[2]
         tidx = k.I[4]
-        if ff(pidx) && (vv[pidx,tidx]  > 1.0)
+        if ff(pidx) && ff_g(vidx) && (vv[pidx,tidx]  > min_speed)
             push!(qidx,k)
             push!(ww, v)
         end
