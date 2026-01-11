@@ -339,7 +339,7 @@ function plot_glmfit!(lg, glmfit::GLMFitH{N},aidx::Union{Int64, Nothing}=nothing
     nspikes = glmfit.nspikes
     # establish null likelihood
     _dof0 = 1
-    ll0 = logprob(glmfit.nspikes, glmfit.dt, glmfit.trainidx)
+    ll0 = logprob(glmfit.nspikes, glmfit.dt, glmfit.trainidx, glmfit.testidx)
     xx = repeat(glmfit.α, 1,size(ll,1))[:]
     yy = permutedims(glmfit.ll)[:]
     points = Point2f[]
