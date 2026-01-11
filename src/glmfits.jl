@@ -1492,7 +1492,7 @@ end
 
 function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData,vpvrp::Union{ViewAndPlaceRepresentationNew,Nothing}=nothing;appendto::Union{Nothing, GLMFitH{N}}=nothing, redo::Function=fname->false, do_save=true,load_only=false, α=10.0.^[-2,-3,-4,-5,-6],nruns=10,show_trace=false,show_progress=false,nrefinements=fill(3,length(dims)), trainidx::Union{Matrix{<:Integer},Nothing}=nothing, testidx::Union{Matrix{<:Integer}, Nothing}=nothing, kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
-    h = process_kwargs(GLMFitH{N};α=α,nruns=nruns, nrefinements=nrefinements,trainidx=trainidx,testidx=testidx)
+    h = process_kwargs(GLMFitH{N};α=α,nruns=nruns, nrefinements=nrefinements,trainidx=trainidx,testidx=testidx,kwargs...)
     if h != 0
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
