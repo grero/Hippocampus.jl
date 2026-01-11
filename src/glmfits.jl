@@ -1522,7 +1522,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         if vpvrp === nothing
             vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
         end
-        nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data)
+        nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data;kwargs...)
         if trainidx === nothing
             trainidx,testidx = get_train_test_idx(length(nspikes),nruns,5)
         else
