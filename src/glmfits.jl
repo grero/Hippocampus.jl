@@ -463,7 +463,7 @@ end
 function logprob(nspikes, w, trainidx::Matrix{Int64};in_sample=false)
     ll = zeros(size(trainidx,2))
     for i in 1:length(ll)
-        _trainidx = trainidx[:,i]
+        _trainidx = filter(x->x>0, trainidx[:,i])
         λ = mean(nspikes[_trainidx]./w[_trainidx])
         if !in_sample
             testidx = setdiff(1:length(nspikes), _trainidx)
