@@ -1237,7 +1237,7 @@ end
 function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::AbstractMatrix{<:Real},w::AbstractVector{<:Real};β0::Union{Nothing,Vector{T}}=nothing,α::T=one(T),show_trace=false,show_progress=false,kwargs...) where T <: Real
     d,n = size(X)
     if β0 === nothing
-        β0 = randn(T,d+1)
+        β0 = randn(T,d)
     end
     if size(β0,1) > size(X,1)
         L2 = zeros(T, size(L,1)+1, size(L,2)+1)
