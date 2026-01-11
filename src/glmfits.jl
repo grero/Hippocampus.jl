@@ -1146,7 +1146,7 @@ end
 function lossfunc2_grad!(gg, β::AbstractVector{<:Number}, X::AbstractMatrix{<:Number}, y::AbstractVector{<:Number},L::AbstractMatrix{<:Number}, w::AbstractVector{<:Number}, α::Number)
     η = X'*β
     δη = X
-    fill!(gg, 0.0)
+    fill!(gg, 0)
     ny = length(y)
     @assert size(X,2) == ny
     @assert size(X,1) == length(β)
