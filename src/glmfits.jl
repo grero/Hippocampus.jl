@@ -1244,6 +1244,9 @@ function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Abstra
         L2[1:size(L,1), 1:size(L,2)] .= L
         # penalize the offset term as well
         L2[end,end] = 1.0
+        if issymmetric(L2)
+            L2 = Symmetric(L2)
+        end
         Xq = [X;ones(T, 1, n)]
     else
         L2 = L
