@@ -1385,9 +1385,9 @@ function process_refinements(dims::NTuple{N,Symbol};kwargs...) where N
     nrefinements, kwargs2
 end
 
-function isolderthan(fname, tt=now())
+function isolderthan(fname, tt=now(UTC))
     st = stat(fname)
-    if unix2datetime(st.ctime) < tt
+    if st.mtime < datetime2unix(tt)
         return true
     end
     return false
