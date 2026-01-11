@@ -1,0 +1,89 @@
+# Blender 4.5.1 LTS MTL File: 'DTLarge.blend'
+# www.blender.org
+
+newmtl Concrete_pattern_01A
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+map_d /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+map_Bump /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/normal.tga
+
+newmtl Concrete_pattern_01B
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+map_d /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+map_Bump /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/normal.tga
+
+newmtl Concrete_pattern_01C
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.017748 0.875000 0.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_d /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+map_Bump /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/normal.tga
+
+newmtl Concrete_pattern_01D
+Ns 99.474266
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 0.064588 0.040974
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Bump -bm 2.000000 /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+
+newmtl Concrete_pattern_01E
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+map_d /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/diffuse.tga
+map_Bump /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 01/normal.tga
+
+newmtl Concrete_pattern_03
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 03/diffuse.tga
+map_d /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 03/diffuse.tga
+map_Bump /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 03/normal.tga
+
+newmtl Concrete_pattern_05
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 05/diffuse.tga
+map_d /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 05/diffuse.tga
+map_Bump -bm 1.000000 /Users/roger/Documents/programming/Unity/VirtualMaze/Assets/Concrete textures pack/pattern 05/normal.tga
+
+newmtl Material
+Ns 49.607422
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.400000
+d 1.000000
+illum 2

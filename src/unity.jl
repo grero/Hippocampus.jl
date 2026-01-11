@@ -7,6 +7,10 @@ using FileIO
 using StatsBase
 using ImageFiltering
 
+struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Vec2,T5<:Vec3}
+    sprite::Vector{Sprite{T, T2, T3, T4, T5}}
+end
+
 # TODO: Unclear if these are the latest values. Perhaps update?
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
 zBound = [12.5, 12.5, -12.5, -12.5, 12.5]
@@ -39,6 +43,15 @@ poster_pos[:pig] = (-5.0, -2.44)
 poster_pos[:donkey] = (5.168, 7.561)
 poster_pos[:croc] = (5.0, 2.433)
 poster_pos[:rabbit] = (7.561, -5.0)
+
+# hard coded new poster locations
+poster_pos_new = Dict{Symbol,NTuple{3,Float64}}()
+poster_pos_new[:camel] = (-5.0, -7.6, 1.4)
+poster_pos_new[:cat] = (7.6, -5.0, 1.4)
+poster_pos_new[:pig] = (2.4, -5.0, 1.4)
+poster_pos_new[:donkey] = (-7.6, 5.0, 1.4)
+poster_pos_new[:croc] = (-2.4, 5.0, 1.4)
+poster_pos_new[:rabbit] = (5.0, 7.6, 1.4)
 
 
 #poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
@@ -210,6 +223,12 @@ function read_unity_file(fname::String)
         data = data[:,2:end]
     end
     data = convert(Matrix{Float64}, data)
+    # hack
+    header_new = Dict{Symbol, NTuple{3,Float64}}()
+    for (k,v) in header["PosterLocations"]
+        header_new[Symbol(k)] = v
+    end
+    header["PosterLocations"] = header_new
     data, header, column_names
 end
 
@@ -279,21 +298,6 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
     end
 end
 
-function plot_arena()
-    fig = Figure()
-    ax = Axis(fig[1,1])
-    plot_arena!(ax)
-    fig,ax
-end
-
-function plot_arena!(ax)
-    poly!(ax, Point2f.(zip(zBound, xBound)),color=:grey)
-    poly!(ax, Point2f.(zip(z1Bound, x1Bound)), color=:yellow)
-    poly!(ax, Point2f.(zip(z2Bound, x2Bound)), color=:red)
-    poly!(ax, Point2f.(zip(z3Bound, x3Bound)), color=:blue)
-    poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
-end
-
 """
     soft_range(start::T, stop::T,step::T) where T <: Real
 
@@ -332,6 +336,17 @@ end
 OrientedMesh(bins, normal::AbstractVector{T}) where T <: Real = OrientedMesh(bins, Vec3f(normal))
 
 Base.length(om::OrientedMesh) = 1
+
+function impacts(pos,mm::OrientedMesh)
+    a = true 
+    for (i,b) in enumerate(mm.bins)
+        if !(first(b) <= pos[i] <= last(b))
+            a = false
+            break
+        end
+    end
+    return a
+end
 
 """
 Get a rectangle encompassing the inner face of the mesh
@@ -388,6 +403,204 @@ struct MazeModel{T<:AbstractVector{<: Real}}
     pillars::Vector{Vector{OrientedMesh{T}}}
     floor::Vector{OrientedMesh{T}}
     ceiling::OrientedMesh{T}
+end
+
+struct MazeModelNew{T<:AbstractMesh{<:Any, <:Any}}
+    walls::Vector{T}
+    pillars::Vector{Vector{T}}
+    floor::T
+    ceiling::T
+end
+
+function MazeModelNew()
+    fname = joinpath(@__DIR__, "..","artefacts","DTLarge.obj")
+    MazeModelNew(fname)
+end
+
+function MazeModelNew(fname::String)
+    mm = load(fname)
+    mm_b = GeometryBasics.Mesh(mm)
+    #pillars 
+    pillars = [[findfirst([occursin("m_wall_$(j)_$(i)_", g) for g in mm.meta[:groups]]) for i in 1:4] for j in 1:4]
+    pillar_mesh = [split_mesh(mm_b, mm.views[pillar]) for pillar in pillars]
+
+    walls = findall([occursin(r"wall_[0-9]{2,2}", g) for g in mm.meta[:groups]])
+    wall_mesh = split_mesh(mm_b, mm.views[walls]) 
+
+    ceiling = findall([occursin("Ceiling", g) for g in mm.meta[:groups]])
+    ceiling_mesh = split_mesh(mm_b, mm.views[ceiling])
+
+    ground = findall([occursin("Ground", g) for g in mm.meta[:groups]])
+    ground_mesh = split_mesh(mm_b, mm.views[ground])
+
+    MazeModelNew(wall_mesh, pillar_mesh, first(ground_mesh), first(ceiling_mesh))
+end
+
+function get_pillar_colors(mm::MazeModelNew)
+     # the pillars are number counter-clockwise.
+    pillar_colors = HSV.(parse.(Colorant,circshift([:green, :blue, :yellow, :red],-1)))
+    #change saturation
+    pillar_colors = [HSV(hsv.h, 0.6*hsv.s, hsv.v) for hsv in pillar_colors]
+    pillar_colors
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, mm::MazeModelNew)
+    # TODO: Add textures
+    hsv = HSV(RGB(0.498, 0.263,0.025))
+    x = range(-12.5f0, stop=12.5f0, length=200)
+    dd = x .- permutedims(x)
+    Q = exp.(-dd.^2/0.75f0)
+    Qs = sqrt(Q)
+    X = Qs'*randn(Float32, 200,200)*Qs
+    X .= 0.2f0 .+ 0.8f0*(X .- minimum(X))./(maximum(X) - minimum(X))
+    _color = HSV.(hsv.h, hsv.s, X)
+    plots = [S.Mesh(mm.floor, color=_color,shininess=16, specular=0.1)]
+    #push!(plots, S.Mesh(mm.ceiling, color=:gray))
+    for mw in mm.walls
+        rr = Rect(mw)
+        w = sort(rr.widths)
+        _color,_uv = generate_tile(RGB(0.3, 0.3, 0.3), w[1],w[2];nn=60,period=10, buffer=3)
+        push!(plots, S.Mesh(mw, color=_color,specular=0.1, shininess=16))
+    end
+
+    # TODO: Match this
+    #pillar_colors = fill(parse(Colorant, :red), 4)
+    #for (ii,pillar) in enumerate(mm.pillars)
+    #    μ = zeros(Float32, 3)
+    #    for mp in pillar
+    #        μ .+= mean(mp.position)
+    #    end
+    #    μ ./= 4
+    #    if μ[1] > 0 && μ[2] < 0
+    #        pillar_colors[ii] = parse(Colorant, :blue)
+    #    elseif μ[1] > 0 && μ[2] > 0
+    #        pillar_colors[ii] = parse(Colorant,:yellow)
+    #    elseif μ[1] < 0 && μ[2] < 0
+    #        pillar_colors[ii] = parse(Colorant, :green)
+    #    else
+    #        pillar_colors[ii] = parse(Colorant,:red)
+    #    end
+    #end
+    pillar_colors = get_pillar_colors(mm)
+
+    for (pillar,color) in zip(mm.pillars, pillar_colors)
+        nn = get_normal(pillar)
+        for (ii,mp) in enumerate(pillar)
+            μ = mean(mp.position)
+            # this is hackish
+            rr = Rect(mp)
+            w = sort(rr.widths)
+            _color,_uv = generate_tile(color, w[1],w[2];nn=60,period=20, buffer=3)
+            push!(plots, S.Mesh(mp,color=_color))
+            #push!(plots, S.Arrows3D(μ, nn[ii],color=:black))
+        end
+    end
+    plots
+end
+
+function Makie.convert_arguments(::Type{<:Wireframe}, mm::MazeModelNew, hide_ceiling=false)
+    plots = [S.Wireframe(mm.floor, color=(:black, 0.2),transparency=true)]
+    if !hide_ceiling
+        push!(plots, S.Wireframe(mm.ceiling, color=(:black, 0.2), transparency=true))
+    end
+    for mw in mm.walls
+        push!(plots, S.Wireframe(mw,color=(:black, 0.2), transparency=true))
+    end
+
+    pillar_colors = get_pillar_colors(mm)
+    for (pillar,_color) in zip(mm.pillars,pillar_colors)
+        for (ii,mp) in enumerate(pillar)
+            push!(plots, S.Wireframe(mp, color=(_color, 0.2),transparency=true))
+        end
+    end
+    plots
+end
+
+function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, posters::Posters)
+    plots = convert_arguments(T, mm)
+    append!(plots, convert_arguments(T, posters))
+    plots
+end
+
+function impacts(pos, mm::MazeModelNew)
+    a = false
+    for wall in mm.walls
+        r = Rect(wall)
+        if in(r)(pos)
+            a = true
+            break
+        end
+    end
+    if !a
+        a = a || (in(Rect(mm.ceiling))(pos) || in(Rect(mm.floor))(pos))
+    end
+    if !a 
+        for pillar in mm.pillars
+            for mp in pillar 
+                a = a || in(Rect(mp))(pos)
+                if a
+                    break
+                end
+            end
+            if a
+                break
+            end
+        end
+    end
+    return a
+end
+
+function impacts(pos, mm::MazeModel)
+    a = false
+    for w in mm.walls
+        a = impacts(pos, w) 
+        if a
+            return a
+        end
+    end
+
+    for pillar in mm.pillars
+        for pw in pillar
+            a = impacts(pos,pw)
+            if a
+                return a
+            end
+        end
+    end
+
+    for f in mm.floor
+        a = impacts(pos, f)
+        if a
+            return a
+        end
+    end
+    a = impacts(pos,mm.ceiling)
+    return a
+end
+
+
+"""
+Return the 3D bounding box of each of the maze's pillars
+"""
+function get_pillar_rects(mm::MazeModel)
+    footprints = Vector{Rect3f}()
+    for pillar in mm.pillars
+        footprint = reduce(union,get_rect.(pillar))
+        push!(footprints, footprint)
+    end
+    footprints
+end
+
+function filter_pillars(mm::MazeModel, X::Matrix{T},xbins=1:size(X,1), ybins=1:size(X,2)) where T <: Real
+    Z = fill!(similar(X), zero(T))
+    Z .= X
+    rects = get_pillar_rects(mm)
+    for r in rects 
+        idx1 = searchsortedfirst(xbins, r.origin[1]):searchsortedlast(xbins, r.origin[1]+r.widths[1])
+        idx2 = searchsortedfirst(ybins, r.origin[2]):searchsortedlast(ybins, r.origin[2]+r.widths[2])
+        Z[idx1,idx2] .= NaN
+    end
+    Z
 end
 
 function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Symbol[]) where T2 <: AbstractVector{T} where T <: Real
@@ -705,11 +918,11 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
     end
 end
 
-struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Vec2,T5<:Vec3}
-    sprite::Vector{Sprite{T, T2, T3, T4, T5}}
+function Posters(mm::MazeModel,udata::UnityData;kvs...)
+    Posters(mm, udata.header["PosterLocations"];kvs...)
 end
 
-function Posters(mm::MazeModel,udata::UnityData;kvs...)
+function Posters(mm::MazeModelNew,udata::UnityData;kvs...)
     Posters(mm, udata.header["PosterLocations"];kvs...)
 end
 
@@ -744,17 +957,158 @@ function Posters(mm::MazeModel,_poster_pos=poster_pos;z=2.5)
     Posters(sprites)
 end
 
-function show_posters(args...;kwargs...)
-    fig = Figure()
-    lscene = LScene(fig[1,1])
-    show_posters!(lscene, args...;kwargs...)
-    fig
+function Posters(mm::MazeModelNew,_poster_pos=poster_pos_new;z=1.5)
+    __poster_pos = Dict(k=>(p[1],p[2],z) for (k,p) in _poster_pos)
+    wall_pillar_idx = assign_posters(mm,__poster_pos)
+    wall_idx = wall_pillar_idx.pillar_wall_idx
+    pillar_idx = wall_pillar_idx.pillar_idx
+    rot = LinearMap(RotX(3π/2))
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    # hack just to figure out the type
+    sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    nn = Dict(k=>get_normal(mm.pillars[pillar_idx[k]]) for k in keys(pillar_idx))
+    for (ii,pk) in enumerate(keys(__poster_pos))
+        pp = _poster_pos[pk]
+        img = images[pk]
+        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+        sp2 = rot(sp)
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
+        #nn = get_normal(mm.pillars[pillar_idx[pk]][wall_idx[pk]])
+        _nn = nn[pk][wall_idx[pk]]
+        θ = acos(sp2.normals[1]'*_nn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        sprites[ii] = sp3
+    end
+    Posters(sprites)
 end
+
+function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5,rotate_flat=false)
+    __poster_pos = Dict(k=>(p[1],p[2],z) for (k,p) in _poster_pos)
+    rot = LinearMap(RotX(3π/2))
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    # hack just to figure out the type
+    w = 2.23
+    h = 1.4
+    sp = sprite(first(images)[2], Rect2(-w/2, -h/2, w, h))
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    kn = KNearestSearch(mm, 1)
+    for (ii,pk) in enumerate(keys(__poster_pos))
+        pp = _poster_pos[pk]
+        img = images[pk]
+        sp = sprite(img, Rect2(-w/2, -h/2, w, h))
+        sp2 = rot(sp)
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
+        # find the normal vector
+        # first find the closest element
+        mp = Meshes.Point(pp[1],pp[2],z)
+        _idx, dd = searchdists(mp,kn)
+        _mm = mm[first(_idx)]
+        v = mp - centroid(_mm)
+        v = v./norm(v)
+        v1 = _mm.vertices[1] - _mm.vertices[2]
+        v1 = v1./norm(v1)
+        v2 = _mm.vertices[1] - _mm.vertices[4]
+        v2 = v2./norm(v2)
+        # normal to the surface
+        vn = cross(v1,v2) 
+        if vn'*v < 0
+            vn = -1.0*vn
+        end
+
+        θ = acos(sp2.normals[1]'*vn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        if rotate_flat
+            # rotate so that the poster can been seen from above
+            # we want to rotate around whichever of v1 or v2 is orthogonal to the z-axis 
+            
+            if v1[3] == 0
+                _vv = v1 
+                _vu = v2
+            else
+                _vv = v2
+                _vu = v1
+            end
+            # make sure to normalize
+            # TODO: rotate so that up is up
+            #true up is now along y, i.e. (0.0, 1.0, 0.0)
+            _vv = _vv./norm(_vv)
+            _vu = _vu./norm(_vu)
+            vq = π/2*(_vv)
+            _rot = RotationVec(vq...)
+            _vu = LinearMap(_rot)(_vu)
+            if _vu[2] < 0 
+                ϕ = π
+            elseif _vu[2] == 0
+                if _vu[1] < 0
+                    ϕ = π/2
+                else
+                    ϕ = -π/2
+                end
+            else
+                ϕ = 0.0
+            end
+
+            vϕ = ϕ*([0.0, 0.0, 1.0])
+            _rotϕ = LinearMap(RotationVec(vϕ...))
+            _trans = LinearMap(Translation(0.0, 0.0, -z))
+            sp3 =_rotϕ(_trans(LinearMap(_rot)(sp3)))
+        end
+        sprites[ii] = sp3
+    end
+    Posters(sprites)
+end
+
+function get_normal(m::Vector{T}) where T <: OrientedMesh
+    [_m.normal for _m in m]
+end
+
+function get_normal(pillar::Vector{T}) where T <: GeometryBasics.AbstractMesh
+    # we need to figure out which normal points outwards
+    # maybe just find the normal that points away from the center
+    pos = Point3f[]
+    for p in pillar
+        append!(pos, p.position)
+    end
+    μ = mean(pos)
+    nn = Vector{Vec3f}(undef, length(pillar))
+    for (j,p) in enumerate(pillar)
+        μp = mean(p.position)
+        v = μp - μ
+        v = normalize(v)
+        q = 0.0f0
+        jj = 0
+        for n in p.normals.data
+            _d = v'*n
+            if _d > q
+                nn[j] = n
+                q = _d
+            end
+        end 
+    end
+    nn
+end
+
+
 
 function visualize!(lscene, posters::Posters;kwargs...)
     for sp3 in posters.sprite
         plot!(lscene, sp3)
     end
+end
+
+function Makie.convert_arguments(T::Type{<: AbstractPlot}, posters::Posters)
+    plots = [convert_arguments(T, posters.sprite[1])]
+    for sp in posters.sprite[2:end]
+        push!(plots, convert_arguments(T, sp))
+    end
+    plots
 end
 
 
@@ -965,6 +1319,27 @@ function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{2,Float64
             for (j,_wall) in enumerate(pillar)
                 pq = _wall.bins
                 _d = (pp[1] - mean(pq[1]))^2 + (pp[2] - mean(pq[2]))^2
+                if _d < d
+                    d = _d
+                    pillar_idx[kp] = k
+                    wall_idx[kp] = j
+                end
+            end
+        end
+    end
+    (pillar_idx=pillar_idx, pillar_wall_idx=wall_idx)
+end
+
+function assign_posters(mm::MazeModelNew, _poster_pos::Dict{Symbol,NTuple{3,Float64}}=poster_pos)
+    pillar_idx = Dict{Symbol,Int64}()
+    wall_idx = Dict{Symbol,Int64}()
+    for (kp,ppl) in _poster_pos
+        pp = Point3f(ppl)
+        d = Inf
+        for (k,pillar) in enumerate(mm.pillars)
+            for (j,_wall) in enumerate(pillar)
+                pq = mean(_wall.position)
+                _d = (pp[1] - pq[1])^2 + (pp[2] - pq[2])^2
                 if _d < d
                     d = _d
                     pillar_idx[kp] = k

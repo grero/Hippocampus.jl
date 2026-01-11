@@ -4,6 +4,14 @@ using GeometryBasics
 using StatsBase
 using StableRNGs
 
+@testset "Topology" begin
+    A = Hippocampus.get_circular_adjancency(5)
+    @test A == [1.0 1.0 0.0 0.0 1.0;
+                1.0 1.0 1.0 0.0 0.0;
+                0.0 1.0 1.0 1.0 0.0;
+                0.0 0.0 1.0 1.0 1.0;
+                1.0 0.0 0.0 1.0 1.0]
+end
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
     timestamps = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
@@ -21,9 +29,39 @@ using StableRNGs
     markers = [84, 11, 21, 31, 12, 22, 42, 23, 23, 33]
     @test_throws "Inconsistent main markers" Hippocampus.reshape_triggers(markers, timestamps)
 
+    # test fix markers
+    fmarkers = Hippocampus.fix_markers([1,2,3,1,2,1,2,3])
+    @test length(fmarkers) == 9
+    @test ismissing(fmarkers[6])
+
+    # test repairing markers
+    markers = [11, 21, 31, 12, 22, 42, 23, 33]
+    timestamps = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+    trial_markers, trial_timestamps = Hippocampus.reshape_triggers(markers, timestamps;perform_fix=true)
+    @test size(trial_markers) == size(trial_timestamps) == (3,3)
+    @test ismissing(trial_markers[3,1])
+    @test ismissing(trial_timestamps[3,1])
+
+
     # test disk
     f = Hippocampus.disk(1)
     @test f ==  [0.0 0.2 0.0; 0.2 0.2 0.2; 0.0 0.2 0.0]
+
+    # test alternative disk
+    d2idx = Hippocampus.disc(CartesianIndex(3,3), 2, 5, 5)
+    @test d2idx == CartesianIndex{2}[CartesianIndex(1, 3), CartesianIndex(2, 2), CartesianIndex(2, 3), CartesianIndex(2, 4), CartesianIndex(3, 1), CartesianIndex(3, 2), CartesianIndex(3, 3), CartesianIndex(3, 4), CartesianIndex(3, 5), CartesianIndex(4, 2), CartesianIndex(4, 3), CartesianIndex(4, 4), CartesianIndex(5, 3)]
+
+    # test segmentation
+    μ1 = [5,5]
+    μ2 = [-5,-5]
+    xbins = range(-12.5f0, stop=12.5f0, length=40);
+    ybins = range(-12.5f0, stop=12.5f0, length=40);
+    D1 = [(x-μ1[1])^2 + (y-μ1[2])^2 for x in xbins, y in ybins]
+    D2 = [(x-μ2[1])^2 + (y-μ2[2])^2 for x in xbins, y in ybins]
+    F = exp.(-D1./(2*2.5^2)) .+ exp.(-D2./(2*3.5^2))
+    patches = Hippocampus.field_outline(F)
+    @test length(patches) == 2
+    length.(patches) == [81,41]
 end
 
 @testset "Paths" begin
@@ -244,4 +282,31 @@ end
     r1 = Rect3f(0.0, 0.0, 0.0,1.0, 1.0, 1.0)
     d = Hippocampus.distance(Point3f(0.5, 0.0, 0.5), Point3f(0.5, 1.0, 0.5), r1)
     @test d ≈ 2.0f0
+end
+
+@testset "Path on maze" begin
+    mm = Hippocampus.MazeModel()
+    pm = Hippocampus.ParametrizedManifold(mm;include_pillars=true)
+
+    pillar_points_1,ll1 = Hippocampus.get_surface_points(mm.pillars[1][1])
+    @test ll1 == (8,1,5)
+    pillar_points_2,ll2 = Hippocampus.get_surface_points(mm.pillars[1][2])
+    @test ll2 == (8,1,5)
+
+    point1 = pillar_points_1[25]
+    @test point1 == Point{3,Float64}(-7.5, 2.45, 2.345)
+    sidx1 = Hippocampus.assign_to_surface(point1, pm.normals, pm.μ)
+    # first wall of the first pillar
+    @test sidx1 == 15
+
+    point2 = pillar_points_2[10]
+    @test point2 == Point{3,Float64}(-6.785714285714286, 7.55, 0.815)
+    sidx2 = Hippocampus.assign_to_surface(point2, pm.normals, pm.μ)
+    # second wall of the first pillar
+    @test sidx2 == 16
+
+    d,pth = Hippocampus.distance(point1, point2, pm)
+    @test d ≈ [5.764285714285714, 1.5300000000000002]
+    
+    @test pth ≈ Point{3, Float64}[[-7.5, 2.45, 2.345], [-7.5, 2.45, 2.345], [-7.55, 7.45, 2.345], [-7.55, 7.449999999999999, 2.345], [-6.785714285714286, 7.55, 0.815]]
 end
