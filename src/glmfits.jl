@@ -1242,6 +1242,8 @@ function fit_glm_2(X::AbstractMatrix{T}, y::AbstractVector{<:Integer}, L::Abstra
     if size(β0,1) > size(X,1)
         L2 = zeros(T, size(L,1)+1, size(L,2)+1)
         L2[1:size(L,1), 1:size(L,2)] .= L
+        # penalize the offset term as well
+        L2[end,end] = 1.0
         Xq = [X;ones(T, 1, n)]
     else
         L2 = L
