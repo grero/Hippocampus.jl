@@ -1356,7 +1356,7 @@ function cross_validate(trainidx::Matrix{Int64}, testidx::Matrix{Int64}, X::Abst
     d,n = size(X)
     nruns = size(trainidx,2)
     ll = zeros(nruns)
-    β = zeros(d+1,nruns)
+    β = zeros(d,nruns)
     has_converged = fill(false, nruns)
     prog = Progress(nruns;desc="Running cross-validation", enabled=show_progress, showspeed=true)
     for r in 1:nruns
@@ -1378,7 +1378,7 @@ function cross_validate(trainidx::Matrix{Int64}, testidx::Matrix{Int64}, X::Abst
         w_test = ww[_test_idx]
 
         q = fit_glm_2(X_train, y_train, L, w_train;α=α,kwargs...)
-        ll[r] = logprob(q.minimizer, [X_test;ones(1,length(_test_idx))], y_test, w_test)
+        ll[r] = logprob(q.minimizer, X_test, y_test, w_test)
         β[:,r] .= q.minimizer
         has_converged[r] = Optim.converged(q)
         next!(prog)
