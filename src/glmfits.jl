@@ -1568,9 +1568,10 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             end
         end
         n = length(nspikes)
-        X = zeros(sum(d), n)
+        X = zeros(sum(d)+1, n)
+        X[end,:] .= 1.0
         # set up laplacian
-        L = zeros(sum(d), sum(d))
+        L = zeros(sum(d)+1, sum(d)+1)
         offset = 0
         for (j,(nd,dd,nf)) in enumerate(zip(d,dims,nrefinements))
             if dd == :g
@@ -1601,6 +1602,15 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
                 L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
             end
             offset += nd
+        end
+        # add penality
+
+        if validate_α
+            L[end,end] = 1.0
+        else
+            # this is somewhat heuristic
+            # just use maximum penality for the offset
+            L[end,end] = maximum(use_α) 
         end
 
         for (ii,qq) in enumerate(qidx)
