@@ -92,6 +92,18 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     if testidx !== nothing
         h = CRC32c.crc32c(string((:testidx=>testidx)),h)
     end
+    min_place_obs = get(kwargs, :min_place_obs, 5)
+    if min_place_obs != 5
+        h = CRC32c.crc32c(string((:min_place_obs=>min_place_obs)),h)
+    end
+    min_place_dur = get(kwargs, :min_place_dur, 0.02)
+    if min_place_dur != 0.02
+        h = CRC32c.crc32c(string((:min_place_dur=>min_place_dur)),h)
+    end
+    ms = get(kwargs, :min_speed, 1) 
+    if ms != 1
+        h = CRC32c.crc32c(string((:min_speed=>ms)),h)
+    end
     h
 end
 
