@@ -1453,7 +1453,7 @@ function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=f
     glmfit
 end
 
-function get_laplacian(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}, α::NTuple{N,<:Real}) where N
+function get_laplacian(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}, α::NTuple{N,<:Real};do_normalize=false) where N
     d,didx = get_dims(dims, nrefinements)
     L = zeros(sum(d), sum(d))
     offset = 0
@@ -1461,14 +1461,27 @@ function get_laplacian(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}
         if dd == :g
             mm = get_maze_mesh(;nrefinements=nf) 
             A = adjacencymatrix(mm)
-            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
+            D = sum(A,dims=2)
+            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(D[:]) - A)
+            if do_normalize
+                L[offset+1:offset+nd, offset+1:offset+nd] ./= sqrt.(D*D')
+            end
+
         elseif dd == :p
             m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
             A = adjacencymatrix(m_floor)
-            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
+            D = sum(A,dims=2)
+            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(D[:]) - A)
+            if do_normalize
+                L[offset+1:offset+nd, offset+1:offset+nd] ./= sqrt.(D*D')
+            end
         elseif dd == :hd
             A = get_circular_adjancency(nhd_bins)
-            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
+            D = sum(A,dims=2)
+            L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(D[:]) - A)
+            if do_normalize
+                L[offset+1:offset+nd, offset+1:offset+nd] ./= sqrt.(D*D')
+            end
         end
         offset += nd
     end
