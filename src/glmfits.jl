@@ -1649,7 +1649,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             idx1 = setdiff(1:length(α0), idx0)
             ll0 = zeros(nruns, length(α0)) 
             ll0[:,idx0] .= appendto.ll
-            β0 = zeros(size(X,1)+1, nruns, length(α0)) 
+            β0 = zeros(size(X,1), nruns, length(α0)) 
             β0[:,:,idx0] = appendto.β
         end
         if length(dims) == 1
