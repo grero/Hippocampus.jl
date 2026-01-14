@@ -1497,10 +1497,12 @@ function get_X(qidx, dims, nrefinements)
     d,didx = get_dims(dims, nrefinements)
     X = zeros(sum(d)+1, n)
     X[end,:] .= 1.0
-    for (ii,qq) in enumerate(qidx)
-        for (j,_didx) in enumerate(didx)
-            offset = sum(d[1:j-1])
-            X[offset+qq.I[_didx],ii] = 1.0
+    if sum(d) > 0
+        for (ii,qq) in enumerate(qidx)
+            for (j,_didx) in enumerate(didx)
+                offset = sum(d[1:j-1])
+                X[offset+qq.I[_didx],ii] = 1.0
+            end
         end
     end
     X
