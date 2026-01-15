@@ -472,11 +472,22 @@ function logprob(nspikes, w, nruns::Int64)
     logprob(nspikes, w, trainidx)
 end
 
-function logprob(nspikes, w, trainidx::Matrix{Int64};in_sample=false)
+function get_λ(nspikes, w, α=0)
+    T = sum(w)    
+    N = sum(nspikes)
+    if α == 0
+        λ = N/T
+    else
+        λ = (-T + sqrt(T^2 + 8*α*N))/(4*α)
+    end
+    λ
+end
+
+function logprob(nspikes, w, trainidx::Matrix{Int64};in_sample=false,α=0.0)
     ll = zeros(size(trainidx,2))
     for i in 1:length(ll)
         _trainidx = filter(x->x>0, trainidx[:,i])
-        λ = mean(nspikes[_trainidx]./w[_trainidx])
+        λ = get_λ(nspikes[_trainidx],w[_trainidx],α)
         if !in_sample
             testidx = setdiff(1:length(nspikes), _trainidx)
         else
@@ -488,11 +499,11 @@ function logprob(nspikes, w, trainidx::Matrix{Int64};in_sample=false)
     ll
 end
 
-function logprob(nspikes, w, trainidx::Matrix{Int64}, testidx::Matrix{Int64})
+function logprob(nspikes, w, trainidx::Matrix{Int64}, testidx::Matrix{Int64},α=0.0)
     ll = zeros(size(testidx,2))
     for i in 1:length(ll)
         _trainidx = filter(x->x>0, trainidx[:,i])
-        λ = mean(nspikes[_trainidx]./w[_trainidx])
+        λ = get_λ(nspikes[_trainidx], w[_trainidx], α)
         _testidx = filter(x->x>0, testidx[:,i])
         y = nspikes[_testidx]
         ll[i] = mean(y.*log.(λ.*w[_testidx]) - loggamma.(y.+1) - λ.*w[_testidx])
