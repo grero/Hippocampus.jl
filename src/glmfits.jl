@@ -1141,8 +1141,8 @@ end
 
 function lossfunc2(β::AbstractVector{<:Number}, X::AbstractMatrix{<:Number}, y::AbstractVector{<:Number},L::AbstractMatrix{<:Number}, w::AbstractVector{<:Number}, α::Number)
     η = X'*β
-    λ = exp.(η)
-    ll1 = mean(-y.*η + loggamma.(y .+ 1) .+  λ)
+    λ = exp.(η).*w
+    ll1 = sum(-y.*η + λ)
     ll2 =α*β'*L*β
     ll1 + ll2
 end
