@@ -388,6 +388,9 @@ function SpatialMapNew(spr::SpatialRepresentation{T,<:Real}, spoc::SpatialOccupa
     f = in(goodbinidx)
     for i in 1:nt
         position = spr.position[i]
+        if isempty(position)
+            continue
+        end
         xpos = [pos[1] for pos in position]
         ypos = [pos[2] for pos in position]
         points = [(xp,yp, zero(T)) for (xp,yp) in zip(xpos,ypos)]
