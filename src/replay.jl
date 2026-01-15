@@ -1802,9 +1802,13 @@ function process_kwargs(::Type{ViewAndPlaceRepresentationNew};trial_start=2,kwar
     return h
 end
 
-function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false,trial_start=2)
-    # TODO: Implement Spiketrain shuffling
+function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata::UnityRaytraceData;kwargs...)
     sp = spikes.timestamps/1000.0 
+    ViewAndPlaceRepresentationNew(sp, rp,gdata;kwargs...)
+end
+
+function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false,trial_start=2) where T <: Real
+    # TODO: Implement Spiketrain shuffling
     nt = numtrials(gdata)
     events = Vector{Vector{Float64}}(undef, nt)
     placeviewidx = Vector{Vector{Int64}}(undef, nt)
