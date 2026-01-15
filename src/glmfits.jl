@@ -1446,11 +1446,13 @@ function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=f
         end
         nrefinements,kwargs2 = process_refinements(dims;kwargs...) 
         jocc, unity_raytrace = cd(DPHT.process_level("session")) do
-            jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=nrefinements,kwargs2...)
+            jocc = Hippocampus.JointOccupancy(;redo=false,nrefinements=use_refinements,kwargs2...)
             ud = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
             jocc, ud
         end
-        glmfit = GLMFitH(dims, jocc, unity_raytrace;redo=redo, appendto=glmfit_a, kwargs...)
+        # construct refinements from use_refinements
+        nrefinements = [hasfield(typeof(use_refinements), d) ? getfield(use_refinements, d) : 1 for d in dims]
+        glmfit = GLMFitH(dims, jocc, unity_raytrace;redo=redo, appendto=glmfit_a, nrefinements=nrefinements, kwargs...)
     end
     glmfit
 end
