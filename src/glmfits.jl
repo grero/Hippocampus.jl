@@ -146,21 +146,8 @@ function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_s
         α,aidx = get_best_α(glmfit)
     end
     β = glmfit.β[:,:,aidx] 
-    nb = size(β,1)-1
-    if glmfit.dims[1] == :p
-        m = 2
-    elseif glmfit.dims[1] == :g
-        m = 1
-    else
-        nb = 24
-        m = 3
-    end
+    X = get_X(glmfit)
     nspikes = glmfit.nspikes
-    X = zeros(nb+1, length(nspikes))
-    X[nb+1,:] .= 1.0
-    for (k,qq) in enumerate(glmfit.qidx)
-        X[qq.I[m],k] = 1.0
-    end
     ll = logprob(β, X, nspikes, glmfit.dt,_trialidx)
     ll
 end
