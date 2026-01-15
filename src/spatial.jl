@@ -582,6 +582,12 @@ function compute_skaggs_sic(sm::SmoothedMap)
     compute_skaggs_sic(λ, occupancy)
 end
 
+function compute_skaggs_sic(sm::SpatialMapNew)
+    weight = sm.weight
+    λ = weight./sm.occupancy
+    compute_skaggs_sic(λ, sm.occupancy)
+end
+
 function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     pp = sp.weight./sum(sp.weight)
     -sum(filter(isfinite, pp.*log2.(pp)))
