@@ -1162,10 +1162,12 @@ function lossfunc2_grad!(gg, β::AbstractVector{<:Number}, X::AbstractMatrix{<:N
     ny = length(y)
     @assert size(X,2) == ny
     @assert size(X,1) == length(β)
+    @assert length(w) == ny
     for i in eachindex(y) 
         @inbounds yi = y[i]
         @inbounds ηi = η[i]
-        eηi = exp(ηi)
+        @inbounds wi = w[i]
+        eηi = exp(ηi)*wi
         for j in eachindex(β) 
             @inbounds δηji = δη[j,i] 
             @inbounds gg[j] += -yi*δηji + eηi*δηji
