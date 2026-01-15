@@ -136,13 +136,15 @@ end
 Compute the log-probability of the spiking activity `glmfit.nspikes` recorded using `glmfit.dt` windows
 with the fitted coefficients `glmfit.β`.
 """
-function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_sample=false) where N
+function logprob(glmfit::GLMFitH{N},trainidx::Matrix{Int64}=glmfit.trainidx;in_sample=false,aidx::Union{Integer,Nothing}=nothing) where N
     if in_sample
         _trialidx = trainidx
     else
         _trialidx = stack(setdiff.([1:length(glmfit.nspikes)], eachcol(trainidx)))
     end
-    α,aidx = get_best_α(glmfit)
+    if aidx === nothing
+        α,aidx = get_best_α(glmfit)
+    end
     β = glmfit.β[:,:,aidx] 
     nb = size(β,1)-1
     if glmfit.dims[1] == :p
