@@ -1199,8 +1199,8 @@ end
 
 function logprob(β, X, y,w)
     η = X'*β
-    λ = exp.(η)
-    ll1 = mean(y.*η - loggamma.(y .+ 1) .-  λ)
+    λ = w.*exp.(η)
+    ll1 = sum(y.*(η+log.(w)) - loggamma.(y .+ 1) .-  λ)
 end
 
 
