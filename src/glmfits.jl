@@ -1231,6 +1231,9 @@ function get_dims(dims::NTuple{N,Symbol}, nrefinements::NTuple{N,<:Integer}) whe
         elseif dd == :hd
             push!(d,nhd_bins)
             push!(didx, 3)
+        elseif dd == :null
+            push!(d, 0)
+            push!(didx, -1)
         end
     end
     d,didx
@@ -1584,13 +1587,15 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             elseif dd == :hd
                 push!(d,nhd_bins)
                 push!(didx, 3)
+            elseif dd == :null
+                push!(d, 0)
             end
         end
         n = length(nspikes)
         X = zeros(sum(d)+1, n)
         X[end,:] .= 1.0
         # set up laplacian
-        L = zeros(sum(d)+1, sum(d)+1)
+        offset = 0
         if validate_α
             αL = tuple(fill(1.0, length(dims))...) 
         else
@@ -1610,14 +1615,15 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
             # just use maximum penality for the offset
             L2[end,end] = maximum(use_α) 
         end
-
-        for (ii,qq) in enumerate(qidx)
-            for (j,_didx) in enumerate(didx)
-                offset = sum(d[1:j-1])
-                X[offset+qq.I[_didx],ii] = 1.0
+        if sum(d) > 0
+            for (ii,qq) in enumerate(qidx)
+                for (j,_didx) in enumerate(didx)
+                    offset = sum(d[1:j-1])
+                    X[offset+qq.I[_didx],ii] = 1.0
+                end
             end
         end
-        Ls = Symmetric(L)
+        Ls = Symmetric(L2)
         
         α0 = use_α
         β0 = zeros(size(X,1), nruns, length(use_α)) 
