@@ -1591,45 +1591,24 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         X[end,:] .= 1.0
         # set up laplacian
         L = zeros(sum(d)+1, sum(d)+1)
-        offset = 0
-        for (j,(nd,dd,nf)) in enumerate(zip(d,dims,nrefinements))
-            if dd == :g
-                mm = get_maze_mesh(;nrefinements=nf) 
-                A = adjacencymatrix(mm)
-                if validate_α
-                    a = 1.0
-                else
-                    a = use_α[j]
-                end
-                L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
-            elseif dd == :p
-                m_floor = Shadow("xy")(floor_topology3(;nrefinements=nf))
-                A = adjacencymatrix(m_floor)
-                if validate_α
-                    a = 1.0
-                else
-                    a = use_α[j]
-                end
-                L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
-            elseif dd == :hd
-                if validate_α
-                    a = 1.0
-                else
-                    a = use_α[j]
-                end
-                A = get_circular_adjancency(nhd_bins)
-                L[offset+1:offset+nd, offset+1:offset+nd] = a*(diagm(dropdims(sum(A,dims=2),dims=2)) - A)
-            end
-            offset += nd
+        if validate_α
+            αL = tuple(fill(1.0, length(dims))...) 
+        else
+            αL = use_α
+        end
+        L2 = zeros(sum(d)+1, sum(d)+1)
+        if sum(d) > 0
+            L = get_laplacian(dims, tuple(nrefinements...), αL;do_normalize=get(kwargs, :normalize_laplacian, false))
+            L2[1:end-1, 1:end-1] .= L
         end
         # add penality
 
         if validate_α
-            L[end,end] = 1.0
+            L2[end,end] = 1.0
         else
             # this is somewhat heuristic
             # just use maximum penality for the offset
-            L[end,end] = maximum(use_α) 
+            L2[end,end] = maximum(use_α) 
         end
 
         for (ii,qq) in enumerate(qidx)
