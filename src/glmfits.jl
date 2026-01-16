@@ -1412,7 +1412,7 @@ function isolderthan(fname, tt=now(UTC))
     return false
 end
 
-function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=false, kwargs...) where N
+function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=false, use_refinements=(p=3,g=2), kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};kwargs...)
     if h != 0
