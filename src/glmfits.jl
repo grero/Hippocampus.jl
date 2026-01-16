@@ -800,9 +800,6 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
         end
     end
     # replace with goodbinidx 
-    mpos = stack(ustrip.(Meshes.to.(centroid.(m_floor[getindex.(qidx,2)]))))
-    mgaze = stack(ustrip.(Meshes.to.(centroid.(mm[getindex.(qidx,1)]))))
-    mhd = hdbins[getindex.(qidx,3)] 
     t2 = time()
     cc = get_num_spikes(vpvrp, jocc)
     nspikes = zeros(Int16, length(qidx))
@@ -810,10 +807,10 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
         if k in keys(cc)
             nspikes[ii] = cc[k]
         end
-    end
+    nspikes[fidx], qidx[fidx],ww[fidx]
     # ensure that we are only using non-zero weights
     fidx = ww.>0
-    nspikes[fidx], mpos[:,fidx], mgaze[:,fidx],mhd[fidx],qidx[fidx],ww[fidx]
+    nspikes[fidx], qidx[fidx],ww[fidx]
 end
 
 function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlaceOccupancy,unity_gaze_data::UnityRaytraceData)
@@ -1549,7 +1546,7 @@ function GLMFitH(dims::NTuple{N,Symbol}, jocc::JointOccupancy, unity_gaze_data::
         if vpvrp === nothing
             vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
         end
-        nspikes, mpos, mgaze, mhd,qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data;kwargs...)
+        nspikes, qidx,ww = fit_glm(vpvrp, jocc, unity_gaze_data;kwargs...)
         if trainidx === nothing
             trainidx,testidx = get_train_test_idx(length(nspikes),nruns,5)
         else
