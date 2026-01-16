@@ -964,10 +964,11 @@ function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, a
     allsessiondirs = DPHT.get_level_path.("session", celldirs)
     sessiondirs = unique(allsessiondirs)
     nrefinements, kwargs2 = process_refinements(dims;kwargs...)
+    use_refinements = get(kwargs, :use_refinements, (p=3,g=2))
     @showprogress "Computing GLM fits..." for sessiondir in sessiondirs
         try
             jocc, unity_gaze_data = cd(sessiondir) do
-                jocc = JointOccupancy(;nrefinements=nrefinements, kwargs2...)
+                jocc = JointOccupancy(;nrefinements=use_refinements,kwargs2...)
                 unity_gaze_data = UnityRaytraceData(;kwargs...)
                 jocc, unity_gaze_data
             end
