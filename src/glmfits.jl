@@ -501,7 +501,7 @@ function logprob(nspikes, w, trainidx::Matrix{Int64}, testidx::Matrix{Int64},α=
 end
 
 function logprob(nspikes, w)
-    λ = mean(nspikes./w)
+    λ = get_λ(nspies, w)
     y = nspikes
     ll = mean(y.*log.(λ.*w) - loggamma.(y.+1) - λ.*w)
 end
