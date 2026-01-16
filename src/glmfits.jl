@@ -760,12 +760,16 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
     # TODO: Make sure that vpvrp and jocc use the same trial start reference
     nt = numtrials(unity_gaze_data)
     t1 = time()
-    m_floor = Shadow("xy")(floor_topology3())
-    mm = get_maze_mesh()
-    m_floor = floor_topology3()
-    hdbins = range(0.0, stop=2π,length=24)
-    place_weight = zeros(nelements(m_floor),nt)
-    gaze_weight = zeros(nelements(mm),nt)
+    # TODO: Although it does not matter for they are used later, these should really take
+    #       `nrefinements` into account.
+    qidx_temp = collect(keys(jocc.weight))
+    np = maximum(getindex.(qidx_temp,2))
+    ng = maximum(getindex.(qidx_temp,1))
+    nh = maximum(getindex.(qidx_temp,3))
+
+    hdbins = range(0.0, stop=2π,length=nh)
+    place_weight = zeros(np,nt)
+    gaze_weight = zeros(ng,nt)
     placebin_idx = Vector{Vector{Int64}}(undef, nt)
     gazebin_idx = Vector{Vector{Int64}}(undef, nt)
     for (k,v) in jocc.weight
@@ -787,11 +791,11 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
     ff = in(goodbinidx)
     ff_g = in(goodbinidx_g)
     # get the speed per place bin
-    vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,nelements(m_floor))
+    vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,np)
     qidx = CartesianIndex{4}[]
     ww = Float64[]
     for (k,v) in jocc.weight
-        vidx = k.I[1]
+    vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,np)
         pidx = k.I[2]
         tidx = k.I[4]
         if ff(pidx) && ff_g(vidx) && (vv[pidx,tidx]  > min_speed)
