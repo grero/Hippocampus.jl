@@ -957,7 +957,7 @@ function GLMFit(jocc::JointOccupancy, unity_gaze_data::UnityRaytraceData;redo=fa
     glmfit
 end
 
-function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, args...;skip_error=true, redo=false, kwargs...) where T <: Union{GLMFit, GLMFitH{<:Any}} where N
+function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, args...;skip_error=true, redo=fname->false, fit_null=true, kwargs...) where T <: Union{GLMFit, GLMFitH{<:Any}} where N
     is_gaze_selective = fill(false, length(celldirs))
     is_pos_selective = fill(false, length(celldirs))
     is_hd_selective = fill(false, length(celldirs))
@@ -1412,7 +1412,7 @@ function isolderthan(fname, tt=now(UTC))
     return false
 end
 
-function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=false, use_refinements=(p=3,g=2), kwargs...) where N
+function GLMFitH(dims::NTuple{N,Symbol};redo::Function=fname->false, do_append=false, kwargs...) where N
     fname = DPHT.filename(GLMFitH{N}, dims)
     h = process_kwargs(GLMFitH{N};kwargs...)
     if h != 0
