@@ -977,10 +977,24 @@ function do_GLMFit(::Type{T}, celldirs::Vector{String},dims::NTuple{N,Symbol}, a
                 glmfit = cd(celldir) do
                     T(dims,args..., jocc, unity_gaze_data;redo=redo, kwargs...)
                 end
+                if fit_null
+                    glmfit_null = cd(celldir) do
+                        T((:null,),args..., jocc, unity_gaze_data;redo=redo, trainidx=glmfit.trainidx, testidx=glmfit.testidx, kwargs...)
+                    end
+                    @assert glmfit.nspikes == glmfit_null.nspikes
+                end
                 if T <: GLMFit
                     is_gaze_selective[cc] = glmfit.deviance_gaze[1] < glmfit.deviance_gaze[2]
                     is_pos_selective[cc] = glmfit.deviance_pos[1] < glmfit.deviance_pos[2]
                     is_hd_selective[cc] = glmfit.deviance_hd[1] < glmfit.deviance_hd[2]
+                else
+                    ll_out = logprob(glmfit, glmfit.testidx;in_sample=true)
+                    if fit_null
+                        ll0_out = logprob(glmfit_null, glmfit_null.testidx;in_sample=true)
+                        pv = pvalue(SignedRankTest(ll_out,ll0_out);tail=:right) 
+                        is_pos_selective[cc] = pv < 0.05
+
+                    end
                 end
             end
         catch ee
