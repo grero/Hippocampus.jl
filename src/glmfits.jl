@@ -1173,7 +1173,6 @@ function lossfunc2_grad!(gg, β::AbstractVector{<:Number}, X::AbstractMatrix{<:N
         end
     end
     #δll1 = dropdims(mean(-reshape(y,1,length(y)).*δη + δλ,dims=2),dims=2)
-    gg ./= ny
     α_penalty!(gg, β, L,α)
 end
 
