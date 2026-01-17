@@ -1421,6 +1421,54 @@ DPHT.filename(::Type{JointOccupancy{T}})  where T <: Real = "joint_occupancy.jld
 DPHT.level(::Type{JointOccupancy}) = "session"
 DPHT.level(::Type{JointOccupancy{T}})  where T <: Real = "session"
 
+struct JointFilteredOccupancy{T<:Real}
+    index::Vector{CartesianIndex{4}}
+    weight::Vector{T}
+    min_place_duration::T
+    min_gaze_duration::T
+    min_place_obs::Integer
+    min_gaze_obs::Integer
+    min_speed::T
+end
+
+function JointFilteredOccupancy(jocc::JointOccupancy,unity_gaze_data::UnityRaytraceData;min_place_dur=0.05, min_place_obs=5,min_speed=1.0, min_gaze_dur=0.02, min_gaze_obs=5,kwargs...)
+    nt = numtrials(unity_gaze_data)
+    qidx_temp = collect(keys(jocc.weight))
+    np = maximum(getindex.(qidx_temp,2))
+    ng = maximum(getindex.(qidx_temp,1))
+    nh = maximum(getindex.(qidx_temp,3))
+    place_weight = zeros(np,nt)
+    gaze_weight = zeros(ng,nt)
+
+     for (k,v) in jocc.weight
+        vidx,pidx,hidx,tidx = Tuple(k)
+        place_weight[pidx,tidx] += v
+        gaze_weight[vidx,tidx] += v
+    end
+
+    goodbinidx = findall(dropdims(sum(place_weight .> min_place_dur,dims=2),dims=2).> min_place_obs)
+    goodbinidx_g = findall(dropdims(sum(gaze_weight .> min_gaze_dur,dims=2),dims=2).> min_gaze_obs)
+    ff = in(goodbinidx)
+    ff_g = in(goodbinidx_g)
+    # get the speed per place bin
+    placebin_idx = [getindex.(ii,2) for ii in jocc.index]
+    vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,np)
+    qidx = CartesianIndex{4}[]
+    ww = Float64[]
+    for (k,v) in jocc.weight
+        vidx = k.I[1]
+        pidx = k.I[2]
+        tidx = k.I[4]
+        if ff(pidx) && ff_g(vidx) && (vv[pidx,tidx]  > min_speed)
+            push!(qidx,k)
+            push!(ww, v)
+        end
+    end
+    fidx = ww .> 0
+    JointFilteredOccupancy(qidx[fidx], ww[fidx], min_place_dur, min_gaze_dur, min_place_obs, min_gaze_obs, min_speed)
+end
+
+
 function load_jld2(::Type{ViewOccupancyNew})
     fname = DPHT.filename(ViewOccupancyNew)
     fname = replace(fname, ".mat"=>".jld2")
