@@ -104,6 +104,10 @@ function process_kwargs(::Type{GLMFitH{N}};α=10.0.^[-2,-3,-4,-5,-6], nruns=10, 
     if ms != 1
         h = CRC32c.crc32c(string((:min_speed=>ms)),h)
     end
+    normalize_laplacian = get(kwargs, :normalize_laplacian, false)
+    if normalize_laplacian
+        h = CRC32c.crc32c(string((:normalize_laplacian=>true)),h)
+    end
     h
 end
 
