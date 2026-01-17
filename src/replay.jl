@@ -2203,6 +2203,76 @@ DPHT.filename(::Type{ViewMapNew{T}}) where T <: Real = "view_map.jld2"
 DPHT.level(::Type{ViewMapNew}) = "cell"
 DPHT.level(::Type{ViewMapNew{T}}) where T <: Real = "cell"
 
+"""
+Joint map 
+"""
+struct JointMap{T<:Real} <: AbstractMap
+    weight::Vector{T}
+    occupancy::Vector{T}
+    index::Vector{CartesianIndex{4}}
+end
+
+
+function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy)
+    nt = length(vpvrp.events)
+    cc = Dict{CartesianIndex{4}, Int16}()
+    for i in 1:nt
+        for _idx in  vpvrp.placeviewidx[i]
+            aidx = jocc.index[i][_idx]
+            vidx,pidx,hidx = Tuple(aidx) 
+            if (vidx == 0 || pidx ==0) || (hidx==0)
+                continue
+            end
+            qq = CartesianIndex(vidx,pidx,hidx,i)
+            cc[qq] = get(cc, qq, zero(Int16)) + one(Int16)
+        end
+    end
+    cc
+end
+"""
+Map the spikes represented by `vpvrp` onto the place, gaze and hd spaces
+"""
+function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unity_gaze_data::UnityRaytraceData;kwargs...)
+    joccf = JointFilteredOccupancy(jocc,unity_gaze_data;kwargs...)
+    JointMap(vpvrp, jocc, qidx.joccf)
+end
+
+function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,jocc_filtered::JointFilteredOccupancy;kwargs...)
+    cc = get_num_spikes(vpvrp, jocc)
+    qidx = jocc_filtered.index
+    nspikes = zeros(Int16, length(qidx))
+    for (ii,k) in enumerate(qidx)
+        if k in keys(cc)
+            nspikes[ii] = cc[k]
+        end
+    end
+    JointMap(Float64.(nspikes), jocc_filtered.weight, qidx)
+end
+
+function SpatialMapNew(jm::JointMap,mm::SimpleMesh)
+    np = nelements(mm)
+    weight = zeros(np) 
+    occupancy = zeros(np)
+    for (w,oc,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+        pidx = getindex(qidx,2) # second index is spatial
+        weight[pidx] += w
+        occupancy[pidx] += oc
+    end
+    SpatialMapNew(mm, weight, occupancy)
+end
+
+function ViewMapNew(jm::JointMap,mm::SimpleMesh)
+    np = nelements(mm)
+    weight = zeros(np) 
+    occupancy = zeros(np)
+    for (w,oc,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+        pidx = getindex(qidx,1) # first sndex is gaze
+        weight[pidx] += w
+        occupancy[pidx] += oc
+    end
+    ViewMapNew(mm, weight, occupancy)
+end
+
 struct SmoothedViewMap{T<:Real}
     mm::SimpleMesh
     weight::Vector{T}

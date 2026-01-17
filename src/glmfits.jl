@@ -620,23 +620,6 @@ function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, vpoc::ViewAndPlace
     cc
 end
 
-function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy)
-    nt = length(vpvrp.events)
-    cc = Dict{CartesianIndex{4}, Int16}()
-    for i in 1:nt
-        for _idx in  vpvrp.placeviewidx[i]
-            aidx = jocc.index[i][_idx]
-            vidx,pidx,hidx = Tuple(aidx) 
-            if (vidx == 0 || pidx ==0) || (hidx==0)
-                continue
-            end
-            qq = CartesianIndex(vidx,pidx,hidx,i)
-            cc[qq] = get(cc, qq, zero(Int16)) + one(Int16)
-        end
-    end
-    cc
-end
-
 """
 Session level
 """
