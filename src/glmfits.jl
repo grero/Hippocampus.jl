@@ -782,7 +782,7 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
     qidx = CartesianIndex{4}[]
     ww = Float64[]
     for (k,v) in jocc.weight
-    vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,np)
+        vidx = k.I[1]
         pidx = k.I[2]
         tidx = k.I[4]
         if ff(pidx) && ff_g(vidx) && (vv[pidx,tidx]  > min_speed)
@@ -798,7 +798,7 @@ function fit_glm(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unit
         if k in keys(cc)
             nspikes[ii] = cc[k]
         end
-    nspikes[fidx], qidx[fidx],ww[fidx]
+    end
     # ensure that we are only using non-zero weights
     fidx = ww.>0
     nspikes[fidx], qidx[fidx],ww[fidx]
