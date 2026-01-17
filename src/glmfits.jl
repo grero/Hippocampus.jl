@@ -566,7 +566,7 @@ function get_significance_level(dims::NTuple{N,Symbol};kwargs...) where N
     (pv_joint=pv_joint, pv=pv)
 end
 
-function get_significance_level(dims::Symbol;kwargs...) where N
+function get_significance_level(dims::Symbol;kwargs...)
     glmfit = GLMFitH((dims,);kwargs...)
     get_significance_level(glmfit;kwargs...)
 end
