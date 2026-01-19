@@ -905,7 +905,7 @@ function gaussian_smoothing(X::AbstractVector{T}, mm::SimpleMesh,σ=4;kwargs...)
     gaussian_smoothing(X,Y,mm,σ;kwargs...)
 end
 
-function gaussian_smoothing(X::AbstractVector{T}, Y::AbstractVector{T}, mm::SimpleMesh,σ=4;m=5,dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,edge_correct=false) where T <: Real
+function gaussian_smoothing(X::AbstractVector{T}, Y::AbstractVector{T}, mm::SimpleMesh,σ=4;m=5,dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,edge_correct=false, kwargs...) where T <: Real
     # TODO: Deal with edge effects
     Xs = fill!(similar(X), zero(T))
     Ys = fill!(similar(X), zero(T))
