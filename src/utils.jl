@@ -1121,3 +1121,24 @@ function test_smoothing()
     Colorbar(fig[3,2], colorrange=extrema(Xs), label="Smoothed counts")
     fig
 end
+
+"""
+Count the members of var1 on mm1 conditioned on var2 being in `patch` on `mm2`
+"""
+function conditional_count(mm1::SimpleMesh, var1::Matrix{<:Real}, mm2::SimpleMesh, var2::Matrix{<:Real}, patch2)
+    kn1 = KNearestSearch(mm1,1)
+    kn2 = KNearestSearch(mm2,2)
+    n1 = nelements(mm1)
+    Z1 = zeros(n1)
+    func = in(patch2)
+    for (v1,v2) in zip(eachcol(var1),eachcol(var2))
+        p2 = Meshes.Point(v2...)
+        idx2 = search(p2, kn2)
+        if all(func.(idx2))
+            p1 = Meshes.Point(v1...)
+            idx1 = search(p1,kn1)
+            Z1[idx1] .+= 1.0
+        end
+    end
+    Z1
+end
