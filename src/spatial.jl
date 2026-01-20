@@ -780,7 +780,8 @@ function regress_space(X::Matrix{T}, Y::Matrix{T};n_spatial_clusters=256,kwargs.
     for (i,k) in enumerate(km_results.assignments)
        X2[:,k] .+= X[:,i]
     end
-    
+    # normalize to counts in for each point
+    X2 ./= reshape(km_results.counts,1,size(X2,2))
     # perform PCA to decorrelate the inputs
     pca = fit(PCA, X2)
     Z = predict(pca, X2)
