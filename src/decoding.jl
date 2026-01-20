@@ -60,8 +60,11 @@ function get_posterior3(f::AbstractArray{T,3},nspikes::Vector{<:Real};τ=one(T))
         @inbounds for j in axes(f,2)
             for k in axes(f,1)
                 f_kji = f[k,j,i]
-                _aa = nsp*log(f_kji)
-                aa[k,j] += _aa
+                # following the convention that 0^0 == 0
+                if nsp > 0
+                    _aa = nsp*log(f_kji)
+                    aa[k,j] += _aa
+                end
                 _bb = f_kji*τ
                 bb[k,j] +=  _bb
             end
@@ -504,8 +507,12 @@ function compute_place_error_surrogates(X,Y,twin,f,domain, tidx, km_results, dec
 end
 
 function compute_place_error_surrogates(X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},f1,f2,domain1,domain2, tidx, assignments1, assignments2, decoder=decode;nruns=100)
-    prog = Progress(length(tidx)*nruns, "Decoding surrogates...")
     mean_err = fill(NaN, maximum(assignments1), maximum(assignments2),nruns)
+    compute_place_error_surrogates!(mean_err, X, Y, twin,f1,f2,domain1, domain2, tidx, assignments1, assignments2, decoder;nruns=nruns)
+end
+
+function compute_place_error_surrogates!(mean_err, X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},f1,f2,domain1,domain2, tidx, assignments1, assignments2, decoder=decode;nruns=100)
+    prog = Progress(length(tidx)*nruns, "Decoding surrogates...")
     for r in 1:nruns
         qidx = shuffle(1:size(X,2))
         actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, f1, f2, domain1,domain2;tidx=tidx, decoder,prog=prog)
@@ -516,8 +523,13 @@ function compute_place_error_surrogates(X::Matrix{<:Real},Y::Matrix{<:Real},twin
 end
 
 function compute_place_error_surrogates(X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},ff::AbstractArray{<:Real,3},domain1, domain2, tidx, assignments1, assignments2, decoder=decode;nruns=100)
-    prog = Progress(length(tidx)*nruns, "Decoding surrogates...")
     mean_err = fill(NaN, maximum(assignments1), maximum(assignments2),nruns)
+    compute_place_error_surrogates!(mean_err, X, Y, twin, ff, domain1, domain2, tidx, assignments1, assigments2, decoder)
+end
+
+function compute_place_error_surrogates!(mean_err, X::Matrix{<:Real},Y::Matrix{<:Real},twin::AbstractVector{<:Real},ff::AbstractArray{<:Real,3},domain1, domain2, tidx, assignments1, assignments2, decoder=decode)
+    nruns = size(mean_err,3)
+    prog = Progress(length(tidx)*nruns, "Decoding surrogates...")
     for r in 1:nruns
         qidx = shuffle(1:size(X,2))
         actual_pos, decoded_pos = decode_place(X[:,qidx], Y, twin, ff, domain1,domain2;tidx=tidx, decoder,prog=prog)
@@ -731,6 +743,33 @@ end
 function group_bins(mm::SimpleMesh)
     cm = coords.(centroid.(mm))
     pillar_idx = findall([ (-12 < p.x.val < 12)&&(-12 < p.y.val < 12)&&( 4.5 > p.z.val > 0) for p in cm])
+    # lower left
+    pillar_idx_1 =  pillar_idx[findall([(p.x.val < 0)&&(p.y.val==-7.5) for p in cm[pillar_idx]])]
+    pillar_idx_2 =  pillar_idx[findall([(p.x.val == -7.5)&&(p.y.val<0) for p in cm[pillar_idx]])]
+    pillar_idx_3 =  pillar_idx[findall([(p.x.val <0)&&(p.y.val==-2.5) for p in cm[pillar_idx]])]
+    pillar_idx_4 =  pillar_idx[findall([(p.x.val ==-2.5)&&(p.y.val<0) for p in cm[pillar_idx]])]
+
+    # upper left
+    pillar_idx_5 =  pillar_idx[findall([(p.x.val < 0)&&(p.y.val==2.5) for p in cm[pillar_idx]])]
+    pillar_idx_6 =  pillar_idx[findall([(p.x.val == -7.5)&&(p.y.val>0) for p in cm[pillar_idx]])]
+    pillar_idx_7 =  pillar_idx[findall([(p.x.val <0)&&(p.y.val==7.5) for p in cm[pillar_idx]])]
+    pillar_idx_8 =  pillar_idx[findall([(p.x.val ==-2.5)&&(p.y.val>0) for p in cm[pillar_idx]])]
+
+    #upper right
+    pillar_idx_9 =  pillar_idx[findall([(p.x.val > 0)&&(p.y.val==2.5) for p in cm[pillar_idx]])]
+    pillar_idx_10 =  pillar_idx[findall([(p.x.val == 2.5)&&(p.y.val>0) for p in cm[pillar_idx]])]
+    pillar_idx_11 =  pillar_idx[findall([(p.x.val >0)&&(p.y.val==7.5) for p in cm[pillar_idx]])]
+    pillar_idx_12 =  pillar_idx[findall([(p.x.val ==7.5)&&(p.y.val>0) for p in cm[pillar_idx]])]
+
+    # lower right
+    pillar_idx_13 =  pillar_idx[findall([(p.x.val > 0)&&(p.y.val==-7.5) for p in cm[pillar_idx]])]
+    pillar_idx_14 =  pillar_idx[findall([(p.x.val == 2.5)&&(p.y.val<0) for p in cm[pillar_idx]])]
+    pillar_idx_15 =  pillar_idx[findall([(p.x.val >0)&&(p.y.val==-2.5) for p in cm[pillar_idx]])]
+    pillar_idx_16 =  pillar_idx[findall([(p.x.val ==7.5)&&(p.y.val<0) for p in cm[pillar_idx]])]
+
+    pillar_idx = [pillar_idx_1, pillar_idx_2, pillar_idx_3, pillar_idx_4, pillar_idx_5, pillar_idx_6,
+                  pillar_idx_7, pillar_idx_8, pillar_idx_9, pillar_idx_10, pillar_idx_11, pillar_idx_12,
+                  pillar_idx_13, pillar_idx_14, pillar_idx_15, pillar_idx_16]
     ceiling_idx = findall([p.z.val == 5.0 for p in cm])
     north_wall_idx = findall([p.y.val == 12.5 for p in cm])
     south_wall_idx = findall([p.y.val == -12.5 for p in cm])
@@ -744,9 +783,11 @@ end
 
 function categorize(Y::Matrix{T},mm::SimpleMesh) where T <: Real
     kidx_v = mapto(mm, Tuple.(eachcol(Y)))
-    _kidx_v = first.(kidx_v)
     grouped_idx = group_bins(mm)
     kidxv2 = zeros(Int64, length(kidx_v))
+    iiz = length.(kidx_v) .> 0
+    _kidx_v = fill(0, length(kidx_v))
+    _kidx_v[iiz] .= first.(kidx_v[iiz])
     kidxv2 .= _kidx_v
     kidxv2[in(grouped_idx.ceiling_idx).(_kidx_v)] .= 1
     kidxv2[in(grouped_idx.floor_idx).(_kidx_v)] .= 2
@@ -754,8 +795,8 @@ function categorize(Y::Matrix{T},mm::SimpleMesh) where T <: Real
     kidxv2[in(grouped_idx.east_wall_idx).(_kidx_v)] .= 4
     kidxv2[in(grouped_idx.south_wall_idx).(_kidx_v)] .= 5
     kidxv2[in(grouped_idx.west_wall_idx).(_kidx_v)] .= 6
-    for (i,j) in enumerate(grouped_idx.pillar_idx)
-        kidxv2[kidxv2.==j] .= 6+i
+    for (i,pidx) in enumerate(grouped_idx.pillar_idx)
+        kidxv2[in(pidx).(_kidx_v)] .= 6+i
     end
     kidxv2
 end
@@ -774,8 +815,8 @@ function categorize(tidx::AbstractVector{Int64}, mm::SimpleMesh)
     _tidx[in(grouped_idx.east_wall_idx).(tidx)] .= 4
     _tidx[in(grouped_idx.south_wall_idx).(tidx)] .= 5
     _tidx[in(grouped_idx.west_wall_idx).(tidx)] .= 6
-    for (i,j) in enumerate(grouped_idx.pillar_idx)
-        _tidx[tidx.==j] .= 6+i
+   for (i,pidx) in enumerate(grouped_idx.pillar_idx)
+        _tidx[in(pidx).(tidx)] .= 6+i
     end
     _tidx
 end
@@ -802,13 +843,14 @@ function generate_pseudosamples(X::Matrix{T}, categories;trials_per_category=50)
     Xtrain[:,fidx], cat_train_new[fidx]
 end
 
-function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_pca=false,decode_view=true, decode_place=true, joint=true) where T <: Real
+function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_pca=false,decode_view=true, decode_place=true, joint=true, constrain_independent=true) where T <: Real
+    # TODO: Do we need to make sure that the categories are the same across sessions?
     nt = size(X,2)
     ntrain = round(Int64, 0.8*nt)
 
     mm = Hippocampus.get_maze_mesh()
 
-    m_floor = Shadow("xy")(Hippocampus.floor_topology3())
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=0))
 
     # get the view categories
     kidx_v = categorize(Y[1:3,:], mm) 
@@ -819,12 +861,14 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
 
     # floor has a centroid z-coordinate of 0, ceiling has a centroid z coordinate of 5
     # pillars have x,y centroid x,y coordinate larger than -12 and less than 12
+    gidx = (kidx_v .> 0).&(first.(kidx_p) .> 0)
+    nt = sum(gidx)
     if decode_view && decode_place
-        category = collect(zip(kidx_v, first.(kidx_p)))
+        category = collect(zip(kidx_v[gidx], first.(kidx_p[gidx])))
     elseif decode_view
-        category = kidx_v
+        category = kidx_v[gidx]
     elseif decode_place
-        category = first.(kidx_p)
+        category = first.(kidx_p[gidx])
     else
         error("Specify at least one of decode_view and decode_place")
     end
@@ -845,6 +889,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
     fp_rate = fill(0.0, ncat, nruns)
     fn_rate = fill(0.0, ncat, nruns)
     prog = Progress(nruns,"Decoding...")
+    _X = X[:,gidx]
     for r in 1:nruns
         fill!(Xtrain, NaN)
         fill!(Xtest, NaN)
@@ -854,7 +899,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
 
         cat_train = category[trainidx]
         cat_test = category[testidx]
-
+        # TODO: Decode vew and place completely independently as well
         if joint
             offset = 0
             cat_test_new = Vector{eltype(category)}(undef, 50*ncat)
@@ -864,13 +909,14 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
                 vidx_test = findall(cc->cc==cat, cat_test)
                 nq = div(min(length(vidx_train),length(vidx_test)),2)
                 if nq == 0
+                    # is there a concern here about missing categories?
                     continue
                 end
                 for j in 1:50
                     #shuffle!(vidx_train)
                     #shuffle!(vidx_test)
-                    Xtrain[:,offset+j] = dropdims(mean(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
-                    Xtest[:,offset+j] = dropdims(mean(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
+                    Xtrain[:,offset+j] = dropdims(mean(_X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    Xtest[:,offset+j] = dropdims(mean(_X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
                     cat_test_new[offset+j] = cat
                     cat_train_new[offset+j] = cat
                 end
@@ -887,25 +933,39 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
             train_offset = 0
             for cat in unique_view
                 vidx_train = findall(cc->cc[1]==cat, cat_train)
-                nq = round(Int64, median(values(filter(k->k[1][1]==cat, nqs))))
+                if constrain_independent
+                    nq = round(Int64, median(values(filter(k->k[1][1]==cat, nqs))))
+                else
+                    nq = length(vidx_train)
+                end
                 nq = div(nq, 2)
                 for j in 1:50
-                    Xtrain[:,train_offset+j] = dropdims(mean(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    Xtrain[:,train_offset+j] = dropdims(mean(_X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
                     cat_train_new[train_offset+j] = cat 
                 end
                 train_offset += 50
             end
             for cat in unique_place
                 vidx_train = findall(cc->cc[2]==cat, cat_train)
-                nq = round(Int64, median(values(filter(k->k[1][2]==cat, nqs))))
+                if constrain_independent
+                    nq = round(Int64, median(values(filter(k->k[1][2]==cat, nqs))))
+                else
+                    nq = length(vidx_train)
+                end
                 nq = div(nq, 2)
                 for j in 1:50
-                    Xtrain[:,train_offset+j] = dropdims(mean(X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
+                    Xtrain[:,train_offset+j] = dropdims(mean(_X[:,trainidx[rand(vidx_train,nq)]],dims=2),dims=2)
                     cat_train_new[train_offset+j] = cat 
                 end
                 train_offset += 50
             end
             offset = 0
+            # Test
+            # TODO: If we are not constraining the independent code to match (roughly) the number of trials for training
+            # should also (perhaps) not constraint it here.
+            # The concern with contraining could be that we are undersampling the true independent distribution and so would not get
+            # accurate clusters
+            # 
             for cat in unique_categories
                 vidx_test = findall(cc->cc==cat, cat_test)
                 if isempty(vidx_test)
@@ -915,7 +975,7 @@ function population_decoder_simple(X::Matrix{T}, Y::Matrix{T};k=10,nruns=100,do_
                 for j in 1:50
                     #shuffle!(vidx_train)
                     #shuffle!(vidx_test)
-                    Xtest[:,offset+j] = dropdims(mean(X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
+                    Xtest[:,offset+j] = dropdims(mean(_X[:, testidx[rand(vidx_test,nq)]],dims=2),dims=2)
                     cat_test_new[offset+j] = cat
                 end
                 offset += 50
