@@ -810,9 +810,9 @@ function gaussian_area(r,σ::T) where T <: Real
     aa = zero(T) 
     for i in -r:r
         for j in -r:r
-            d2 = i^2+j^2  
-            if d2 <= r^2
-                aa += exp(-d2/(2*σ^2))
+            d2 = abs(i-j) 
+            if d2 <= r
+                aa += exp(-d2^2/(2*σ^2))
             end
         end
     end
