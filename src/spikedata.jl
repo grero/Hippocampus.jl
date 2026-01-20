@@ -1,3 +1,25 @@
+ function random_shift(sptimes::AbstractVector{T}, args...;kwargs...) where T <: Real
+    spnew = similar(sptimes)
+    random_shift!(spnew, sptimes, args...;kwargs...)
+    spnew
+ end
+
+ function random_shift!(new_sptimes::AbstractVector{T}, sptimes::AbstractVector{T},min_shift::Real,max_shift::Real;tmax=maximum(sptimes)) where T <: Real
+    Δt = (max_shift-min_shift)*rand() + min_shift
+    shift_spiketimes!(new_sptimes, sptimes, Δt;tmax=tmax)
+ end
+
+ function shift_spiketimes(sptimes::AbstractVector{T},Δt::T;tmax=maximum(sptimes)) where T <: Real
+    new_sptimes = similar(sptimes)
+    shift_spiketimes!(new_sptimes, sptimes, Δt;tmax=tmax)
+ end
+
+ function shift_spiketimes!(new_sptimes::AbstractVector{T}, sptimes::AbstractVector{T},Δt::T;tmax=tmax) where T <: Real
+    new_sptimes .= mod.(sptimes .+ Δt, tmax)
+    sort!(new_sptimes)
+    new_sptimes
+ end
+
 struct Spiketrain
     timestamps::Vector{Float64}
     reference::String
