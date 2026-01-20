@@ -52,36 +52,37 @@ end
 struct TrialAlignedSpiketrain
     spiketimes::Vector{Vector{Float64}}
     trigger_timestamps::Matrix{Float64}
+    alignto::Int64
 end
+
+TrialAlignedSpiketrain(spiketimes, trigger_timestamps) = TrialAlignedSpiketrain(spiketimes, trigger_timestamps,1)
 
 numtrials(sp::TrialAlignedSpiketrain) = length(sp.spiketimes)
 
-function TrialAlignedSpiketrain(sp::Spiketrain, rp::RippleData;trial_start=1)
+function TrialAlignedSpiketrain(sp::Spiketrain, rp::RippleData;kwargs...)
     sptimes =  sp.timestamps/1000.0 
-    TrialAlignedSpiketrain(sptimes, rp;trial_start=trial_start)
+    TrialAlignedSpiketrain(sptimes, rp;kwargs...)
 end
 
-function TrialAlignedSpiketrain(sptimes::AbstractVector{T}, rp::RippleData;trial_start=1) where T <: Real
+function TrialAlignedSpiketrain(sptimes::AbstractVector{T}, rp::RippleData;trial_start=1,alignto=1,Δt0=-0.5,Δt1=0.5) where T <: Real
     nt = numtrials(rp)
-    @show nt
     spiketimes = Vector{Vector{Float64}}(undef, nt)
     for i in 1:nt
         timestamps = rp.timestamps[i,:]
-        idx0 = searchsortedfirst(sptimes, timestamps[trial_start])
-        idx1 = searchsortedlast(sptimes, timestamps[3])
-        # align to trial start
-        sp_trial = sptimes[idx0:idx1] .- timestamps[trial_start]
+        idx0 = searchsortedfirst(sptimes, timestamps[trial_start]+Δt0)
+        idx1 = searchsortedlast(sptimes, timestamps[3]+Δt1)
+        sp_trial = sptimes[idx0:idx1] .- timestamps[alignto]
         spiketimes[i] = sp_trial
     end
-    TrialAlignedSpiketrain(spiketimes, rp.timestamps)
+    TrialAlignedSpiketrain(spiketimes, rp.timestamps,alignto)
 end
 
-function TrialAlignedSpiketrain()
+function TrialAlignedSpiketrain(;kwargs...)
     rp = cd(DPHT.process_level(RippleData)) do 
         RippleData()
     end
     sp = Spiketrain()        
-    TrialAlignedSpiketrain(sp, rp)
+    TrialAlignedSpiketrain(sp, rp;kwargs...)
 end
 
 function compute_psth(sp::TrialAlignedSpiketrain, binsize::Float64,w=1;tmax=Inf, kwargs...)
