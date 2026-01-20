@@ -1021,7 +1021,7 @@ function gaussian_smoothing(X::AbstractVector{T}, Y::AbstractVector{T}, mm::Simp
     Xs./Ys, Xs, Ys
 end
 
-function gaussian_smoothing(X::Matrix{T}, Y::Matrix{T}, mm::SimpleMesh,σ=4;dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,dim=1) where T <: Real
+function gaussian_smoothing(X::Matrix{T}, Y::Matrix{T}, mm::SimpleMesh,σ=4;dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,dim=1,kwargs...) where T <: Real
     if dmatrix === nothing
         D = distancematrix(mm)
     else
