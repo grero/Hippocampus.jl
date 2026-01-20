@@ -706,17 +706,71 @@ function merge_responses(X::Matrix{T}, km_results::Vector{Clustering.KmeansResul
     Xq[:,fidx]./ny[:,fidx], Y[:,fidx]
 end
 
-function merge_responses(X::Matrix{T}, assignment::AbstractVector{Int64}, weight::Union{AbstractVector{T2},Nothing}=nothing) where T <: Real where T2 <: Real
-    nc = maximum(assignment)
-    if weight === nothing
-        weight == fill(one(T), nc)
+function merge_responses(X::Matrix{T},assignments::Vector{Vector{Int64}}) where T <: Real
+    d,n = size(X)
+    nq = maximum.(assignments)
+    nn = prod(nq)
+    Xq = zeros(T, d, nq...)
+    ny = zeros(Int64, 1, nq...)
+    idx = [CartesianIndex(i,j) for (i,j) in zip(assignments...)]
+    for (k,ii) in enumerate(idx)
+        Xq[:,ii] .+= X[:,k]
+        ny[1,ii] += 1
     end
+    Xq./ny
+end
+
+function merge_responses(X::Matrix{T}, assignment::AbstractVector{Int64}, weight::AbstractVector{T2}=ones(T, maximum(assignment))) where T <: Real where T2 <: Real
+    nc = maximum(assignment)
     X2 = zeros(T, size(X,1), nc)
     for (i,k) in enumerate(assignment)
        X2[:,k] .+= X[:,i]
     end
     X2 ./= reshape(weight,1,size(X2,2))
     X2
+end
+
+function merge_by_time(Y::Matrix{<:Real}, twin::Vector{<:Real},seed=1;tmax=0.1)
+    d = dropdims(sum(abs2, Y[:,seed:seed] .- Y,dims=1),dims=1)
+    didx = sortperm(d)
+    t = twin[seed]
+    y = Y[:,seed]
+    k = 1
+    for i in 2:length(didx)
+        t2 = t + twin[didx[i]]
+        if t2 >= tmax
+            break
+        end
+        t = t2
+        y += Y[:,didx[i]]
+        k += 1
+    end
+    y./k, t, didx[1:1+k]
+end
+
+function merge_by_time(Y1::Matrix{<:Real}, Y2::Matrix{<:Real}, twin::Vector{<:Real},seed=1;tmax=0.1)
+    d1 = dropdims(sum(abs2, Y1[:,seed:seed] .- Y1,dims=1),dims=1)
+    d2 = dropdims(sum(abs2, Y2[:,seed:seed] .- Y2,dims=1),dims=1)
+    # normalize first
+    d1 ./= maximum(d1)
+    d2 ./= maximum(d2)
+    d = d1+d2
+    didx = sortperm(d)
+    t = twin[seed]
+    y1 = Y1[:,seed]
+    y2 = Y2[:,seed]
+    k = 1
+    for i in 2:length(didx)
+        t2 = t + twin[didx[i]]
+        if t2 >= tmax
+            break
+        end
+        t = t2
+        y1 += Y1[:,didx[i]]
+        y2 += Y2[:,didx[i]]
+        k += 1
+    end
+    y1./k, y2./k, t, didx[1:1+k]
 end
 
 function regress_space(X::Matrix{T}, Y::Matrix{T};n_spatial_clusters=256,kwargs...) where T <: Real
