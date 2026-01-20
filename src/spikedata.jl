@@ -113,3 +113,23 @@ function compute_psth(sp::Vector{TrialAlignedSpiketrain}, binsize::Float64,w=1;t
     end
     weight, bins
 end
+
+struct RandomlyShiftedSpiketrains
+    Δt::Vector{Float64} # shifts
+    timestamps::Matrix{Float64}
+end
+
+function RandomlyShiftedSpiketrains(sp::Spiketrain;nshifts::Integer=10_000, shift_min=0.1, shift_max=0.9, kwargs...)
+    n = length(sp.timestamps)
+    tmin,tmax = extrema(sp.timestamps)
+    dur = tmax-tmin
+
+    sptrains = zeros(n, nshifts) 
+    Δt = zeros(nshifts)
+    Δs = shift_max - shift_min
+    for i in 1:nshifts
+        Δt[i] = Δs*dur*rand() + shift_min*dur
+        shift_spiketimes!(view(sptrains, :, i), sp.timestamps, Δt[i];tmax=tmax)
+    end
+    RandomlyShiftedSpiketrains(Δt, sptrains)
+end
