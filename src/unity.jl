@@ -1420,7 +1420,13 @@ function compute_histogram!(idx::Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}
     if weight === nothing
         weight = [fill(1.0, size(_pos,2)) for _pos in pos]
     end
+
+    @show "k2" k length(pos)
     for (ii,_pos) in enumerate(pos)
+        if isempty(_pos)
+            @show ii
+            continue
+        end
         compute_histogram!(counts,idx[ii], _pos, bins;weight=weight[ii],kname=k)
     end
     counts
