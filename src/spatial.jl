@@ -535,6 +535,10 @@ function filter_occupancy(spm::SpatialMap{T}) where T <: Real
     findall(spm.occupancy .== 0)
 end
 
+function filter_occupancy(spm::SpatialMapNew{T}) where T <: Real
+    findall(spm.occupancy .== 0)
+end
+
 function filter_occupancy(spm::SmoothedSpatialMap{T}) where T <: Real
     spm.unvisited
 end
