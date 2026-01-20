@@ -846,3 +846,63 @@ function plot_regression_reults(lq, km_results, position, X)
         fig
     end
 end
+
+"""
+    get_timepoints(data::UnityData, hulls)
+
+Return all time points from each trial for which the corresponding position overlaps with
+at least one of the `hulls`
+"""
+function get_timepoints(udata::UnityData, hulls)
+    nt = numtrials(udata)
+    timestamps = Vector{Vector{Float64}}(undef, nt)
+    pos = Vector{Vector{Tuple{Float64,Float64}}}(undef, nt)
+    for i in 1:nt
+        tu,posx,posy,hd = get_trial(udata,i)
+        tu .-= tu[1]
+        timestamps[i] = Float64[]
+        pos[i] = Tuple{Float64,Float64}[]
+
+        for (_tu,px,py) in zip(tu, posx, posy)
+            pq = Meshes.Point(px,py)
+            good_point = false
+            for hull in hulls 
+                ii = intersection(hull, pq)
+                if type(ii) == Intersecting
+                    good_point = true
+                    break
+                end
+            end
+            if good_point
+                push!(timestamps[i], _tu)
+                push!(pos[i], (px,py))
+            end
+
+        end
+    end
+    timestamps,pos
+end
+
+function plot_smooth_map_comparsion(spocs::Vector{SpatialOccupancyNew{T}}, spm::SpatialMapNew,sessionidx::Int64) where T <: Real
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3());
+    D = Hippocampus.distancematrix(m_floor)
+    spoc = spocs[sessionidx]
+    all_spoc_weights = cat([spocs[i].weight for i in 1:length(spocs)]...,dims=2)
+    overall_goodbinidx = findall(dropdims(sum(all_spoc_weights .> 0.05,dims=2),dims=2) .>= 5)
+    goodbinidx = findall(dropdims(sum(spoc.weight .> 0.05,dims=2),dims=2) .>= 5)
+    Z = spm.weight./spm.occupancy
+    Z[isnan.(Z)] .= 0.0
+    Zn = Hippocampus.fill_in_neighbours2(Z, D, 12, 4.0)
+    with_theme(plot_theme) do
+        fig = Figure(size=(1000,500))
+        lg1 = GridLayout(fig[1,1])
+        ax1 = Axis(lg1[1,1])
+        viz!(ax1, m_floor;color=Z)
+        Colorbar(lg1[1,2], colorrange=extrema(Z), label="Firing rate [Hz]")
+        lg2 = GridLayout(fig[1,2])
+        ax2 = Axis(lg2[1,1])
+        viz!(ax2, m_floor;color=Zn)
+        Colorbar(lg2[1,2], colorrange=extrema(Zn), label="Firing rate [Hz]")
+        fig
+    end
+end
