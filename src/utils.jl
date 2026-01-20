@@ -832,6 +832,12 @@ function fill_in_neighbours2(X::Vector{T}, mm::SimpleMesh, r::Integer,σ::T) whe
     fill_in_neighbours2(X, D, r, σ)
 end
 
+
+function fill_in_neighbours3(X::Vector{T}, mm::SimpleMesh, r::Integer,σ::T) where T <: Real
+    D = distancematrix(mm)
+    fill_in_neighbours3(X, D, r, σ)
+end
+
 function fill_in_neighbours(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
     Y = zeros(T, size(X,1))
     for i in axes(D,2)
