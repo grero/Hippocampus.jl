@@ -352,9 +352,11 @@ function smooth(counts::Dict{Symbol,Vector{T}}, D::Matrix{T2}, pidx::Vector{Tupl
             # find the points in the distance matrix
             idx = findall(x->(x[1]==k)&(x[2]==qidx[1])&(x[3]==qidx[2]), pidx)
             if length(idx) != length(X)
-                @show qidx k
+                @debug qidx k
             end
-            Z .+= exp.(-D[:,idx].^2/(2*σ^2))*X[:]
+            # filter out nan's
+            fidx = findall(isfinite, X[:])
+            Z .+= (exp.(-D[:,idx[fidx]].^2/(2*σ^2))*X[fidx])./(2π*σ)
         end
     end
     Z
