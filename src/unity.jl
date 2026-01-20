@@ -244,7 +244,8 @@ function get_poster_index(mazename::AbstractString)
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
-    PlotSpec(Lines, x.position[:,1], x.position[:,2])
+
+    PlotSpec(Lines, Point2f.(eachrow(x.position)))
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData, trial::Trial) 
