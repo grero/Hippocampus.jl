@@ -367,13 +367,22 @@ function SpatialMap(spr::SpatialRepresentation{<:Real,<:Real}, spoc::SpatialOccu
     SpatialMap(xbins,ybins, spatial_count, spoc_weight)
 end
 
-function process_kwargs(::Type{SpatialMapNew};min_duration=0.05, min_n_obs=5, kwargs...)
+function process_kwargs(::Type{SpatialMapNew};min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, kwargs...)
     h = UInt32(0)
-    if min_duration != 0.05
-        h = crc32c(string(min_duration=>min_duration),h)
+    if min_place_duration != 0.05
+        h = crc32c(string(min_duration=>min_place_duration),h)
     end
-    if min_n_obs != 5
-        h = crc32c(string(min_n_obs=>min_n_obs))
+    if min_place_obs != 5
+        h = crc32c(string(min_n_obs=>min_place_obs))
+    end
+    if min_view_duration != 0.02
+        h = crc32c(string(min_view_duration>min_view_duration))
+    end
+    if min_view_obs != 5
+        h = crc32c(string(min_view_obs>min_view_obs))
+    end
+    if trial_start != 2
+        h = crc32c(string(trial_start=>trial_start))
     end
     h
 end
