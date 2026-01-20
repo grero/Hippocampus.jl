@@ -1394,7 +1394,7 @@ function compute_histogram(pos::Matrix{Float64},bins)
     counts = [fill(0.0, length.(bin)) for bin in bins]
     compute_histogram!(counts, pos,bins)
 end
-
+ 
 function compute_histogram(pos::Vector{Matrix{Float64}}, bins::Dict{Symbol, Vector{NTuple{3, Vector{Float64}}}}, weight::Union{Nothing, Vector{Vector{Float64}}}=nothing)
     counts = Dict{Symbol,Vector{Array{Float64,3}}}()
     idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(pos))
