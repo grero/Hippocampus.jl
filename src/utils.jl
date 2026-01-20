@@ -1118,6 +1118,6 @@ function test_smoothing()
     Zs,Xs,Ys = gaussian_smoothing(X,mm,5)
     ax3 = Axis(fig[3,1])
     viz!(ax3, mm;color=Zs, showsegments=true)
-    Colorbar(fig[3,2], colorrange=extrema(Xs), label="Smoothe counts")
+    Colorbar(fig[3,2], colorrange=extrema(Xs), label="Smoothed counts")
     fig
 end
