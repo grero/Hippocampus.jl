@@ -556,7 +556,7 @@ end
 function compute_sic(weight, occupancy)
     x = weight./occupancy
     idx = isfinite.(x)
-    p = spm.occupancy[idx]./sum(spm.occupancy[idx])
+    p = occupancy[idx]./sum(occupancy[idx])
     r = sum(p.*x[idx])
     xr = x[idx]./r
     ll = log2.(xr)
