@@ -1463,7 +1463,8 @@ function compute_histogram(pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: 
 end
 
 function compute_histogram!(counts::Array{Float64,3}, pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N
-    qpos = eachcol(pos)
+    @show size(pos)
+    qpos = eachrow(pos)
     Δs = [step(b) for b in bins]
     h = fit(Histogram, qpos, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
     count .+= h.weights
