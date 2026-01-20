@@ -154,6 +154,11 @@ function get_trial(data::UnityData, i;trial_start=1)
     data.time[idx0:idx1], data.position[idx0:idx1, 1], data.position[idx0:idx1, 2], data.head_direction[idx0:idx1]
 end
 
+function get_velocity(data::UnityData, i;kwargs...)
+    tp,posx,posy,_ = get_trial(data, i;kwargs...)
+    vv = [posx[2:end]-posx[1:end-1] posy[2:end]-posy[1:end-1]]./diff(tp)
+end
+
 """
 Read the file `fname`, assuming each column is separated by a single space, and
 the first 14 rows contain header information
