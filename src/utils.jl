@@ -220,6 +220,7 @@ function get_outline(patch::Vector{Int64}, mm::SimpleMesh)
     avail[1] = false
     idx = 1
     path = [border_elements[idx]]
+    # TODO: What if we have a "skinny" region, i.e. with no interior
     while sum(avail) > 0
         aidx = findall(avail)
         idx = findall(D[path[end],border_elements[avail]] .<=2)
