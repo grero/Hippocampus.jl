@@ -1373,18 +1373,20 @@ Compute a histogram of `pos` projected onto the plane at `z0`
 """
 function compute_histogram(pos::Matrix{Float64}, xbins,ybins,z0=0.0;Δz=0.1)
     counts = fill(0.0, length(xbins), length(ybins))
+    bidx = fill((0,0),size(pos,2))
     nn = 0.0
-    for (x,y,z) in eachcol(pos)
+    for (ii,(x,y,z)) in enumerate(eachcol(pos))
         idx_x = searchsortedlast(xbins, x)
         idx_y = searchsortedlast(ybins, y)
         if idx_x > 0 && idx_y > 0
             if z0 - Δz <= z <= z0 + Δz
                 counts[idx_x, idx_y] += 1.0
                 nn += 1.0
+                bidx[ii] = (idx_x,idx_y)
             end
         end
     end
-    counts
+    counts, bidx
 end
 
 
