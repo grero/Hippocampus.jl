@@ -6,6 +6,64 @@ using Unitful
 
 using GeometryBasics
 
+function pos_fig_obs(ax, x, y)
+	lift(ax.scene.viewport, ax.finallimits) do vp, lims
+		Makie.project(ax.scene, Point2f(x, y)) + vp.origin
+	end
+end
+
+function link_cameras_lscene(f; step=0.01)
+    scenes = f.content[findall(x -> typeof(x) == LScene,f.content)]
+    cameras = [x.scene.camera_controls for x in scenes]
+
+    for i in 1:length(cameras)
+        on(cameras[i].eyeposition) do x
+            for j in collect(1:length(cameras))[1:end .!= i]
+                if sum(abs.(x - cameras[j].eyeposition[]))>step
+                    cameras[j].lookat[]       = cameras[i].lookat[]
+                    cameras[j].eyeposition[]  = cameras[i].eyeposition[]
+                    cameras[j].upvector[]     = cameras[i].upvector[]
+                    #cameras[j].zoom_mult[]    = cameras[i].zoom_mult[]
+        
+                    update_cam!(scenes[j].scene, cameras[j])
+                end
+            end
+        end
+    end
+    return f
+end
+
+# highly brittle and likely to break, but quick and easy
+Base.ndims(cp::Meshes.Point) = typeof(cp).parameters[1].parameters[1]
+function Base.Tuple(cp::Meshes.Point)
+    d = ndims(cp)
+    ccp = coords(cp)
+    if d == 2
+        return (ccp.x.val, ccp.y.val)
+    end
+    if d == 3
+        return (ccp.x.val, ccp.y.val, ccp.z.val)
+    end
+    return ()
+end
+
+Base.ndims(mm::Meshes.SimpleMesh) = typeof(mm).parameters[1].parameters[1]
+
+function get_alpha(cc::T;min_value=zero(T)) where T <: Real
+    if cc == min_value
+        a = 0.0
+    else
+        a = 1.0
+    end
+    a
+end
+
+function get_alpha(cc::Vector{T};kwargs...) where T <: Real
+    alpha = ones(T, length(cc))
+    alpha = get_alpha.(cc;kwargs...)
+    alpha
+end
+
 function get_path(dj::DijkstraState, v::Integer)
     u = v
     path = [u]
