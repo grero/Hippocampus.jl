@@ -225,10 +225,27 @@ function get_outline(patch::Vector{Int64}, mm::SimpleMesh)
         aidx = findall(avail)
         idx = findall(D[path[end],border_elements[avail]] .<=2)
         if length(idx) > 1
+            # prefer continuing in the same direction
+            vp =centroid(mm[path[end]]) .- centroid.(mm[border_elements[avail][idx]])
+            _idx = 1
+            if length(path) > 1
+                v = path[end] - path[end-1]
+
+                #first sort by distance, then by alignment
+                dn = [(v'*_v)/sqrt(norm(v)*norm(_v)) for _v in vp]
+                d = norm.(vp)
+                jidx = sortperm(collect(zip(1.0./d,dn)),rev=true)
+                @show dn[jidx[1]] d[jidx[1]]
+                _idx = idx[jidx[1]]
+            end
             # use Euclidean distance to disambiguate; probably not perfect
-            d = norm.(centroid(mm[path[end]]) .- centroid.(mm[border_elements[avail][idx]]))
-            _idx = idx[argmin(d)]
+            #d = norm.(centroid(mm[path[end]]) .- centroid.(mm[border_elements[avail][idx]]))
+            #_idx = idx[argmin(d)]
         else
+            if isempty(idx)
+                @show D[path[end], border_elements[avail]]
+                @show path
+            end
             _idx = first(idx)
         end
         p1 = border_elements[aidx[_idx]] 
