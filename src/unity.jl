@@ -831,6 +831,9 @@ function MazeModel(;kvs...)
     MazeModel(bins,normals)
 end
 
+function random_path(mm::MazeModel)
+end
+
 """
 Return a dictionary containg the 3D bins for each element of the maze `mm`.
 """
