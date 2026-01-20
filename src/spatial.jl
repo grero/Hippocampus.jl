@@ -440,10 +440,10 @@ function get_rate_map(spm::AbstractMap;invalidate_unvisited=true)
     Z
 end
 
-function get_rate_map(spm::SmoothedMap;filter_unvisited=true)
+function get_rate_map(spm::SmoothedMap;invalidate_unvisited=true)
     Z = spm.weight./spm.occupancy
-    if filter_unvisited
-        Z[spm.unvisited] .= NaN
+    if invalidate_unvisited
+        Z[spm.unvisited] .= NaN 
     end
     Z
 end
