@@ -947,15 +947,28 @@ function fill_in_neighbours2(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) 
     Y
 end
 
-function adaptive_smoothing(X::Vector{T}, Y::Vector{T}, mm::SimpleMesh, α::T;stop_at_nan=true,rmax=100) where T <: Real
+function fill_in_neighbours3(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
+    Y = zeros(T, size(X,1))
+    for i in axes(D,2)
+        Y[i] = fill_in_neighbours3(X, D[:,i], r, σ)
+    end
+    Y
+end
+
+# TODO: There appears to be some weird artifacts when smoothing large surfaces
+function adaptive_smoothing(X::Vector{T}, Y::Vector{T}, mm::SimpleMesh, α::Real;stop_at_nan=true,rmax=100,skip_empty=false,Δt=1.0) where T <: Real
     Xs = fill!(similar(X), zero(T))
     Ys = fill!(similar(X), zero(T))
     func = ballsearch(mm)
     @showprogress "Adaptively smoothing bins..." for ii in 1:length(X)
         nsp = X[ii]
         nocc = Y[ii]
+        if skip_empty && nocc == 0
+            continue
+        end
+        #TODO: Should we skip points for which nocc =0?
         r = 1
-        while nsp < α/(nocc^2*r^2) 
+        while nsp < α/((nocc/Δt)^2*r^2) 
             idx = func(ii, r)
             # stop expanding the kernel if we hit boundary
             if (stop_at_nan && any(isnan.(Y[idx]))) || (r >= rmax)
@@ -966,7 +979,7 @@ function adaptive_smoothing(X::Vector{T}, Y::Vector{T}, mm::SimpleMesh, α::T;st
             r += 1
         end
         Xs[ii] = nsp
-        Ys[ii] = nocc
+        Ys[ii] = nocc 
     end
     Xs./Ys, Xs, Ys
 end
