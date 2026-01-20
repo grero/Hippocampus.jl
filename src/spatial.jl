@@ -332,18 +332,54 @@ struct SmoothedMap{T<:Real} <: AbstractMap
     smooth_params::NamedTuple
 end
 
-function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=false, α=1000.0^2,kwargs...)
+DPHT.filename(sm::SmoothedMap{T}) where T <: Real = "smoothed_map.jld2"
+DPHT.filename(::Type{SmoothedMap}) = "smoothed_map.jld2"
+
+function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, nrefinemensts=3,kwargs...)
+    h = zero(UInt32)
+    h = crc32c(string(method=>method),h)
+    h = crc32c(string(alpha=>alpha),h)
+    h = crc32c(string(rmax=>rmax),h)
+    if nrefinemensts != 3
+        h = crc32c(string(nrefinements=>nrefinemensts),h)
+    end
+    h
+end
+
+function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=false, α=1000.0^2,rmax=10, kwargs...)
     if method == :gaussian
         Zg, Xg, Yg = gaussian_smoothing(spm.weight, spm.occupancy, spm.mm, σ;m=m,kwargs...)
         smooth_params = (method=method, σ=σ, m=m, edge_correct=edge_correct)
     elseif method == :adaptive
-        Zg, Xg, Yg = adaptive_smoothing(spm.weight, spm.occupancy, spm.mm, α;kwargs...)
-        smooth_params = (method=method,α=α) 
+        Zg, Xg, Yg = adaptive_smoothing(spm.weight, spm.occupancy, spm.mm, α;rmax=rmax)
+        smooth_params = (method=method,α=α,rmax=rmax) 
     else
         error("Unkonwn smoothing method $method")
     end
     unvisited = findall(spm.occupancy .== 0)
     SmoothedMap(spm.mm, Xg, Yg, unvisited, smooth_params)
+end
+
+function SmoothedMap(::Type{T},args...;redo=false, do_save=true, kwargs...) where T <: AbstractMap
+    fname = DPHT.filename(SmoothedMap)
+    # append the type name of the base map that we are smoothing
+    bn = lowercase(last(split(string(T), '.')))
+    fname = replace(fname, ".jld2"=>"_$(bn).jld2")
+    h = process_kwargs(SmoothedMap;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo && isfile(fname)
+        sm = load_jld2(SmoothedMap,fname)
+    else
+        _map = T(args...;kwargs...)
+        sm = SmoothedMap(_map;kwargs...)
+        if do_save
+            save_jld2(sm, fname)
+        end
+    end
+    sm
 end
 
 DPHT.level(::Type{<:AbstractSpatialMap}) = "cell"
