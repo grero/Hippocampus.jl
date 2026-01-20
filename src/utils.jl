@@ -414,7 +414,7 @@ function visualize!(lscene, pm::ParametrizedManifold{N,N2,T3,T, T2,T4},color::Ab
         #arrows!(lscene, Point3f.([pm.μ[ii], pm.μ[ii]]),Point3f.(eachcol(pm.base[ii])),color=:white)
         # indicate the uv points
         #scatter!(lscene, points[[idx1,idx2,idx3,idx4]],color=Makie.wong_colors()[1:4])
-        mesh!(lscene, gb_mesh, color=fq,colorrange=cl)
+        mesh!(lscene, gb_mesh, color=fq,colorrange=cl,colormap=:Blues)
     end
 end
 
