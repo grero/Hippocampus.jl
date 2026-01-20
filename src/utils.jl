@@ -879,18 +879,42 @@ function fill_in_neighbours(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::T) w
     y/aa
 end
 
-function fill_in_neighbours2(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::T) where T <: Real
+function fill_in_neighbours2(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::Real) where T <: Real
     n = disc_area(r)
     sidx = sortperm(d)
     ds = d[sidx]
     idx = 1:findlast(ds.<=r)
     ns = length(idx)
     σs = σ*ns/n
-    aa = gaussian_area(r, σs)
+    #aa = gaussian_area(r, σs)
     y = zero(T)
+    aa = zero(T)
     for j in idx
         pq = exp(-ds[j]^2/(2*σs^2))
         y += pq*X[sidx[j]]
+        aa += pq
+    end
+    y/aa
+end
+
+function fill_in_neighbours3(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::T) where T <: Real
+    n = disc_area(r)
+    sidx = sortperm(d)
+    ds = d[sidx]
+    idx = 1:findlast(ds.<=r)
+    ns = length(idx)
+    # find the local density
+    am = sum(X[idx].>0)
+    # we decrease the kernel if we are close to a border
+    # where ns < n, but increase it if the number of zero values
+    σs = min(σ*(ns/n)*(ns/am), 0.25*r)
+    #aa = gaussian_area(r, σs)
+    y = zero(T)
+    aa = zero(T)
+    for j in idx
+        pq = exp(-ds[j]^2/(2*σs^2))
+        y += pq*X[sidx[j]]
+        aa += pq
     end
     y/aa
 end
