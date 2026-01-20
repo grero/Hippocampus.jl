@@ -141,7 +141,7 @@ end
 Extract contiguous patches of activity from `f` where the activity exceeds μ+t σ
 where μ is the overall mean and σ is the overall standard deviation.
 """
-function get_peaks(f::AbstractArray{T,N},domain=f;t=2,dmax=1) where T <: Real where N
+function get_peaks(f::AbstractArray{T,N},domain=f;t=2,dmax=1,max_only=false) where T <: Real where N
     fidx = findall(isfinite, f)
     σ = std(f[fidx])
     μ = mean(f[fidx])
@@ -173,6 +173,9 @@ function get_peaks(f::AbstractArray{T,N},domain=f;t=2,dmax=1) where T <: Real wh
             avail[qidx[_qq]] = false
         end
         if !did_change 
+            if max_only
+                break
+            end
             _fidx = fidx[avail]
             qidx = findall(avail)
             fm,fi = findmax(f[_fidx])
