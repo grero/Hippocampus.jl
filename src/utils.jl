@@ -214,6 +214,7 @@ function get_outline(patch::Vector{Int64}, mm::SimpleMesh)
     D = distancematrix(mm)
     nn = dropdims(sum(A[patch,patch],dims=1),dims=1)
     border_elements = patch[findall(nn.<4)]
+    @debug length(border_elements) length(patch)
     # find the next connected
     avail = fill(true, length(border_elements))
     avail[1] = false
