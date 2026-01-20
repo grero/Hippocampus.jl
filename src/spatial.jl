@@ -814,13 +814,13 @@ function plot_regression_reults(lq, km_results, position, X)
         lg1 = GridLayout(fig[2,1:2])
         ax1_1 = Axis(lg1[1,1])
         Label(lg1[1,1,TopLeft()], "B")
-        scatter!(ax1_1, km_results.centers[1,:], Y[1,:],color=km_results.centers[1,:],
+        scatter!(ax1_1, km_results.centers[1,:], Yp[1,:],color=km_results.centers[1,:],
                             colormap=:solar)
         ax1_1.xlabel = "True x-pos"
         ax1_1.ylabel = "Estimated x-pos"
         ax1_2 = Axis(lg1[1,2])
         Label(lg1[1,2,TopLeft()], "C")
-        scatter!(ax1_2, km_results.centers[2,:], Y[2,:], color=km_results.centers[2,:],
+        scatter!(ax1_2, km_results.centers[2,:], Yp[2,:], color=km_results.centers[2,:],
                         colormap=:matter)
         ax1_2.xlabel = "True y-pos"
         ax1_2.ylabel = "Estimated y-pos"
