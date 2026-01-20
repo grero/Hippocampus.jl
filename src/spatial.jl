@@ -776,7 +776,7 @@ end
 function regress_space(X::Matrix{T}, Y::Matrix{T};n_spatial_clusters=256,kwargs...) where T <: Real
     km_results = kmeans(Y, n_spatial_clusters)
     # sum up responses in each of the spatial bins returned by the kmean algorithm
-    X2 = zeros(eltype(X), size(X,1), n_spatial_clusters)
+    X2 = zeros(T, size(X,1), n_spatial_clusters)
     for (i,k) in enumerate(km_results.assignments)
        X2[:,k] .+= X[:,i]
     end
