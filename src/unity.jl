@@ -1468,5 +1468,6 @@ function compute_histogram!(counts::Array{Float64,3}, pos::Matrix{Float64}, bins
     Δs = [step(b) for b in bins]
     h = fit(Histogram, qpos, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
     count .+= h.weights
+    idx = [StatsBase.binindex(h, p) for p in qpos]
 end
 
