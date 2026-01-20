@@ -713,6 +713,12 @@ function ParametrizedManifold(mm::MazeModel{T};include_pillars=true) where T <: 
     ParametrizedManifold(normals, ff, μ, bb, points,label)
 end
 
+function smooth(counts::Dict{Symbol, Vector{T}},mm::MazeModel{T3};kwargs...) where T <: Array{T2,3} where T3 <: AbstractVector{T2} where T2 <: Real
+    D, points, pidx,ll = compute_distance_matrix(mm)
+    Z = smooth(counts,D, pidx;kwargs...) 
+    Z, D, points, pidx, ll
+end
+
 """
 Return the total number of surface bins in `mm`
 """
