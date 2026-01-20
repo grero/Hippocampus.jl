@@ -109,6 +109,7 @@ function UnityData(data, header)
     # trial end is either 3x, or 4x, where 3 indicates success and 4 indicates time out
     trial_end_idx = findall(30.0 .< data[:,1] .< 50.0)
     length(trial_start_idx) == length(trial_start_nav) == length(trial_end_idx) || error("Inconsitent number of triggers")
+    @debug length.([trial_start_idx, trial_start_nav, trial_end_idx])
     nt = length(trial_start_idx)
     triggers = [data[trial_start_idx,1] data[trial_start_nav,1] data[trial_end_idx,1]]
     timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
@@ -1385,6 +1386,7 @@ function compute_histogram(pos::Vector{Matrix{Float64}}, bins::Dict{Symbol, Vect
         idx[ii] = fill((0,0,0,:unknown), size(pos[ii],2))
     end
     for k in keys(bins)
+        @show k
         counts[k] = compute_histogram!(idx, pos,bins[k],weight,k)
     end
     counts, idx
