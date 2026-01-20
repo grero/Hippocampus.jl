@@ -134,9 +134,17 @@ DPHT.level(::Type{SpatialRepresentation}) = "cell"
 """
 Return a matrix of all positions
 """
-function get_positions(spr::SpatialRepresentation{T1,T2}) where T1 <: Real where T2 <: Real
+function get_positions(spr::AbstractRepresentation{T1,T2}) where T1 <: Real where T2 <: Real
+    ty = eltype(eltype(spr.position))
+    if ty <: Point{2,T1}
+        d = 2
+    elseif ty <: Point{3,T1}
+        d = 3
+    else
+        d = size(first(first(spr.position)),1)
+    end 
     nspikes = sum(length.(spr.event))
-    Y = zeros(T1, 2, nspikes)
+    Y = zeros(T1, d, nspikes)
     offset = 0
     for pps in spr.position
         for (j,pp)  in enumerate(pps)
