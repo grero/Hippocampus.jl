@@ -3,6 +3,23 @@ using GeometryBasics
 using GeometryBasics: Point, Rect, Vec, faces,Mat
 using LinearAlgebra
 
+function get_allcelldirs()
+    if ispath("/Volumes/Hippocampus")
+        allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+            readlines(fid)
+        end
+    elseif ispath("shared_data")
+        allcelldirs = open("shared_data/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+            readlines(fid)
+        end
+        # because we originally used absolute path names
+        allcelldirs = [joinpath("shared_data", splitpath(c)[4:end]...) for c in allcelldirs]        
+    else
+        error("Unable to find cell directories")
+    end
+    allcelldirs
+end
+
 function kmean_it(X::Matrix{T}, k::Integer,m::Integer;n_iter=1000) where T <: Real
     d,n = size(X)
     # random cluster center initialization
