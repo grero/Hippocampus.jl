@@ -91,7 +91,7 @@ Plot a summary of the spatial selectivity across all cells
 One panel showing the distribution of SIC scores
 Some example cells. One near the top, i.e. the most spatially selective, one near the median and one near the bottom?
 """
-function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothing;kwargs...)
+function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothing;redo=false, kwargs...)
     if celldirs === nothing
         celldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
                     readlines(fid)
@@ -103,8 +103,8 @@ function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothin
     end
     hs = string(h,base=16)
     fname = "spatial_summary_data_$(hs).jld2"
-    if isfile(fname)
-        res,sic = JLD2.load(fname, "res","sic")
+    if !redo && isfile(fname)
+        res,sic,mean_fr = JLD2.load(fname, "res","sic","mean_fr")
     else
         res = issignificant(SpatialInformationContent, celldirs;skip_error=true, kwargs...)
         sic = get_sic(SpatialInformationContent, celldirs;skip_error=true, kwargs...)
