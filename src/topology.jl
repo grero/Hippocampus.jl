@@ -129,7 +129,7 @@ function get_circular_adjancency(n::Integer)
 end
 
 function distancematrix(mm::SimpleMesh;rank=paramdim(mm))
-    nn = length(mm.vertices)
+    nn = nelements(mm)
     A = adjacencymatrix(mm;rank=rank)
     if issymmetric(A)
         G = SimpleGraph(A)

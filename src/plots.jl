@@ -3,7 +3,7 @@ using CairoMakie
 
 function plot_place_field(celldir::String;kwargs...)
     with_theme(plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(1000,250))
         lg = GridLayout(fig[1,1])
         plot_place_field!(lg, celldir;kwargs...)
         fig
@@ -40,27 +40,35 @@ function plot_place_field!(lg, celldir::String;nrefinements=(p=3,g=2),σ=3, α=1
     end
     @show sic.sic0 percentile(sic.sic, 95)
     # add SIC with distribution
-    ax1 = Axis(lg[1,1])
-    ax2 = Axis(lg[1,3])
-    ax3 = Axis(lg[1,5])
+    ax0 = Axis(lg[1,1])
+    boxplot!(ax0, fill(1.0, length(sic.sic)), sic.sic;show_outliers=false, show_notch=true,color=:gray)
+    ax0.xticklabelsvisible = false
+    ax0.xticksvisible = false
+    ax0.bottomspinevisible = false
+    scatter!(ax0, [1.0],[sic.sic0],color=:red)
+    ax0.ylabel = "SIC"
+
+    ax1 = Axis(lg[1,2])
+    ax2 = Axis(lg[1,4])
+    ax3 = Axis(lg[1,6])
 
     Z = sm.weight./sm.occupancy
     viz!(ax1, mm;showsegments=false, color=:lightgray)
     viz!(ax1, mm;showsegments=false, color=Z)
-    Colorbar(lg[1,2], colorrange=(extrema(filter(isfinite, Z))),label="Firing rate [Hz]")
+    Colorbar(lg[1,3], colorrange=(extrema(filter(isfinite, Z))),label="Firing rate [Hz]")
     ax1.title = "Raw"
     Zg = smg.weight./smg.occupancy
     Zg[smg.unvisited] .= NaN 
     viz!(ax2, mm;showsegments=false, color=:lightgray)
     viz!(ax2, mm;showsegments=false, color=Zg)
-    Colorbar(lg[1,4], colorrange=(extrema(filter(isfinite, Zg))), label="Firing rate [Hz]")
+    Colorbar(lg[1,5], colorrange=(extrema(filter(isfinite, Zg))), label="Firing rate [Hz]")
 
     ax2.title = "σ = $(σ)"
     Za = sma.weight./sma.occupancy
     Za[sma.unvisited] .= NaN
     viz!(ax3, mm;showsegments=false, color=:lightgray)
     viz!(ax3, mm;showsegments=false, color=Za)
-    Colorbar(lg[1,6], colorrange=(extrema(filter(isfinite, Za))), label="Firing rate [Hz]")
+    Colorbar(lg[1,7], colorrange=(extrema(filter(isfinite, Za))), label="Firing rate [Hz]")
     ax3.title = "α = $α"
     for ax in [ax1, ax2, ax3]
         ax.xticklabelsvisible = false
@@ -73,6 +81,7 @@ function plot_place_field!(lg, celldir::String;nrefinements=(p=3,g=2),σ=3, α=1
     if !isempty(ylabel)
         ax1.ylabel = ylabel
     end
+    colsize!(lg, 1, Relative(0.1))
     ax1,ax2,ax3
 end
 
