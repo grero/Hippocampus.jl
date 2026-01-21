@@ -154,15 +154,19 @@ function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothin
     lg2 = GridLayout(lg[2,1])
     Label(lg2[1,1,TopLeft()], "B")
     cidx1 = place_idx[argmax(sic[place_idx])]
-    plot_place_field!(lg2, celldirs[cidx1];ylabel="Cell 1")
+    plot_place_field!(lg2, celldirs[cidx1])
+    Label(lg2[1,0], "Cell 1", rotation=π/2, tellheight=false,color=:blue)
 
     lg3 = GridLayout(lg[3,1])
     cidx2 = non_place_idx[argmax(sic[non_place_idx])]
-    plot_place_field!(lg3, celldirs[cidx2];ylabel="Cell 2")
+    plot_place_field!(lg3, celldirs[cidx2])
+    Label(lg3[1,0], "Cell 2", rotation=π/2, tellheight=false,color=:green)
+
     lg4 = GridLayout(lg[4,1])
     # median
     cidx3 = place_idx[sortperm(sic[place_idx])[div(length(place_idx),2)]]
     plot_place_field!(lg4, celldirs[cidx3];ylabel="Cell 3")
+    Label(lg4[1,0], "Cell 3", rotation=π/2, tellheight=false,color=:purple)
 
     # TODO: Indicate these two cells in the scatter plot
     cidx = [cidx1, cidx2, cidx3]
