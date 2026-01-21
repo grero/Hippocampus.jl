@@ -220,6 +220,13 @@ end
     @test sic ≈ 2.103883351775456
 end
 
+@testset "JointMap" begin
+    fname = Hippocampus.DPTH.filename(Hippocampus.JointMap)
+    @test fname == "joint_map.jld2"
+    fname = Hippocampus.DPTH.filename(Hippocampus.JointMap;min_place_obs=6)
+    @test fname == "joint_map_8fce4519.jld2"
+end
+
 @testset "Raytrace" begin
     gx = 950.4f0
     gy = 1069.1f0
