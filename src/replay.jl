@@ -2270,13 +2270,18 @@ function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,joc
     JointMap(Float64.(nspikes), jocc_filtered.weight, qidx)
 end
 
-function JointMap(;redo::Function=fname->false, do_save=true, kwargs...)
+function DPHT.filename(::Type{JointMap};kwargs...)
     fname = "joint_map.jld2"
-    h = process_kwargs(JointMap, kwargs...)
+    h = process_kwargs(JointMap;kwargs...)
     if h > 0
-        hs = string(h, base=16)
-        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+        hs = string(h,base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2") 
     end
+    fname
+end
+
+function JointMap(;redo::Function=fname->false, do_save=true, kwargs...)
+    fname = DPHT.filename(JointMap;kwargs...)
     if !redo(fname) && isfile(fname)
         jm = load_jld2(JointMap, fname)
     else
