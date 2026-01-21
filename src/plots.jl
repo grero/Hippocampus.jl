@@ -108,7 +108,10 @@ function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothin
     else
         res = issignificant(SpatialInformationContent, celldirs;skip_error=true, kwargs...)
         sic = get_sic(SpatialInformationContent, celldirs;skip_error=true, kwargs...)
-        JLD2.save(fname, Dict("res"=>res, "sic"=>sic))
+        mean_fr = process_dirs((;kwargs...)->get_mean_firing_rate(JointMap(;kwargs...)), celldirs)
+        # reformat to array
+        mean_fr = [get(mean_fr, c, NaN) for c in celldirs]
+        JLD2.save(fname, Dict("res"=>res, "sic"=>sic,"mean_fr"=>mean_fr))
     end
 
     lg1 = GridLayout(lg[1,1])
@@ -119,16 +122,16 @@ function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothin
     cc[res] .= _colors[2] 
     xx = rand(length(cc))
     yy = sic
-    # TODO: Plot this differently
-    scatter!(ax1, xx, yy, color=cc)
+    scatter!(ax1, mean_fr, yy, color=cc)
     Legend(lg1[1,2], [MarkerElement(marker=:circle, color=q) for q in _colors],["Non-sig","sig"],tellwidth=false, tellheight=false,
            valign=:top, halign=:right, framevisible=true, padding=(10.0, 10.0, 10.0, 10.0))
     #rainclouds!(ax1, xx, yy)
     #ax1.xticks = (1:2, ["Non-sig", "sig"])
     ax1.ylabel = "SIC"
-    ax1.xticklabelsvisible = false
-    ax1.xticksvisible = false
-    ax1.bottomspinevisible = false
+    ax1.xlabel = "Mean firing rate [Hz]"
+    ax1.xticklabelsvisible = true 
+    ax1.xticksvisible = true 
+    ax1.bottomspinevisible = true 
     ax2 = Axis(lg1[1,2])
     linkyaxes!(ax1,ax2)
     density!(ax2, yy[res.==false], direction=:y, color=_colors[1])
