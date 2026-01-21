@@ -2229,6 +2229,27 @@ function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupan
     end
     cc
 end
+
+function process_kwargs(::Type{JointMap}, min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2)
+    h = UInt32(0)
+    if min_place_duration != 0.05
+        h = CRC32c.crc32c(string(min_place_duration=>min_place_duration),h)
+    end
+    if min_place_obs != 5
+        h = CRC32c.crc32c(string(min_place_obs=>min_place_obs),h)
+    end
+    if min_view_duration != 0.02
+        h = CRC32c.crc32c(string(min_view_duration=>min_view_duration),h)
+    end
+    if min_view_obs != 5
+        h = CRC32c.crc32c(string(min_view_obs=>min_view_obs),h)
+    end
+    if trial_start != 2
+        h = CRC32c.crc32c(string(trial_start=>trial_start),h)
+    end
+    h
+end
+
 """
 Map the spikes represented by `vpvrp` onto the place, gaze and hd spaces
 """
@@ -2247,6 +2268,35 @@ function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,joc
         end
     end
     JointMap(Float64.(nspikes), jocc_filtered.weight, qidx)
+end
+
+function JointMap(;redo::Function=fname->false, do_save=true, kwargs...)
+    fname = "joint_map.jld2"
+    h = process_kwargs(JointMap, kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        jm = load_jld2(JointMap, fname)
+    else
+        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        jocc,jocc_filtered= cd(DPHT.process_level("session")) do
+            jocc = JointOccupancy(;kwargs...)
+            unity_gaze_data = UnityRaytraceData(;kwargs...)
+            jocc_filtered = JointFilteredOccupancy(jocc,unity_gaze_data;kwargs...)
+            jocc, jocc_filtered
+        end
+        jm = JointMap(vpvrp,jocc,jocc_filtered;kwargs...)
+        if do_save
+            save_jld2(jm, fname)
+        end
+    end
+    jm
+end
+
+function get_mean_firing_rate(jm::JointMap)
+    mean(jm.weight./jm.occupancy)
 end
 
 function SpatialMapNew(jm::JointMap,mm::SimpleMesh)
