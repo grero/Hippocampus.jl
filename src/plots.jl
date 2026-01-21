@@ -1,11 +1,11 @@
 using CairoMakie
 
 
-function plot_place_field(celldir::String;kwargs...)
+function plot_place_map(celldir::String;kwargs...)
     with_theme(plot_theme) do
         fig = Figure(size=(1000,250))
         lg = GridLayout(fig[1,1])
-        plot_place_field!(lg, celldir;kwargs...)
+        plot_place_map!(lg, celldir;kwargs...)
         fig
     end
 end
@@ -15,7 +15,7 @@ Illustrate place fields for the cell in `celldir`.
 
 One panel with the raw firing rate map, one with a gaussian smoothed firing rate map and one with the adaptively smoothed firing rate map
 """
-function plot_place_field!(lg, celldir::String;nrefinements=(p=3,g=2),σ=3, α=1000.0.^2, ylabel="", kwargs...)
+function plot_place_map!(lg, celldir::String;nrefinements=(p=3,g=2),σ=3, α=1000.0.^2, ylabel="", kwargs...)
     sm, smg, sma,mm, sic = cd(celldir) do
         #sp = Spiketrain()
         #rp = cd(DPHT.process_level(level(RippleData))) do
@@ -154,18 +154,18 @@ function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothin
     lg2 = GridLayout(lg[2,1])
     Label(lg2[1,1,TopLeft()], "B")
     cidx1 = place_idx[argmax(sic[place_idx])]
-    plot_place_field!(lg2, celldirs[cidx1])
+    plot_place_map!(lg2, celldirs[cidx1])
     Label(lg2[1,0], "Cell 1", rotation=π/2, tellheight=false,color=:blue)
 
     lg3 = GridLayout(lg[3,1])
     cidx2 = non_place_idx[argmax(sic[non_place_idx])]
-    plot_place_field!(lg3, celldirs[cidx2])
+    plot_place_map!(lg3, celldirs[cidx2])
     Label(lg3[1,0], "Cell 2", rotation=π/2, tellheight=false,color=:green)
 
     lg4 = GridLayout(lg[4,1])
     # median
     cidx3 = place_idx[sortperm(sic[place_idx])[div(length(place_idx),2)]]
-    plot_place_field!(lg4, celldirs[cidx3];ylabel="Cell 3")
+    plot_place_map!(lg4, celldirs[cidx3];ylabel="Cell 3")
     Label(lg4[1,0], "Cell 3", rotation=π/2, tellheight=false,color=:purple)
 
     # TODO: Indicate these two cells in the scatter plot
