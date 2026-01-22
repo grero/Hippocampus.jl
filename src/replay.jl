@@ -2230,7 +2230,7 @@ function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupan
     cc
 end
 
-function process_kwargs(::Type{JointMap}, min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2)
+function process_kwargs(::Type{JointMap};min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, nrefinements=(p=3,g=2),kwargs...)
     h = UInt32(0)
     if min_place_duration != 0.05
         h = CRC32c.crc32c(string(min_place_duration=>min_place_duration),h)
@@ -2247,6 +2247,7 @@ function process_kwargs(::Type{JointMap}, min_place_duration=0.05, min_place_obs
     if trial_start != 2
         h = CRC32c.crc32c(string(trial_start=>trial_start),h)
     end
+    h = CRC32c.crc32c(string(nrefinements=>nrefinements),h)
     h
 end
 
