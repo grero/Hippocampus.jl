@@ -108,7 +108,7 @@ function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothin
     else
         res = issignificant(SpatialInformationContent, celldirs;skip_error=true, kwargs...)
         sic = get_sic(SpatialInformationContent, celldirs;skip_error=true, kwargs...)
-        mean_fr = process_dirs((;kwargs...)->get_mean_firing_rate(JointMap(;kwargs...)), celldirs)
+        mean_fr = process_dirs((;kwargs...)->get_mean_firing_rate(JointMap(;kwargs...)), celldirs;skip_error=true)
         # reformat to array
         mean_fr = [get(mean_fr, c, NaN) for c in celldirs]
         JLD2.save(fname, Dict("res"=>res, "sic"=>sic,"mean_fr"=>mean_fr))
