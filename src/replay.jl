@@ -2329,6 +2329,10 @@ function ViewMapNew(jm::JointMap,mm::SimpleMesh)
     ViewMapNew(mm, weight, occupancy)
 end
 
+function get_mesh(::Type{ViewMapNew};nrefinements=(p=3,g=2),kwargs...)
+    get_maze_mesh(;nrefinements=nrefinements.g)
+end
+
 struct SmoothedViewMap{T<:Real}
     mm::SimpleMesh
     weight::Vector{T}
