@@ -182,3 +182,110 @@ function plot_spatial_summary(celldirs::Union{Vector{String},Nothing}=nothing;kw
         fig
     end
 end
+
+function plot_response_fields(::Type{T}, args...;kwargs...) where T <: AbstractResponseFields
+    ncells = length(args[1])
+    if length(args) == 2
+        width = 300*length(args[2])
+    else
+        width = 600
+    end
+    height = 400*ncells
+    with_theme(plot_theme) do
+        fig = Figure(size=(width,height))
+        lg = GridLayout(fig[1,1])
+        plot_response_fields!(lg, T, args...;kwargs...)
+        fig
+    end
+end
+
+function plot_response_fields!(lg, ::Type{T}, celldirs::Vector{String},args...;kwargs...) where T <: AbstractResponseFields
+    lg = [GridLayout(lg[i,1]) for i in 1:length(celldirs)]
+    labels = range('A', length=length(celldirs), step=1)
+    for (_lg, celldir,ll) in zip(lg,celldirs,labels)
+        plot_response_fields!(_lg, T, celldir,args...;kwargs...)
+        Label(_lg[1,1,TopLeft()], string(ll))
+    end
+end
+
+function plot_response_fields!(lg, ::Type{T}, celldir::String;nshuffles=10_000, nrefinements=(p=3,g=2), kwargs...) where T <: AbstractResponseFields
+    if T <: SpatialResponseFields
+        TM = SpatialInformationContent
+    else
+        TM = GazeInformationContentent
+    end
+    mm = get_mesh(T,nrefinements)
+    rf,sic = cd(celldir) do 
+        rf = get_response_fields(T, nshuffles;nrefinements=nrefinements,kwargs...)
+        sic = compute_skaggs_sic(TM,nshuffles;nrefinements=nrefinements,kwargs...)
+        rf,sic
+    end
+    Z = zeros(nelements(mm))
+    Z[rf.binidx] .= 1.0
+    
+    if embeddim(mm) == 3
+        lscene = LScene(lg[1,1])
+        plotmesh!(lscene, mm;showsegments=true, color=Z)
+    else
+        ax = Axis(lg[1,1])
+        ax.xticklabelsvisible = false
+        ax.yticklabelsvisible = false
+        viz!(ax, mm;showsegments=true, color=Z)
+    end
+    # show distribution of sic
+    ax2 = Axis(lg[2,1])
+    boxplot!(ax2, fill(1.0, length(sic.sic)), sic.sic;show_outliers=false, show_notch=true,color=:gray,width=0.8)
+    scatter!(ax2, [1.0], [sic.sic0], color=:red)
+    ax2.xticksvisible = false
+    ax2.xticklabelsvisible = false
+    ax2.bottomspinevisible = false
+    ylabelvisible = get(kwargs, :ylabelvisible, false)
+    if ylabelvisible
+        ax2.ylabel = "SIC"
+    end
+end
+
+function plot_response_fields!(lg, ::Type{T}, celldir::String, nrefinements::Vector{T2};kwargs...) where T <: AbstractResponseFields where T2 <: @NamedTuple{p::Int64, g::Int64}
+    lgs = [GridLayout(lg[1,i]) for i in 1:length(nrefinements)]
+    for (ii,(_lg, _nrefinements)) in enumerate(zip(lgs, nrefinements))
+        ylabelvisible = ii == 1 
+        plot_response_fields!(_lg, T, celldir;nrefinements=_nrefinements,ylabelvisible=ylabelvisible, kwargs...)
+    end
+end
+
+function plot_map(axes, ii, mp::Type{T}, celldirs::Vector{String};nrefinements=(p=3,g=2), kwargs...) where T <: AbstractMap
+    # axes[1] for map axes[2] for colorbar
+    mm = get_mesh(T;nrefinements=nrefinements)
+    Z = lift(ii) do i
+        jm = cd(celldirs[i]) do
+            JointMap(;nrefinements=nrefinements, kwargs...)
+        end
+        spm = T(jm,mm)
+        Z = spm.weight./spm.occupancy
+        zmin,zmax = extrema(filter(isfinite, Z))
+        axes[2].colorrange[] = (zmin,zmax)
+        Z
+    end
+    if embeddim(mm) == 2
+        viz!(axes[1],mm;showsegments=true,color=Z)
+    else
+        plotmesh!(axes[1],mm;showsegments=true, color=Z, floor_offset=-20, ceiling_offset=10)
+    end
+    length(celldirs)
+end
+
+plot_spatial_map(axes, ii, celldirs;kwargs...) = plot_map(axes, ii, SpatialMapNew, celldirs;kwargs...)
+plot_gaze_map(axes, ii, celldirs;kwargs...) = plot_map(axes, ii, ViewMapNew, celldirs;kwargs...)
+
+function plot_spatial_map(lg::GridLayout)
+    ax = Axis(lg[1,1])
+    axc = Colorbar(lg[1,2], colorrange=(0.0, 0.0), label="Firing rate [Hz]")
+    ax,axc
+end
+
+
+function plot_gaze_map(lg::GridLayout)
+    ax = LScene(lg[1,1])
+    axc = Colorbar(lg[1,2], colorrange=(0.0, 0.0), label="Firing rate [Hz]")
+    ax,axc
+end
