@@ -170,8 +170,8 @@ function plot_spatial_summary!(lg,celldirs::Union{Vector{String},Nothing}=nothin
 
     # TODO: Indicate these two cells in the scatter plot
     cidx = [cidx1, cidx2, cidx3]
-    scatter!(ax1, xx[cidx], yy[cidx], markersize=10px, strokecolor=[:blue,:green,:purple], color=cc[cidx], strokewidth=2.0)
-    #annotation!(ax1, mean_fr[cidx], yy[cidx]; text=["1","2","3"]) 
+    scatter!(ax1, mean_fr[cidx], yy[cidx], markersize=10px, strokecolor=[:blue,:green,:purple], color=cc[cidx], strokewidth=2.0)
+    annotation!(ax1, mean_fr[cidx] .+ [15, 15, 0.0], yy[cidx] .+ [10.0, 0.0, -15], mean_fr[cidx], yy[cidx]; text=["1","2","3"],textcolor=[:blue, :green, :purple]) 
 end
 
 function plot_spatial_summary(celldirs::Union{Vector{String},Nothing}=nothing;kwargs...)
