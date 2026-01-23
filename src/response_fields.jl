@@ -118,3 +118,171 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
     end
     obj
 end
+
+
+function overlap(qq1::Quadrangle, qq2::Quadrangle)
+    s1 = segments(boundary(qq1))
+    s2 = segments(boundary(qq2))
+    res = false
+    for _s1 in s1
+        for _s2 in s2
+            iq = intersection(_s1,_s2)
+            if type(iq) != NotIntersecting
+                res = true
+                break
+            end
+        end
+        if res
+            break
+        end
+    end
+    res
+end
+
+function consolidate(qq::Vector{<:Quadrangle})
+    n = length(qq)
+    can_merge = fill(false, n, n)
+    #can_merge[diagind(can_merge)] .= true
+    for i in 1:n-1
+        for j in i+1:n
+            #can_merge[j,i] = overlap(qq[i], qq[j])
+            iq = intersection(qq[i], qq[j])
+            if type(iq) != NotIntersecting
+                can_merge[j,i] = true
+            end
+        end
+    end
+    can_merge
+end
+
+
+function consolidate_sym(qq::Vector{<:Quadrangle})
+    n = length(qq)
+    can_merge = fill(false, n, n)
+    #can_merge[diagind(can_merge)] .= true
+    for i in 1:n
+        for j in 1:n 
+            #can_merge[j,i] = overlap(qq[i], qq[j])
+            iq = intersection(qq[i], qq[j])
+            if type(iq) != NotIntersecting
+                can_merge[j,i] = true
+            end
+        end
+    end
+    can_merge
+end
+
+function consolidate(can_merge::Matrix{Bool})
+    to_process = [1:size(can_merge,2);]
+    clusters = Vector{Int64}[]
+    while !isempty(to_process)
+        vidx = consolidate(can_merge, first(to_process))
+        push!(clusters, unique(vidx))
+        to_process = setdiff(to_process, vidx)
+    end
+    clusters
+end
+
+function consolidate(can_merge::Matrix{Bool},idx::Int64,visited::Set{Int64}=Set{Int64}())
+    idx in visited && return Int64[]
+    push!(visited, idx)
+    vidx = findall(can_merge[:,idx])
+    for _idx in vidx
+        qidx = consolidate(can_merge, _idx, visited)
+        append!(vidx, qidx)
+    end
+    push!(vidx, idx)
+    return vidx 
+end
+
+
+"""
+    find_number_of_response_fields(celldir::String;kwargs...)
+
+Estimate the number of distinct response fields by looking across spatial scales.
+The size of a response field is defined by the scale at which that response field disappears.
+"""
+function find_number_of_response_fields(celldir::String;nrefinements=[0,1,2,3], nshuffles=10_000, kwargs...)
+    #look for intersecting boundary
+    bb = Any[]
+    qq = Any[]
+    cd(celldir) do
+        for nr in sort(nrefinements,rev=true)
+            _nrefinements = (p=nr, g=2)
+            mm = get_mesh(SpatialResponseFields,_nrefinements)
+            rf = get_response_fields(SpatialResponseFields,nshuffles;nrefinements=_nrefinements,kwargs...) 
+            sic = compute_skaggs_sic(SpatialInformationContent, nshuffles;nrefinements=_nrefinements,kwargs...)
+            #only include this level if it is significant overall
+            if issignificant(sic)
+                A = adjacencymatrix(mm)
+                idx = rf.binidx
+                bbs = boundary.(mm[idx])
+                push!(qq, mm[idx])
+                bbq = Any[]
+                do_include = fill(true, length(bbs)) 
+                for i in 1:length(idx)-1
+                    for j in i+1:length(idx)
+                        if A[i,j] != 0
+                            #TODO: Make this unto a single ring
+                            #bq = merge(bbs[i],bbs[j])
+                            #do_include[[i,j]] .= false 
+                            #push!(bbq, bq)
+                        end
+                    end
+                end
+                append!(bbq, bbs[do_include])
+                # get the positions
+                push!(bb, bbq)
+            end
+        end
+    end
+
+    # start from the larget scale and absorb regions that intersect in the lower scales
+    # TODO: Also merge fields that are adjacent
+    # FIXME: For some reason this doesn't seem to work
+    avail = [fill(true, length(_qq)) for _qq in qq]
+    for k in 2:length(qq)
+        for _qq in qq[k]
+            c = centroid(_qq)
+            m = sqrt(measure(_qq))/2
+            for j in (k-1):-1:1
+                lidx = findall(avail[j]) 
+                #vidx = Meshes.intersects.(bb[j][lidx], _bb)
+                for (l,_qq2) in enumerate(qq[j][lidx])
+                    #vidx = any(func.(Meshes.vertices(_bb2)))
+                    # contained within
+                    v = centroid(_qq2) - c
+                    vidx = all(abs.(v) .< m)
+                    if vidx
+                        avail[j][lidx[l]] = false
+                    end
+                    # if adjacent?
+                end
+                #avail[j][lidx[vidx]] .= false
+            end
+        end
+    end
+    qqf = [_qq[aa] for (_qq,aa) in zip(qq,avail)]
+    # check for adjacent regions and merge them
+    cat(qqf...,;dims=1)
+end
+
+function merge_fields(qqf::Vector{<:Quadrangle})
+    can_merge = consolidate_sym(qqf)
+    #clusters = Hippocampus.consolidate(can_merge)
+    g = SimpleGraph(can_merge)
+    clusters = connected_components(g)
+    aa = Any[]
+    for cluster in clusters
+        if length(cluster) == 1
+            push!(aa, boundary(qqf[cluster[1]]))
+        else
+            _aa = boundary(qqf[cluster[1]])
+            for k in cluster[2:end]
+                _aa = merge(_aa,boundary(qqf[k]))
+            end
+            push!(aa, _aa)
+        end
+    end
+    aa
+end
