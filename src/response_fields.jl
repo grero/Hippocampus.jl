@@ -162,9 +162,7 @@ function consolidate_sym(qq::Vector{<:Quadrangle})
     #can_merge[diagind(can_merge)] .= true
     for i in 1:n
         for j in 1:n 
-            #can_merge[j,i] = overlap(qq[i], qq[j])
-            iq = intersection(qq[i], qq[j])
-            if type(iq) != NotIntersecting
+            if Meshes.intersects(qq[i], qq[j])
                 can_merge[j,i] = true
             end
         end
