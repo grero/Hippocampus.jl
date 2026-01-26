@@ -886,7 +886,7 @@ function plotmesh(lg, ii::Observable{Int64}, mm::SimpleMesh, color::Matrix{T};kw
 
 end
 
-function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, indicate_north=true, kwargs...)
+function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, hide_floor=false, indicate_north=true, kwargs...)
     if (floor_offset != 0 || ceiling_offset != 0 || hide_ceiling)
         m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
          if floor_offset != 0
@@ -964,7 +964,9 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             use_alpha[:ceiling] = talpha
         end
         viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
-        viz!(lscene, m_floor2;color=use_color[:floor],alpha=use_alpha[:floor], colorrange=cr, kwargs...)
+        if !hide_floor
+            viz!(lscene, m_floor2;color=use_color[:floor],alpha=use_alpha[:floor], colorrange=cr, kwargs...)
+        end
         if !hide_ceiling
             viz!(lscene, m_ceiling2;color=use_color[:ceiling],alpha=use_alpha[:ceiling], colorrange=cr, kwargs...)
         end
