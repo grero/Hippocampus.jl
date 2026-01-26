@@ -484,6 +484,10 @@ function SpatialMapNew(;redo=false, do_save=true, kwargs...)
     spm
 end
 
+function get_mesh(::Type{SpatialMapNew};nrefinements=(p=3,g=2),kwargs...)
+    Shadow("xy")floor_topology3(;nrefinements=nrefinements.p)
+end
+
 function get_rate_map(spm::AbstractMap;invalidate_unvisited=true)
     Z = spm.weight./spm.occupancy
     unvisited = spm.occupancy.==0
