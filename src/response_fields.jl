@@ -193,6 +193,16 @@ function consolidate(can_merge::Matrix{Bool},idx::Int64,visited::Set{Int64}=Set{
     return vidx 
 end
 
+function set_refinements(::Type{SpatialResponseFields},nr)
+    (p=nr,g=2)
+end
+
+function set_refinements(::Type{GazeResponseFields},nr)
+    (p=3,g=nr)
+end
+
+sic_type(::Type{GazeResponseFields}) = GazeInformationContent
+sic_type(::Type{SpatialResponseFields}) = SpatialInformationContent
 
 """
     find_number_of_response_fields(celldir::String;kwargs...)
@@ -200,69 +210,23 @@ end
 Estimate the number of distinct response fields by looking across spatial scales.
 The size of a response field is defined by the scale at which that response field disappears.
 """
-function find_number_of_response_fields(celldir::String;nrefinements=[0,1,2,3], nshuffles=10_000, kwargs...)
+function find_number_of_response_fields(::Type{T}, celldir::String;nrefinements=[0,1,2,3], nshuffles=10_000, kwargs...) where T <: AbstractResponseFields
     #look for intersecting boundary
-    bb = Any[]
     qq = Any[]
     cd(celldir) do
         for nr in sort(nrefinements,rev=true)
-            _nrefinements = (p=nr, g=2)
-            mm = get_mesh(SpatialResponseFields,_nrefinements)
-            rf = get_response_fields(SpatialResponseFields,nshuffles;nrefinements=_nrefinements,kwargs...) 
-            sic = compute_skaggs_sic(SpatialInformationContent, nshuffles;nrefinements=_nrefinements,kwargs...)
+            _nrefinements = set_refinements(T, nr)
+            mm = get_mesh(T,_nrefinements)
+            rf = get_response_fields(T,nshuffles;nrefinements=_nrefinements,kwargs...) 
+            sic = compute_skaggs_sic(sic_type(T), nshuffles;nrefinements=_nrefinements,kwargs...)
             #only include this level if it is significant overall
             if issignificant(sic)
-                A = adjacencymatrix(mm)
-                idx = rf.binidx
-                bbs = boundary.(mm[idx])
-                push!(qq, mm[idx])
-                bbq = Any[]
-                do_include = fill(true, length(bbs)) 
-                for i in 1:length(idx)-1
-                    for j in i+1:length(idx)
-                        if A[i,j] != 0
-                            #TODO: Make this unto a single ring
-                            #bq = merge(bbs[i],bbs[j])
-                            #do_include[[i,j]] .= false 
-                            #push!(bbq, bq)
-                        end
-                    end
-                end
-                append!(bbq, bbs[do_include])
-                # get the positions
-                push!(bb, bbq)
+                append!(qq, mm[rf.binidx])
             end
         end
     end
-
-    # start from the larget scale and absorb regions that intersect in the lower scales
-    # TODO: Also merge fields that are adjacent
-    # FIXME: For some reason this doesn't seem to work
-    avail = [fill(true, length(_qq)) for _qq in qq]
-    for k in 2:length(qq)
-        for _qq in qq[k]
-            c = centroid(_qq)
-            m = sqrt(measure(_qq))/2
-            for j in (k-1):-1:1
-                lidx = findall(avail[j]) 
-                #vidx = Meshes.intersects.(bb[j][lidx], _bb)
-                for (l,_qq2) in enumerate(qq[j][lidx])
-                    #vidx = any(func.(Meshes.vertices(_bb2)))
-                    # contained within
-                    v = centroid(_qq2) - c
-                    vidx = all(abs.(v) .< m)
-                    if vidx
-                        avail[j][lidx[l]] = false
-                    end
-                    # if adjacent?
-                end
-                #avail[j][lidx[vidx]] .= false
-            end
-        end
-    end
-    qqf = [_qq[aa] for (_qq,aa) in zip(qq,avail)]
-    # check for adjacent regions and merge them
-    cat(qqf...,;dims=1)
+    qq = convert(Vector{typeof(qq[1])}, qq)
+    qqa = merge_fields(qq) 
 end
 
 function merge_fields(qqf::Vector{<:Quadrangle})
