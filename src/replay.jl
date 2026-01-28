@@ -2276,11 +2276,9 @@ function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,joc
         end
     end
     nrefinements = get(kwargs, :nrefinements, (p=3, g=2))
-    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
-    mm = get_maze_mesh(;nrefinements=nrefinements.g)
-    ng = nelements(mm)
-    np = nelements(m_floor)
-    nh = 24
+    ng = nrefinements.g
+    np = nrefinements.p
+    nh = 1 
     JointMap(Float64.(nspikes), jocc_filtered.weight, qidx,[ng,np,nh])
 end
 
