@@ -2210,8 +2210,15 @@ struct JointMap{T<:Real} <: AbstractMap
     weight::Vector{T}
     occupancy::Vector{T}
     index::Vector{CartesianIndex{4}}
+    dims::Vector{Int64}
 end
 
+function JointMap(weight::Vector{T}, occupancy::Vector{T}, index) where T <: Real
+    ng = maximum(getindex.(index,1))
+    np = maximum(getindex.(index,2))
+    nh = maximum(getindex.(index,3))
+    JointMap{T}(weight, occupancy, index, [ng,np,nh])
+end
 
 function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy)
     nt = length(vpvrp.events)
@@ -2268,7 +2275,13 @@ function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,joc
             nspikes[ii] = cc[k]
         end
     end
-    JointMap(Float64.(nspikes), jocc_filtered.weight, qidx)
+    nrefinements = get(kwargs, :nrefinements, (p=3, g=2))
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+    mm = get_maze_mesh(;nrefinements=nrefinements.g)
+    ng = nelements(mm)
+    np = nelements(m_floor)
+    nh = 24
+    JointMap(Float64.(nspikes), jocc_filtered.weight, qidx,[ng,np,nh])
 end
 
 function DPHT.filename(::Type{JointMap};kwargs...)
@@ -2285,6 +2298,9 @@ function JointMap(;redo::Function=fname->false, do_save=true, kwargs...)
     fname = DPHT.filename(JointMap;kwargs...)
     if !redo(fname) && isfile(fname)
         jm = load_jld2(JointMap, fname)
+        if !isa(jm, JointMap)
+            jm = JointMap(jm.weight, jm.occupancy, jm.index)
+        end
     else
         vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
         jocc,jocc_filtered= cd(DPHT.process_level("session")) do
