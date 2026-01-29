@@ -26,6 +26,9 @@ include("models.jl")
 include("decoding.jl")
 #include("mountainsort.jl") # until InteractiveViz is compatible with Makie 0.24
 include("glmfits.jl")
-
+include("algorithms.jl")
+include("response_fields.jl")
+include("conjunctions.jl")
+include("plots.jl")
 include("poster_analysis.jl")
 end
