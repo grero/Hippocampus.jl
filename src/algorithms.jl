@@ -54,6 +54,47 @@ function issignificant(::Type{T},celldirs::Vector{String};skip_error=false, kwar
     res
 end
 
+struct JointInformationContent <: AbstractInformationContent
+    sic::Vector{Float64}
+    sic0::Float64
+    args::Dict{Symbol,Any}
+end
+
+DPHT.filename(::Type{JointInformationContent}) = "joint_information_content.jld2"
+
+function compute_skaggs_sic(jm::JointMap, nrefinements::@NamedTuple{p::Int64, g::Int64};do_smooth=false, smoothing_method=:laplace, α=0.01, niter=1000)
+    # get the joint counts
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+    mm = get_maze_mesh(;nrefinements=nrefinements.g)
+    ng = nelements(mm)
+    np = nelements(m_floor)
+    X = zeros(ng,np)
+    Y = zeros(ng,np)
+    for (idx,w,o) in zip(jm.index, jm.weight, jm.occupancy)
+        gidx = getindex(idx,1)
+        pidx = getindex(idx,2)
+        X[gidx,pidx] += w
+        Y[gidx,pidx] += o
+    end
+   
+    if do_smooth
+        if smoothing_method == :laplace
+            A_floor = adjacencymatrix(m_floor)
+            Dp_floor = Diagonal(vec(1.0./sqrt.(sum(A_floor,dims=2))))
+            Ls_floor = I - Dp_floor*A_floor*Dp_floor
+            A_mm = adjacencymatrix(mm)
+            Dp_mm = Diagonal(vec(1.0./sqrt.(sum(A_mm,dims=2))))
+            Ls_mm = I - Dp_mm*A_mm*Dp_mm
+            X = laplace_smoothing(permutedims(X), Ls_floor, α;niter=niter)
+            X = laplace_smoothing(permutedims(X), Ls_mm, α;niter=niter)
+
+            Y = laplace_smoothing(permutedims(Y), Ls_floor, α;niter=niter)
+            Y = laplace_smoothing(permutedims(Y), Ls_mm, α;niter=niter)
+        end
+    end
+    compute_skaggs_sic(X[:], Y[:])
+end
+
 """
     process_dirs(func::Function,celldirs::Vector{String}, args...;skip_error=false, kwargs...)
 
@@ -117,6 +158,7 @@ maptype(::Type{SpatialInformationContent}) = SpatialMapNew
 get_mesh(::Type{SpatialInformationContent},nrefinements::NamedTuple) = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
 maptype(::Type{GazeInformationContent}) = ViewMapNew
 get_mesh(::Type{GazeInformationContent},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
+maptype(::Type{JointInformationContent}) = JointMap
 
 """
 Compute Skagg's SIC for the cell in the current working directory using `nshuffles`
@@ -161,28 +203,62 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
         end
         jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;kwargs...)
         sic = zeros(nshuffles)
-        mm = get_mesh(T,nrefinements)
         vpvrpb = ViewAndPlaceRepresentationNew(sp,rp,unity_gaze_data;kwargs...)
         jmb = JointMap(vpvrpb, jocc, jocc_filtered)
         jmb_fname = DPHT.filename(JointMap;kwargs...)
         save_jld2(jmb,jmb_fname)
-        spmb = maptype(T)(jmb,mm)
-        if smooth
-            dmatrix = distancematrix(mm)
-            smg = SmoothedMap(spmb;kwargs...)
-            sic0 = compute_skaggs_sic(smg)
+        if T <: JointInformationContent
+            if smooth
+                if smoothing_method == :laplace
+                     jml = Hippocampus.JointSmoothedMap(jm;method=:laplace, α=args[:α], niter=args[:niter])
+                     sic0 = compute_skaggs_sic(jml)
+                else
+                    error("Only laplace smoothing is implemented for joint maps")
+                end
+            else
+                sic0 = compute_skaggs_sic(jm)
+            end
         else
-            sic0 = compute_skaggs_sic(spmb)
+            mm = get_mesh(T,nrefinements)
+            spmb = maptype(T)(jmb,mm)
+            if smooth
+                if smoothing_method == :gaussian
+                    dmatrix = distancematrix(mm)
+                    smg = SmoothedMap(spmb;method=:gaussian, dmatrix=dmatrix, kwargs...)
+                else
+                    smoothing_method = :laplace
+                    Ls = get_normalize_laplacian(mm)
+                    smg = SmoothedMap(spmb;method=:laplace, Ls=Ls, kwargs...)
+                end
+                sic0 = compute_skaggs_sic(smg)
+            else
+                sic0 = compute_skaggs_sic(spmb)
+            end
         end
         @showprogress "Computing sic...." offset=prog_offset for (i,sptrain) in enumerate(eachcol(sp_r.timestamps))
             vpvrp = ViewAndPlaceRepresentationNew(sptrain/1000.0,rp,unity_gaze_data;kwargs...)
             jm = JointMap(vpvrp, jocc, jocc_filtered)
-            spm = maptype(T)(jm,mm)
-            if smooth
-                smg = SmoothedMap(spm;dmatrix=dmatrix, kwargs...)
-                sic[i] = compute_skaggs_sic(smg)
+            if T <: JointInformationContent
+                if smooth
+                    if smoothing_method == :laplace
+                        jml = Hippocampus.JointSmoothedMap(jm;method=:laplace, α=args[:α], niter=args[:niter])
+                        sic[i]= compute_skaggs_sic(jml)
+                    end
+                else
+                    sic[i] = compute_skaggs_sic(jm)
+                end
             else
-                sic[i] = compute_skaggs_sic(spm)
+                spm = maptype(T)(jm,mm)
+                if smooth
+                    if smoothing_method == :gaussian
+                        smg = SmoothedMap(spm;method=:gaussian, dmatrix=dmatrix, kwargs...)
+                    else
+                        smg = SmoothedMap(spm;method=:laplace, Ls=Ls, kwargs...)
+                    end
+                    sic[i] = compute_skaggs_sic(smg)
+                else
+                    sic[i] = compute_skaggs_sic(spm)
+                end
             end
         end
         sicobj = T(sic,sic0, args)
