@@ -2203,6 +2203,12 @@ DPHT.filename(::Type{ViewMapNew{T}}) where T <: Real = "view_map.jld2"
 DPHT.level(::Type{ViewMapNew}) = "cell"
 DPHT.level(::Type{ViewMapNew{T}}) where T <: Real = "cell"
 
+function compute_skaggs_sic(sm::ViewMapNew)
+    weight = sm.weight
+    λ = weight./sm.occupancy
+    compute_skaggs_sic(λ, sm.occupancy)
+end
+
 """
 Joint map 
 """
