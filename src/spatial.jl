@@ -495,11 +495,11 @@ function SpatialMapNew(;redo=false, do_save=true, kwargs...)
     if !redo && isfile(fname)
         spm = load_jld2(SpatialMapNew, fname)
     else
-        spoc = cd(DPHT.process_level("session")) do
-            SpatialOccupancyNew()
-        end
-        spr = SpatialRepresentation(;kwargs...)
-        spm,h = SpatialMapNew(spr, spoc;kwargs...)
+        jm = JointMap(;kwargs...)
+        # FIXME: Get the refinement number from jm
+        nf = get(kwargs, :nrefinements, (p=3,g=2))
+        m_floor = get_mesh(SpatialMapNew;nrefinements=nf)
+        spm = SpatialMapNew(jm,m_floor)
         if do_save
             save_jld2(spm, fname)
         end
