@@ -95,6 +95,11 @@ function process_kwargs(::Type{<:AbstractInformationContent};nshuffles=10_000, n
             h = CRC32c.crc32c(string(:σ=>σ),h)
         elseif smoothing_method == :adpative
             h = CRC32c.crc32c(string(:α=>α),h)
+        elseif smoothing_method == :laplace
+            h = CRC32c.crc32c(string(:α=>α),h)
+            niter = get(kwargs, :niter, 1000)
+            h = CRC32c.crc32c(string(:α=>α),h)
+            h = CRC32c.crc32c(string(:niter=>niter),h)
         end
     end
     h
@@ -126,6 +131,9 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
         smoothing_method = get(kwargs, :smoothing_method, :gaussian)
         if smoothing_method == :gaussian
             args[:σ] = get(kwargs, :σ, 3.0)
+        elseif smoothing_method == :laplace
+            args[:α] = get(kwargs, :α, 0.01)
+            args[:niter] = get(kwargs, :niter, 1000)
         elseif smoothing_method == :adaptive
             args[:α]= get(kwargs, :α, 1000.0^2)
         end
