@@ -2321,8 +2321,136 @@ function JointMap(;redo::Function=fname->false, do_save=true, kwargs...)
     jm
 end
 
+function get_maps(jm::JointMap;)
+    #TODO: Make this more general;optionally include head direction as well
+   m_floor = Shadow("xy")(floor_topology3(;nrefinements=jm.dims[2]))
+    np = nelements(m_floor)
+    mm = get_maze_mesh(;nrefinements=jm.dims[1])
+    ng = nelements(mm)
+    nh = 24
+    X = zeros(ng,np)
+    Y = zeros(ng,np)
+    for (idx,w,o) in zip(jm.index, jm.weight, jm.occupancy)
+        gidx = getindex(idx,1)
+        pidx = getindex(idx,2)
+        hidx = getindex(idx, 3)
+        X[gidx,pidx] += w
+        Y[gidx,pidx] += o
+    end
+    X,Y
+end
+
+function get_weight(jm::JointMap)
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=jm.dims[2]))
+    np = nelements(m_floor)
+    mm = get_maze_mesh(;nrefinements=jm.dims[1])
+    ng = nelements(mm)
+    nh = 24
+    X = zeros(ng,np,nh)
+    for (idx,w) in zip(jm.index, jm.weight)
+        gidx = getindex(idx,1)
+        pidx = getindex(idx,2)
+        hidx = getindex(idx,3)
+        X[gidx,pidx,hidx] += w
+    end
+    X
+end
+
+function get_occupancy(jm::JointMap)
+     m_floor = Shadow("xy")(floor_topology3(;nrefinements=jm.dims[2]))
+    np = nelements(m_floor)
+    mm = get_maze_mesh(;nrefinements=jm.dims[1])
+    ng = nelements(mm)
+    nh = 24
+    X = zeros(ng,np,nh)
+    for (idx,o) in zip(jm.index, jm.occupancy)
+        gidx = getindex(idx,1)
+        pidx = getindex(idx,2)
+        hidx = getindex(idx,3)
+        X[gidx,pidx,hidx] += o
+    end
+    X
+end
+
+struct JointSmoothedMap{T<:Real,N<:Any} <: AbstractMap
+    dims::Vector{Int64}
+    weight::Array{T,N}
+    occupancy::Array{T,N}
+    unvisited::Vector{CartesianIndex{N}}
+    smooth_params::NamedTuple
+end
+
+function get_rate_map(jsm::JointSmoothedMap;invalidate_unvisited=true)
+    Z = jsm.weight./jsm.occupancy
+    if invalidate_unvisited
+        Z[jsm.unvisited] .= NaN 
+    end
+    Z
+end
+
+function process_kwargs(::Type{JointSmoothedMap};method=:adaptive, α=10000,rmax=10, nrefinements::NTuple{N,Int64},niter=1000, kwargs...) where N
+    h = zero(UInt32)
+    h = crc32c(string(method=>method),h)
+    h = crc32c(string(alpha=>alpha),h)
+    h = crc32c(string(rmax=>rmax),h)
+    h = crc32c(string(nrefinements=>nrefinements),h)
+    h = crc32c(string(niter=>niter),h)
+    h
+end
+
+DPHT.filename(sm::JointSmoothedMap{T,N}) where T <: Real where N = "joint_smoothed_map.jld2"
+DPHT.filename(::Type{JointSmoothedMap}) = "joint_smoothed_map.jld2"
+
+function JointSmoothedMap(jm::JointMap;method=:gaussian, σ=5, m=4, edge_correct=false, rmax=10, kwargs...)
+    #weight = get_weight(jm)
+    #occupancy = get_occupancy(jm)
+    weight, occupancy = get_maps(jm)
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=jm.dims[2]))
+    Lf = get_normalize_laplacian(m_floor)
+    mm = get_maze_mesh(;nrefinements=jm.dims[1])
+    Lm = get_normalize_laplacian(mm)
+    if method == :gaussian
+        Zg, Xg, Yg = gaussian_smoothing(weight, ccupancy, spm.mm, σ;m=m,kwargs...)
+        smooth_params = (method=method, σ=σ, m=m, edge_correct=edge_correct)
+    elseif method == :adaptive
+        α = get(kwargs, :α, 1000.0^2)
+        Zg, Xg, Yg = adaptive_smoothing(weight, occupancy, spm.mm, α;rmax=rmax)
+        smooth_params = (method=method,α=α,rmax=rmax) 
+    elseif method == :laplace
+        α = get(kwargs, :α, 0.01)
+        niter = get(kwargs, :niter, 1000)
+        # first place
+        t0 = time()
+        Xg = laplace_smoothing(permutedims(weight, [2,1]), Lf,α;niter=niter)
+        Yg = laplace_smoothing(permutedims(occupancy, [2,1]), Lf,α;niter=niter)
+        t1 = time() - t0
+        #then view
+        t0 = time()
+        Xg = laplace_smoothing(permutedims(Xg, [2,1]), Lm,α;niter=niter)
+        Yg = laplace_smoothing(permutedims(Yg, [2,1]), Lm,α;niter=niter)
+        t2 = time() - t0
+
+        smooth_params = (method=method, α=α, niter=niter)
+    else
+        error("Unkonwn smoothing method $method")
+    end
+    unvisited = findall(occupancy .== 0)
+    JointSmoothedMap(jm.dims, Xg, Yg, unvisited, smooth_params)
+end
+
 function get_mean_firing_rate(jm::JointMap)
     mean(jm.weight./jm.occupancy)
+end
+
+function compute_skaggs_sic(jml::JointSmoothedMap)
+    λ = jml.weight./jml.occupancy
+    compute_skaggs_sic(λ[:], jml.occupancy[:])
+end
+
+function compute_skaggs_sic(jm::JointMap)
+    weight,occupancy = get_maps(jm)
+    λ = weight./occupancy
+    compute_skaggs_sic(λ[:], occupancy[:])
 end
 
 function SpatialMapNew(jm::JointMap,mm::SimpleMesh)
