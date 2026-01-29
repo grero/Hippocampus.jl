@@ -1855,7 +1855,7 @@ function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata
     ViewAndPlaceRepresentationNew(sp, rp,gdata;kwargs...)
 end
 
-function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false,trial_start=2) where T <: Real
+function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false,trial_start=2,kwargs...) where T <: Real
     # TODO: Implement Spiketrain shuffling
     nt = numtrials(gdata)
     events = Vector{Vector{Float64}}(undef, nt)
