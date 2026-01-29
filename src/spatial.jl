@@ -346,13 +346,16 @@ end
 DPHT.filename(sm::SmoothedMap{T}) where T <: Real = "smoothed_map.jld2"
 DPHT.filename(::Type{SmoothedMap}) = "smoothed_map.jld2"
 
-function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, nrefinemensts=3,kwargs...)
+function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, nrefinemensts=3,niter=1000, kwargs...)
     h = zero(UInt32)
     h = crc32c(string(method=>method),h)
     h = crc32c(string(alpha=>alpha),h)
     h = crc32c(string(rmax=>rmax),h)
     if nrefinemensts != 3
         h = crc32c(string(nrefinements=>nrefinemensts),h)
+    end
+    if smoothing_method == :laplace
+        h = crc32c(string(niter=>niter),h)
     end
     h
 end
