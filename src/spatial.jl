@@ -360,18 +360,35 @@ function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, 
     h
 end
 
-function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=false, α=1000.0^2,rmax=10, kwargs...)
+
+function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=false, rmax=10, kwargs...)
+    weight = get_weight(spm)
+    occupancy = get_occupancy(spm)
     if method == :gaussian
-        Zg, Xg, Yg = gaussian_smoothing(spm.weight, spm.occupancy, spm.mm, σ;m=m,kwargs...)
+        @debug "gaussian smoothing"
+        Zg, Xg, Yg = gaussian_smoothing(weight, occupancy, spm.mm, σ;m=m,kwargs...)
         smooth_params = (method=method, σ=σ, m=m, edge_correct=edge_correct)
     elseif method == :adaptive
-        Zg, Xg, Yg = adaptive_smoothing(spm.weight, spm.occupancy, spm.mm, α;rmax=rmax)
+        α = get(kwargs, :α, 1000.0^2)
+        Zg, Xg, Yg = adaptive_smoothing(weight, occupancy, spm.mm, α;rmax=rmax)
         smooth_params = (method=method,α=α,rmax=rmax) 
+    elseif method == :laplace
+        @debug "laplace smoothing"
+        α = get(kwargs, :α, 0.01)
+        niter = get(kwargs, :niter, 1000)
+        if haskey(kwargs, :Ls)
+            Ls = kwargs[:Ls]
+        else
+            Ls = get_normalize_laplacian(spm.mm)
+        end
+        Xg = laplace_smoothing(weight, Ls,α;niter=niter)
+        Yg = laplace_smoothing(occupancy, Ls,α;niter=niter)
+        smooth_params = (method=method, α=α, niter=niter)
     else
         error("Unkonwn smoothing method $method")
     end
-    unvisited = findall(spm.occupancy .== 0)
-    SmoothedMap(spm.mm, Xg, Yg, unvisited, smooth_params)
+    unvisited = findall(occupancy .== 0)
+    SmoothedMap(spm.mm, Xg[:], Yg[:], unvisited, smooth_params)
 end
 
 function SmoothedMap(::Type{T},args...;redo=false, do_save=true, kwargs...) where T <: AbstractMap
