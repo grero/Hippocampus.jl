@@ -1039,6 +1039,44 @@ function gaussian_smoothing(X::Matrix{T}, Y::Matrix{T}, mm::SimpleMesh,σ=4;dmat
 end
 
 """
+    laplacace_smoothing(X::Vector{T}, mm::SimpleMesh, α::T;niter=1000)
+
+Smoothg the columns of  `X` on the mesh `mm` using iterative laplacian smoothing
+"""
+function laplace_smoothing(X::Matrix{T}, mm::SimpleMesh, α::T;niter=1000) where T <: Real
+    A = adjacencymatrix(mm)
+    Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
+    # normalized laplacian
+    Ls = I - Dp*A*Dp
+    laplace_smoothing(X, Ls, α;niter=niter)
+end
+
+function laplace_smoothing(X::Matrix{T}, Ls::AbstractMatrix{T}, α::T;niter=1000) where T <: Real
+    G = I - α*Ls
+    Xs = copy(X)
+    # temporary storage
+    Xs2 = copy(X)
+    t0 = time()
+    for _ in 1:niter
+        mul!(Xs2, G, Xs)
+        Xs .= Xs2
+    end
+    t1 = time() - t0
+    Xs
+end
+
+function laplace_smoothing(X::Vector{<:Real},args...;kwargs...)
+    laplace_smoothing(reshape(X,length(X),1), args...;kwargs...)
+end
+
+function laplace_smoothing(X::Array{<:Real,3}, args...;kwargs...)
+    # reshape, combining the first 2 dimensions
+    X2 = reshape(X, size(X,1), size(X,2)*size(X,3))
+    Xs = laplace_smoothing(X2, args...;kwargs...)
+    reshape(Xs, size(X,1), size(X,2), size(X,3))
+end
+
+"""
 Generate a simple tiled texture with the specified base color and period `period`.
 """
 function generate_tile(base_color, width, height;nn=20, buffer=4, period=nn)
