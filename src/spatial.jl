@@ -8,6 +8,9 @@ using LinearRegressionUtils
 abstract type AbstractMap  end
 abstract type AbstractSpatialMap <: AbstractMap end
 
+get_weight(mm::AbstractMap) = mm.weight
+get_occupancy(mm::AbstractMap) = mm.occupancy
+
 """
 Contains information about the total time spent in each spatial bin.
 """
