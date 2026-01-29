@@ -383,6 +383,13 @@ function distance(p1::Vector{T}, mm::SimpleMesh,trajectories::Matrix{Vector{Int6
     D
 end
 
+function get_normalize_laplacian(mm::SimpleMesh)
+    A = adjacencymatrix(mm)
+    Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
+    Ls = I - Dp*A*Dp
+    Ls
+end
+
 function grammatrix(mm::SimpleMesh;kwargs...)
     D = distancematrix(mm;kwargs...)
     cm = centroid.(mm) .- Meshes.Point(zeros(embeddim(mm))...)
