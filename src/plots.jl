@@ -15,8 +15,8 @@ Illustrate place fields for the cell in `celldir`.
 
 One panel with the raw firing rate map, one with a gaussian smoothed firing rate map and one with the adaptively smoothed firing rate map
 """
-function plot_place_map!(lg, celldir::String;nrefinements=(p=3,g=2),σ=3, α=1000.0.^2, ylabel="", kwargs...)
-    sm, smg, sma,mm, sic = cd(celldir) do
+function plot_map!(lg, ::Type{T}, celldir::String;nrefinements=(p=3,g=2),σ=3, α=1000.0.^2, ylabel="", smooth_method::Vector{Symbol}=[:gaussian,:adaptive], smooth_params=[(σ=3,), (α=1000.0^2,)], kwargs...) where T <: AbstractInformationContent
+    sm, smg, sma,mm, sic,sicg,sica = cd(celldir) do
         #sp = Spiketrain()
         #rp = cd(DPHT.process_level(level(RippleData))) do
         #    RippleData()
@@ -28,48 +28,78 @@ function plot_place_map!(lg, celldir::String;nrefinements=(p=3,g=2),σ=3, α=100
         #    JointOccupancy(;redo=false, nrefinements=nrefinements,trial_start=trial_start)
         #end
         #jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;kwargs...)
-        sic = compute_skaggs_sic(SpatialInformationContent,10_000;kwargs...)
-        mm = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        sic = compute_skaggs_sic(T,10_000;kwargs...)
+        mm = get_mesh(T,nrefinements)
+        #mm = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
         #vpvrpb = ViewAndPlaceRepresentationNew(sp,rp,unity_gaze_data;kwargs...)
         jmb = JointMap(;kwargs...)
         # TODO: I need to be able to load this directly
-        spmb = SpatialMapNew(jmb,mm)
-        smg = SmoothedMap(spmb;method=:gaussian, σ=σ)
-        sma = SmoothedMap(spmb;method=:adaptive, α=α)
-        spmb,smg,sma,mm, sic
+        spmb = maptype(T)(jmb,mm)
+        smg = SmoothedMap(spmb;method=smooth_method[1], smooth_params[1]...)
+        sicg = compute_skaggs_sic(T,10_000;smooth=true, smoothing_method=smooth_method[1], smooth_params[1]...,kwargs...)
+        sma = SmoothedMap(spmb;method=smooth_method[2], smooth_params[2]...)
+        sica = compute_skaggs_sic(T,10_000;smooth=true, smoothing_method=smooth_method[2], smooth_params[2]...,kwargs...)
+        spmb,smg,sma,mm, sic,sicg,sica
     end
     @show sic.sic0 percentile(sic.sic, 95)
+    @show sicg.sic0 percentile(sicg.sic, 95)
+    @show sica.sic0 percentile(sica.sic, 95)
     # add SIC with distribution
     ax0 = Axis(lg[1,1])
     boxplot!(ax0, fill(1.0, length(sic.sic)), sic.sic;show_outliers=false, show_notch=true,color=:gray)
+    hlines!(ax0, percentile(sic.sic,95), linestyle=:dot)
     ax0.xticklabelsvisible = false
     ax0.xticksvisible = false
     ax0.bottomspinevisible = false
     scatter!(ax0, [1.0],[sic.sic0],color=:red)
     ax0.ylabel = "SIC"
 
-    ax1 = Axis(lg[1,2])
-    ax2 = Axis(lg[1,4])
-    ax3 = Axis(lg[1,6])
+    if embeddim(mm) == 2
+        ax1 = Axis(lg[1,2])
+        ax2 = Axis(lg[1,4])
+        ax3 = Axis(lg[1,6])
+    else
+        ax1 = LScene(lg[1,2],show_axis=false)
+        ax2 = LScene(lg[1,4], show_axis=false)
+        ax3 = LScene(lg[1,6], show_axis=false)
+    end
 
     Z = sm.weight./sm.occupancy
-    viz!(ax1, mm;showsegments=false, color=:lightgray)
-    viz!(ax1, mm;showsegments=false, color=Z)
+    if embeddim(mm) == 2
+        viz!(ax1, mm;showsegments=false, color=:lightgray)
+        viz!(ax1, mm;showsegments=false, color=Z)
+        ax1.title = "Raw"
+    else
+        plotmesh!(ax1, mm;color=:lightgray, showsegments=false, floor_offset=-20, ceiling_offset=10)
+        plotmesh!(ax1, mm;color=Z, showsegments=false, floor_offset=-20, ceiling_offset=10)
+    end
     Colorbar(lg[1,3], colorrange=(extrema(filter(isfinite, Z))),label="Firing rate [Hz]")
     ax1.title = "Raw"
     Zg = smg.weight./smg.occupancy
     Zg[smg.unvisited] .= NaN 
-    viz!(ax2, mm;showsegments=false, color=:lightgray)
-    viz!(ax2, mm;showsegments=false, color=Zg)
+    if embeddim(mm) == 2
+        viz!(ax2, mm;showsegments=false, color=:lightgray)
+        viz!(ax2, mm;showsegments=false, color=Zg)
+        ax2.title =  strip(string(smooth_params[1]),['(',')'])
+    else
+        plotmesh!(ax2, mm;color=:lightgray, showsegments=false, floor_offset=-20, ceiling_offset=10)
+        plotmesh!(ax2, mm;color=Zg, showsegments=false, floor_offset=-20, ceiling_offset=10)
+    end
     Colorbar(lg[1,5], colorrange=(extrema(filter(isfinite, Zg))), label="Firing rate [Hz]")
 
     ax2.title = "σ = $(σ)"
     Za = sma.weight./sma.occupancy
     Za[sma.unvisited] .= NaN
-    viz!(ax3, mm;showsegments=false, color=:lightgray)
-    viz!(ax3, mm;showsegments=false, color=Za)
+    if embeddim(mm) == 2
+        viz!(ax3, mm;showsegments=false, color=:lightgray)
+        viz!(ax3, mm;showsegments=false, color=Za)
+        ax3.title =  strip(string(smooth_params[2]),['(',')'])
+    else
+        plotmesh!(ax3, mm;color=:lightgray, showsegments=false, floor_offset=-20, ceiling_offset=10)
+        plotmesh!(ax3, mm;color=Za, showsegments=false, floor_offset=-20, ceiling_offset=10)
+    end
     Colorbar(lg[1,7], colorrange=(extrema(filter(isfinite, Za))), label="Firing rate [Hz]")
-    ax3.title = "α = $α"
+    if embeddim(mm) == 2
     for ax in [ax1, ax2, ax3]
         ax.xticklabelsvisible = false
         ax.yticklabelsvisible = false
@@ -77,9 +107,10 @@ function plot_place_map!(lg, celldir::String;nrefinements=(p=3,g=2),σ=3, α=100
         ax.yticksvisible = false
         ax.bottomspinevisible = false
         ax.leftspinevisible = false
-    end
-    if !isempty(ylabel)
-        ax1.ylabel = ylabel
+        end
+        if !isempty(ylabel)
+            ax1.ylabel = ylabel
+        end
     end
     colsize!(lg, 1, Relative(0.1))
     ax1,ax2,ax3
