@@ -2419,16 +2419,19 @@ function JointSmoothedMap(jm::JointMap;method=:gaussian, σ=5, m=4, edge_correct
     elseif method == :laplace
         α = get(kwargs, :α, 0.01)
         niter = get(kwargs, :niter, 1000)
+        @debug α niter
         # first place
         t0 = time()
-        Xg = laplace_smoothing(permutedims(weight, [2,1]), Lf,α;niter=niter)
-        Yg = laplace_smoothing(permutedims(occupancy, [2,1]), Lf,α;niter=niter)
+        Xg = laplace_smoothing(weight, Lf,α;niter=niter)
+        Yg = laplace_smoothing(occupancy, Lf,α;niter=niter)
         t1 = time() - t0
+        @debug t1
         #then view
         t0 = time()
-        Xg = laplace_smoothing(permutedims(Xg, [2,1]), Lm,α;niter=niter)
-        Yg = laplace_smoothing(permutedims(Yg, [2,1]), Lm,α;niter=niter)
+        Xg = permutedims(laplace_smoothing(permutedims(Xg, [2,1]), Lm,α;niter=niter))
+        Yg = permutedims(laplace_smoothing(permutedims(Yg, [2,1]), Lm,α;niter=niter))
         t2 = time() - t0
+        @debug t2
 
         smooth_params = (method=method, α=α, niter=niter)
     else

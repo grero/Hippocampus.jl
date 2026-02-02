@@ -1058,7 +1058,8 @@ function laplace_smoothing(X::Matrix{T}, Ls::AbstractMatrix{T}, α::T;niter=1000
     Xs2 = copy(X)
     t0 = time()
     for _ in 1:niter
-        mul!(Xs2, G, Xs)
+        # make sure we multiple with the columns of G since that is faster
+        mul!(Xs2, Xs, G)
         Xs .= Xs2
     end
     t1 = time() - t0
@@ -1066,14 +1067,14 @@ function laplace_smoothing(X::Matrix{T}, Ls::AbstractMatrix{T}, α::T;niter=1000
 end
 
 function laplace_smoothing(X::Vector{<:Real},args...;kwargs...)
-    laplace_smoothing(reshape(X,length(X),1), args...;kwargs...)
+    laplace_smoothing(reshape(X,1,length(X)), args...;kwargs...)
 end
 
 function laplace_smoothing(X::Array{<:Real,3}, args...;kwargs...)
     # reshape, combining the first 2 dimensions
-    X2 = reshape(X, size(X,1), size(X,2)*size(X,3))
+    X2 = permutedims(reshape(X, size(X,1), size(X,2)*size(X,3)))
     Xs = laplace_smoothing(X2, args...;kwargs...)
-    reshape(Xs, size(X,1), size(X,2), size(X,3))
+    reshape(permutedims(Xs), size(X,1), size(X,2), size(X,3))
 end
 
 """
