@@ -8,13 +8,17 @@ end
 
 DPHT.filename(::Type{SpatialInformationContent}) = "spatial_information_content.jld2"
 
-function issignificant(sic::AbstractInformationContent;α=0.05,kwargs...)
-    sic.sic0 > percentile(sic.sic, 100*(1-α))
+function issignificant(sic::AbstractInformationContent;pv_threshold=0.05,kwargs...)
+    sic.sic0 > percentile(sic.sic, 100*(1-pv_threshold))
 end
 
-function issignificant(::Type{T};α=0.05,kwargs...) where T <: AbstractInformationContent
+function issignificant(::Type{T};pv_threshold=0.05,kwargs...) where T <: AbstractInformationContent
     sic = compute_skaggs_sic(T, get(kwargs, :nshuffles,10_000);kwargs...)
-    issignificant(sic;α=α)
+    if sic !== nothing
+        return issignificant(sic;pv_threshold=pv_threshold)
+    end
+    return nothing
+
 end
 
 function get_sic(::Type{T}, celldirs::Vector{String};skip_error=false, kwargs...) where T <: AbstractInformationContent
