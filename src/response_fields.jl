@@ -35,8 +35,15 @@ function process_kwargs(::Type{<:AbstractResponseFields};nshuffles=10_000, nrefi
         h = CRC32c.crc32c(string(:smoothing_method=>smoothing_method),h)
         if smoothing_method==:gaussian
             h = CRC32c.crc32c(string(:σ=>σ),h)
+        elseif smoothing_method==:laplace
+            α = get(kwargs, :α, 0.1)
+            niter = get(kwargs, :niter, 100)
+            h = CRC32c.crc32c(string(:α=>α),h)
+            h = CRC32c.crc32c(string(:niter=>niter),h)
         elseif smoothing_method == :adpative
             h = CRC32c.crc32c(string(:α=>α),h)
+        else
+            error("Unkown smoothing method $(smoothing_method)")
         end
     end
     h
@@ -51,6 +58,9 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
         smoothing_method = get(kwargs, :smoothing_method, :gaussian)
         if smoothing_method == :gaussian
             args[:σ] = get(kwargs, :σ, 3.0)
+        elseif smoothing_method == :laplace
+            args[:α] = get(kwargs, :α, 0.1)
+            args[:niter] = get(kwargs, :niter, 100)
         elseif smoothing_method == :adaptive
             args[:α]= get(kwargs, :α, 1000.0^2)
         end
@@ -82,8 +92,16 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
         jmb = JointMap(vpvrpb, jocc, jocc_filtered)
         spmb = maptype(T)(jmb,mm)
         if smooth
-            dmatrix = distancematrix(mm)
-            smg = SmoothedMap(spmb;kwargs...)
+            if args[:smoothing_method] == :gaussian
+                dmatrix = distancematrix(mm)
+                smg = SmoothedMap(spmb;method=:gaussian, σ=args[:σ])
+            elseif args[:smoothing_method] == :laplace
+                Ls = get_normalize_laplacian(mm)
+                @show "Laplace smooth"
+                smg = SmoothedMap(spmb;method=:laplace, Ls=Ls, α=args[:α], niter=args[:niter])
+            else
+                error("Unknown smoothing method $(args[:smoothing_method])")
+            end
             λ = smg.weight./smg.occupancy
             λ[smg.unvisited] .= NaN
         else
@@ -96,8 +114,12 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
             jm = JointMap(vpvrp, jocc, jocc_filtered)
             spm = maptype(T)(jm,mm)
             if smooth
-                smg = SmoothedMap(spm;dmatrix=dmatrix, kwargs...)
-                λ_shuffled[:,i] .= spm.weight./spm.occupancy
+                if args[:smoothing_method] == :gaussian
+                    smg = SmoothedMap(spm;dmatrix=dmatrix, method=:gaussian, σ=args[:σ])
+                else args[:smoothing_method] == :laplace
+                    smg = SmoothedMap(spm;Ls=Ls, method=:laplace, α=args[:α], niter=args[:niter])
+                end 
+                λ_shuffled[:,i] .= smg.weight./pmg.occupancy
                 λ_shuffled[smg.unvisited,i] .= NaN
             else
                 λ_shuffled[:,i] .= spm.weight./spm.occupancy
