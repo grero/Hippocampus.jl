@@ -41,7 +41,7 @@ function get_sic(::Type{T}, celldirs::Vector{String};skip_error=false, kwargs...
 end
 
 function issignificant(::Type{T},celldirs::Vector{String};skip_error=false, kwargs...) where T <: AbstractInformationContent
-    res = fill(false, length(celldirs))
+    res = Vector{Union{Bool,Nothing}}(undef, length(celldirs))
     for (i,c) in enumerate(celldirs)
         try
             cd(c) do
