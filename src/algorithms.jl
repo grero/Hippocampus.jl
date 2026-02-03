@@ -168,7 +168,7 @@ maptype(::Type{JointInformationContent}) = JointMap
 Compute Skagg's SIC for the cell in the current working directory using `nshuffles`
 random circular shuffles of the underlying spike train data
 """
-function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, kwargs...) where T <: AbstractInformationContent
+function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, load_only=false, redo=fname->false, do_save=true, smooth=false, prog_offset=0, kwargs...) where T <: AbstractInformationContent
     h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,kwargs...)
     args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth)
     @assert typeof(args) == fieldtype(T, :args)
@@ -191,6 +191,8 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
     end
     if !redo(fname) && isfile(fname)
         sicobj = load_jld2(T, fname)
+    elseif load_only && !isfile(fname)
+        return nothing
     else
         sp = Spiketrain()
         sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, kwargs...)
