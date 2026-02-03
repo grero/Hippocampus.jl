@@ -119,7 +119,7 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
                 else args[:smoothing_method] == :laplace
                     smg = SmoothedMap(spm;Ls=Ls, method=:laplace, α=args[:α], niter=args[:niter])
                 end 
-                λ_shuffled[:,i] .= smg.weight./pmg.occupancy
+                λ_shuffled[:,i] .= smg.weight./smg.occupancy
                 λ_shuffled[smg.unvisited,i] .= NaN
             else
                 λ_shuffled[:,i] .= spm.weight./spm.occupancy
