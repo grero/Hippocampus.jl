@@ -110,7 +110,7 @@ function process_dirs(func::Function,celldirs::Vector{String}, args...;skip_erro
     @showprogress "Processing...." for c in celldirs
         try
             cd(c) do
-                res[c] = func(args...;prog_offset=1, kwargs...)
+                res[c] = func(args...; kwargs...)
             end
         catch ee
             if skip_error
