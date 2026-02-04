@@ -917,7 +917,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
         for k in [:ceiling, :middle, :floor]
             use_color[k] = Observable(:lightgray)
         end
-        cr = Observable(nothing)
+        cr = Observable{Union{Nothing, Tuple{Float64, Float64}}}(nothing)
         nanidx = nothing
         on(tcolor) do _tcolor
             if isa(_tcolor, AbstractArray{<:Any})
@@ -927,8 +927,8 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
                 qcolor = zero(_tcolor)
                 qcolor .= _tcolor
                 qcolor[nanidx] .= zero(eltype(qcolor))
-                if eltype(tcolor) <: Real
-                    cr[] = extrema(qcolor)
+                if eltype(_tcolor) <: Real
+                    cr[] = extrema(qcolor[nanidx.==false])
                 else
                     cr[] = nothing
                 end
