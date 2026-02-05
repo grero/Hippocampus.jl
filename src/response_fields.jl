@@ -295,3 +295,66 @@ end
 
 function run_cluster_analysis()
 end
+
+function plot_n_fields(::Type{T}, celldirs::Vector{String};kwargs...) where T <: AbstractResponseFields
+    with_theme(plot_theme) do
+        fig = Figure(size=(600,600))
+        lg = GridLayout(fig[1,1])
+        plot_n_fields!(lg, T, celldirs;kwargs...)
+        fig
+    end
+end
+
+function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where T <: AbstractResponseFields
+    rfs = process_dirs(celldirs) do
+        get_response_fields(T, 10_000;load_only=true, kwargs...)
+    end
+    kk = filter(k->k[2]!==nothing, rfs)
+    mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
+    nfields = Dict()
+    field_size = Dict()
+    # histogram of field sizes
+    Z = zeros(nelements(mm))
+    for (k,v) in rfs
+        if v !== nothing
+            clusters = merge_fields(v)
+            nfields[k] = length(clusters)
+            field_size[k] = fill(0.0, length(clusters))
+            for (ii,cluster) in enumerate(clusters)
+                field_size[k][ii] = ustrip(sum(measure.(mm[cluster])))
+                Z[v.binidx[cluster]] .+= 1.0
+            end
+        end
+    end
+    Z[Z.==0.0] .= NaN
+    cc = countmap(values(nfields))
+    kk = sort(collect(keys(cc)))
+    field_sizes = Float64[]
+    for (k,v) in field_size
+        append!(field_sizes, v)
+    end
+    with_theme(plot_theme) do
+        ax = Axis(lg[1,1])
+        barplot!(ax, kk, [cc[k] for k in kk])
+        ax.xlabel = "No of fields"
+        ax.ylabel = "Count"
+        ax2 = Axis(lg[1,2])
+        hist!(ax2, field_sizes)
+        ax2.xlabel = "Field size [unit^2]"
+        lg2 = GridLayout(lg[2,1:2])
+        if embeddim(mm) == 2
+            ax3 = Axis(lg2[1,1],aspect=1)
+            hidedecorations!(ax3)
+            ax3.topspinevisible = true
+            ax3.rightspinevisible = true
+            viz!(ax3, mm;color=:lightgray)
+            viz!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray)
+        else
+            ax3 = LScene(lg2[1,1], show_axis=false)
+            plotmesh!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10)
+        end
+        Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count")
+        rowsize!(lg, 1, Relative(0.4))
+        [ax,ax2, ax3]
+    end
+end
