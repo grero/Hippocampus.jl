@@ -271,3 +271,20 @@ function merge_fields(qqf::Vector{<:Quadrangle})
     end
     aa
 end
+
+function merge_fields(mm::SimpleMesh, idx::Vector{<:Integer})
+    # merge fields that are within diagonal distance
+    # euclidean distance between centroids
+    cm = centroid.(mm[idx])
+    D = ustrip.(norm.(cm .- permutedims(cm)))
+    ss = ustrip.(sqrt.(measure.(mm[idx])))
+    # compare to the element size
+    Sq = sqrt.(2*(0.5*ss .+ 0.5*permutedims(ss)).^2)
+    # those elements that are within diagonal distance are connected
+    Aq = D .<= Sq
+    G = SimpleGraph(Aq)
+    connected_components(G)
+end
+
+function run_cluster_analysis()
+end
