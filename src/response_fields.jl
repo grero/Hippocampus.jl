@@ -49,7 +49,7 @@ function process_kwargs(::Type{<:AbstractResponseFields};nshuffles=10_000, nrefi
     h
 end
 
-function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, kwargs...) where T <: AbstractResponseFields
+function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,kwargs...)
     args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth)
     @assert typeof(args) == fieldtype(T, :args)
@@ -72,6 +72,8 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
     end
     if !redo(fname) && isfile(fname)
         obj = load_jld2(T, fname)
+    elseif load_only
+        return nothing
     else
         sp = Spiketrain()
         sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, kwargs...)
