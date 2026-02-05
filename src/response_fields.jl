@@ -274,6 +274,11 @@ function merge_fields(qqf::Vector{<:Quadrangle})
     aa
 end
 
+function merge_fields(rf::T) where T <: AbstractResponseFields
+    mm = get_mesh(T, rf.args[:nrefinements])
+    merge_fields(mm, rf.binidx)
+end
+
 function merge_fields(mm::SimpleMesh, idx::Vector{<:Integer})
     # merge fields that are within diagonal distance
     # euclidean distance between centroids
