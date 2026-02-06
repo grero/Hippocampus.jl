@@ -2231,6 +2231,9 @@ function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupan
     cc = Dict{CartesianIndex{4}, Int16}()
     for i in 1:nt
         for _idx in  vpvrp.placeviewidx[i]
+            if isempty(jocc.index[i])
+                continue
+            end
             aidx = jocc.index[i][_idx]
             vidx,pidx,hidx = Tuple(aidx) 
             if (vidx == 0 || pidx ==0) || (hidx==0)
