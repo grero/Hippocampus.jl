@@ -1958,6 +1958,9 @@ end
 
 
 function compute_speed(pos::Matrix{T}, timestamp::Array{T}, binidx::Vector{Int64},bmax=maximum(binidx)) where T <: Real
+    if isempty(binidx)
+        return fill(NaN, bmax) 
+    end
     ds = zero(T)
     dt = zero(T) 
     t0 = timestamp[1] 
