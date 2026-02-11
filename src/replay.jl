@@ -1999,6 +1999,20 @@ function compute_speed(pos::Vector{Matrix{T}}, timestamp::Vector{Vector{T}}, bin
     vv
 end
 
+function compute_speed(pos::Matrix{T}, timestamp::Vector{T}, window::Integer=1) where T <: Real
+    nb = size(pos,2)
+    nb == length(timestamp) || error("Inconsistent sizes. `size(pos)=$(size(pos))` but `length(timestamp)=$(length(timestamp))")
+    # sliding window
+    m = nb - window+1
+    vv = zeros(T, m)
+    for i in 1:m
+        a = sum(diff(pos[:,i:i+window-1],dims=2),dims=2)
+        b = sum(diff(timestamp[i:i+window-1]))
+        vv[i] = norm(a./b)
+    end
+    vv
+end
+
 function ViewAndPlaceRepresentation(;redo=false,do_save=true)
     sp = Spiketrain()
     rp = cd(DPHT.process_level(RippleData)) do
