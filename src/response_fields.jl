@@ -20,8 +20,7 @@ DPHT.filename(::Type{GazeResponseFields}) = "gaze_response_fields.jld2"
 get_mesh(::Type{GazeResponseFields},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
 maptype(::Type{GazeResponseFields}) = ViewMapNew
 
-function process_kwargs(::Type{<:AbstractResponseFields};nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,kwargs...)
-    h = zero(UInt32)
+function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,kwargs...)
     if nshuffles != 10_000
         h = CRC32c.crc32c(string(:nshuffles=>nshuffles),h)
     end
