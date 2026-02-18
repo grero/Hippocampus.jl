@@ -4,6 +4,7 @@ abstract type AbstractResponseFields end
 
 struct SpatialResponseFields <: AbstractResponseFields
     binidx::Vector{Int64}
+    gamma_params::Matrix{Float64} # gaamma parameter fit for the null distribution; two parameters per bin
     args::Dict{Symbol,Any}
 end
 
@@ -20,7 +21,7 @@ DPHT.filename(::Type{GazeResponseFields}) = "gaze_response_fields.jld2"
 get_mesh(::Type{GazeResponseFields},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
 maptype(::Type{GazeResponseFields}) = ViewMapNew
 
-function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,kwargs...)
+function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,pv_threshold=0.05, kwargs...)
     if nshuffles != 10_000
         h = CRC32c.crc32c(string(:nshuffles=>nshuffles),h)
     end
@@ -29,6 +30,9 @@ function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);
     end
     if trial_start != 2
         h = CRC32c.crc32c(string(:trial_start=>trial_start),h)
+    end
+    if pv_threshold != 0.05
+        h = CRC32c.crc32c(string(:pv_threshold=>pv_threshold),h)
     end
     if smooth
         h = CRC32c.crc32c(string(:smoothing_method=>smoothing_method),h)
@@ -48,9 +52,9 @@ function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);
     h
 end
 
-function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, kwargs...) where T <: AbstractResponseFields
-    h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,kwargs...)
-    args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth)
+function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, pv_threshold=0.05, kwargs...) where T <: AbstractResponseFields
+    h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,pv_threshold=pv_threshold, kwargs...)
+    args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth,:pv_threshold=>pv_threshold)
     @assert typeof(args) == fieldtype(T, :args)
     if smooth
         args[:smoothing_method] = get(kwargs, :smoothing_method, :gaussian)
@@ -71,9 +75,13 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
     end
     if !redo(fname) && isfile(fname)
         obj = load_jld2(T, fname)
+        if isa(obj, JLD2.ReconstructedMutable)
+            obj = T(obj.binidx, fill(NaN, 2, nshuffles), obj.args) 
+        end
     elseif load_only
         return nothing
     else
+        # TODO: Here we can actually check if we an object already computed and surrogates fitted
         sp = Spiketrain()
         sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, kwargs...)
 
@@ -127,15 +135,18 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
             end
         end
         exceeds = fill(false, size(λ,1))
+        gamma_params = fill(NaN, 2,length(λ))
         for (i,_λ) in enumerate(λ)
             fidx = findall(isfinite, λ_shuffled[i,:])
             if ~isempty(fidx)
-                threshold = percentile(λ_shuffled[i,fidx],95)
+                G = fit(Gamma, λ_shuffled[i,fidx])
+                gamma_params[:,i] .= params(G)
+                threshold = percentile(λ_shuffled[i,fidx],100*(1-pv_threshold))
                 exceeds[i] = _λ > threshold
             end
         end
         binidx = findall(exceeds)
-        obj = T(binidx, args)
+        obj = T(binidx, gamma_params, args)
         if do_save
             save_jld2(obj, fname)
         end
