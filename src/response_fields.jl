@@ -289,6 +289,31 @@ function merge_fields(rf::T) where T <: AbstractResponseFields
     merge_fields(mm, rf.binidx)
 end
 
+"""
+    get_num_fields(rf::T) where T <: AbstractResponseFields
+
+Get the null distribution for the number of random fields with size at least 
+as big as those in the actual `rf`.
+"""
+function get_num_fields(rf::T) where T <: AbstractResponseFields
+    mm = get_mesh(T, rf.args[:nrefinements])
+    nm = nelements(mm)
+    clusters = merge_fields(rf)
+    nc = length.(clusters)
+    n_sig = sum(nc)
+    min_nc = minimum(nc)
+    # cluster analysis
+    nclusters = fill(0, length(clusters), 10_000)
+    for i in 1:10_000
+        bidx = sort(shuffle(1:nm)[1:n_sig])
+        fclusters = merge_fields(mm, bidx)
+        for j in 1:length(clusters)
+            nclusters[j,i] = sum(length.(fclusters) .>= nc[j])
+        end
+    end
+    nclusters
+end
+
 function merge_fields(mm::SimpleMesh, idx::Vector{<:Integer})
     # merge fields that are within diagonal distance
     # euclidean distance between centroids
