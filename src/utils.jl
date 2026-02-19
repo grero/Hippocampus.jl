@@ -1043,7 +1043,7 @@ end
 
 Smoothg the columns of  `X` on the mesh `mm` using iterative laplacian smoothing
 """
-function laplace_smoothing(X::Matrix{T}, mm::SimpleMesh, α::T;niter=1000) where T <: Real
+function laplace_smoothing(X::Matrix{T}, mm::SimpleMesh, α::Real;niter=1000) where T <: Real
     A = adjacencymatrix(mm)
     Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
     # normalized laplacian
@@ -1051,7 +1051,7 @@ function laplace_smoothing(X::Matrix{T}, mm::SimpleMesh, α::T;niter=1000) where
     laplace_smoothing(X, Ls, α;niter=niter)
 end
 
-function laplace_smoothing(X::Matrix{T}, Ls::AbstractMatrix{T}, α::T;niter=1000) where T <: Real
+function laplace_smoothing(X::Matrix{T}, Ls::AbstractMatrix{T}, α::Real;niter=1000) where T <: Real
     G = I - α*Ls
     Xs = copy(X)
     # temporary storage
