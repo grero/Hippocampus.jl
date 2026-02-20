@@ -68,6 +68,7 @@ function plot_venn!(ax, r1,r2,d;labels::Union{Vector{String}, Nothing}=nothing,s
                     ClosePath()]
     )
 
+    # right wedge
     bp2 = BezierPath([MoveTo(Point(x,y2)),
                       EllipticalArc(Point(0.0,0.0), r1, r1, 0, theta2, theta1),
                       EllipticalArc(Point(d,0.0), r2, r2, 0, phi2, 2pi+phi1),
