@@ -11,12 +11,19 @@ function find_d(r1, r2, A)
     func(d) = abs2(A-intersection_area(r1,r2,first(d)))
 
     q = optimize(func, [0.3*r1])
+    first(q.minimizer)
 end
 
-#function plot_venn!(ax, r1,r2,d;labels::Union{Vector{String}, Nothing}=nothing,Delta=0.0)
-#end
+function plot_venn!(ax, S1::AbstractVector{<:Integer},S2::AbstractVector{<:Integer};kwargs...)
+    r1 = sqrt(length(S1)/pi)
+    r2 = sqrt(length(S2)/pi)
+    S12 = intersect(S1,S2)
+    A12 = length(S12)
+    d = find_d(r1,r2,A12)
+    plot_venn!(ax, r1, r2, d;sizes=length.([S1,S2,S12]), kwargs...)
+end
 
-function plot_venn!(ax, r1,r2,d;labels::Union{Vector{String}, Nothing}=nothing,Delta=0.0)
+function plot_venn!(ax, r1,r2,d;labels::Union{Vector{String}, Nothing}=nothing,sizes::Union{Vector{<:Integer},Nothing}=nothing, Delta=0.0)
      if labels !== nothing
         l1,l2 = labels[1:2]
         if length(labels) > 2
@@ -28,6 +35,9 @@ function plot_venn!(ax, r1,r2,d;labels::Union{Vector{String}, Nothing}=nothing,D
         l1 = ""
         l2 = ""
         l3 = ""
+    end
+    if sizes !== nothing
+        (l1,l2,l3) = ["$l ($s)" for (l,s) in zip([l1,l2,l3], sizes)]
     end
     x = (r1^2-r2^2 + d^2)/(2*d)
     y1 = -sqrt(r1^2-x^2)
