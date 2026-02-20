@@ -85,6 +85,9 @@ function plot_venn!(ax, r1,r2,d;labels::Union{Vector{String}, Nothing}=nothing,s
     if labels !== nothing
         axislegend(ax)
     end
+    xm = 1.05*max(r1, d+r2)
+    xlims!(ax, -xm,xm)
+    ylims!(ax, -xm,xm)
 end
 
 function plot_venn(args...;kwargs...)
