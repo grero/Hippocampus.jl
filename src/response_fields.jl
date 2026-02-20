@@ -14,6 +14,7 @@ maptype(::Type{SpatialResponseFields}) = SpatialMapNew
 
 struct GazeResponseFields <: AbstractResponseFields
     binidx::Vector{Int64}
+    gamma_params::Matrix{Float64} # gaamma parameter fit for the null distribution; two parameters per bin
     args::Dict{Symbol,Any}
 end
 
