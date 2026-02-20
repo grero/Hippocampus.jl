@@ -19,7 +19,7 @@ function plot_venn!(ax, r1,r2,d;Delta=0.0)
     y1 = -sqrt(r1^2-x^2)
     y2 = sqrt(r1^2-x^2)
     theta1 = asin(y1/r1)
-    theta2 = asin(y2/r1)
+    theta2 = asin(abs(y2)/r1)
     @show x d
     if x > d
         phi1 = asin(abs(y2)/r2)
@@ -28,31 +28,39 @@ function plot_venn!(ax, r1,r2,d;Delta=0.0)
         phi1 = pi - asin(abs(y1)/r2)
         phi2 = pi + asin(abs(y2)/r2)
     end
-    #arc!(ax, Point2f(0.0, 0.0), r1, 0, 2pi;color=:black)
     # left wedge
-    arc!(ax, Point2f(-Delta, 0.0), r1+Delta, theta2, 2pi+theta1, color=:green)
-    if Delta > 0
-       arc!(ax, Point2f(d+Delta, 0.0), r2, phi1,phi2, color=:green)
-    end
-
-    #arc!(ax, Point2f(d-Delta, 0.0), r2+Delta, phi1, phi2, color=:green)
+    bp1 = BezierPath([MoveTo(Point(x,y2)),
+                      EllipticalArc(Point(0.0,0.0), r1,r1,0,theta2, 2pi+theta1),
+                      EllipticalArc(Point(d, 0.0), r2,r2,0,phi2,phi1),
+                      ClosePath()])
+    pp1 = poly!(ax, bp1)
+    rr1 = sqrt((r1+0.5*Delta)^2/r1^2)
+    rr2 = sqrt((r2+0.5*Delta)^2/r2^2)
+    translate!(pp1, -0.5*Delta, 0, 0)
+    scale!(Accum, pp1, rr1,rr1,1.0)
 
     # central wedge
-    arc!(ax, Point2f(0.0, 0.0), r1, theta1, theta2, color=:red)
-    arc!(ax, Point2f(d, 0.0), r2, phi1, phi2, color=:red)
+    bp = BezierPath([MoveTo(Point(x, y2)),
+                    EllipticalArc(Point(0.0, 0.0), r1,r1,0,theta1,theta2),
+                    EllipticalArc(Point(d, 0.0),r2,r2,0,phi2,phi1),
+                    ClosePath()]
+    )
+    poly!(ax, bp)
 
-    #arc!(ax, Point2f(d,0.0), r2, 0, 2pi;color=:black)
-    arc!(ax, Point2f(d+Delta, 0.0), r2+Delta, phi2, 2pi+phi1, color=:blue)
-    if Delta > 0 
-        arc!(ax, Point2f(Delta, 0.0), r1+Delta, theta1, theta2, color=:blue)
-    end
+    bp2 = BezierPath([MoveTo(Point(x,y2)),
+                      EllipticalArc(Point(0.0,0.0), r1, r1, 0, theta2, theta1),
+                      EllipticalArc(Point(d,0.0), r2, r2, 0, phi2, 2pi+phi1),
+                      ClosePath()])
+    pp2 = poly!(ax, bp2)
+    translate!(pp2, 0.5*Delta, 0, 0)
 
 end
 
 function plot_venn(r1,r2,d;kwargs...)
     fig = Figure()
-    ax = Axis(fig[1,1])
+    ax = Axis(fig[1,1],aspect=1)
     plot_venn!(ax, r1, r2, d;kwargs...)
+    hidedecorations!(ax)
     display(fig)
     fig,ax
 end
