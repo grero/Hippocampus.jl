@@ -341,7 +341,7 @@ function plot_n_fields(::Type{T}, celldirs::Vector{String};kwargs...) where T <:
     end
 end
 
-function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where T <: AbstractResponseFields
+function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B","C"], kwargs...) where T <: AbstractResponseFields
     rfs = process_dirs(celldirs) do
         get_response_fields(T, 10_000;load_only=true, kwargs...)
     end
@@ -378,14 +378,17 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where
         append!(field_sizes, v)
     end
     with_theme(plot_theme) do
-        ax = Axis(lg[1,1])
-        barplot!(ax, kk, [cc[k] for k in kk])
+        lg1 = GridLayout(lg[1,1])
+        ax = Axis(lg1[1,1])
+        Label(lg1[1,1,TopLeft()], labels[1])
+        barplot!(ax, kk, [cc[k] for k in kk],color=:gray)
         ax.xlabel = "No of fields"
         ax.ylabel = "Count"
-        ax2 = Axis(lg[1,2])
-        hist!(ax2, field_sizes)
+        ax2 = Axis(lg1[2,1])
+        Label(lg1[2,1, TopLeft()], labels[2])
+        hist!(ax2, field_sizes,color=:gray)
         ax2.xlabel = "Field size [unit^2]"
-        lg2 = GridLayout(lg[2,1:2])
+        lg2 = GridLayout(lg[1,2])
         if embeddim(mm) == 2
             ax3 = Axis(lg2[1,1],aspect=1)
             hidedecorations!(ax3)
@@ -397,8 +400,9 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where
             ax3 = LScene(lg2[1,1], show_axis=false)
             plotmesh!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10)
         end
+        Label(lg2[1,1,TopLeft()], labels[3])
         Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count")
-        rowsize!(lg, 1, Relative(0.4))
+        #rowsize!(lg, 1, Relative(0.4))
         [ax,ax2, ax3]
     end
 end
