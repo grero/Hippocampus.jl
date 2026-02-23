@@ -354,11 +354,19 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where
     for (k,v) in rfs
         if v !== nothing
             clusters = merge_fields(v)
-            nfields[k] = length(clusters)
-            field_size[k] = fill(0.0, length(clusters))
-            for (ii,cluster) in enumerate(clusters)
-                field_size[k][ii] = ustrip(sum(measure.(mm[cluster])))
-                Z[v.binidx[cluster]] .+= 1.0
+            if length(clusters) > 0
+                nclusters = get_num_fields(v)
+                threshold = dropdims(sum(nclusters.>0,dims=2),dims=2)
+                cluster_idx = findall(threshold .<= 0.01)
+                nfields[k] = length(cluster_idx)
+                field_size[k] = fill(0.0, length(clusters))
+                for ii in cluster_idx
+                    cluster = clusters[ii]
+                    field_size[k][ii] = ustrip(sum(measure.(mm[cluster])))
+                    Z[v.binidx[cluster]] .+= 1.0
+                end
+            else
+                nfields[k] = 0
             end
         end
     end
