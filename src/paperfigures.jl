@@ -57,7 +57,11 @@ function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
             # show SIC distribution
             #lg2 = GridLayout(fig[1,2])
             ax2 = Axis(lg12[3,1])
-            Label(lg12[3,1, TopLeft()],"B")
+            if ii == 1
+                Label(lg12[3,1, TopLeft()],"B";tellheight=false)
+            else
+                Label(lg12[3,1, TopLeft()],"")
+            end
             boxplot!(ax2, fill(1.0, length(sic.sic)), sic.sic,color=:gray,show_notch=true,orientation=:horizontal,show_outliers=false)
             vlines!(ax2, sic.sic0, linestyle=:dot, color=:black)
             ax2.yticklabelsvisible = false
