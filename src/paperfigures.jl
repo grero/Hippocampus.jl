@@ -1,7 +1,16 @@
 module PaperFigures
 using CairoMakie
 using Meshes
+using Hippocampus
 
+plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
+                           xticklabelsize=14, yticklabelsize=14,
+                           topspinevisible=false, rightspinevisible=false,
+                           xgridvisible=false, ygridvisible=false,ylabelvisible=true,
+                           xticklabelsvisible=true, xlabelvisible=true),
+                     Scatter=(markersize=10px,),
+                     Lines=(linewidth=3,),
+                     fontsize=14)
 
 """
 Place cells
