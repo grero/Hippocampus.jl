@@ -342,35 +342,46 @@ function plot_n_fields(::Type{T}, celldirs::Vector{String};kwargs...) where T <:
 end
 
 function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B","C"], kwargs...) where T <: AbstractResponseFields
-    rfs = process_dirs(celldirs) do
-        get_response_fields(T, 10_000;load_only=true, kwargs...)
-    end
-    kk = filter(k->k[2]!==nothing, rfs)
-    mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
-    nfields = Dict()
-    field_size = Dict()
-    # histogram of field sizes
-    Z = zeros(nelements(mm))
-    for (k,v) in rfs
-        if v !== nothing
-            clusters = merge_fields(v)
-            if length(clusters) > 0
-                nclusters = get_num_fields(v)
-                threshold = dropdims(sum(nclusters.>0,dims=2),dims=2)
-                cluster_idx = findall(threshold .<= 0.01)
-                nfields[k] = length(cluster_idx)
-                field_size[k] = fill(0.0, length(clusters))
-                for ii in cluster_idx
-                    cluster = clusters[ii]
-                    field_size[k][ii] = ustrip(sum(measure.(mm[cluster])))
-                    Z[v.binidx[cluster]] .+= 1.0
+    h = process_kwargs(T;kwargs...)
+    h = CRC32c.crc32c(string(celldirs),h)
+    hs = string(h, base=16)
+    fname = "field_stats_$(hs).jld2"
+    if isfile(fname)
+        Z,nfields,field_size, args = JLD2.load(fname, "Z", "nfields","field_size", "args")
+    else
+        rfs = process_dirs(celldirs) do
+            get_response_fields(T, 10_000;load_only=true, kwargs...)
+        end
+        kk = filter(k->k[2]!==nothing, rfs)
+        mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
+        nfields = Dict()
+        field_size = Dict()
+        # histogram of field sizes
+        Z = zeros(nelements(mm))
+        for (k,v) in rfs
+            if v !== nothing
+                clusters = merge_fields(v)
+                if length(clusters) > 0
+                    nclusters = get_num_fields(v)
+                    threshold = dropdims(sum(nclusters.>0,dims=2),dims=2)
+                    cluster_idx = findall(threshold .<= 0.01)
+                    nfields[k] = length(cluster_idx)
+                    field_size[k] = fill(0.0, length(cluster_idx))
+                    for (jj,ii) in enumerate(cluster_idx)
+                        cluster = clusters[ii]
+                        field_size[k][jj] = ustrip(sum(measure.(mm[cluster])))
+                        Z[v.binidx[cluster]] .+= 1.0
+                    end
+                else
+                    nfields[k] = 0
                 end
-            else
-                nfields[k] = 0
             end
         end
+        Z[Z.==0.0] .= NaN
+        args = rfs[first(keys(kk))].args 
+        JLD2.save(fname, Dict("Z"=>Z, "nfields"=>nfields, "field_size"=>field_size, "args"=>args))
     end
-    Z[Z.==0.0] .= NaN
+    mm = get_mesh(T,args[:nrefinements])
     cc = countmap(values(nfields))
     kk = sort(collect(keys(cc)))
     field_sizes = Float64[]
