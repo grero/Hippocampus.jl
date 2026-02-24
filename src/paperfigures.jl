@@ -1,3 +1,4 @@
+module PaperFigures
 using CairoMakie
 using Meshes
 
@@ -72,3 +73,5 @@ Mixed selective and conjunction cells
 """
 function figure4()
 end
+
+end #module
