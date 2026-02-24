@@ -21,24 +21,24 @@ function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
         fig = Figure(size=(900,800))
         # Example of a cell with place activity
         lgm = GridLayout(fig[1,1])
-        for ii in example_idx
+        Label(lgm[1,1,TopLeft()], "A")
+        for (ii,jj) in enumerate(example_idx)
             lg1 = GridLayout(lgm[1,ii])
-            spm,sic,rfs = cd(spatial_cells[ii]) do
+            spm,sic,rfs = cd(spatial_cells[jj]) do
                 spm = Hippocampus.SpatialMapNew()
                 sic = Hippocampus.compute_skaggs_sic(Hippocampus.SpatialInformationContent, 10_000;load_only=true, smooth=true, smoothing_method=:laplace, σ=0.1, niter=100)
                 rfs = Hippocampus.get_response_fields(Hippocampus.SpatialResponseFields, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=100,pv_threshold=0.01) 
                 spm,sic,rfs
             end
-            sml = Hippocampus.SmoothedMap(spm;smooth_method=:laplace,α=0.1, niter=100)
             lg12 = GridLayout(lg1[1,1])
             ax = Axis(lg12[1,1],aspect=1)
-            Label(lg1[1,1,TopLeft()], "A")
             hidedecorations!(ax)
             ax.leftspinevisible = false
             ax.bottomspinevisible = false
             # show the outline of the maze
             viz!(ax, m_floor;color=:lightgray)
-            Z = Hippocampus.get_rate_map(sml)
+            #Z = Hippocampus.get_rate_map(sml)
+            Z = rfs.λ
             viz!(ax,m_floor;color=Z)
 
             clusters = Hippocampus.merge_fields(rfs)
