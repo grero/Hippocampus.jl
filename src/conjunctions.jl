@@ -125,41 +125,84 @@ function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0
     pv
 end
 
-function conjunctions(jm::JointMap, spatial_fields::SpatialResponseFields, view_fields::GazeResponseFields)
-    m_floor = get_mesh(SpatialResponseFields, spatial_fields.args[:nrefinements])
-    mm = get_maze_mesh(;nrefinements=spatial_fields.args[:nrefinements].g)
+function get_rate_map(spf::SpatialResponseFields,jm::JointMap)
+    nrefinements = spf.args[:nrefinements]
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+    mm = SpatialMapNew(jm, m_floor)
+    if spf.args[:smooth]
+        # TODO: Make this more general
+        sml = SmoothedMap(mm;method=spf.args[:smoothing_method],α=spf.args[:α], niter=spf.args[:niter])
+        return get_rate_map(sml)
+    end
+    get_rate_map(mm)
+end
 
-    spatial_clusters = Hippocampus.merge_fields(spatial_fields)
-    view_clusters = Hippocampus.merge_fields(view_fields)
+function get_rate_map(spf::GazeResponseFields,jm::JointMap)
+    nrefinements = spf.args[:nrefinements]
+    mh = get_maze_mesh(;nrefinements=nrefinements.g)
+    mm = ViewMapNew(jm, mh)
+    if spf.args[:smooth]
+        # TODO: Make this more general
+        sml = SmoothedMap(mm;method=spf.args[:smoothing_method],α=spf.args[:α], niter=spf.args[:niter])
+        return get_rate_map(sml)
+    end
+    get_rate_map(mm)
+end
 
-    all_not_covered = setdiff(1:nelements(m_floor), spatial_fields.binidx)
+Base.getindex(qidx::CartesianIndex{4}, ::Type{SpatialResponseFields}) = getindex(qidx,2)
+Base.getindex(qidx::CartesianIndex{4}, ::Type{GazeResponseFields}) = getindex(qidx,1)
+
+function conjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+    # T1 <: SpatialResponseFields, T2 <: GazeResponseFields
+    mm1 = get_mesh(T1, fields1.args[:nrefinements])
+    mm2 = get_mesh(T2, fields2.args[:nrefinements])
+
+    # TODO: Get signifiance
+    clusters1 = Hippocampus.merge_fields(fields1)
+    nclusters1 = get_num_fields(fields1)
+    clusters1 = clusters1[dropdims(mean(nclusters1,dims=2),dims=2) .< 0.001]
+    clusters2 = Hippocampus.merge_fields(fields2)
+    nclusters2 = get_num_fields(fields2)
+    clusters2 = clusters2[dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001]
+
+    all_not_covered = setdiff(1:nelements(mm1), fields1.binidx)
     res = Dict()
-    λ_covered = zeros(length(view_clusters), length(spatial_clusters))
-    λ_sub = zeros(1000, length(view_clusters), length(spatial_clusters))
-    for (ii,covered) in enumerate(spatial_clusters)
-        not_covered = setdiff(1:nelements(m_floor), covered)
+    λ_covered = zeros(length(clusters2), length(clusters1))
+    λ_sub = zeros(1000, length(clusters2), length(clusters1))
+    λ_infield = zeros(nelements(mm2), length(clusters1))
+    x_not_covered = zeros(nelements(mm2))
+    w_not_covered = zeros(nelements(mm2))
+    for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+       pidx = getindex(qidx,T1)
+       vidx = getindex(qidx,T2) 
+       if pidx in all_not_covered
+            x_not_covered[vidx] += w
+            w_not_covered[vidx] += occ
+       end
+    end
+    λ_outfield = x_not_covered./w_not_covered
+    for (ii,covered) in enumerate(clusters1)
+        not_covered = setdiff(1:nelements(mm1), covered)
         not_covered_sub = [shuffle(all_not_covered)[1:length(covered)] for _ in 1:1000]
         # compare firing rates within vis outside the field
-        x_covered = zeros(nelements(mm))
-        w_covered = zeros(nelements(mm))
-        x_not_covered = zeros(nelements(mm))
-        w_not_covered = zeros(nelements(mm))
+        x_covered = zeros(nelements(mm2))
+        w_covered = zeros(nelements(mm2))
+        x_not_covered = zeros(nelements(mm2))
+        w_not_covered = zeros(nelements(mm2))
 
-        x_not_covered_sub = zeros(nelements(mm),length(not_covered_sub))
-        w_not_covered_sub = zeros(nelements(mm), length(not_covered_sub))
+        x_not_covered_sub = zeros(nelements(mm2),length(not_covered_sub))
+        w_not_covered_sub = zeros(nelements(mm2), length(not_covered_sub))
         n_covered = 0
         for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
-            pidx = getindex(qidx,2)
-            vidx = getindex(qidx,1)
+            pidx = getindex(qidx,T1)
+            vidx = getindex(qidx,T2)
             if pidx in covered
                 #push!(Z_covered, λ)
                 n_covered += 1
                 x_covered[vidx] += w
                 w_covered[vidx] += occ
-            elseif pidx in not_covered
+            elseif pidx in all_not_covered
                 #push!(Z_not_covered, λ)
-                x_not_covered[vidx] += w
-                w_not_covered[vidx] += occ
                 for (jj,nc) in enumerate(not_covered_sub)
                     if pidx in nc
                         x_not_covered_sub[vidx,jj] += w
@@ -169,21 +212,22 @@ function conjunctions(jm::JointMap, spatial_fields::SpatialResponseFields, view_
                 end
             end
         end
+        λ_infield[:,ii] = x_covered./w_covered
         # now we have firing rates for each of view bins conditioned on a particular place field
         # aggregate within each of the view fields
-        λ_covered[:,ii]  = [mean(filter(isfinite, x_covered[view_fields.binidx[c]]./w_covered[view_fields.binidx[c]])) for c in view_clusters]
-        for (jj,cluster) in enumerate(view_clusters)
-            qidx = view_fields.binidx[cluster]
+        λ_covered[:,ii]  = [mean(filter(isfinite, x_covered[fields2.binidx[c]]./w_covered[fields2.binidx[c]])) for c in clusters2]
+        for (jj,cluster) in enumerate(clusters2)
+            qidx = fields2.binidx[cluster]
             for kk in 1:1000
                 ll = x_not_covered_sub[qidx,kk]./w_not_covered_sub[qidx,kk]
                 λ_sub[kk,jj,ii] = mean(filter(isfinite, ll))
             end
         end
     end
-    PlaceViewConjunction(spatial_fields, view_fields, λ_covered,λ_sub)
+    λ_covered,λ_sub, λ_infield, λ_outfield
 end
 
-function process_kwargs(::Type{PlaceViewConjunction},h::UInt32=zero(UInt32);kwargs...)
+function process_kwargs(::Type{<:AbstractFieldConjunctions},h::UInt32=zero(UInt32);kwargs...)
     h = process_kwargs(JointMap,h;kwargs...)
     h = process_kwargs(SpatialResponseFields,h;kwargs...)
     h = process_kwargs(GazeResponseFields,h;kwargs...)
@@ -197,13 +241,62 @@ function PlaceViewConjunction(;redo=fname->false, do_save=true, kwargs...)
         hs = string(h,base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
+    do_compute = true 
     if !redo(fname) && isfile(fname)
         X = load_jld2(PlaceViewConjunction,fname)
-    else
+       if isa(X, JLD2.ReconstructedMutable)
+            do_compute = true
+        else
+            do_compute = false
+        end
+    end
+    if do_compute
         jm = JointMap(;kwargs...)
         rf_spatial = get_response_fields(SpatialResponseFields,10_000;kwargs...)
+        if isa(rf_spatial, JLD2.ReconstructedMutable)
+            rf_spatial = get_response_fields(SpatialResponseFields,10_000;redo=fname->true, kwargs...)
+        end
         rf_gaze = get_response_fields(GazeResponseFields,10_000;kwargs...)
-        X = conjunctions(jm, rf_spatial, rf_gaze)
+        if isa(rf_gaze, JLD2.ReconstructedMutable)
+            rf_gaze = get_response_fields(GazeResponseFields,10_000;redo=fname->true, kwargs...)
+        end
+        λ_covered, λ_sub,λ_infield, λ_outfield = conjunctions(jm, rf_spatial, rf_gaze)
+        X = PlaceViewConjunction(rf_spatial, rf_gaze, λ_covered, λ_sub,λ_infield, λ_outfield)
+        if do_save
+            save_jld2(X,fname)
+        end
+    end
+    X
+end
+
+function ViewPlaceConjunction(;redo=fname->false, do_save=true, kwargs...)
+    fname = "view_place_conjunction.jld2"
+    h = process_kwargs(ViewPlaceConjunction;kwargs...)
+    if h > 0
+        hs = string(h,base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    do_compute = true 
+    if !redo(fname) && isfile(fname)
+        X = load_jld2(ViewPlaceConjunction,fname)
+       if isa(X, JLD2.ReconstructedMutable)
+            do_compute = true
+        else
+            do_compute = false
+        end
+    end
+    if do_compute
+        jm = JointMap(;kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields,10_000;kwargs...)
+        if isa(rf_spatial, JLD2.ReconstructedMutable)
+            rf_spatial = get_response_fields(SpatialResponseFields,10_000;redo=fname->true, kwargs...)
+        end
+        rf_gaze = get_response_fields(GazeResponseFields,10_000;kwargs...)
+        if isa(rf_gaze, JLD2.ReconstructedMutable)
+            rf_gaze = get_response_fields(GazeResponseFields,10_000;redo=fname->true, kwargs...)
+        end
+        λ_covered, λ_sub,λ_infield, λ_outfield = conjunctions(jm, rf_gaze, rf_spatial)
+        X = ViewPlaceConjunction(rf_gaze, rf_spatial, λ_covered, λ_sub,λ_infield, λ_outfield)
         if do_save
             save_jld2(X,fname)
         end
