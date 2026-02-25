@@ -94,11 +94,23 @@ function conjunctions(jm::JointMap, fields::SpatialResponseFields)
     res
 end
 
-struct PlaceViewConjunction
+abstract type AbstractFieldConjunctions end
+
+struct PlaceViewConjunction <: AbstractFieldConjunctions
     spatial_fields::SpatialResponseFields
     view_fields::GazeResponseFields
-     λ_covered::Matrix{Float64}
-     λ_sub::Array{Float64,3}
+    λ_covered::Matrix{Float64}
+    λ_sub::Array{Float64,3}
+    λ_infield::Matrix{Float64}
+    λ_outfield::Vector{Float64}
+end
+struct ViewPlaceConjunction <: AbstractFieldConjunctions
+    view_fields::GazeResponseFields
+    spatial_fields::SpatialResponseFields
+    λ_covered::Matrix{Float64}
+    λ_sub::Array{Float64,3}
+    λ_infield::Matrix{Float64}
+    λ_outfield::Vector{Float64}
 end
 
 function Hippocampus.issignificant(pvc::PlaceViewConjunction;pv_threshold=0.05)
