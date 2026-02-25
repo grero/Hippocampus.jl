@@ -118,10 +118,10 @@ end
 function conjunctions(jm::JointMap, spatial_fields::SpatialResponseFields, view_fields::GazeResponseFields)
     m_floor = get_mesh(SpatialResponseFields, spatial_fields.args[:nrefinements])
     mm = get_maze_mesh(;nrefinements=spatial_fields.args[:nrefinements].g)
+
     spatial_clusters = Hippocampus.merge_fields(spatial_fields)
     view_clusters = Hippocampus.merge_fields(view_fields)
 
-    # condition on place
     all_not_covered = setdiff(1:nelements(m_floor), spatial_fields.binidx)
     res = Dict()
     λ_covered = zeros(length(view_clusters), length(spatial_clusters))
