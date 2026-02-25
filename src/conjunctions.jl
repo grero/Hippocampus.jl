@@ -113,11 +113,9 @@ struct ViewPlaceConjunction <: AbstractFieldConjunctions
     λ_outfield::Vector{Float64}
 end
 
-function Hippocampus.issignificant(pvc::PlaceViewConjunction;pv_threshold=0.05)
+function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05)
     pv = fill(false, size(pvc.λ_covered)[1:2]...)
     for ii in CartesianIndices(pv) 
-        vidx = getindex(ii,1)
-        pidx = getindex(ii,2)
         vv = filter(isfinite, pvc.λ_sub[:,ii])
         if !isempty(vv)
             qt = percentile(vv, 100*(1-pv_threshold))
