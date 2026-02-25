@@ -321,6 +321,37 @@ end
 function FieldConjunctions(::Type{T};do_save=true, redo=fname->false,kwargs...) where T <: AbstractResponseFields
 end
 
+function plot_conjunction(pvc::PlaceViewConjunction,idx=1)
+
+    # find the significant clusters
+    view_clusters = merge_fields(pvc.view_fields)
+    nclusters1 = get_num_fields(pvc.view_fields)
+    view_clusters = view_clusters[dropdims(mean(nclusters1,dims=2),dims=2) .< 0.001]
+    spatial_clusters = merge_fields(pvc.spatial_fields)
+    nclusters2 = get_num_fields(pvc.spatial_fields)
+    spatial_clusters = spatial_clusters[dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001]
+    mm = get_mesh(GazeResponseFields, pvc.view_fields.args[:nrefinements])
+
+    with_theme(plot_theme) do
+        fig = Figure()
+        Label(fig[1,1], "In field", tellwidth=false)
+        Label(fig[1,2], "Out of field", tellwidth=false)
+        lscene1 = LScene(fig[2,1], show_axis=false)
+        plotmesh!(lscene1, mm;color=pvc.λ_infield[:,idx])
+        lscene2 = LScene(fig[2,2], show_axis=false)
+        plotmesh!(lscene2, mm;color=pvc.λ_outfield)
+        # indicate the original view fields
+        for lscene in [lscene1, lscene2]
+            for vc in view_clusters
+                bb = find_boundary(mm, pvc.view_fields.binidx[vc])
+                viz!(lscene, bb;color=:black)
+            end
+        end
+        fig
+    end
+    #plot_conjunction(mm, pvc.spatial_fields.binidx[spatial_clusters[1]], pvc.view_fields.binidx[view_clusters[1]])
+end
+
 function plot_conjunction(mm::SimpleMesh, place_field_idx, gaze_field_idx,res)
     m_floor = Translate(0.0, 0.0, -30.0)(floor_topology3())
     z_floor = zeros(nelements(m_floor))
