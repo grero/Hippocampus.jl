@@ -57,6 +57,7 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
     h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,pv_threshold=pv_threshold, kwargs...)
     args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth,:pv_threshold=>pv_threshold)
     @assert typeof(args) == fieldtype(T, :args)
+    args[:dir] = pwd()
     if smooth
         args[:smoothing_method] = get(kwargs, :smoothing_method, :gaussian)
         smoothing_method = get(kwargs, :smoothing_method, :gaussian)
