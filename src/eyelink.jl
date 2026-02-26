@@ -116,7 +116,7 @@ end
 
 Extract trial markers from Eyelink message events.
 """
-function get_markers(messages::Vector{Eyelink.Event};perform_fix=true)
+function get_markers(messages::Vector{Eyelink.Event};extras=nothing)
     triggers = Int64[]
     timestamps = UInt64[]
     session_start = UInt64[]
@@ -132,8 +132,18 @@ function get_markers(messages::Vector{Eyelink.Event};perform_fix=true)
             push!(session_start, msg.sttime)
         end
     end
-    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps;perform_fix=perform_fix)
-    trial_markers, trial_timestamps, session_start
+    if extras !== nothing
+        # try and slot in the markers here
+        _timestamps = extras.Timestamps
+        _messages = extras.Messages
+        for (_t,_msg) in zip(_timestamps, _messages)
+            trigger = parse(Int64, split(_msg)[end])    
+            push!(triggers, trigger)
+            push!(timestamps, _t)
+        end
+    end
+    sidx = sortperm(timestamps)
+    triggers[sidx], timestamps[sidx], session_start
 end
 
 function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
@@ -187,7 +197,11 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     # get the messages
     messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
 
-    trial_markers, trial_timestamps,session_start = get_markers(messages)
+    triggers, timestamps,session_start = get_markers(messages;extras=ff)
+    if length(session_start) > 1
+        # multi-session; extract each sesssion to a different file
+    end
+    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps;kvs...)
     qdata = Dict{String,Any}()
     merge!(qdata, Dict("triggers"=>trial_markers, "session_start"=>session_start, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
             "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "fixation_start"=>fixation_start,
