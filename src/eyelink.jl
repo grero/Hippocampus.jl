@@ -146,8 +146,15 @@ function get_markers(messages::Vector{Eyelink.Event};extras=nothing)
     triggers[sidx], timestamps[sidx], session_start
 end
 
-function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
+function EyelinkData(fname::String;do_save=true, redo=false, process_extras=false, kvs...)
     eyelinkdata = Eyelink.load(fname)
+    missing_data_file = "missingData_$(fname).csv"
+    if process_extras && isfile(missing_data_file)
+        ff = CSV.File(missing_data_file)
+        @show ff
+    else
+        ff = nothing
+    end
     header = Dict()
     #get gaze coordinates
     for ee in eyelinkdata.events
