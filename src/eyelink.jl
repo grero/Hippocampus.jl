@@ -1,4 +1,5 @@
 using Eyelink
+using CSV
 using Makie
 
 function zerounless(::Type{Eyelink.Event};kwargs...)
