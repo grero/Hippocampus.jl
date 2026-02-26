@@ -236,7 +236,7 @@ end
 
 Extract single session data
 """
-function get_session_data(edata::EyelinkData, idx::Integer)
+function get_session(edata::EyelinkData, idx::Integer)
     session_start = edata.session_start[idx]
     if idx < length(edata.session_start)
         session_end = edata.session_start[idx+1]
