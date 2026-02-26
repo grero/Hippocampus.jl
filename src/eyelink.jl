@@ -95,18 +95,30 @@ end
 
 function EyelinkData(;do_save=true,redo=false)
     outfile = DPHT.filename(EyelinkData)
-    if !redo && isfile(outfile)
-        return DPHT.load(EyelinkData, outfile)
-    end
+   
+    # TODO: Check whether we are in a session direction
+    if DPHT.level() == "session"
+        #figure out which session we are in
+        sn = DPHT.get_level_name("session")
+        sidx = parse(Int64,filter(isdigit, sn))
+        edata = cd("..") do
+            EyelinkData()
+        end
+        edata = get_session_data(edata, sidx)
+    else
+         if !redo && isfile(outfile)
+            return DPHT.load(EyelinkData, outfile)
+        end
 
-    # create the object
-    edffiles = glob("*.edf")
-    if isempty(edffiles)
-        error("No EDF files found")
-    end
-    edata = EyelinkData(first(edffiles))
-    if do_save
-        DPHT.save(edata)
+        # create the object
+        edffiles = glob("*.edf")
+        if isempty(edffiles)
+            error("No EDF files found")
+        end
+        edata = EyelinkData(first(edffiles))
+        if do_save
+            DPHT.save(edata)
+        end
     end
     edata
 end
