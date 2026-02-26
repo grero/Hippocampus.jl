@@ -211,6 +211,37 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     EyelinkData(qdata)
 end
 
+"""
+    get_session_data(edata::EyelinkData, idx::Integer)
+
+Extract single session data
+"""
+function get_session_data(edata::EyelinkData, idx::Integer)
+    session_start = edata.session_start[idx]
+    if idx < length(edata.session_start)
+        session_end = edata.session_start[idx+1]
+    else
+        session_end = typemax(UInt64)
+    end
+    analogidx = session_start .<= edata.analogtime .< session_end
+    analogtime = edata.analogtime[analogidx]
+    gazex = edata.gazex[:,analogidx]
+    gazey = edata.gazey[:,analogidx]
+    trialidx = session_start .<= edata.timestamps[:,1] .< session_end
+    timestamps = edata.timestamps[trialidx,:]
+    triggers = edata.triggers[trialidx,:]
+    saccade_idx = session_start .<= edata.saccade_start_time .< session_end
+    saccade_start_time = edata.saccade_start_time[saccade_idx]
+    saccade_end_time = edata.saccade_end_time[saccade_idx]
+    saccade_start_pos = edata.saccade_start_pos[:,saccade_idx]
+    saccade_end_pos = edata.saccade_end_pos[:,saccade_idx]
+    fixation_idx = session_start .<= edata.fixation_start .< session_end
+    fixation_start = edata.fixation_start[fixation_idx]
+    fixation_end = edata.fixation_end[fixation_idx]
+    EyelinkData(triggers, [session_start], timestamps, analogtime, gazex, gazey,fixation_start, fixation_end,
+                saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, edata.header)
+end
+
 function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
     qdata = Dict{String,Any}()
     # take care of the missing values
