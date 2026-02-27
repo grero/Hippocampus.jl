@@ -234,7 +234,7 @@ function process_kwargs(::Type{<:AbstractFieldConjunctions},h::UInt32=zero(UInt3
     h
 end
 
-function PlaceViewConjunction(;redo=fname->false, do_save=true, kwargs...)
+function PlaceViewConjunction(;redo=fname->false, do_save=true, load_only=false, kwargs...)
     fname = "place_view_conjunction.jld2"
     h = process_kwargs(PlaceViewConjunction;kwargs...)
     if h > 0
@@ -249,6 +249,10 @@ function PlaceViewConjunction(;redo=fname->false, do_save=true, kwargs...)
         else
             do_compute = false
         end
+    end
+    if do_compute && load_only
+        # we just want to skip here
+        return nothing
     end
     if do_compute
         jm = JointMap(;kwargs...)
@@ -269,7 +273,7 @@ function PlaceViewConjunction(;redo=fname->false, do_save=true, kwargs...)
     X
 end
 
-function ViewPlaceConjunction(;redo=fname->false, do_save=true, kwargs...)
+function ViewPlaceConjunction(;redo=fname->false, do_save=true, load_only=false, kwargs...)
     fname = "view_place_conjunction.jld2"
     h = process_kwargs(ViewPlaceConjunction;kwargs...)
     if h > 0
@@ -284,6 +288,10 @@ function ViewPlaceConjunction(;redo=fname->false, do_save=true, kwargs...)
         else
             do_compute = false
         end
+    end
+    if do_compute && load_only
+        # we just want to skip here
+        return nothing
     end
     if do_compute
         jm = JointMap(;kwargs...)
