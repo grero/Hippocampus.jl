@@ -3,6 +3,7 @@ abstract type AbstractResponseFields end
 
 
 struct SpatialResponseFields <: AbstractResponseFields
+    λ::Vector{Float64}
     binidx::Vector{Int64}
     gamma_params::Matrix{Float64} # gaamma parameter fit for the null distribution; two parameters per bin
     args::Dict{Symbol,Any}
@@ -13,6 +14,7 @@ get_mesh(::Type{SpatialResponseFields},nrefinements::NamedTuple) = Shadow("xy")(
 maptype(::Type{SpatialResponseFields}) = SpatialMapNew
 
 struct GazeResponseFields <: AbstractResponseFields
+    λ::Vector{Float64}
     binidx::Vector{Int64}
     gamma_params::Matrix{Float64} # gaamma parameter fit for the null distribution; two parameters per bin
     args::Dict{Symbol,Any}
@@ -148,7 +150,7 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
             end
         end
         binidx = findall(exceeds)
-        obj = T(binidx, gamma_params, args)
+        obj = T(λ,binidx, gamma_params, args)
         if do_save
             save_jld2(obj, fname)
         end
