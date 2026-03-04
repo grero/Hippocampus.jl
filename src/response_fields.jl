@@ -27,6 +27,7 @@ maptype(::Type{GazeResponseFields}) = ViewMapNew
 get_sic_type(::Type{GazeResponseFields}) = GazeInformationContent
 
 function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,pv_threshold=0.05, kwargs...)
+    h = process_kwargs(JointMap,h;kwargs...)
     if nshuffles != 10_000
         h = CRC32c.crc32c(string(:nshuffles=>nshuffles),h)
     end
