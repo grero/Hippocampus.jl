@@ -497,7 +497,7 @@ function SpatialMapNew(;redo=false, do_save=true, kwargs...)
     else
         jm = JointMap(;kwargs...)
         # FIXME: Get the refinement number from jm
-        nf = get(kwargs, :nrefinements, (p=3,g=2))
+        nf = (p=jm.dims[2], g=jm.dims[1])
         m_floor = get_mesh(SpatialMapNew;nrefinements=nf)
         spm = SpatialMapNew(jm,m_floor)
         if do_save
