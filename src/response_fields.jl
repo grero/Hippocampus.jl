@@ -136,8 +136,10 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
             if smooth
                 if args[:smoothing_method] == :gaussian
                     smg = SmoothedMap(spm;dmatrix=dmatrix, method=:gaussian, σ=args[:σ])
-                else args[:smoothing_method] == :laplace
+                elseif args[:smoothing_method] == :laplace
                     smg = SmoothedMap(spm;Ls=Ls, method=:laplace, α=args[:α], niter=args[:niter])
+                elseif args[:smoothing_method] == :adaptive
+                    smg = SmoothedMap(spmb;method=:adaptive, α=args[:α])
                 end 
                 λ_shuffled[:,i] .= smg.weight./smg.occupancy
                 λ_shuffled[smg.unvisited,i] .= NaN
