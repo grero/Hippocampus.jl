@@ -12,6 +12,7 @@ end
 DPHT.filename(::Type{SpatialResponseFields}) = "spatial_response_fields.jld2"
 get_mesh(::Type{SpatialResponseFields},nrefinements::NamedTuple) = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
 maptype(::Type{SpatialResponseFields}) = SpatialMapNew
+get_sic_type(::Type{SpatialResponseFields}) = SpatialInformationContent
 
 struct GazeResponseFields <: AbstractResponseFields
     λ::Vector{Float64}
@@ -23,6 +24,7 @@ end
 DPHT.filename(::Type{GazeResponseFields}) = "gaze_response_fields.jld2"
 get_mesh(::Type{GazeResponseFields},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
 maptype(::Type{GazeResponseFields}) = ViewMapNew
+get_sic_type(::Type{GazeResponseFields}) = GazeInformationContent
 
 function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,pv_threshold=0.05, kwargs...)
     if nshuffles != 10_000
