@@ -80,6 +80,8 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
+    do_compute = true 
+    obj = nothing
     if !redo(fname) && isfile(fname)
         obj = load_jld2(T, fname)
         if isa(obj, JLD2.ReconstructedMutable)
@@ -115,6 +117,8 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
                 Ls = get_normalize_laplacian(mm)
                 @show "Laplace smooth"
                 smg = SmoothedMap(spmb;method=:laplace, Ls=Ls, α=args[:α], niter=args[:niter])
+            elseif args[:smoothing_method] == :adaptive
+                smg = SmoothedMap(spmb;method=:adaptive, α=args[:α])
             else
                 error("Unknown smoothing method $(args[:smoothing_method])")
             end
