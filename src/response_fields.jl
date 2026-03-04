@@ -418,3 +418,39 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         [ax,ax2, ax3]
     end
 end
+
+function plot_response_fields(rf::GazeResponseFields)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_response_fields!(lg, rf)
+        fig
+    end
+end
+
+function plot_response_fields!(lg, rf::GazeResponseFields)
+    mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
+    m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
+    lscene = LScene(lg[1,1],show_axis=false)
+    plotmesh!(lscene, mm;color=rf.λ, ceiling_offset=10, floor_offset=-20, colormap=:binary)
+    clusters = merge_fields(rf)
+
+    ccolors = Makie.wong_colors()
+    for (cc,cluster) in zip(ccolors,clusters)
+        pidx = rf.binidx[cluster]
+        cpoints = centroid.(mm[pidx])
+        floor_points = filter(Meshes.intersects(m_floor), cpoints)
+        ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
+        mid_points = setdiff(cpoints, union(floor_points, ceil_points))
+        if !isempty(floor_points)
+            viz!(lscene, Translate(0.0, 0.0, -20)(floor_points),color=cc)
+        end
+        if !isempty(ceil_points)
+            viz!(lscene, Translate(0.0, 0.0, 10)(ceil_points),color=cc)
+        end
+        if !isempty(mid_points)
+            viz!(lscene, mid_points,color=cc)
+        end
+    end
+    Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf.λ)), colormap=:binary, label="Firing rate [Hz]")
+end
