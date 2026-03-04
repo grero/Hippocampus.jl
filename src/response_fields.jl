@@ -49,7 +49,7 @@ function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);
             niter = get(kwargs, :niter, 100)
             h = CRC32c.crc32c(string(:α=>α),h)
             h = CRC32c.crc32c(string(:niter=>niter),h)
-        elseif smoothing_method == :adpative
+        elseif smoothing_method == :adaptive
             h = CRC32c.crc32c(string(:α=>α),h)
         else
             error("Unkown smoothing method $(smoothing_method)")
