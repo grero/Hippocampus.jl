@@ -390,7 +390,7 @@ struct UnityRaytraceData
     positions::Matrix{Float32}
     directions::Vector{Float32}
     triggers::Matrix{Union{UInt64,Missing}}
-
+    rawgaze::Vector{Matrix{Float64}}
     gaze::Vector{Matrix{Float64}}
     position::Vector{Matrix{Float64}}
     head_direction::Vector{Vector{Float64}}
@@ -399,7 +399,7 @@ struct UnityRaytraceData
     fixating::Vector{Vector{Bool}}
     unityfile::String
 end
-
+ 
 function UnityRaytraceData(analogtime, positions, direction, gaze::Vector{Vector{Matrix{Float64}}}, position, head_direction, timestamps,fixated_object,fixating)
     nt = length(gaze)
     triggers = fill(typemax(UInt64), nt, 3)
@@ -432,113 +432,369 @@ function get_gaze(X::UnityRaytraceData;only_fixations=true)
     Y[:,1:offset], w[1:offset]
 end
 
-function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_fname="unityfile_eyelink.csv", extradir::String="",fix_eyelink=false, kwargs...)
+
+"""
+    match_trajectories(gaze1::Matrix{<:Real}, gaze2::Matrix{<:Real})
+
+Find the starting point of the trajectories represented by `gaze1` in the larger trajectory `gaze2`
+
+"""
+function match_trajectories(gaze1::Matrix{<:Real}, gaze2::Matrix{<:Real})
+    n1 = size(gaze1,2)
+    n2 = size(gaze2,2)
+    if n1 > n2
+        return match_trajectories(gaze2, gaze1)
+    end
+    d = Inf
+    idx = 0
+    for k in 1:(n2-n1+1)
+        _d = mean(sqrt.(sum(abs2, gaze1 .- gaze2[:,k:k+n1-1],dims=1)))
+        if _d < d
+            d = _d
+            idx = k
+        end
+    end
+    return d, idx
+end
+
+function match_trajectories(gaze1::Matrix{<:Real}, gaze2::Matrix{<:Real},m::Integer,dmin=sqrt(eps(Float32)))
+    n1 = size(gaze1,2)
+    d = Inf
+    idx = 0
+    k0 = 0
+    for k in 1:m:(n1-m+1)
+        _d,_idx = match_trajectories(gaze1[:,k:k+m-1], gaze2)
+        if _d <= dmin 
+            d = _d
+            idx = _idx
+            k0 = k
+            break
+        end
+    end
+    d,idx,k0
+end
+
+function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_fname="unityfile_eyelink.csv", extradir::String="",fix_eyelink=false, apply_fix=false, kwargs...)
     fname = DPHT.filename(UnityRaytraceData)
     if !redo && isfile(fname)
         t1 = time()
-        ut = DPHT.load(UnityRaytraceData)
+        qdata = DPHT.load(UnityRaytraceData)
         t2 = time()-t1
         @debug "Time" t2
         if !isfile(replace(fname, ".mat"=>".jld2"))
             save_jld2(ut)
         end
     else
-        edata = cd(DPHT.process_level(EyelinkData)) do
-            EyelinkData()
-        end
-        if !isempty(extradir)
-            raytrace_fname = joinpath(extradir, raytrace_fname)
-        end
-        if !ispath(raytrace_fname)
-            error("$(raytrace_fname) not found in $(pwd())")
-        end
-        unity_eyelinkfile = CSV.File(raytrace_fname, header=0)
-        n = length(unity_eyelinkfile)
-        fixated_points = fill(NaN, 3, n)
-        position = fill(NaN32, 3, n)
-        direction = fill(NaN32, n)
-        timestamps = zeros(UInt64,n)
-        fixated_object = fill("unknown", n)
-        i = 1
-        for row in unity_eyelinkfile
-            # TODO: Grab more data here
-            timestamps[i] = row[2]
-            px,py,pz,a = (row[6],row[7],row[8],row[9])
-            if any(ismissing.((px,py,pz,a)))
-                continue
-            end
-            θ = π*a/180.0
-            # FIXME: This does not appear to be the actual eyelink timestamp!
-            gx,gy,gz = (row[10],row[11],row[12])
-            if (gx !== missing) && (gy !== missing) && (gz !== missing)
-                # gx,gy,gz is relative to player ?
-                # swap z and y
-                position[:,i] .= (px,pz,py)
-                direction[i] = θ
-                fixated_object[i] = row[3]
+        if DPHT.level() == "session"
+            sidx = parse(Int64, filter(isdigit, DPHT.get_level_name("session")))
 
-                fixated_points[:,i] .= (gx,gz,gy) # unity has the z-axis into the scene
-                i += 1
+            qdata,edata = cd("..") do 
+                edata = EyelinkData()
+                qdata = UnityRaytraceData(;do_save=do_save, redo=redo, raytrace_fname=raytrace_fname)
+                qdata, edata
             end
-        end
-
-        timestamps .-= timestamps[1]
-
-        # break up into trials using edata
-        nt = numtrials(edata)
-        trial_fixations = Vector{Matrix{Float64}}(undef,nt)
-        trial_position = Vector{Matrix{Float64}}(undef, nt)
-        trial_head_direction = Vector{Vector{Float64}}(undef, nt)
-        trial_times = Vector{Vector{Float64}}(undef,nt)
-        trial_fixated_object = Vector{Vector{String}}(undef, nt)
-        fixating = Vector{Vector{Bool}}(undef, nt)
-        #t0 = edata.analogtime[1]
-        te,_,_, = get_trial(edata, 1)
-        t0 = te[1]
-        triggers = edata.timestamps .- t0
-        for i in 1:nt
-            if any(ismissing.(edata.triggers[i,:]))
-                trial_fixations[i] = zeros(3,0)
-                trial_position[i] = zeros(3,0) 
-                trial_head_direction[i] = zeros(0)
-                trial_times[i] = zeros(0)
-                trial_fixated_object[i] = String[]
-                fixating[i] = Bool[]
-                continue
+            qdata = get_session(qdata, edata, sidx)
+            if do_save
+                save_jld2(qdata;append_tag=append_tag)
             end
-            te,_,_,fm = get_trial(edata, i;trial_start=2)
-            # unit raytraced data use time relative to start of recording
-            te .-= t0
-            idx0 = searchsortedfirst(timestamps, te[1])
-            idx1 = searchsortedlast(timestamps,te[end])
-            trial_fixations[i] = fixated_points[:,idx0:idx1]
-            trial_position[i] = position[:,idx0:idx1]
-            trial_head_direction[i] = direction[idx0:idx1]
-            trial_times[i] = timestamps[idx0:idx1]/1000.0 # convert to seconds
-            trial_fixated_object[i] = fixated_object[idx0:idx1]
-            # we need to match fixations to the actual time points
-            _fm = fill(false, idx1-idx0+1)
-            for j in 1:length(_fm)
-                _idx = searchsortedlast(te, timestamps[idx0+j-1])
-                if 0 < _idx < length(te) 
-                    _fm[j] = fm[_idx]
+        else
+            if !redo && isfile(fname)
+                t1 = time()
+                qdata = DPHT.load(UnityRaytraceData)
+                t2 = time()-t1
+                @debug "Time" t2
+                if !isfile(replace(fname, ".mat"=>".jld2"))
+                    save_jld2(ut)
                 end
+            else
+                edata = cd(DPHT.process_level(EyelinkData)) do
+                    EyelinkData()
+                end
+                if !isempty(extradir)
+                    raytrace_fname = joinpath(extradir, raytrace_fname)
+                end
+                if !ispath(raytrace_fname)
+                    error("$(raytrace_fname) not found in $(pwd())")
+                end
+                unity_eyelinkfile = CSV.File(raytrace_fname, header=0)
+                n = length(unity_eyelinkfile)
+                fixated_points = fill(NaN, 3, n)
+                raw_gaze = fill(NaN, 2, n)
+                position = fill(NaN32, 3, n)
+                direction = fill(NaN32, n)
+                timestamps = zeros(UInt64,n)
+                fixated_object = fill("unknown", n)
+                i = 1
+                for row in unity_eyelinkfile
+                    # TODO: Grab more data here
+                    timestamps[i] = row[2]
+                    px,py,pz,a = (row[6],row[7],row[8],row[9])
+                    if any(ismissing.((px,py,pz,a)))
+                        continue
+                    end
+                    θ = π*a/180.0
+                    rgx,rgy = (row[4],row[5])
+                    # FIXME: This does not appear to be the actual eyelink timestamp!
+                    gx,gy,gz = (row[10],row[11],row[12])
+                    if (gx !== missing) && (gy !== missing) && (gz !== missing)
+                        # gx,gy,gz is relative to player ?
+                        # swap z and y
+                        position[:,i] .= (px,pz,py)
+                        direction[i] = θ
+                        fixated_object[i] = row[3]
+                        raw_gaze[:,i] .= (rgx, rgy)
+
+                        fixated_points[:,i] .= (gx,gz,gy) # unity has the z-axis into the scene
+                        i += 1
+                    end
+                end
+
+                timestamps .-= timestamps[1]
+
+                # break up into trials using edata
+                nt = numtrials(edata)
+                trial_rawfixations = Vector{Matrix{Float64}}(undef, nt)
+                trial_fixations = Vector{Matrix{Float64}}(undef,nt)
+                trial_position = Vector{Matrix{Float64}}(undef, nt)
+                trial_head_direction = Vector{Vector{Float64}}(undef, nt)
+                trial_times = Vector{Vector{Float64}}(undef,nt)
+                trial_fixated_object = Vector{Vector{String}}(undef, nt)
+                fixating = Vector{Vector{Bool}}(undef, nt)
+                #t0 = edata.analogtime[1]
+                triggers = edata.timestamps .- edata.timestamps[1,1]
+                for i in 1:nt
+                    if any(ismissing.(edata.triggers[i,:]))
+                        trial_rawfixations[i] = zeros(2,0)
+                        trial_fixations[i] = zeros(3,0)
+                        trial_position[i] = zeros(3,0) 
+                        trial_head_direction[i] = zeros(0)
+                        trial_times[i] = zeros(0)
+                        trial_fixated_object[i] = String[]
+                        fixating[i] = Bool[]
+                        continue
+                    end
+                    # unit raytraced data use time relative to start of recording
+                    #te .-= t0
+                    idx0 = searchsortedfirst(timestamps, triggers[i,1])
+                    idx1 = searchsortedlast(timestamps,triggers[i,end])
+                    # for some reason, some trials are missing the first part of the trace
+                    # we could have missing values at start, gaps, or small inaccuracies
+                    # how small would the inaccuracies be?
+                    # since we have a separate trigger field, we only need to store the
+                    # time relative to trial start
+                    te,gx,gy,fm = get_trial(edata, i;trial_start=1,flip_y=true)
+                    if apply_fix
+                        gxy = permutedims([gx gy])
+                        if norm(raw_gaze[:,idx0] - gxy[:,1]) > 2.0 
+                            # attempt to match a subset of the trajectory
+                            d,qidx,kk = match_trajectories(raw_gaze[:,idx0:idx1], gxy,10,2.0)
+                            if d < 2.0
+                                # offset the time
+                                Δt = (te[qidx] - triggers[i,1])/1000.0
+                                # skip the part that we couldn't match
+                                idx0 += kk-1
+                            else
+                                error("Mismatch found between raycast and eyelink data in trial $i")
+                            end
+                        end
+                    end
+                    trial_times[i] = (timestamps[idx0:idx1] .- triggers[i,1])/1000.0 # convert to seconds
+                    #trial_times[i] .+= Δt
+
+                    trial_rawfixations[i] = raw_gaze[:,idx0:idx1]
+                    trial_fixations[i] = fixated_points[:,idx0:idx1]
+                    trial_position[i] = position[:,idx0:idx1]
+                    trial_head_direction[i] = direction[idx0:idx1]
+                    trial_fixated_object[i] = fixated_object[idx0:idx1]
+                    # we need to match fixations to the actual time points
+                    _fm = fill(false, idx1-idx0+1)
+                    for j in 1:length(_fm)
+                        _idx = searchsortedlast(te, timestamps[idx0+j-1])
+                        if 0 < _idx < length(te) 
+                            _fm[j] = fm[_idx]
+                        end
+                    end
+                    fixating[i] = _fm
+                end
+                qdata = UnityRaytraceData(timestamps, position, direction,triggers, trial_rawfixations, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object, fixating, raytrace_fname)
             end
-            fixating[i] = _fm
-        end
-        ut = UnityRaytraceData(timestamps, position, direction,triggers, trial_fixations, trial_position, trial_head_direction, trial_times, trial_fixated_object, fixating, raytrace_fname)
-        if do_save
-            save_jld2(ut;append_tag=append_tag)
-            #DPHT.save(ut;append_tag=append_tag)
+            if do_save
+                save_jld2(qdata;append_tag=append_tag)
+                #DPHT.save(ut;append_tag=append_tag)
+            end
         end
     end
-    return ut
+    return qdata 
+end
+
+
+"""
+    get_session(qdata::UnityRaytraceData, edata::EyelinkData, idx::Integer)
+
+Since UnityData does not record session start data, we need an eyelink objet as well
+"""
+function get_session(qdata::UnityRaytraceData, edata::EyelinkData, idx::Integer)
+    # figure out the trial indices    
+    session_start = edata.session_start[idx]
+    if idx < length(edata.session_start)
+        session_end = edata.session_start[idx+1]
+    else
+        session_end = typemax(UInt64)
+    end
+    # get trials
+    tidx = session_start .<= edata.timestamps[:,1] .< session_end
+    # any missing indices?
+    qidx = findall(ismissing, tidx)
+    if !isempty(qidx)
+        # TODO: Check whether missing occur at the boundaries
+        tidx[qidx] .= true
+        tidx = something.(tidx)
+    end
+    fixating = qdata.fixating[tidx]  
+    position = qdata.position[tidx]
+    triggers = qdata.triggers[tidx,:]
+    # TODO: Reset these
+    timestamps = [qdata.timestamps[_tidx] .- triggers[1,1] for _tidx in findall(tidx)]
+    # reset to zero
+    rawgaze = qdata.rawgaze[tidx]
+    gaze = qdata.gaze[tidx]
+    fixated_object = qdata.fixated_object[tidx]
+    head_direction = qdata.head_direction[tidx]
+    # find the continuos indices as well
+    # the qdata time begins at the start of the trial trial
+    # since the analog time is always relative to the first trial
+    aidx = triggers[1,1] .<= qdata.analogtime .< triggers[end,3]
+    triggers .-= triggers[1,1]
+    analogtime = qdata.analogtime[aidx]
+    directions = qdata.directions[aidx]
+    positions = qdata.positions[:,aidx]
+    UnityRaytraceData(analogtime, positions, directions, triggers, rawgaze, gaze, position, head_direction,
+                       timestamps, fixated_object, fixating, qdata.unityfile)
+
+end
+
+function StatsBase.fit(::Type{Histogram}, raytrace_unit::UnityRaytraceData;kwargs...)
+    xbins = range(-12.5, stop=12.5, length=40)
+    Δ = step(xbins)
+    ybins = xbins
+    zbins = range(-Δ, stop=5.0+Δ, step=Δ)
+    bins = (xbins, ybins, zbins)
+    fit(Histogram, raytrace_unit, bins)
+end
+
+function StatsBase.fit(::Type{Histogram}, raytrace_unit::UnityRaytraceData, bins::NTuple{3,T};not_on=["CueImage"], fixation_only=false, only_on=String[]) where T <: AbstractVector{T2} where T2 <: Real
+    idx = (!in(not_on)).(raytrace_unit.fixated_object[1])
+    if fixation_only
+        idx .= idx .& raytrace_unit.fixating[1]
+    end
+    if !isempty(only_on)
+        idx .= idx .& in(only_on).(raytrace_unit.fixated_object[1])
+    end
+    hh = fit(Histogram, (raytrace_unit.gaze[1][1,idx], raytrace_unit.gaze[1][2,idx], raytrace_unit.gaze[1][3,idx]), bins)
+    for i in 2:length(raytrace_unit.gaze)
+        idx = (!in(not_on)).(raytrace_unit.fixated_object[i])
+        if fixation_only
+            idx .= idx .& raytrace_unit.fixating[i]
+        end
+        if !isempty(only_on)
+            idx .= idx .& in(only_on).(raytrace_unit.fixated_object[i])
+        end
+       _hh=fit(Histogram, (raytrace_unit.gaze[i][1,idx], raytrace_unit.gaze[i][2,idx], raytrace_unit.gaze[i][3,idx]), bins)
+       merge!(hh, _hh)
+    end
+    hh
+end
+
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityRaytraceData)
+    hh = fit(Histogram, x)
+    xbins, ybins, zbins = hh.edges  
+    vidx = findall(hh.weights .> 0.0)
+    points = [Point3f(xbins[ii.I[1]], ybins[ii.I[2]], zbins[ii.I[3]]) for ii in vidx]
+    PlotSpec(Scatter, points, color=hh.weights[vidx], colormap=:viridis)
+end
+
+function Makie.convert_arguments(::Type{<:Hist}, obj::UnityRaytraceData,args::NamedTuple=(;))
+    xbins = range(-12.5f0, stop=12.5f0, length=40) 
+    Δ = step(xbins)
+    ybins = xbins
+    zbins = range(0.0f0, stop=5.2f0, step=Δ)
+    hh = fit(Histogram,obj, (xbins, ybins, zbins);fixation_only=true,not_on=["Robot","CueImage","HintImage"])
+    fidx = findall(hh.weights .> 0.0)
+    points = [Point3f(x,y,z) for x in xbins, y in ybins, z in zbins]
+    # offset floor and ceiling
+    points[:,:,1] .-= Point3f(0.0, 0.0, 10.0)
+    points[:,:,end-1:end] .+= Point3f(0.0, 0.0, 10.0)
+
+    # use a cube corresponding to the bin size in each direction as the marker
+    cc = Rect3f(-Δ/2, -Δ/2, -Δ/2, Δ, Δ, Δ)
+    Z = 1.0f0*hh.weights
+    mscatter = S.MeshScatter(points[fidx], color=Z[fidx], marker=cc, markersize=1, colormap=:turbo)
+    cb = S.Colorbar(mscatter)
+    axspec = S.LScene(plots=[mscatter])
+    S.GridLayout([axspec cb])
+end
+
+
+"""
+Generate a simple tiled texture with the specified base color and period `period`.
+"""
+function generate_tile_test(base_color, width, height;nn=20, buffer=4, period=nn)
+    hsv = HSV(parse(Colorant, base_color))
+    b = buffer
+    points = [Point3f(x,y,0.0) for x in range(0.0, stop=width, length=nn), y in range(0.0, stop=height, length=nn)]
+    ni,nj= size(points)
+    _faces = decompose(Makie.QuadFace{Makie.GLIndex}, Makie.Tessellation(Rect(0, 0, 1, 1), size(points)))
+    uv = [Vec2f(x/width,y/height) for x in range(0.0, stop=width, length=nn), y in range(0.0, stop=height, length=nn)]
+    # random normals
+    # try someting a bit more systematic. Simulate a bowl
+    color = Matrix{HSV}(undef, size(points)...)
+    for j in axes(points,2)
+        jp = round(Int64, floor(j/period))
+        jl = j - jp*period 
+        for i in axes(points,1)
+            #p = points[i,j]
+            #q = exp(-(p[1]-2.5)^2/5.0 - (p[2]-2.5)^2/5)
+            # bevel
+            ip = round(Int64, floor(i/period))
+            il = i - ip*period
+            if il <= b 
+                qi = (il-1)/b
+            elseif ip*period-b+1 <= il <= period 
+                qi = 1.0 - (il-(period-b))/b
+            else
+                qi = 1.0
+            end
+            if jl <= b 
+                qj = (jl-1)/b
+            elseif jp*period-b+1 <= jl <= period 
+                qj = 1.0 - (jl-(period-b))/b
+            else
+                qj = 1.0
+            end
+            q = 0.3f0 .+ 0.7f0*min(qi,qj)
+            color[i,j] = HSV(hsv.h, hsv.s, Float32(q))
+        end
+    end
+    N = [Vec3f(0.0, 0.0, 1.0) .+ 0.5f0*randn(Float32,3) for _ in points]
+    N = normalize.(N)
+    gb_mesh = GeometryBasics.Mesh(points[:], _faces;uv=uv[:], normals=N[:])
+
+
+    #plot
+    fig = Figure()
+    lscene = LScene(fig[1,1])
+    #set_lights!(lscene, [])
+    #push_light!(lscene, PointLight(RGBf(1,1,1), Point3f(2.5, 2.5, 2.0)))
+    mesh!(lscene, gb_mesh, color=color)
+    #arrows!(lscene, points[:], N[:])
+    fig
 end
 
 numtrials(gdata::UnityRaytraceData) = length(gdata.gaze)
 
-DPHT.filename(::Type{UnityRaytraceData}) = "unity_raytrace.mat"
-DPHT.level(::Type{UnityRaytraceData}) = "session"
+DPHT.filename(::Type{UnityRaytraceData}) = "unity_raytrace.jld2"
+DPHT.level(::Type{UnityRaytraceData}) = "day"
 
 function visualize!(lscene, unitygaze::UnityRaytraceData;trial::Observable{Trial}=Observable(Trial(1)), current_time::Observable{Float64}=Observable(0.0),indicate_object=false,kwargs...)
     ugdata_trial = lift(trial) do _trial
