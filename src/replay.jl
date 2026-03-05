@@ -2328,7 +2328,7 @@ function JointMap(;redo::Function=fname->false, do_save=true, kwargs...)
             jm = JointMap(jm.weight, jm.occupancy, jm.index)
         end
     else
-        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        vpvrp = ViewAndPlaceRepresentationNew(;redo=redo, do_save=do_save, kwargs...)
         jocc,jocc_filtered= cd(DPHT.process_level("session")) do
             jocc = JointOccupancy(;kwargs...)
             unity_gaze_data = UnityRaytraceData(;kwargs...)
