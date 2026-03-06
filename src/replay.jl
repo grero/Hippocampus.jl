@@ -2584,7 +2584,7 @@ Map the spikes represented by `vpvrp` onto the place, gaze and hd spaces
 """
 function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,unity_gaze_data::UnityRaytraceData;kwargs...)
     joccf = JointFilteredOccupancy(jocc,unity_gaze_data;kwargs...)
-    JointMap(vpvrp, jocc, qidx.joccf)
+    JointMap(vpvrp, jocc, joccf.qidx)
 end
 
 function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,jocc_filtered::JointFilteredOccupancy;kwargs...)
