@@ -168,9 +168,9 @@ maptype(::Type{JointInformationContent}) = JointMap
 Compute Skagg's SIC for the cell in the current working directory using `nshuffles`
 random circular shuffles of the underlying spike train data
 """
-function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, load_only=false, redo=fname->false, do_save=true, smooth=false, prog_offset=0, kwargs...) where T <: AbstractInformationContent
-    h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,kwargs...)
-    args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth)
+function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), load_only=false, redo=fname->false, do_save=true, smooth=false, prog_offset=0, kwargs...) where T <: AbstractInformationContent
+    h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,smooth=smooth,kwargs...)
+    args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>get(kwargs, :trial_start, 1), :smooth=>smooth)
     @assert typeof(args) == fieldtype(T, :args)
     if smooth
         args[:smoothing_method] = get(kwargs, :smoothing_method, :gaussian)
@@ -205,7 +205,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
             UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
         end
         jocc = cd(DPHT.process_level(level(JointOccupancy))) do
-            JointOccupancy(;redo=false, nrefinements=nrefinements,trial_start=trial_start,kwargs...)
+            JointOccupancy(;redo=false, nrefinements=nrefinements,kwargs...)
         end
         jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;kwargs...)
         sic = zeros(nshuffles)
