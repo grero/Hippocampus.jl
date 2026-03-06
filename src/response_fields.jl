@@ -465,3 +465,58 @@ function plot_response_fields!(lg, rf::GazeResponseFields)
     end
     Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf.λ)), colormap=:binary, label="Firing rate [Hz]")
 end
+
+function plot_response_fields!(lscene::LScene, rf::GazeResponseFields;ceiling_offset=10, floor_offset=-20)
+    mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
+    m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
+    clusters = merge_fields(rf)
+
+    ccolors = Makie.wong_colors()
+    for (cc,cluster) in zip(ccolors,clusters)
+        pidx = rf.binidx[cluster]
+        cpoints = centroid.(mm[pidx])
+        floor_points = filter(Meshes.intersects(m_floor), cpoints)
+        ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
+        mid_points = setdiff(cpoints, union(floor_points, ceil_points))
+        if !isempty(floor_points)
+            viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc)
+        end
+        if !isempty(ceil_points)
+            viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc)
+        end
+        if !isempty(mid_points)
+            viz!(lscene, mid_points,color=cc)
+        end
+    end
+end
+
+function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields)
+    mm = Shadow("xy")(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
+    ax = Axis(lg[1,1])
+    hidedecorations!(ax)
+    ax.bottomspinevisible = false
+    ax.leftspinevisible = false
+    viz!(ax, mm;color=:lightgray)
+    viz!(ax, mm;color=rf.λ,colormap=:binary)
+    clusters = merge_fields(rf)
+
+    ccolors = Makie.wong_colors()
+    for (cc,cluster) in zip(ccolors,clusters)
+        pidx = rf.binidx[cluster]
+        cpoints = centroid.(mm[pidx])
+        viz!(ax, cpoints, color=cc)
+    end
+    Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf.λ)), colormap=:binary, label="Firing rate [Hz]")
+end
+
+function plot_response_fields!(lscene::LScene, rf::SpatialResponseFields;offset=0.0)
+    mm = Translate(0.0, 0.0, offset)(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
+    clusters = merge_fields(rf)
+
+    ccolors = Makie.wong_colors()
+    for (cc,cluster) in zip(ccolors,clusters)
+        pidx = rf.binidx[cluster]
+        cpoints = centroid.(mm[pidx])
+        viz!(lscene, cpoints, color=cc)
+    end
+end
