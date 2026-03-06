@@ -2815,8 +2815,7 @@ function ViewMapNew(vrp::ViewRepresentation, voc::ViewOccupancyNew{T}) where T <
     ViewMapNew{T}(voc.mm, Z, voc.weight)
 end
 
-function process_kwargs(::Type{<:AbstractMap};min_place_duration=0.05, min_view_duration=0.01, min_view_obs=5, min_place_obs=5,kwargs...)
-     h = UInt32(0)
+function process_kwargs(::Type{<:AbstractMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_view_duration=0.01, min_view_obs=5, min_place_obs=5,kwargs...)
     # only store these if they are different from the default
     if min_place_duration != 0.05
         h = crc32c(string(:min_place_duration=>min_place_duration),h)
