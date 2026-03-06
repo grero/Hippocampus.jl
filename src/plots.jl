@@ -469,5 +469,25 @@ function plot_maps!(lg, jm::JointMap;smooth=true, smoothing_method=:laplace, α=
     Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite, λv)),label="Firing rate [Hz]")
     Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, λsp)), label="Firing rate [Hz]")
     rowsize!(lg2, 1, Relative(0.7))
+    if sic_spatial !== nothing || sic_gaze !== nothing
+        lg3 = GridLayout(lg[1,3])
+        colsize!(lg, 3, 75)
+        ax1 = Axis(lg3[1,1])
+        boxplot!(ax1, fill(1.0, length(sic_spatial.sic)), sic_spatial.sic, show_outliers=false, show_notch=true, color=:darkgray)
+        hlines!(ax1, sic_spatial.sic0, linestyle=:dot, color=:black)
+
+        ax2 = Axis(lg3[2,1])
+        boxplot!(ax2, fill(1.0, length(sic_gaze.sic)), sic_gaze.sic, show_outliers=false, show_notch=true, color=:darkgray)
+        hlines!(ax2, sic_gaze.sic0, linestyle=:dot, color=:black)
+        for _ax in [ax1, ax2]
+            _ax.bottomspinevisible = false
+            _ax.xticksvisible = false
+            _ax.xticklabelsvisible = false
+            _ax.yaxisposition = :right
+            _ax.leftspinevisible = false
+            _ax.rightspinevisible = true
+            _ax.ylabel = "SIC"
+        end
+    end
 
 end
