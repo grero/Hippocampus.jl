@@ -2017,8 +2017,8 @@ function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1
                 continue
             end
             qq = CartesianIndex(_idxv, _pidx, hidx, i)
-            weight[qq] = get(weight, qq, 0.0) + Δt[j]
-            aindex[i][j] = CartesianIndex(_idxv, _pidx, hidx)
+            weight[qq] = get(weight, qq, 0.0) + Δt
+            aindex[i][j-1] = CartesianIndex(_idxv, _pidx, hidx)
         end
     end
     JointOccupancy(weight,aindex)
