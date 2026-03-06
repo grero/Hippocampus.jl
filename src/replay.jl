@@ -2202,7 +2202,7 @@ function ViewAndPlaceRepresentationNew(;redo::Function=fname->false, do_save=tru
         rp = cd(DPHT.process_level(RippleData)) do
             RippleData()
         end
-        unity_gaze_data = cd(DPHT.process_level(UnityRaytraceData)) do
+        unity_gaze_data = cd(DPHT.process_level("session")) do
             UnityRaytraceData(;kwargs...)
         end
         vprp = ViewAndPlaceRepresentationNew(sp, rp, unity_gaze_data)
