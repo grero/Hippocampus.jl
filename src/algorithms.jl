@@ -201,7 +201,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
         rp = cd(DPHT.process_level(level(RippleData))) do
             RippleData()
         end
-        unity_gaze_data = cd(DPHT.process_level(level(UnityRaytraceData))) do
+        unity_gaze_data = cd(DPHT.process_level("session")) do
             UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
         end
         jocc = cd(DPHT.process_level(level(JointOccupancy))) do
