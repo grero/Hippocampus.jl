@@ -462,14 +462,14 @@ function plot_maps!(lg, jm::JointMap;sic_spatial::Union{SpatialInformationConten
     lscene = LScene(lg[1,1], show_axis=false)
     λv = get_rate_map(vml)
     λsp = get_rate_map(sml)
-    plotmesh!(lscene,mm;color=:lightgray, ceiling_offset=10, floor_offset=-15)
+    plotmesh!(lscene,mm;color=:lightblue, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene,mm;color=λv, ceiling_offset=10, floor_offset=-15,colormap=colormap)
     if rf_gaze !== nothing
         plot_response_fields!(lscene, rf_gaze;floor_offset=-15, ceiling_offset=10)
     end
     # offset the floor
     m_floor = Translate(0.0, 0.0, -30)(m_floor)
-    viz!(lscene, m_floor;color=:lightgray)
+    viz!(lscene, m_floor;color=:lightblue)
     viz!(lscene, m_floor;color=λsp,colormap=colormap)
 
     if rf_spatial !== nothing
