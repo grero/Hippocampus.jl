@@ -2756,8 +2756,10 @@ function JointSmoothedMap(jm::JointMap;method=:gaussian, σ=5, m=4, edge_correct
     JointSmoothedMap(jm.dims, Xg, Yg, unvisited, smooth_params)
 end
 
-function get_mean_firing_rate(jm::JointMap)
-    mean(jm.weight./jm.occupancy)
+function get_mean_firing_rate(jm::AbstractMap)
+    weight = get_weight(jm)
+    occupancy = get_occupancy(jm)
+    mean(weight./occupancy)
 end
 
 function compute_skaggs_sic(jml::JointSmoothedMap)
