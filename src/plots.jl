@@ -320,3 +320,148 @@ function plot_gaze_map(lg::GridLayout)
     axc = Colorbar(lg[1,2], colorrange=(0.0, 0.0), label="Firing rate [Hz]")
     ax,axc
 end
+
+function plot_conjunctions(λ_covered, λ_not_covered, mm)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lscene1 = LScene(fig[2,1])
+        lscene2 = LScene(fig[2,2])
+
+        x1min,x1max = extrema(filter(isfinite,λ_covered))
+        x2min,x2max = extrema(filter(isfinite,λ_not_covered))
+        xmin = min(x1min, x2min)
+        xmax = max(x1max, x2max)
+        plotmesh!(lscene1, mm;color=:lightgray, floor_offset=-20, ceiling_offset=10)
+        plotmesh!(lscene1, mm;color=λ_covered, floor_offset=-20, ceiling_offset=10,colorrange=(xmin,xmax))
+
+        plotmesh!(lscene2, mm;color=:lightgray, floor_offset=-20, ceiling_offset=10)
+        plotmesh!(lscene2, mm;color=λ_not_covered, floor_offset=-20, ceiling_offset=10, colorrange=(xmin,xmax))
+        Colorbar(fig[2,3], colorrange=(xmin,xmax), label="Firing Rate [Hz]")
+        Label(fig[1,1], "In field", tellwidth=false)
+        Label(fig[1,2], "Out-of field", tellwidth=false)
+        fig
+    end
+end
+
+function plot_fields(::Type{T}, celldir::String;colormap=:binary, kwargs...) where T <: AbstractResponseFields
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    jm,rf = cd(celldir) do
+        jm = JointMap(;kwargs...)
+        rf = get_response_fields(T, 10_000;nrefinements=nrefinements, smooth=true, smoothing_method=:laplace,
+                                                                α=0.1, niter=100)
+        jm,rf
+    end
+    mm = get_mesh(T,nrefinements)
+    # cluster fields based on similarity
+    clusters = merge_fields(mm, rf.binidx)
+    if length(clusters) <= 7
+        wcolors = Makie.wong_colors()
+    else
+        wcolors = to_colormap(:Paired_12)
+    end
+    cluster_colors = fill(wcolors[1], length(rf.binidx))
+    for (ii,cluster) in enumerate(clusters)
+        cluster_colors[cluster] .= wcolors[ii] 
+    end
+    TM = maptype(T)
+    spm = TM(jm, mm)
+    sml = SmoothedMap(spm;method=:laplace, α=0.1, niter=100)
+
+    with_theme(plot_theme) do
+        fig = Figure(size=(800,400))
+        if embeddim(mm) == 2
+            ax1 = Axis(fig[1,1])
+            ax2 = Axis(fig[1,3])
+              for ax in [ax1,ax2]
+                hidedecorations!(ax)
+                ax.topspinevisible = true
+                ax.rightspinevisible = true
+            end
+        else
+            ax1 = LScene(fig[1,1],show_axis=false)
+            ax2 = LScene(fig[1,3], show_axis=false)
+        end
+        if embeddim(mm) == 3
+            plotmesh!(ax1, mm;color=get_rate_map(spm),colormap=colormap,floor_offset=-20, ceiling_offset=10,showsegments=true,segmentcolor=:lightgray)
+            plotmesh!(ax2, mm;color=get_rate_map(sml),colormap=colormap, floor_offset=-20, ceiling_offset=10,showsegments=true,segmentcolor=:lightgray)
+            m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
+            ceiling_idx = findall(in(m_ceiling.inds).(rf.binidx))
+            floor_idx = findall(in(m_floor.inds).(rf.binidx))
+            centroids = centroid.(mm[rf.binidx])
+            centroids[ceiling_idx] .= Translate(0.0, 0.0, 10).(centroids[ceiling_idx])
+            centroids[floor_idx] .= Translate(0.0, 0.0, -20).(centroids[floor_idx])
+            viz!(ax2, centroids;color=cluster_colors,pointsize=7.5)
+        else
+            viz!(ax1, mm;color=get_rate_map(spm),colormap=colormap)
+            viz!(ax2, mm;color=get_rate_map(sml),colormap=colormap)
+            viz!(ax2, centroid.(mm[rf.binidx]),color=cluster_colors)
+        end
+        Colorbar(fig[1,2], colorrange=extrema(filter(isfinite, get_rate_map(spm))), label="Firing rate [Hz]",ticksvisible=true,colormap=colormap)
+        Colorbar(fig[1,4], colorrange=extrema(filter(isfinite, get_rate_map(sml))), label="Firing rate [Hz]", ticksvisible=true, colormap=colormap)
+        link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_laplace_adaptive_comparison(celldir::String;laplace_params=(α=0.1,niter=100), adaptive_params=(;α=1000.0^2))
+    spm = cd(celldir) do
+        SpatialMapNew()
+    end
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+    sml = SmoothedMap(spm;method=:laplace, laplace_params...)
+    sma = SmoothedMap(spm;method=:adaptive, adaptive_params...)
+    with_theme(plot_theme) do
+        fig = Figure(size=(800,300))
+
+        axes = [Axis(fig[1,2*(i-1)+1],aspect=1, rightspinevisible=true, topspinevisible=true) for i in 1:3]
+        hidedecorations!.(axes)
+        axes[1].title = L"Raw"
+        Z = get_rate_map(spm)
+        viz!(axes[1],m_floor, color=Z)
+        Colorbar(fig[1,2], colorrange=extrema(filter(isfinite, Z)))
+        axes[2].title = L"Adaptive, \alpha=%$(adaptive_params[:α])"
+        Za = get_rate_map(sma)
+        viz!(axes[2], m_floor, color=Za)
+        Colorbar(fig[1,4], colorrange=extrema(filter(isfinite, Za)))
+        axes[3].title =L"Laplace, \alpha=%$(laplace_params[:α]), niter=%$(laplace_params[:niter])"
+        Zl = get_rate_map(sml)
+        viz!(axes[3],m_floor, color=Zl)
+        Colorbar(fig[1,6], colorrange=extrema(filter(isfinite, Zl)))
+        fig
+    end
+end
+
+function plot_maps(jm::JointMap;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_maps!(lg, jm;kwargs...)
+        fig
+    end
+end
+
+function plot_maps!(lg, jm::JointMap;smooth=true, smoothing_method=:laplace, α=0.1, niter=100)
+
+    mm = get_maze_mesh(;nrefinements=jm.dims[1])
+    m_floor = floor_topology3(;nrefinements=jm.dims[2])
+    # view map
+    vm = ViewMapNew(jm, mm)
+    # place map
+    spm = SpatialMapNew(jm, Shadow("xy")(m_floor))
+    if smooth
+        vml = SmoothedMap(vm;method=smoothing_method, α=α, niter=niter)
+        sml= SmoothedMap(spm;method=smoothing_method, α=α, niter=niter)
+    else
+        vml = vm
+        sml = spm 
+    end
+    lscene = LScene(lg[1,1], show_axis=false)
+    λv = get_rate_map(vml)
+    λsp = get_rate_map(sml)
+    plotmesh!(lscene,mm;color=:lightgray, ceiling_offset=10, floor_offset=-15)
+    plotmesh!(lscene,mm;color=λv, ceiling_offset=10, floor_offset=-15)
+    # offset the floor
+    m_floor = Translate(0.0, 0.0, -30)(m_floor)
+    viz!(lscene, m_floor;color=:lightgray)
+    viz!(lscene, m_floor;color=λsp)
+end
