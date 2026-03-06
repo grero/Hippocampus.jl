@@ -1706,16 +1706,14 @@ function JointFilteredOccupancy(jocc::JointOccupancy,unity_gaze_data::UnityRaytr
     goodbinidx_g = findall(dropdims(sum(gaze_weight .> min_view_duration,dims=2),dims=2).> min_view_obs)
     ff = in(goodbinidx)
     ff_g = in(goodbinidx_g)
-    # get the speed per place bin
-    placebin_idx = [getindex.(ii,2) for ii in jocc.index]
-    vv = Hippocampus.compute_speed(unity_gaze_data.position, unity_gaze_data.timestamps, placebin_idx,np)
+
     qidx = CartesianIndex{4}[]
     ww = Float64[]
     for (k,v) in jocc.weight
         vidx = k.I[1]
         pidx = k.I[2]
         tidx = k.I[4]
-        if ff(pidx) && ff_g(vidx) && (vv[pidx,tidx]  > min_speed)
+        if ff(pidx) && ff_g(vidx)
             push!(qidx,k)
             push!(ww, v)
         end
