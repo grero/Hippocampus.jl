@@ -2034,8 +2034,9 @@ function JointOccupancy(;redo=false, do_save=true,kwargs...)
     if isfile(fname) && !redo
         jocc = load_jld2(JointOccupancy, fname)
     else 
-        unity_gaze_data = UnityRaytraceData(;kwargs...)
-        jocc = Hippocampus.JointOccupancy(unity_gaze_data;kwargs...)
+        udata = UnityData()
+        qdata = UnityRaytraceData(;kwargs...)
+        jocc = Hippocampus.JointOccupancy(qdata,udata;kwargs...)
         if do_save
             save_jld2(jocc,fname)
         end
