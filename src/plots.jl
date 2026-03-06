@@ -464,4 +464,10 @@ function plot_maps!(lg, jm::JointMap;smooth=true, smoothing_method=:laplace, α=
     m_floor = Translate(0.0, 0.0, -30)(m_floor)
     viz!(lscene, m_floor;color=:lightgray)
     viz!(lscene, m_floor;color=λsp)
+    # show colorbar
+    lg2 = GridLayout(lg[1,2])
+    Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite, λv)),label="Firing rate [Hz]")
+    Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, λsp)), label="Firing rate [Hz]")
+    rowsize!(lg2, 1, Relative(0.7))
+
 end
