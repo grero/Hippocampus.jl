@@ -440,7 +440,11 @@ function plot_maps(jm::JointMap;kwargs...)
     end
 end
 
-function plot_maps!(lg, jm::JointMap;smooth=true, smoothing_method=:laplace, α=0.1, niter=100)
+function plot_maps!(lg, jm::JointMap;sic_spatial::Union{SpatialInformationContent,Nothing}=nothing,
+                                      sic_gaze::Union{GazeInformationContent,Nothing}=nothing,
+                                      rf_spatial::Union{SpatialResponseFields,Nothing}=nothing,
+                                      rf_gaze::Union{GazeResponseFields, Nothing}=nothing,
+                                      smooth=true, smoothing_method=:laplace, α=0.1, niter=100,colormap=:binary)
 
     mm = get_maze_mesh(;nrefinements=jm.dims[1])
     m_floor = floor_topology3(;nrefinements=jm.dims[2])
@@ -459,15 +463,22 @@ function plot_maps!(lg, jm::JointMap;smooth=true, smoothing_method=:laplace, α=
     λv = get_rate_map(vml)
     λsp = get_rate_map(sml)
     plotmesh!(lscene,mm;color=:lightgray, ceiling_offset=10, floor_offset=-15)
-    plotmesh!(lscene,mm;color=λv, ceiling_offset=10, floor_offset=-15)
+    plotmesh!(lscene,mm;color=λv, ceiling_offset=10, floor_offset=-15,colormap=colormap)
+    if rf_gaze !== nothing
+        plot_response_fields!(lscene, rf_gaze;floor_offset=-15, ceiling_offset=10)
+    end
     # offset the floor
     m_floor = Translate(0.0, 0.0, -30)(m_floor)
     viz!(lscene, m_floor;color=:lightgray)
-    viz!(lscene, m_floor;color=λsp)
+    viz!(lscene, m_floor;color=λsp,colormap=colormap)
+
+    if rf_spatial !== nothing
+        plot_response_fields!(lscene, rf_spatial;offset=-30)
+    end
     # show colorbar
     lg2 = GridLayout(lg[1,2])
-    Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite, λv)),label="Firing rate [Hz]")
-    Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, λsp)), label="Firing rate [Hz]")
+    Colorbar(lg2[1,1], colorrange=extrema(filter(isfinite, λv)),label="Firing rate [Hz]",colormap=colormap)
+    Colorbar(lg2[2,1], colorrange=extrema(filter(isfinite, λsp)), label="Firing rate [Hz]",colormap=colormap)
     rowsize!(lg2, 1, Relative(0.7))
     if sic_spatial !== nothing || sic_gaze !== nothing
         lg3 = GridLayout(lg[1,3])
