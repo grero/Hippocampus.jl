@@ -479,14 +479,14 @@ function plot_maps!(lg, jm::JointMap;smooth=true, smoothing_method=:laplace, α=
         ax2 = Axis(lg3[2,1])
         boxplot!(ax2, fill(1.0, length(sic_gaze.sic)), sic_gaze.sic, show_outliers=false, show_notch=true, color=:darkgray)
         hlines!(ax2, sic_gaze.sic0, linestyle=:dot, color=:black)
-        for _ax in [ax1, ax2]
+        for (ll,_ax) in zip(["View","Place"], [ax1, ax2])
             _ax.bottomspinevisible = false
             _ax.xticksvisible = false
             _ax.xticklabelsvisible = false
             _ax.yaxisposition = :right
             _ax.leftspinevisible = false
             _ax.rightspinevisible = true
-            _ax.ylabel = "SIC"
+            _ax.ylabel = "SIC $ll"
         end
     end
 
