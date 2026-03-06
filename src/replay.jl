@@ -2205,7 +2205,7 @@ function ViewAndPlaceRepresentationNew(;redo::Function=fname->false, do_save=tru
         unity_gaze_data = cd(DPHT.process_level("session")) do
             UnityRaytraceData(;kwargs...)
         end
-        vprp = ViewAndPlaceRepresentationNew(sp, rp, unity_gaze_data)
+        vprp = ViewAndPlaceRepresentationNew(sp, rp, unity_gaze_data;kwargs...)
         if do_save
             save_jld2(vprp, fname)
         end
