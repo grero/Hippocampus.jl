@@ -428,3 +428,136 @@ function plot_conjunction(fj::FieldConjunctions{SpatialResponseFields}, fields::
         fig
     end
 end
+
+function plot_conjunctions(pvc::PlaceViewConjunction)
+    vm = get_rate_map(pvc.view_fields)
+    spm = get_rate_map(pvc.spatial_fields)
+end
+
+function plot_conjunctions(fj::FieldConjunctions)
+    (nrows,ncols) = size(fj.λ_infield)
+    with_theme(plot_theme) do
+        fig = Figure(size=(1267, 742))
+        for c in 1:ncols
+            for r in 1:nrows
+                if nrows > ncols
+                    lg = GridLayout(fig[c,r])
+                else
+                    lg = GridLayout(fig[r,c])
+                end
+                plot_conjunctions!(lg, fj, c,r)
+            end
+        end
+        fig
+    end
+
+end
+
+function plot_conjunctions(fj::FieldConjunctions,args...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_conjunctions!(lg, fj,args...)
+        fig
+    end
+end
+
+function plot_conjunctions!(lg, fj::FieldConjunctions{SpatialResponseFields,GazeResponseFields},pidx=1,vidx=1;indicate_view_field=true)
+    lscene = LScene(lg[1,1], show_axis=false)
+    mm = get_mesh(GazeResponseFields,fj.fields2.args[:nrefinements])
+    plotmesh!(lscene, mm;color=:lightblue, ceiling_offset=10, floor_offset=-10, colormap=:binary)
+    plotmesh!(lscene, mm;color=fj.λ[:,pidx], ceiling_offset=10, floor_offset=-10, colormap=:binary)
+    if indicate_view_field
+        plot_response_fields!(lscene, fj.fields2, vidx;ceiling_offset=10, floor_offset=-10)
+    end
+    # indicate the place field we are using
+    m_floor = Translate(0.0, 0.0, -25)(Hippocampus.floor_topology3(;nrefinements=fj.fields1.args[:nrefinements].p))
+    clusters = merge_fields(fj.fields1)
+    Z = fill(NaN, nelements(m_floor))
+    Z[fj.fields1.binidx[clusters[pidx]]] .= 1.0
+    viz!(m_floor;color=:lightblue)
+    viz!(m_floor;color=Z,colormap=:binary)
+    # show distribution of rates within and outside of the view fields
+    ax = Axis(lg[1,2])
+    ax.yaxisposition = :right
+    ax.bottomspinevisible = false
+    ax.xticksvisible = false
+    ax.yticksvisible = true
+    ax.xticks = ([1,2], ["Outfield", "Infield"])
+    ax.xticklabelrotation = -π/5
+    ax.leftspinevisible = false
+    ax.rightspinevisible = true
+    ax.ylabel = "Firing rate [Hz]"
+    xx = fill(1.0, length(fj.λ_outfield[pidx]))
+    append!(xx, fill(2.0, length(fj.λ_infield[vidx,pidx])))
+    yy = fj.λ_outfield[pidx]
+    append!(yy, fj.λ_infield[vidx,pidx])
+    bbx = boxplot!(ax, xx, yy, color=:darkgray,show_outliers=false, show_notch=true)
+    colsize!(lg, 2, 100)
+    # TODO: Indicate significance
+    h = MannWhitneyUTest(fj.λ_outfield[pidx], fj.λ_infield[vidx,pidx])
+    pv = pvalue(h;tail=:left)
+    if pv < 0.001
+        tt = "**"
+    elseif pv < 0.01
+        tt = "*"
+    else
+        tt = "ns"
+    end
+    ymax = maximum(bbx.q5s[])
+    ymin = minimum(bbx.q1s[])
+    Δy = ymax-ymin
+    ylims!(ax, ymin-0.1*Δy, ymax+0.2*Δy)
+    bracket!(ax, 1, ymax, 2, ymax, offset=5, text=tt,style=:square)
+end
+
+function plot_conjunctions!(lg, fj::FieldConjunctions{GazeResponseFields,SpatialResponseFields},pidx=1,vidx=1;indicate_view_field=true)
+    lscene = LScene(lg[1,1], show_axis=false)
+    mm = get_mesh(GazeResponseFields,fj.fields1.args[:nrefinements])
+    plotmesh!(lscene, mm;color=:lightblue, ceiling_offset=10, floor_offset=-10, colormap=:binary)
+    
+    # indicate the place field we are using
+    m_floor = Translate(0.0, 0.0, -25)(Hippocampus.floor_topology3(;nrefinements=fj.fields2.args[:nrefinements].p))
+    clusters = merge_fields(fj.fields1)
+    Z = fill(NaN, nelements(mm))
+    Z[fj.fields1.binidx[clusters[pidx]]] .= 1.0
+    plotmesh!(lscene, mm;color=Z, ceiling_offset=10, floor_offset=-10, colormap=:binary)
+
+    viz!(m_floor;color=:lightblue)
+    viz!(m_floor;color=fj.λ[:,pidx],colormap=:binary)
+    if indicate_view_field
+        plot_response_fields!(lscene, fj.fields2, vidx;offset=-25)
+    end
+    # show distribution of rates within and outside of the view fields
+    ax = Axis(lg[1,2])
+    ax.yaxisposition = :right
+    ax.bottomspinevisible = false
+    ax.xticksvisible = false
+    ax.yticksvisible = true
+    ax.xticks = ([1,2], ["Outfield", "Infield"])
+    ax.xticklabelrotation = -π/5
+    ax.leftspinevisible = false
+    ax.rightspinevisible = true
+    ax.ylabel = "Firing rate [Hz]"
+    xx = fill(1.0, length(fj.λ_outfield[pidx]))
+    append!(xx, fill(2.0, length(fj.λ_infield[vidx,pidx])))
+    yy = fj.λ_outfield[pidx]
+    append!(yy, fj.λ_infield[vidx,pidx])
+    bbx = boxplot!(ax, xx, yy, color=:darkgray,show_outliers=false, show_notch=true)
+    colsize!(lg, 2, 100)
+    # TODO: Indicate significance
+    h = MannWhitneyUTest(fj.λ_outfield[pidx], fj.λ_infield[vidx,pidx])
+    pv = pvalue(h;tail=:left)
+    if pv < 0.001
+        tt = "**"
+    elseif pv < 0.01
+        tt = "*"
+    else
+        tt = "ns"
+    end
+    ymax = maximum(bbx.q5s[])
+    ymin = minimum(bbx.q1s[])
+    Δy = ymax-ymin
+    ylims!(ax, ymin-0.1*Δy, ymax+0.2*Δy)
+    bracket!(ax, 1, ymax, 2, ymax, offset=5, text=tt,style=:square)
+end
