@@ -2169,8 +2169,11 @@ function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gd
         trialevents = zeros(Float64, nspikes)
         _placeviewidx = zeros(Int64, nspikes)
         js = 1
+        kg = 1
         for spj in sp_trial 
-            kg = searchsortedlast(tg,spj)
+            _tg = @view tg[kg:end]
+            _kg = searchsortedlast(_tg,spj)
+            kg += _kg-1 
             if (0 < kg < size(gaze,2) && (fixmask[kg] || !fixation_only))
                 #if (voc.placebin_idx[i][ku] != 0) && (voc.viewbin_idx[i][kg] != 0)
                 trialevents[js] = spj
