@@ -485,7 +485,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
             save_jld2(ut)
         end
     else
-        if DPHT.level() == "session"
+        if DPHT.level() == "session" && !isfile(raytrace_fname)
             sidx = parse(Int64, filter(isdigit, DPHT.get_level_name("session")))
 
             qdata,edata = cd("..") do 
