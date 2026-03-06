@@ -1924,8 +1924,7 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
-function process_kwargs(::Type{JointOccupancy};trial_start=1, nrefinements=(p=3, g=3),kwargs...)
-    h = zero(UInt32)
+function process_kwargs(::Type{JointOccupancy},h::UInt32=zero(UInt32);trial_start=1, nrefinements=(p=3, g=3),min_speed=-1, kwargs...)
     if trial_start != 1
         h = crc32c(string((:trial_start=>trial_start)),h)
     end
@@ -1935,10 +1934,14 @@ function process_kwargs(::Type{JointOccupancy};trial_start=1, nrefinements=(p=3,
     if nrefinements.g != 3
         h = crc32c(string((:nrefinements_g=>nrefinements.g)),h)
     end
+    if min_speed != -1
+        h = crc32c(string((:min_speed=>min_speed)),h)
+    end
+
     h
 end
 
-function JointOccupancy(gdata::UnityRaytraceData;trial_start=1,nrefinements=(p=3, g=2),kwargs...)
+function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1,nrefinements=(p=3, g=2),min_speed=-1, kwargs...)
     nt = numtrials(gdata)
     hd_bins = range(0.0, stop=2π, length=24)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
@@ -1953,11 +1956,43 @@ function JointOccupancy(gdata::UnityRaytraceData;trial_start=1,nrefinements=(p=3
             aindex[i] = CartesianIndex{3}[]
             continue
         end
-        Δt = diff(tt)
-        push!(Δt, maximum(Δt))
-        aindex[i] = [CartesianIndex(0,0,0) for _ in 1:length(tt)]
-         for (j,(_pos, _gaze, _fo, _hd)) in enumerate(zip(eachcol(pos), eachcol(gaze), fo,hd))
+        # identify anmolous time steps; these would be where the tracker couldn't track the eye, for instance
+        dt = diff(tt)
+        μ = mean(dt)
+        σ = std(dt)
+        dt = dt[dt .<= μ+3*σ]
+        μ = mean(dt)
+        σ = std(dt)
+        tu, posx, posy, _ = Hippocampus.get_trial(udata, i;trial_start=trial_start);
+        # compute speed from tu
+        v = sqrt.(diff(posx).^2 + diff(posy).^2)./diff(tu)
+        aindex[i] = [CartesianIndex(0,0,0) for _ in 1:length(tt)-1]
+        for j in 2:size(pos,2)
+            # FIXME: We sometimes have big gaps here; we need to deal with those
+            Δt = tt[j] - tt[j-1]
+            # heuristic
+            if Δt > 0.002 # two frames lost
+                continue
+            end
+            # figure out which tu frame we are in
+            idx0 = searchsortedlast(tu, tt[j-1])
+            # skip this whole frame if the speed is less than the treshold?
+            if idx0 > length(v) || v[idx0] <= min_speed
+                continue
+            end
 
+        #for (j,(_pos, _gaze, _fo, _hd)) in enumerate(zip(eachcol(pos), eachcol(gaze), fo,hd))
+            #idea: unity uses longer time scale; perhaps the prudent thing to do is there to also include
+            # udata and essentially do exactly the same as for the purely spatial occpancy
+            # TODO: This is what we do for purely spatial occupancy;
+            #       If this is a stationay point, do not include it.
+            #       I don't know if it really makes sense to do this,
+            #       but I'm adding it here to have the ability to match
+            #       the purely spatial case more closely.
+            _pos = pos[:,j-1]
+            _gaze = gaze[:,j-1]
+            _fo = fo[j-1]
+            _hd = hd[j-1]
             if _fo in ["HintImage","CueImage"]
                 continue
             end
