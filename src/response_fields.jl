@@ -59,7 +59,27 @@ function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);
     h
 end
 
-function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, pv_threshold=0.05, kwargs...) where T <: AbstractResponseFields
+function get_binindex(rf::AbstractResponseFields)
+    rf.binidx
+end
+
+function get_binindex(rf::AbstractResponseFields, pv_threshold)
+    λ = rf.λ
+    exceeds = fill(false, size(λ,1))
+    gamma_params = rf.gamma_params
+    for (i,_λ) in enumerate(λ)
+        _params = gamma_params[:,i]
+        if all(isfinite.(_params))
+            G = Gamma(_params...)
+            threshold = percentile(G,100*(1-pv_threshold))
+            exceeds[i] = _λ > threshold
+        end
+    end
+    binidx = findall(exceeds) 
+    binidx
+end
+
+function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, pv_threshold=0.05, use_fitted=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,pv_threshold=pv_threshold, kwargs...)
     args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth,:pv_threshold=>pv_threshold)
     @assert typeof(args) == fieldtype(T, :args)
