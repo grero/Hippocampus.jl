@@ -1025,10 +1025,10 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
         scatter!(ax, [Point2f(-5,5), Point2f(-5,-5), Point2f(5,5), Point2f(5,-5)], marker=Rect, markerspace=:data,color=colors, markersize=5)
         scatter!([Point2f(v[1:2]...) for (k,v) in poster_pos],  marker=[images[k] for (k,v) in poster_pos], markersize=4, markerspace=:data)
         if start_point !== nothing
-            scatter!(ax, start_point, color=:gray)
+            scatter!(ax, start_point, marker=teardrop_shape(), markersize=20px, color=:red)
         end
         if end_point !== nothing
-            scatter!(ax, end_point, color=:black)
+            scatter!(ax, end_point, marker=teardrop_shape(), markersize=20px, color=:orange)
         end
         arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
     end
