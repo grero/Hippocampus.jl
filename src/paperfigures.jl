@@ -1,5 +1,6 @@
 module PaperFigures
 using CairoMakie
+using GLMakie
 using Meshes
 using Hippocampus
 
@@ -16,7 +17,13 @@ plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
 Place cells
 """
 function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
-    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
+    CairoMakie.activate!()
+    plot_field_summary(Hippocampus.SpatialResponseFields, spatial_cells, example_idx)
+end
+
+function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vector{Int64}) where T<:Hippocampus.AbstractResponseFields
+    mm = Hippocampus.get_mesh(T,(p=3,g=2))
+    #m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
     with_theme(plot_theme) do
         fig = Figure(size=(900,800))
         # Example of a cell with place activity
@@ -24,22 +31,29 @@ function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
         Label(lgm[1,1,TopLeft()], "A")
         for (ii,jj) in enumerate(example_idx)
             lg1 = GridLayout(lgm[1,ii])
-            spm,sic,rfs = cd(spatial_cells[jj]) do
-                spm = Hippocampus.SpatialMapNew()
-                sic = Hippocampus.compute_skaggs_sic(Hippocampus.SpatialInformationContent, 10_000;load_only=true, smooth=true, smoothing_method=:laplace, σ=0.1, niter=100)
-                rfs = Hippocampus.get_response_fields(Hippocampus.SpatialResponseFields, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=100,pv_threshold=0.01) 
-                spm,sic,rfs
+            sic,rfs = cd(celldirs[jj]) do
+                sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=100)
+                rfs = Hippocampus.get_response_fields(T, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=100,pv_threshold=0.01) 
+                sic,rfs
+            end
+            if isempty(rfs.binidx) || sic === nothing
+                @show jj
             end
             lg12 = GridLayout(lg1[1,1])
-            ax = Axis(lg12[1,1],aspect=1)
-            hidedecorations!(ax)
-            ax.leftspinevisible = false
-            ax.bottomspinevisible = false
-            # show the outline of the maze
-            viz!(ax, m_floor;color=:lightgray)
-            #Z = Hippocampus.get_rate_map(sml)
             Z = rfs.λ
-            viz!(ax,m_floor;color=Z)
+            if embeddim(mm) == 2
+                ax = Axis(lg12[1,1],aspect=1)
+                hidedecorations!(ax)
+                ax.leftspinevisible = false
+                ax.bottomspinevisible = false
+                # show the outline of the maze
+                viz!(ax, mm;color=:lightgray)
+                viz!(ax,mm;color=Z)
+            else
+                ax = LScene(lg12[1,1],show_axis=false)
+                #TODO: only hide the ceiling if this cell has no field on the ceiling
+                Hippocampus.plotmesh!(ax, mm;color=Z,indicate_north=true,hide_ceiling=true)
+            end
 
             clusters = Hippocampus.merge_fields(rfs)
             nclusters = Hippocampus.get_num_fields(rfs)
@@ -48,7 +62,7 @@ function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
             # only keep fields where the probabilty of getting the same field in the surroages is less than 0.01
             valid_cluster_idx = findall(threshold .< 0.01)
             for cluster in clusters[valid_cluster_idx] 
-                bb = Hippocampus.find_boundary(m_floor, rfs.binidx[cluster])
+                bb = Hippocampus.find_boundary(mm, rfs.binidx[cluster])
                 viz!(ax, bb;color=:black)
             end
             Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite, Z)), label="Firing rate [Hz]",vertical=false,tellwidth=false)
@@ -75,7 +89,7 @@ function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
 
         # summary showing total number of fields and coverage
         lg3 = GridLayout(fig[2,1]) 
-        Hippocampus.plot_n_fields!(lg3, Hippocampus.SpatialResponseFields,spatial_cells;labels=["C","D","E"], pv_threshold=0.01, smooth=true, smoothing_method=:laplace, α=0.1,niter=100)
+        Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E"], pv_threshold=0.01, smooth=true, smoothing_method=:laplace, α=0.1,niter=100)
         rowsize!(fig.layout, 1, Relative(0.6))
         fig
     end
