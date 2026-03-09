@@ -1,12 +1,11 @@
 # functions to compute conjunctions
 
-struct FieldConjunctions{T<:AbstractResponseFields}
-    fields::T
-    λ_infield::Vector{Vector{Float64}}
+struct FieldConjunctions{T1<:AbstractResponseFields, T2<:AbstractResponseFields}
+    fields1::T1
+    fields2::T2
+    λ::Matrix{Float64}
+    λ_infield::Matrix{Vector{Float64}}
     λ_outfield::Vector{Vector{Float64}}
-    sic_infield::Vector{Float64}
-    sic_outfield::Vector{Float64}
-    sic_sub::Vector{Vector{Float64}}
 end
 
 function Hippocampus.issignificant(fj::FieldConjunctions;pv_threshold=0.05)
