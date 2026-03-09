@@ -320,7 +320,7 @@ function get_trial(edata::EyelinkData, i;trial_start=1,flip_y=false)
     if flip_y
         gy = edata.header["gaze_coords"][end] .- gy
     end
-    (trial_time .- edata.timestamps[i,1])/1000.0, gx, gy,fixation_mask
+    (trial_time .- edata.timestamps[i,trial_start])/1000.0, gx, gy,fixation_mask
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData)
