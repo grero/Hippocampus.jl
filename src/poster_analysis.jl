@@ -1009,7 +1009,7 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
     colors = [HSV(46,70,100), #yellow
               HSV(212,70,100), #blue
               HSV(356,70,100), #red
-              HSV(119,70,100) #geen
+              HSV(106,1,1) #geen
             ] 
 
     with_theme(poster_theme) do
