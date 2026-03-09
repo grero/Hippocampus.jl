@@ -11,6 +11,7 @@ end
 
 DPHT.filename(::Type{SpatialResponseFields}) = "spatial_response_fields.jld2"
 get_mesh(::Type{SpatialResponseFields},nrefinements::NamedTuple) = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+get_mesh(::Type{SpatialResponseFields},nrefinements::Integer) = Shadow("xy")(floor_topology3(;nrefinements=nrefinements))
 maptype(::Type{SpatialResponseFields}) = SpatialMapNew
 get_sic_type(::Type{SpatialResponseFields}) = SpatialInformationContent
 
