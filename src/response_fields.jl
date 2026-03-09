@@ -101,7 +101,7 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
             UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
         end
         jocc = cd(DPHT.process_level(level(JointOccupancy))) do
-            JointOccupancy(;redo=false, nrefinements=nrefinements,trial_start=trial_start)
+            JointOccupancy(;redo=false, nrefinements=nrefinements,trial_start=trial_start,kwargs...)
         end
         jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;kwargs...)
         sic = zeros(nshuffles)
