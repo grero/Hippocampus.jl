@@ -292,7 +292,7 @@ function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
     qdata
 end
 
-function get_trial(edata::EyelinkData, i;trial_start=1)
+function get_trial(edata::EyelinkData, i;trial_start=1,flip_y=false)
     if ismissing(edata.timestamps[i,trial_start]) || ismissing(edata.timestamps[i,3])
         error("Trial $i contains missing data")
     end
@@ -317,8 +317,10 @@ function get_trial(edata::EyelinkData, i;trial_start=1)
     gx[gx.==1.0f8] .= NaN32
     gy = edata.gazey[er,idx0:idx1]
     gy[gy.==1.0f8] .= NaN32
-
-    trial_time, gx, gy,fixation_mask
+    if flip_y
+        gy = edata.header["gaze_coords"][end] .- gy
+    end
+    (trial_time .- edata.timestamps[i,1])/1000.0, gx, gy,fixation_mask
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData)
