@@ -325,6 +325,59 @@ function conjunctions(::Type{SpatialResponseFields}, celldir::String;kwargs...)
                         [res[k]["sic_sub"] for k in 1:length(res)])
 end
 
+function analyse(jm::JointMap, pvc::PlaceViewConjunction)
+    FieldConjunctions(jm, pvc.spatial_fields, pvc.view_fields)
+end
+
+function marginalize(::Type{SpatialResponseFields}, X::Matrix{<:Real}, idx)
+    dropdims(sum(X[:,idx],dims=2),dims=2)
+end
+
+function marginalize(::Type{GazeResponseFields}, X::Matrix{<:Real}, idx)
+    dropdims(sum(X[idx,:],dims=1),dims=1)
+end
+
+function FieldConjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+    mm1 = get_mesh(T1, fields1.args[:nrefinements])
+    mm2 = get_mesh(T2, fields2.args[:nrefinements])
+    view_clusters = merge_fields(fields2)
+    nclusters2 = get_num_fields(fields2)
+    view_clusters = view_clusters[dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001]
+    spatial_clusters = merge_fields(fields1)
+    nclusters1 = get_num_fields(fields1)
+    spatial_clusters = spatial_clusters[dropdims(mean(nclusters1,dims=2),dims=2) .< 0.001]
+    weight,occupancy = get_maps(jm)
+    occupancy_v = dropdims(sum(occupancy,dims=2),dims=2)
+    ps = dropdims(sum(occupancy,dims=1),dims=1)
+    px = dropdims(sum(weight,dims=1),dims=1)
+    # compute the (smoothed) firing rate in the original view field when conditoning on the place
+    nvidx = setdiff(findall(occupancy_v.>0), fields2.binidx)
+    λ_infield = Matrix{Vector{Float64}}(undef, length(view_clusters), length(spatial_clusters))
+    λ_outfield = Vector{Vector{Float64}}(undef, length(spatial_clusters))
+    λ = zeros(nelements(mm2), length(spatial_clusters))
+    Ls = get_normalize_laplacian(mm2) 
+    for (ii,sc) in enumerate(spatial_clusters)
+        pidx = fields1.binidx[sc]
+        # weighted average, since not all slices are weighted equally
+        #xx = weight[:,pidx]*px[pidx]./sum(px[pidx])
+        #xx = dropdims(sum(weight[:,pidx],dims=2),dims=2)
+        xx = marginalize(T1, weight, pidx)
+        ww = marginalize(T1, occupancy, pidx)
+        #ww = dropdims(sum(occupancy[:,pidx],dims=2),dims=2)
+        #ww = occupancy[:,pidx]*ps[pidx]./sum(ps[pidx])
+        # smooth
+        xs = laplace_smoothing(xx,Ls, 0.1;niter=100)
+        ws = laplace_smoothing(ww,Ls, 0.1;niter=100)
+        λ[:,ii] = xs./ws
+        λ_outfield[ii] = xs[nvidx]./ws[nvidx]
+        for (jj,vc) in enumerate(view_clusters)
+            vidx = fields2.binidx[vc]
+            λ_infield[jj,ii] = xs[vidx]./ws[vidx]
+        end
+    end
+    FieldConjunctions{T1,T2}(fields1, fields2, λ, λ_infield, λ_outfield)
+end
+
 function FieldConjunctions(::Type{T};do_save=true, redo=fname->false,kwargs...) where T <: AbstractResponseFields
 end
 
