@@ -85,11 +85,28 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
     if !redo(fname) && isfile(fname)
         obj = load_jld2(T, fname)
         if isa(obj, JLD2.ReconstructedMutable)
-            obj = T(obj.binidx, fill(NaN, 2, nshuffles), obj.args) 
+            do_compute = true
+        else
+            do_compute = false
         end
+    elseif use_fitted
+        # load an object where the only difference is the pv_threshold and check whether
+        # this object has a gamma fit for the surrogate distribution
+        _fname = DPHT.filename(T)
+        files = glob(replace(_fname, ".jld2"=>"*.jld2"))
+        if !isempty(files)
+            for f in files
+                _obj = load_jld2(T,f)
+            end
+
+        end
+        obj = nothing
+        do_compute = false
     elseif load_only
-        return nothing
-    else
+        obj = nothing
+        do_compute = false
+    end
+    if do_compute
         # TODO: Here we can actually check if we an object already computed and surrogates fitted
         sp = Spiketrain()
         sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, kwargs...)
