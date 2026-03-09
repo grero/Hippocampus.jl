@@ -352,7 +352,6 @@ function get_num_fields(rf::T) where T <: AbstractResponseFields
     clusters = merge_fields(rf)
     nc = length.(clusters)
     n_sig = sum(nc)
-    min_nc = minimum(nc)
     # cluster analysis
     nclusters = fill(0, length(clusters), 10_000)
     for i in 1:10_000
