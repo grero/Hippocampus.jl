@@ -55,8 +55,10 @@ function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceReprese
     nt = numtrials(qdata)
     λ = fill(NaN,nt)
     θ = fill(NaN,nt)
+    gaze = Vector{Matrix{Float64}}(undef, nt)
     for i in 1:nt
         idx0,idx1 = get_direction(qdata.position[i][1:2,:], mm,idx)
+        # TODO: Also get the gaze for these positions
         if idx1 >= idx0 > 0
             v = qdata.position[i][1:2,idx1] - qdata.position[i][1:2,idx0]
             θ[i] = atan(v[2],v[1])
@@ -68,9 +70,10 @@ function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceReprese
             dt = diff(tt)
             occ = sum(dt[dt.< 0.002])
             λ[i] = cc/occ
+            gaze[i] = qdata.gaze[i][:,idx0:idx1]
         end
     end
-    λ,θ
+    λ,θ, gaze
 end
 
 function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, rf::T) where T <: AbstractResponseFields
@@ -79,10 +82,16 @@ function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceReprese
     nt = numtrials(qdata)
     λ = fill(NaN, nt, length(clusters))
     θ = fill(NaN, nt, length(clusters))
+    gaze = Matrix{Matrix{Float64}}(undef, nt, length(clusters))
     for (ii,cluster) in enumerate(clusters)
-        λ[:,ii], θ[:,ii] = get_directionality(qdata, vpvrp, mm, rf.binidx[cluster]) 
+        λ[:,ii], θ[:,ii],gg = get_directionality(qdata, vpvrp, mm, rf.binidx[cluster]) 
+        for j in 1:nt
+            if isassigned(gg, j, ii)
+                gaze[j,ii] = gg[j,ii]
+            end
+        end
     end
-    λ, θ
+    λ, θ, gaze
 end
 
 function plot_field_directionality!(lg::GridLayout, λ::AbstractVector{<:Real}, θ::AbstractVector{<:Real};kwargs...)
