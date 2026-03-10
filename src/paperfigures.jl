@@ -99,7 +99,10 @@ end
 """
 View cells
 """
-function figure3()
+function figure3(view_cells::Vector{String}, example_idx::Vector{<:Integer})
+    # plot this using GLMakie
+    GLMakie.activate!()
+    plot_field_summary(Hippocampus.GazeResponseFields, view_cells, example_idx)
 end
 
 
