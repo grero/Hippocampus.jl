@@ -51,29 +51,44 @@ function get_direction(udata::UnityData, args...)
     p0,p1
 end
 
-function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, mm::SimpleMesh, idx::AbstractVector{<:Integer})
+function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, mm::SimpleMesh, idx::AbstractVector{<:Integer})
     nt = numtrials(qdata)
-    λ = fill(NaN,nt)
-    θ = fill(NaN,nt)
-    gaze = Vector{Matrix{Float64}}(undef, nt)
+    θbins = range(-π, stop=π, length=24)
+    gidx = CartesianIndex{5}[]
+    weight = Dict{CartesianIndex{4}, Float64}()
+    occupancy = Dict{CartesianIndex{4},Float64}()
+    nn = zeros(Int64, nt)
+    nm = zeros(Int64, nt)
     for i in 1:nt
+        # find the first point at which the field is entered and when it is exited
         idx0,idx1 = get_direction(qdata.position[i][1:2,:], mm,idx)
+        # debug: check the number of times the field is visited
+        qmidx = jocc.index[i][vpvrp.placeviewidx[i]]
+        nn[i] = length(filter(k->in(idx)(getindex(k,2)), qmidx))
         # TODO: Also get the gaze for these positions
         if idx1 >= idx0 > 0
             v = qdata.position[i][1:2,idx1] - qdata.position[i][1:2,idx0]
-            θ[i] = atan(v[2],v[1])
+            θ = atan(v[2],v[1])
+            l = searchsortedfirst(θbins, θ)
             vidx = findall(in(idx0:idx1), vpvrp.placeviewidx[i])
+            # get the mesh bin indices
+            qidx = jocc.index[i][vpvrp.placeviewidx[i][vidx]]
             # count the number of spikes
-            cc = length(vidx)
-            tt = qdata.timestamps[i][idx0:idx1]
-            # we need to worry about gaps where
-            dt = diff(tt)
-            occ = sum(dt[dt.< 0.002])
-            λ[i] = cc/occ
-            gaze[i] = qdata.gaze[i][:,idx0:idx1]
+            # cc = length(vidx)
+            # kk = filter(k->(k[2] in idx), qidx)
+            for k in qidx
+                ki = CartesianIndex(k[1], k[2], k[3], i)
+                if ki in keys(jocc.weight)
+                    nm[i] += 1
+                    kk = CartesianIndex(k[1], k[2], k[3], l)
+                    weight[kk] = get(weight, kk, 0.0)  + 1.0
+                    occupancy[kk] = get(occupancy, kk, 0.0) + jocc.weight[ki]
+                    push!(gidx, CartesianIndex(k[1], k[2], k[3], l, i))
+                end
+            end
         end
     end
-    λ,θ, gaze
+    DirectionFiltered(θbins, weight, occupancy, gidx ), nn, nm
 end
 
 function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, rf::T) where T <: AbstractResponseFields
