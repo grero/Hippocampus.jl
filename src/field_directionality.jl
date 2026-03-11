@@ -1,5 +1,40 @@
 using LinearAlgebra
 
+struct DirectionFiltered
+    anglebins::AbstractVector{<:Real}
+    weight::Dict{CartesianIndex{4}, Float64}
+    occupancy::Dict{CartesianIndex{4}, Float64}
+    index::Vector{CartesianIndex{5}}
+end
+
+function get_view_rate_map(dd::DirectionFiltered, nbins)
+    X = zeros(nbins)
+    Y = zeros(nbins)
+    for k in keys(dd.weight)
+        k1 = getindex(k,1)
+        X[k1] += dd.weight[k]
+        Y[k1] += dd.occupancy[k] 
+    end
+    X, Y
+end
+
+function get_view_rate_map(dd::DirectionFiltered, nbins, direction_ranges::UnitRange...)
+    X = zeros(nbins, length(direction_ranges))
+    Y = zeros(nbins, length(direction_ranges))
+    for k in keys(dd.weight)
+        k1 = getindex(k,1)
+        k4 = getindex(k,4)
+        for (jj,kr) in enumerate(direction_ranges)
+            if k4 in kr
+                X[k1,jj] += dd.weight[k]
+                Y[k1,jj] += dd.occupancy[k] 
+                break
+            end
+        end
+    end
+    X, Y
+end
+
 """
     get_direction(pos::Matrix{<:Real}, mm::SimpleMesh, binidx::Vector{<:Integer})
 
