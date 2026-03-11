@@ -186,3 +186,51 @@ function plot_field_directionality!(lg, λ::Matrix{<:Real}, θ::Matrix{<:Real}, 
     end
     colsize!(lg, 1, Relative(0.7))
 end
+
+function plot_directional_view_field(dd::DirectionFiltered, args...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_directional_view_field!(lg, dd, args...)
+        link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx::AbstractVector{<:Integer})
+    # south to north vs north to south
+    # TODO: Should be tailored to each place field
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    X,Y = get_view_rate_map(dd, 1312,1:12, 13:24)
+    Ls = get_normalize_laplacian(mm)
+    Xs = laplace_smoothing(permutedims(X), Ls, 0.1;niter=100);
+    Ys = laplace_smoothing(permutedims(Y), Ls, 0.1;niter=100);
+    λ = Xs./Ys
+    cr = extrema(filter(isfinite, λ))
+    m_floor = Translate(0.0, 0.0, -30.0)(Hippocampus.floor_topology3(;nrefinements=3))
+    cm = Meshes.Point(mean(to.(centroid.(m_floor[place_field_idx])))...)
+    cmp = Point3f(ustrip(cm.coords.x), ustrip(cm.coords.y), ustrip(cm.coords.z))
+    Z = zeros(nelements(m_floor))
+    Z[place_field_idx] .= 1.0
+    lscene1 = LScene(lg[1,1], show_axis=false)
+    plotmesh!(lscene1, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
+    plotmesh!(lscene1, mm;color=Xs[1,:]./Ys[1,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
+    viz!(lscene1, m_floor;color=Z)
+    # indicate directionality
+    arrows3d!(lscene1, cmp-Point3f(0.0,-2.5,0.0), Point3f([0.0, -5.0, 0.0]))
+    lscene2 = LScene(lg[1,2], show_axis=false)
+    plotmesh!(lscene2, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
+    plotmesh!(lscene2, mm;color=Xs[2,:]./Ys[2,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
+    viz!(lscene2, m_floor;color=Z)
+    arrows3d!(lscene2, cmp-Point3f(0.0,2.5,0.0), Point3f([0.0, 5.0, 0.0]))
+
+    # combined
+    Xsc = laplace_smoothing(dropdims(sum(X,dims=2),dims=2), Ls, 0.1;niter=100);
+    Ysc = laplace_smoothing(dropdims(sum(Y,dims=2),dims=2), Ls, 0.1;niter=100);
+    λc = Xsc./Ysc
+    lscene3 = LScene(lg[1,3], show_axis=false)
+    plotmesh!(lscene3, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
+    plotmesh!(lscene3, mm;color=λc, ceiling_offset=10, floor_offset=-15, colorrange=cr)
+    viz!(lscene3, m_floor;color=Z)
+
+end
