@@ -383,20 +383,20 @@ end
 
 function plot_n_fields(::Type{T}, celldirs::Vector{String};kwargs...) where T <: AbstractResponseFields
     with_theme(plot_theme) do
-        fig = Figure(size=(600,600))
+        fig = Figure(size=(900,500))
         lg = GridLayout(fig[1,1])
         plot_n_fields!(lg, T, celldirs;kwargs...)
         fig
     end
 end
 
-function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B","C"], kwargs...) where T <: AbstractResponseFields
+function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B","C","D"], redo=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;kwargs...)
     h = CRC32c.crc32c(string(celldirs),h)
     hs = string(h, base=16)
     fname = "field_stats_$(hs).jld2"
-    if isfile(fname)
-        Z,nfields,field_size, args = JLD2.load(fname, "Z", "nfields","field_size", "args")
+    if !redo && isfile(fname)
+        Z,nfields,field_size, field_boundaries, peak_firing_rate, args = JLD2.load(fname, "Z", "nfields","field_size", "field_boundaries","peak_firing_rate", "args")
     else
         rfs = process_dirs(celldirs) do
             get_response_fields(T, 10_000;load_only=true, kwargs...)
@@ -407,8 +407,11 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         field_size = Dict()
         # histogram of field sizes
         Z = zeros(nelements(mm))
+        bb = Any[]
+        peak_firing_rate = Dict()
         for (k,v) in rfs
             if v !== nothing
+                peak_firing_rate[k] = maximum(filter(isfinite, v.λ))
                 clusters = merge_fields(v)
                 if length(clusters) > 0
                     nclusters = get_num_fields(v)
@@ -418,6 +421,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
                     field_size[k] = fill(0.0, length(cluster_idx))
                     for (jj,ii) in enumerate(cluster_idx)
                         cluster = clusters[ii]
+                        push!(bb, find_boundary(mm, v.binidx[cluster]))
                         field_size[k][jj] = ustrip(sum(measure.(mm[cluster])))
                         Z[v.binidx[cluster]] .+= 1.0
                     end
@@ -428,7 +432,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         end
         Z[Z.==0.0] .= NaN
         args = rfs[first(keys(kk))].args 
-        JLD2.save(fname, Dict("Z"=>Z, "nfields"=>nfields, "field_size"=>field_size, "args"=>args))
+        JLD2.save(fname, Dict("Z"=>Z, "nfields"=>nfields, "field_size"=>field_size, "args"=>args, "field_boundaries"=>bb,"peak_firing_rate"=>peak_firing_rate))
     end
     mm = get_mesh(T,args[:nrefinements])
     cc = countmap(values(nfields))
@@ -440,15 +444,23 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     with_theme(plot_theme) do
         lg1 = GridLayout(lg[1,1])
         ax = Axis(lg1[1,1])
-        Label(lg1[1,1,TopLeft()], labels[1])
+        Label(lg1[1,1,TopLeft()], labels[1], padding=(0, 0, 10, 0))
         barplot!(ax, kk, [cc[k] for k in kk],color=:gray)
         ax.xlabel = "No of fields"
         ax.ylabel = "Count"
         ax2 = Axis(lg1[2,1])
-        Label(lg1[2,1, TopLeft()], labels[2])
+        Label(lg1[2,1, TopLeft()], labels[2], padding=(0,0,10,0))
         hist!(ax2, field_sizes,color=:gray)
         ax2.xlabel = "Field size [unit^2]"
-        lg2 = GridLayout(lg[1,2])
+        lg3 = GridLayout(lg[1,2])
+        axf = Axis(lg3[1,1])
+        Label(lg[1,2, TopLeft()], labels[3])
+        density!(axf, collect(values(peak_firing_rate)),direction=:y, color=:gray)
+        axf.ylabel = "Peak firing rate [Hz]"
+        axf.xticklabelsvisible = false
+        axf.xticksvisible = false
+        axf.bottomspinevisible = false
+        lg2 = GridLayout(lg[1,3])
         if embeddim(mm) == 2
             ax3 = Axis(lg2[1,1],aspect=1)
             hidedecorations!(ax3)
@@ -460,9 +472,11 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
             ax3 = LScene(lg2[1,1], show_axis=false)
             plotmesh!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10)
         end
-        Label(lg2[1,1,TopLeft()], labels[3])
+        Label(lg2[1,1,TopLeft()], labels[4])
         Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count")
         #rowsize!(lg, 1, Relative(0.4))
+        colsize!(lg, 1, Relative(0.25))
+        colsize!(lg, 2, Relative(0.25))
         [ax,ax2, ax3]
     end
 end
