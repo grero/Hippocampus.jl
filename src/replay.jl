@@ -873,14 +873,20 @@ function get_trial(raytrace::UnityRaytraceViewer,i::Integer;trial_start=1)
 end
 
 function get_trial(raytrace::UnityRaytraceData,i::Integer;trial_start=1,not_on=["HintImage","CueImage","Robot"])
-    tt = raytrace.timestamps[i]
-    tg = raytrace.gaze[i]
-    tp = raytrace.position[i]
-    hd = raytrace.head_direction[i]
-    fixmask = raytrace.fixating[i]
-    fo = raytrace.fixated_object[i]
+    triggers = raytrace.triggers[i,:]
+    # get the offset
+    t0 = (triggers[trial_start] - triggers[1])/1000.0
+    idx = searchsortedfirst(raytrace.timestamps[i], t0)
+    #tt = raytrace.timestamps[i][idx:end] .-t0
+    # trial start is always 1
+    tt = raytrace.timestamps[i][idx:end] .-t0
+    tg = raytrace.gaze[i][:,idx:end]
+    tp = raytrace.position[i][:,idx:end]
+    hd = raytrace.head_direction[i][idx:end]
+    fixmask = raytrace.fixating[i][idx:end]
+    fo = raytrace.fixated_object[i][idx:end]
     # filter out objects that we don't want to include, amending fixmask accordingly
-    fixmask .&= (!in(not_on)).(raytrace.fixated_object[i])
+    fixmask .&= (!in(not_on)).(raytrace.fixated_object[i][idx:end])
     tt,tg,tp,fixmask,fo,hd
 end
 
