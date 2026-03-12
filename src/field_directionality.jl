@@ -212,13 +212,16 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     cmp = Point3f(ustrip(cm.coords.x), ustrip(cm.coords.y), ustrip(cm.coords.z))
     Z = zeros(nelements(m_floor))
     Z[place_field_idx] .= 1.0
-    lscene1 = LScene(lg[1,1], show_axis=false)
+    Label(lg[1,1], "North → South", tellwidth=false)
+    lscene1 = LScene(lg[2,1], show_axis=false)
     plotmesh!(lscene1, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene1, mm;color=Xs[1,:]./Ys[1,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
     viz!(lscene1, m_floor;color=Z)
     # indicate directionality
     arrows3d!(lscene1, cmp-Point3f(0.0,-2.5,0.0), Point3f([0.0, -5.0, 0.0]))
-    lscene2 = LScene(lg[1,2], show_axis=false)
+
+    Label(lg[1,2], "South → North",tellwidth=false)
+    lscene2 = LScene(lg[2,2], show_axis=false)
     plotmesh!(lscene2, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene2, mm;color=Xs[2,:]./Ys[2,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
     viz!(lscene2, m_floor;color=Z)
@@ -228,7 +231,8 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     Xsc = laplace_smoothing(dropdims(sum(X,dims=2),dims=2), Ls, 0.1;niter=100);
     Ysc = laplace_smoothing(dropdims(sum(Y,dims=2),dims=2), Ls, 0.1;niter=100);
     λc = Xsc./Ysc
-    lscene3 = LScene(lg[1,3], show_axis=false)
+    Label(lg[1,3], "Combined", tellwidth=false)
+    lscene3 = LScene(lg[2,3], show_axis=false)
     plotmesh!(lscene3, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene3, mm;color=λc, ceiling_offset=10, floor_offset=-15, colorrange=cr)
     viz!(lscene3, m_floor;color=Z)
