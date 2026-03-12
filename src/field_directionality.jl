@@ -237,4 +237,12 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     plotmesh!(lscene3, mm;color=λc, ceiling_offset=10, floor_offset=-15, colorrange=cr)
     viz!(lscene3, m_floor;color=Z)
 
+    # occupancy only 
+    Label(lg[1,4], "Occupancy", tellwidth=false)
+    lscene4 = LScene(lg[2,4], show_axis=false)
+    plotmesh!(lscene4, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
+    plotmesh!(lscene4, mm;color=Ysc, ceiling_offset=10, floor_offset=-15)
+    viz!(lscene4, m_floor;color=Z)
+
+
 end
