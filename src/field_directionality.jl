@@ -187,17 +187,17 @@ function plot_field_directionality!(lg, λ::Matrix{<:Real}, θ::Matrix{<:Real}, 
     colsize!(lg, 1, Relative(0.7))
 end
 
-function plot_directional_view_field(dd::DirectionFiltered, args...)
+function plot_directional_view_field(dd::DirectionFiltered, args...;kwargs...)
     with_theme(plot_theme) do
         fig = Figure()
         lg = GridLayout(fig[1,1])
-        plot_directional_view_field!(lg, dd, args...)
+        plot_directional_view_field!(lg, dd, args...;kwargs...)
         link_cameras_lscene(fig)
         fig
     end
 end
 
-function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx::AbstractVector{<:Integer})
+function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx::AbstractVector{<:Integer};floor_offset=-30)
     # south to north vs north to south
     # TODO: Should be tailored to each place field
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
@@ -207,7 +207,7 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     Ys = laplace_smoothing(permutedims(Y), Ls, 0.1;niter=100);
     λ = Xs./Ys
     cr = extrema(filter(isfinite, λ))
-    m_floor = Translate(0.0, 0.0, -30.0)(Hippocampus.floor_topology3(;nrefinements=3))
+    m_floor = Translate(0.0, 0.0, floor_offset)(Hippocampus.floor_topology3(;nrefinements=3))
     cm = Meshes.Point(mean(to.(centroid.(m_floor[place_field_idx])))...)
     cmp = Point3f(ustrip(cm.coords.x), ustrip(cm.coords.y), ustrip(cm.coords.z))
     Z = zeros(nelements(m_floor))
