@@ -9,9 +9,12 @@ struct FieldConjunctions{T1<:AbstractResponseFields, T2<:AbstractResponseFields}
 end
 
 function Hippocampus.issignificant(fj::FieldConjunctions;pv_threshold=0.05)
-    res = fill(false, length(fj.λ_infield))
-    for ii in 1:length(res)
-        res[ii] = fj.sic_infield[ii] > percentile(fj.sic_sub[ii], 100*(1-pv_threshold)) 
+    res = fill(false, size(fj.λ_infield))
+    for pidx in 1:length(fj.λ_outfield)
+        for vidx in 1:size(fj.λ_infield,1)
+            h = MannWhitneyUTest(fj.λ_outfield[pidx], fj.λ_infield[vidx,pidx])
+            res[vidx,pidx] = pvalue(h;tail=:left) < pv_threshold
+        end
     end
     res
 end
