@@ -2287,6 +2287,34 @@ function compute_speed(pos::Matrix{T}, timestamp::Array{T}, binidx::Vector{Int64
     vv
 end
 
+function compute_speed(pos::Matrix{T}, timestamp::Array{T}, binidx::Vector{Int64},bmax=maximum(binidx)) where T <: Real
+    if isempty(binidx)
+        return fill(NaN, bmax) 
+    end
+    ds = zero(T)
+    dt = zero(T) 
+    t0 = timestamp[1] 
+    p0 = pos[:,1]
+    vv = zeros(bmax)
+    vmin = zeros(bmax)
+    vmax = zeros(bmax)
+    nn = fill(0, bmax)
+    for (p,t,b) in zip(eachcol(pos)[2:end], timestamp[2:end], binidx[1:end-1])
+        if b > 0
+            ds = norm(p-p0)
+            dt = t-t0
+            v = ds/dt
+            vv[b] += v
+            nn[b] += 1
+            vmin[b] = min(vmin[b],v)
+            vmax[b] = max(vmax[b],v)
+        end
+        t0 = t
+        p0 .= p
+    end
+    vv./nn
+end
+
 function compute_speed(pos::Vector{Matrix{T}}, timestamp::Vector{Vector{T}}, binidx::Vector{Vector{Int64}},bmax=maximum(maximum.(binidx))) where T <: Real
     vv = zeros(bmax, length(timestamp))
     for i in 1:size(vv,2)
