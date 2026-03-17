@@ -148,6 +148,27 @@ function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceReprese
     λ, θ, gaze
 end
 
+function get_direction_tuning(gidx::DirectionFiltered;smooth=false, α=0.1, niter=100)
+    nc = length(gidx.index)
+    X = zeros(length(gidx.anglebins),nc)
+    Y = zeros(length(gidx.anglebins)nc)
+    for j in 1:nc
+        for (k,v) in gidx.occupancy[j]
+            l = getindex(k,4)
+            Y[l,j] += v
+            if k in keys(gidx.weight[j])
+                X[l,j] += gidx.weight[j][k]
+            end
+        end
+    end
+    if smooth
+        Ls = get_normalize_laplacian(length(X))
+        X = permutedims(laplace_smoothing(permutedims(X), Ls, α;niter=niter))
+        Y = permutedims(laplace_smoothing(permutedims(Y), Ls, α;niter=niter))
+    end
+    X ./ Y
+end
+
 function plot_field_directionality!(lg::GridLayout, λ::AbstractVector{<:Real}, θ::AbstractVector{<:Real};kwargs...)
     # compute circular mean
     qidx = isfinite.(λ)
