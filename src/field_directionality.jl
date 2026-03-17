@@ -7,6 +7,50 @@ struct DirectionFiltered
     index::Vector{Vector{CartesianIndex{5}}}
 end
 
+abstract type AbstractDirection end
+struct East <: AbstractDirection end
+Base.string(::Type{East}) = "East"
+struct West <: AbstractDirection end
+Base.string(::Type{West}) = "West"
+struct North <: AbstractDirection end
+Base.string(::Type{North}) = "North"
+struct South <: AbstractDirection end
+Base.string(::Type{South}) = "South"
+
+function get_direction(gidx::DirectionFiltered, ::Type{East};Δθ=π/3)
+    union(findall(gidx.anglebins .> π - Δθ/2), findall(gidx.anglebins .< -π+Δθ/2))
+end
+
+function get_arrow(mm::SimpleMesh, ::Type{East})
+    (-2.5, 0.0,0.0), (5.0, 0.0, 0.0)
+end
+
+function get_direction(gidx, ::Type{West};Δθ=π/3)
+    union(findall(0 .<= gidx.anglebins .< Δθ/2), findall(-Δθ/2 .<= gidx.anglebins .< 0))
+end
+
+function get_arrow(mm::SimpleMesh, ::Type{West})
+    (2.5, 0.0,0.0), (-5.0, 0.0, 0.0)
+end
+
+function get_direction(gidx, ::Type{North};Δθ=π/3)
+    findall( π/2 - Δθ/2 .<= gidx.anglebins .< π/2 + Δθ/2)
+end
+
+function get_arrow(mm::SimpleMesh, ::Type{North})
+    (0.0, -2.5, 0.0), (0.0, 5.0, 0.0)
+end
+
+function get_direction(gidx, ::Type{South};Δθ=π/3)
+    findall( -π/2 - Δθ/2 .< gidx.anglebins .<= -π/2 + Δθ/2)
+end
+
+function get_arrow(mm::SimpleMesh, ::Type{South})
+    (0.0, 2.5, 0.0), (0.0, -5.0, 0.0)
+end
+
+
+
 function get_view_rate_map(dd::DirectionFiltered, nbins)
     X = zeros(nbins)
     Y = zeros(nbins)
@@ -218,11 +262,12 @@ function plot_directional_view_field(dd::DirectionFiltered, args...;kwargs...)
     end
 end
 
-function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx::AbstractVector{<:Integer};floor_offset=-30)
+function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx::AbstractVector{<:Integer},idx::Integer;floor_offset=-30, directions=[North, South])
     # south to north vs north to south
     # TODO: Should be tailored to each place field
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
-    X,Y = get_view_rate_map(dd, 1312,1:12, 13:24)
+    binranges = [get_direction(dd, d) for d in directions]
+    X,Y = get_view_rate_map(dd, idx, 1312,binranges)
     Ls = get_normalize_laplacian(mm)
     Xs = laplace_smoothing(permutedims(X), Ls, 0.1;niter=100);
     Ys = laplace_smoothing(permutedims(Y), Ls, 0.1;niter=100);
@@ -239,14 +284,16 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     plotmesh!(lscene1, mm;color=Xs[1,:]./Ys[1,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
     viz!(lscene1, m_floor;color=Z)
     # indicate directionality
-    arrows3d!(lscene1, cmp-Point3f(0.0,-2.5,0.0), Point3f([0.0, -5.0, 0.0]))
+    a,b = get_arrow(mm, directions[2])
+    arrows3d!(lscene1, cmp-Point3f(a), Point3f(b))
 
     Label(lg[1,2], "South → North",tellwidth=false)
     lscene2 = LScene(lg[2,2], show_axis=false)
     plotmesh!(lscene2, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene2, mm;color=Xs[2,:]./Ys[2,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
     viz!(lscene2, m_floor;color=Z)
-    arrows3d!(lscene2, cmp-Point3f(0.0,2.5,0.0), Point3f([0.0, 5.0, 0.0]))
+    a,b = get_arrow(mm, directions[1])
+    arrows3d!(lscene2, cmp-Point3f(a), Point3f(b))
 
     # combined
     Xsc = laplace_smoothing(dropdims(sum(X,dims=2),dims=2), Ls, 0.1;niter=100);
