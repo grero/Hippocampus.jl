@@ -2,9 +2,9 @@ using LinearAlgebra
 
 struct DirectionFiltered
     anglebins::AbstractVector{<:Real}
-    weight::Dict{CartesianIndex{4}, Float64}
-    occupancy::Dict{CartesianIndex{4}, Float64}
-    index::Vector{CartesianIndex{5}}
+    weight::Vector{Dict{CartesianIndex{4}, Float64}}
+    occupancy::Vector{Dict{CartesianIndex{4}, Float64}}
+    index::Vector{Vector{CartesianIndex{5}}}
 end
 
 function get_view_rate_map(dd::DirectionFiltered, nbins)
