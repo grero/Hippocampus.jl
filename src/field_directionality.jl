@@ -103,10 +103,10 @@ end
 function get_view_rate_map(dd::DirectionFiltered, nbins)
     X = zeros(nbins)
     Y = zeros(nbins)
-    for k in keys(dd.weight)
+    for k in keys(dd.occupancy)
         k1 = getindex(k,1)
-        X[k1] += dd.weight[k]
         Y[k1] += dd.occupancy[k] 
+        X[k1] += get(dd.weight, k, 0.0)
     end
     X, Y
 end
