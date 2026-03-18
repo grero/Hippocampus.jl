@@ -482,7 +482,6 @@ function plot_conjunction(fj::FieldConjunctions{SpatialResponseFields}, fields::
 
         plotmesh!(ax3, mm;color=z_gaze, floor_offset=-15, ceiling_offset=10,colormap=:binary,showsegments=true,segmentcolor=:lightgray)
         viz!(ax3, m_floor;color=z_floor, colormap=:binary,showsegments=true, segmentcolor=:lightgray)
-
         link_cameras_lscene(fig)
         fig
     end
