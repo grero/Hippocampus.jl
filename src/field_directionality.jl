@@ -320,6 +320,9 @@ function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebin
     X ./ Y
 end
 
+
+## plots
+
 function plot_field_directionality!(lg::GridLayout, λ::AbstractVector{<:Real}, θ::AbstractVector{<:Real};kwargs...)
     # compute circular mean
     qidx = isfinite.(λ)
