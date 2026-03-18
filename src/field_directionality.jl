@@ -163,14 +163,14 @@ function get_direction(pos::Matrix{<:Real}, mm::SimpleMesh, binidx::AbstractVect
     return entered,exited 
 end
 
-function get_direction(pos::Vector{Matrix}, args...)
+function get_direction(pos::Vector{<:Matrix{<:Real}}, args...)
     n = length(pos)
-    p0 = zeros(2,n) 
-    p1 = zeros(2,n)
+    idx0 = fill(0,n) 
+    idx1 = fill(0,n) 
     for (ii,_pos) in enumerate(pos)
-        p0[:,ii], p1[:,ii] = get_direction(_pos, args...)
+        idx0[ii], idx1[ii] = get_direction(_pos[1:2,:], args...)
     end
-    p0,p1
+    idx0,idx1
 end
 
 function get_direction(udata::UnityData, args...)
