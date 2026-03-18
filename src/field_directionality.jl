@@ -336,16 +336,21 @@ function plot_field_directionality!(lg::GridLayout, λ::AbstractVector{<:Real}, 
     Label(lg[1,2], L"\mu_r=%$(round(x, sigdigits=2))", tellheight=false,rotation=-π/2)
 end
 
-function plot_field_directionality(λ::AbstractArray{<:Real}, θ::AbstractArray{<:Real}, args...)
+function plot_field_directionality(args...)
     with_theme(plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(700,400))
         lg = GridLayout(fig[1,1])
-        plot_field_directionality!(lg, λ, θ, args...)
+        plot_field_directionality!(lg,args...)
         fig
     end
 end
 
-function plot_field_directionality!(lg, λ::Matrix{<:Real}, θ::Matrix{<:Real}, rf::T) where T <: AbstractResponseFields
+function plot_field_directionality!(lg, gidx::DirectionFiltered, rf::T) where T <: AbstractResponseFields
+    λ = get_direction_tuning(gidx)
+    plot_field_directionality!(lg, λ, gidx.anglebins, rf)
+end
+
+function plot_field_directionality!(lg, λ::Matrix{<:Real}, θ::AbstractVector{<:Real}, rf::T) where T <: AbstractResponseFields
     lg1 = GridLayout(lg[1,1])
     Label(lg1[1,1,TopLeft()], "A")
     plot_response_fields!(lg1, rf)
@@ -354,8 +359,18 @@ function plot_field_directionality!(lg, λ::Matrix{<:Real}, θ::Matrix{<:Real}, 
     lgi = [GridLayout(lg2[i,1]) for i in 1:size(θ,2)]
     colors = Makie.wong_colors()
     for (ii,_lg) in enumerate(lgi)
-        plot_field_directionality!(_lg, λ[:,ii], θ[:,ii];color=colors[ii])
+        plot_field_directionality!(_lg, λ[:,ii], θ;color=colors[ii])
     end
+    colsize!(lg, 1, Relative(0.7))
+end
+
+function plot_field_directionality!(lg, gidx::DirectionFiltered, rf::SpatialResponseFields)
+    lg1 = GridLayout(lg[1,1])
+    Label(lg1[1,1,TopLeft()], "A")
+    plot_response_fields!(lg1, rf)
+    lg2 = GridLayout(lg[1,2])
+    Label(lg2[1,1,TopLeft()], "B")
+    plot_directional_tuning!(lg2, gidx)
     colsize!(lg, 1, Relative(0.7))
 end
 
@@ -385,7 +400,7 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     cmp = Point3f(ustrip(cm.coords.x), ustrip(cm.coords.y), ustrip(cm.coords.z))
     Z = zeros(nelements(m_floor))
     Z[place_field_idx] .= 1.0
-    Label(lg[1,1], "North → South", tellwidth=false)
+   # Label(lg[1,1], "$(directions[1]) → $(directions[2])", tellwidth=false)
     lscene1 = LScene(lg[2,1], show_axis=false)
     plotmesh!(lscene1, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene1, mm;color=Xs[1,:]./Ys[1,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
@@ -394,7 +409,7 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     a,b = get_arrow(mm, directions[2])
     arrows3d!(lscene1, cmp-Point3f(a), Point3f(b))
 
-    Label(lg[1,2], "South → North",tellwidth=false)
+   # Label(lg[1,2], "$(directions[2]) → $(directions[1])",tellwidth=false)
     lscene2 = LScene(lg[2,2], show_axis=false)
     plotmesh!(lscene2, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene2, mm;color=Xs[2,:]./Ys[2,:], ceiling_offset=10, floor_offset=-15, colorrange=cr)
@@ -418,6 +433,32 @@ function plot_directional_view_field!(lg, dd::DirectionFiltered, place_field_idx
     plotmesh!(lscene4, mm;alpha=0.0, showsegments=true, segmentcolor=:darkgray, ceiling_offset=10, floor_offset=-15)
     plotmesh!(lscene4, mm;color=Ysc, ceiling_offset=10, floor_offset=-15)
     viz!(lscene4, m_floor;color=Z)
+end
 
+function plot_directional_tuning!(lg, gidx::DirectionFiltered;kwargs...)
+    # mild smoothing
+    λ = get_direction_tuning(gidx;kwargs...)
+    μr,ϕ = get_directional_tuning_strength(gidx;kwargs...)
+    @show μr, ϕ
+    pv = get_pvalue(gidx;kwargs...)
+    for i in axes(λ,2)
+        ax = PolarAxis(lg[i,1])
+        hidedecorations!(ax)
+        ax.thetagridvisible = true
+        ax.rgridvisible = true
+        lines!(ax, gidx.anglebins, λ[:,i], color=Cycled(i))
+        ym = maximum(filter(isfinite, λ[:,i]))
+        linesegments!(ax,[ϕ[i],ϕ[i]], [0.0, ym], color=:red, linewidth=2)
+        Label(lg[i,2], L"$μ_r = %$(round(μr[i], sigdigits=2))$ \\ $p = %$(round(pv[i], sigdigits=2))$", rotation=-π/2, tellheight=false, 
+                        fontsize=14)
+    end
+end
 
+function plot_directional_tuning(gidx::DirectionFiltered;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure(size=(350,600))
+        lg = GridLayout(fig[1,1])
+        plot_directional_tuning!(lg, gidx;kwargs...)
+        fig
+    end
 end
