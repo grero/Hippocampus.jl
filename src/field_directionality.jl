@@ -154,7 +154,7 @@ function get_direction(pos::Matrix{<:Real}, mm::SimpleMesh, binidx::AbstractVect
     end
     # if the field was not exited at all, just use the last point
     if exited == 0
-        exited = size(pos,2)
+        exited = size(pos,2)-1
     end
     if entered > 0 && exited > 0
         v = pos[:,exited] - pos[:,entered]
