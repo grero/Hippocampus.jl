@@ -184,47 +184,97 @@ function get_direction(udata::UnityData, args...)
     p0,p1
 end
 
-function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, mm::SimpleMesh, idx::AbstractVector{<:Integer})
+function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, mm::SimpleMesh, rf::SpatialResponseFields;trial_start=1,kwargs...)
     nt = numtrials(qdata)
     θbins = range(-π, stop=π, length=24)
-    gidx = CartesianIndex{5}[]
-    weight = Dict{CartesianIndex{4}, Float64}()
-    occupancy = Dict{CartesianIndex{4},Float64}()
     nn = zeros(Int64, nt)
     nm = zeros(Int64, nt)
+    clusters = merge_fields(mm, rf.binidx)
+    nclusters = Hippocampus.get_num_fields(rf)
+    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2) .< 0.001)
+    gidx = Vector{Vector{CartesianIndex{5}}}(undef, length(cidx))
+    weight = Vector{Dict{CartesianIndex{4}, Float64}}(undef, length(cidx))
+    occupancy = Vector{Dict{CartesianIndex{4},Float64}}(undef, length(cidx))
+    for i in 1:length(cidx)
+        gidx[i] = CartesianIndex{5}[]
+        weight[i] = Dict{CartesianIndex{4}, Float64}()
+        occupancy[i] = Dict{CartesianIndex{4}, Float64}()
+    end
     for i in 1:nt
-        # find the first point at which the field is entered and when it is exited
-        idx0,idx1 = get_direction(qdata.position[i][1:2,:], mm,idx)
-        # debug: check the number of times the field is visited
-        qmidx = jocc.index[i][vpvrp.placeviewidx[i]]
-        nn[i] = length(filter(k->in(idx)(getindex(k,2)), qmidx))
-        # TODO: Also get the gaze for these positions
-        if idx1 >= idx0 > 0
-            v = qdata.position[i][1:2,idx1] - qdata.position[i][1:2,idx0]
-            θ = atan(v[2],v[1])
-            l = searchsortedfirst(θbins, θ)
-            vidx = findall(in(idx0:idx1), vpvrp.placeviewidx[i])
-            # get the mesh bin indices
-            qidx = jocc.index[i][vpvrp.placeviewidx[i][vidx]]
-            # count the number of spikes
-            # cc = length(vidx)
-            # kk = filter(k->(k[2] in idx), qidx)
-            for k in qidx
-                ki = CartesianIndex(k[1], k[2], k[3], i)
-                if ki in keys(jocc.weight)
-                    nm[i] += 1
-                    kk = CartesianIndex(k[1], k[2], k[3], l)
-                    weight[kk] = get(weight, kk, 0.0)  + 1.0
-                    occupancy[kk] = get(occupancy, kk, 0.0) + jocc.weight[ki]
-                    push!(gidx, CartesianIndex(k[1], k[2], k[3], l, i))
+        for (ll,idx) in enumerate(clusters[cidx])
+            # find the first point at which the field is entered and when it is exited
+            tg,gaze,pos, fixmask,fo = get_trial(qdata,i;trial_start=trial_start);
+            idx0,idx1 = get_direction(pos[1:2,:], mm,rf.binidx[idx])
+            # debug: check the number of times the field is visited
+            qmidx = jocc.index[i][vpvrp.placeviewidx[i]]
+            nn[i] = length(filter(k->in(idx)(getindex(k,2)), qmidx))
+            # TODO: Also get the gaze for these positions
+        
+            if idx1 >= idx0 > 0
+                v = qdata.position[i][1:2,idx1] - qdata.position[i][1:2,idx0]
+                θ = atan(v[2],v[1])
+                l = searchsortedfirst(θbins, θ)
+                # get the mesh bin indices
+                # we actually do not want this; we want all the bins, not just the ones with spikes
+                #this is the subset with spikes
+
+                # occupancy
+                # @show length(jocc.index[i]), idx0, idx1
+                qpidx = jocc.index[i][idx0:idx1]
+                tt = qdata.timestamps[i]
+                for (jj,qp) in zip(idx0:idx1, qpidx)
+                    if qp == CartesianIndex(0,0,0)
+                        # skip invalid bins
+                        continue
+                    end
+                    Δt = tt[jj+1]-tt[jj]
+                    kk = CartesianIndex(qp[1], qp[2], qp[3], l)
+                    occupancy[ll][kk] = get(occupancy[ll], kk, 0.0) + Δt
+                    vv = findfirst(vpvrp.placeviewidx[i].==jj)
+                    if vv !== nothing
+                        weight[ll][kk] = get(weight[ll], kk, 0.0) + 1.0
+                    end
+                    push!(gidx[ll], CartesianIndex(qp[1], qp[2], qp[3], l, i))
                 end
             end
         end
     end
-    DirectionFiltered(θbins, weight, occupancy, gidx ), nn, nm
+    DirectionFiltered(θbins, weight, occupancy, gidx )
 end
 
-function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, rf::T) where T <: AbstractResponseFields
+function DirectionFiltered(;redo=fname->false, do_save=true,kwargs...)
+    h = process_kwargs(UnityRaytraceData;kwargs...)
+    h = process_kwargs(ViewAndPlaceRepresentationNew,h;kwargs...)
+    h = process_kwargs(JointOccupancy,h;kwargs...)
+    h = process_kwargs(SpatialResponseFields,h;kwargs...)
+    fname = "direction_filtered_placefields.jld2"
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(DirectionFiltered,fname)
+    else
+        nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        sessiondir = DPHT.get_level_path("session")
+        qdata, jocc = cd(sessiondir) do
+            qdata = UnityRaytraceData(;kwargs...)
+            jocc = JointOccupancy(;kwargs...)
+            # TODO: Also deal with other filtering here
+            qdata, jocc
+        end
+        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields, 10_000;kwargs...)
+        obj = DirectionFiltered(qdata, vpvrp, jocc, m_floor, rf_spatial;kwargs...)
+        if do_save
+            save_jld2(obj, fname)
+        end
+    end
+    obj
+end
+
+function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, rf::T) where T <: AbstractResponseFields
     mm = get_mesh(T, rf.args[:nrefinements])
     clusters = merge_fields(rf)
     nt = numtrials(qdata)
