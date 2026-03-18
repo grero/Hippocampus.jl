@@ -94,7 +94,7 @@ function EyelinkData(qdata::Dict)
     ee
 end
 
-function EyelinkData(;do_save=true,redo=false)
+function EyelinkData(;do_save=true,redo=false,kwargs...)
     outfile = DPHT.filename(EyelinkData)
    
     # TODO: Check whether we are in a session direction
