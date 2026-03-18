@@ -292,13 +292,17 @@ function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceReprese
     λ, θ, gaze
 end
 
-function get_direction_tuning(gidx::DirectionFiltered;smooth=false, α=0.1, niter=100)
+function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebins), do_shuffle=false, smooth=false, α=0.1, niter=1)
     nc = length(gidx.index)
     X = zeros(length(gidx.anglebins),nc)
-    Y = zeros(length(gidx.anglebins)nc)
+    Y = zeros(length(gidx.anglebins),nc)
     for j in 1:nc
         for (k,v) in gidx.occupancy[j]
-            l = getindex(k,4)
+            if do_shuffle
+                l = rand(1:length(gidx.anglebins))
+            else
+                l = getindex(k,4)
+            end
             Y[l,j] += v
             if k in keys(gidx.weight[j])
                 X[l,j] += gidx.weight[j][k]
@@ -306,9 +310,12 @@ function get_direction_tuning(gidx::DirectionFiltered;smooth=false, α=0.1, nite
         end
     end
     if smooth
-        Ls = get_normalize_laplacian(length(X))
-        X = permutedims(laplace_smoothing(permutedims(X), Ls, α;niter=niter))
-        Y = permutedims(laplace_smoothing(permutedims(Y), Ls, α;niter=niter))
+        Ls = get_normalize_laplacian(size(X,1))
+        X = permutedims(laplace_smoothing(permutedims(X[idx,:]), Ls, α;niter=niter))
+        Y = permutedims(laplace_smoothing(permutedims(Y[idx,:]), Ls, α;niter=niter))
+    else
+        X = X[idx,:]
+        Y = Y[idx,:]
     end
     X ./ Y
 end
