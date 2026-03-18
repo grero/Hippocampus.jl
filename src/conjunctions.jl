@@ -381,10 +381,14 @@ function FieldConjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: A
     FieldConjunctions{T1,T2}(fields1, fields2, λ, λ_infield, λ_outfield)
 end
 
-function FieldConjunctions(::Type{T};do_save=true, redo=fname->false,kwargs...) where T <: AbstractResponseFields
+function FieldConjunctions(::Type{T1},::Type{T2};do_save=true, redo=fname->false,kwargs...) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+    jm = JointMap(;redo=fname->false, do_save=true, kwargs...)
+    rf1 = get_response_fields(T1 ,get(kwargs, :nshuffles, 10_000);kwargs...)
+    rf2 = get_response_fields(T2 ,get(kwargs, :nshuffles, 10_000);kwargs...)
+    FieldConjunctions(jm, rf1, rf2)
 end
 
-function plot_conjunction(pvc::PlaceViewConjunction,idx=1)
+function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
 
     # find the significant clusters
     view_clusters = merge_fields(pvc.view_fields)
