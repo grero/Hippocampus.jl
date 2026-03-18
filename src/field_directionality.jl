@@ -111,16 +111,17 @@ function get_view_rate_map(dd::DirectionFiltered, nbins)
     X, Y
 end
 
-function get_view_rate_map(dd::DirectionFiltered, nbins, direction_ranges::UnitRange...)
-    X = zeros(nbins, length(direction_ranges))
-    Y = zeros(nbins, length(direction_ranges))
-    for k in keys(dd.weight)
+function get_view_rate_map(dd::DirectionFiltered, ii::Integer, nbins, directions::Vector{Vector{Int64}})
+    nq = length(directions)
+    X = zeros(nbins, nq)
+    Y = zeros(nbins, nq)
+    for k in keys(dd.occupancy[ii])
         k1 = getindex(k,1)
         k4 = getindex(k,4)
-        for (jj,kr) in enumerate(direction_ranges)
+        for (jj,kr) in enumerate(directions)
             if k4 in kr
-                X[k1,jj] += dd.weight[k]
-                Y[k1,jj] += dd.occupancy[k] 
+                Y[k1,jj] += dd.occupancy[ii][k] 
+                X[k1,jj] += get(dd.weight[ii],k,0.0)
                 break
             end
         end
