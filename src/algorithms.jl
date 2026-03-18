@@ -275,3 +275,42 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
     end
     sicobj
 end
+
+function shuffle_sic(;nshuffles=1000,α=0.1, niter=100)
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
+    Lsf = Hippocampus.get_normalize_laplacian(m_floor)
+    mm = get_maze_mesh(;nrefinements=2)
+    Lsm = Hippocampus.get_normalize_laplacian(mm)
+    jm = JointMap(;nrefinements=(p=3,g=2),redo=fname->false)
+    weight,occupancy = get_maps(jm)
+    jml = JointSmoothedMap(jm;method=:laplace, α=0.1, niter=100);
+    Z = get_rate_map(jml)
+    fidx = findall(isfinite, Z)
+    sic_true = Hippocampus.compute_skaggs_sic(Z[fidx], jml.occupancy[fidx])
+    sic_shuffle = zeros(nshuffles)
+    X_shuffle = zeros(size(jml.weight)..., nshuffles)
+    @show size(X_shuffle)
+    for i in 1:length(sic_shuffle)
+        # FIXME: This issue here is that we are also mixing space and view. Ideally, we should shuffle the spike trains
+        X_shuffle[:,:,i] .= shuffle(weight)
+    end
+    # shuffle space first
+    Xs = reshape(permutedims(X_shuffle, [3,1,2]), nshuffles*size(X_shuffle,1), size(X_shuffle,2))
+    Xp = laplace_smoothing(Xs, Lsf, α;niter=niter)
+    @show size(Xp)
+    Xg = reshape(permutedims(reshape(Xp, nshuffles, size(X_shuffle,1), size(X_shuffle,2)),[1,3,2]), nshuffles*size(X_shuffle,2), size(X_shuffle,1))
+    Xgs = laplace_smoothing(Xg, Lsm,α;niter=niter)
+    @show size(Xgs)
+    Xgs = permutedims(reshape(Xgs, nshuffles, size(X_shuffle,2), size(X_shuffle,1)), [3,2,1])
+    @assert size(Xgs) == size(X_shuffle)
+    Xgs ./= reshape(occupancy, size(occupancy)...,1)
+    # smooth occupancy
+    #Yg = laplace_smoothing(jml.occupancy, Lsf,α;niter=niter)
+    #Yg = permutedims(laplace_smoothing(permutedims(Yg, [2,1]), Lsm,α;niter=niter))
+    for i in 1:nshuffles
+        Xgs[jml.unvisited,i] .= NaN
+        midx = findall(isfinite, Xgs[:,:,i])
+        sic_shuffle[i] = compute_skaggs_sic(Xgs[midx,i], jml.occupancy[midx])
+    end
+    sic_true, sic_shuffle, Xgs
+end
