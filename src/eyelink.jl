@@ -105,7 +105,7 @@ function EyelinkData(;do_save=true,redo=false,kwargs...)
         edata = cd("..") do
             EyelinkData()
         end
-        edata = get_session_data(edata, sidx)
+        edata = get_session(edata, sidx)
     else
          if !redo && isfile(outfile)
             return DPHT.load(EyelinkData, outfile)
