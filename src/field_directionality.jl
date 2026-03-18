@@ -7,6 +7,55 @@ struct DirectionFiltered
     index::Vector{Vector{CartesianIndex{5}}}
 end
 
+function issignificant_old(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,pv_threshold=0.01)
+    λ = get_direction_tuning(gidx;smooth=smooth, niter=niter, α=α) 
+    z = λ.*exp.(gidx.anglebins*im)
+    pv = zeros(size(z,2))
+    for i in axes(z,2)
+        pv[i] = pvalue(RayleighTest(filter(x->abs(x)>0, z[:,i])))
+    end
+    pv .< pv_threshold
+end
+
+function get_pvalue(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1)
+    μr0,ϕ0 = get_directional_tuning_strength(gidx;smooth=smooth, α=α,niter=niter)
+    μr = zeros(length(μr0),1000)
+    for i in 1:1000
+        μr[:,i],_ = get_directional_tuning_strength(gidx;do_shuffle=true, smooth=smooth, α=α, niter=niter)
+    end
+    pv = zeros(length(μr0))
+    for i in 1:length(pv)
+        if sum(isfinite.(μr[i,:])) > 20
+            G = fit(Gamma, filter(isfinite, μr[i,:]))
+            pv[i] = 1-cdf(G, μr0[i])
+        end
+    end
+    pv
+end
+
+function issignificant(gidx::DirectionFiltered;pv_threshold=0.01,kwargs...)
+    pv = get_pvalue(gidx;kwargs...)
+    pv .< pv_threshold
+end
+
+function get_directional_tuning_strength(gidx;idx=1:length(gidx.anglebins), kwargs...)
+    λ = get_direction_tuning(gidx;idx=idx, kwargs...)
+    get_directional_tuning_strength(λ, gidx.anglebins)
+end
+
+function get_directional_tuning_strength(λ::Matrix{<:Real}, anglebins::AbstractVector{<:Real})
+    z = λ.*exp.(anglebins*im)
+    μr = zeros(size(λ,2))
+    ϕ = zeros(size(λ,2))
+    for i in axes(λ,2)
+        _z = filter(x->abs(x)>0, z[:,i])
+        zm = sum(_z)/sum(abs.(_z))
+        ϕ[i] = angle(zm)
+        μr[i] = abs(zm)
+    end
+    μr,ϕ
+end
+
 abstract type AbstractDirection end
 struct East <: AbstractDirection end
 Base.string(::Type{East}) = "East"
