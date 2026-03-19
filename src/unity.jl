@@ -1471,3 +1471,30 @@ function compute_histogram!(counts::Array{Float64,3}, pos::Matrix{Float64}, bins
     idx = [StatsBase.binindex(h, p) for p in qpos]
 end
 
+"""
+Bin the trajectory using `mm`
+"""
+function bin_trajectory(pos::Matrix{<:Real},mm::SimpleMesh)
+    d,n = size(pos)
+    dp = size(pos,1)
+    d = min(d,dp)
+    kn = KNearestSearch(mm,1)
+    bidx = fill(0, n)
+    for (i,_pos) in enumerate(eachcol(pos))
+        j = search(Meshes.Point(_pos[1:d]...,), kn)
+        bidx[i] = first(j)
+    end
+    bidx
+end
+
+function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2)
+    nt = numtrials(udata)
+    bidx = Vector{Vector{Int64}}(undef, nt)
+    for i in 1:nt
+        tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
+        pos = permutedims([posx posy])
+        bidx[i] = bin_trajectory(pos, mm)
+    end
+    bidx
+end
+
