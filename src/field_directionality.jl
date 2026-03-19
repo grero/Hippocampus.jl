@@ -325,6 +325,133 @@ function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebin
     X ./ Y
 end
 
+"""
+Return the bins in `mm` that wall within a 60 degree wedge centered on `pos`
+"""
+function get_view_bins(mm::SimpleMesh, pos, ϕ;Δϕ=π/3)
+    midx = Int64[]
+    # elevation in 120 degree wedge centered on π/2
+    for ξ in range(π/2-π/3, stop=π/2+π/3, length=15)
+        ϕ0 = ϕ-Δϕ/2
+        ϕ1 = ϕ+Δϕ/2
+        while ϕ0 < ϕ1 
+            r0 = Ray(Tuple(pos), (sin(ξ)*cos(ϕ0),sin(ξ)*sin(ϕ0), cos(ξ)))
+            # find all points where the ray intersects the maze
+            iq0 = [Meshes.intersect(r0, m) for m in mm] 
+            qidx0 = findall(iq0.!==nothing)
+            idx0 = qidx0[argmin(norm.(centroid.(mm[qidx0]) .- pos))] 
+            if !(idx0 in midx)
+                push!(midx, idx0)
+            end
+            ϕ0 += Δϕ/15 # 10 steps
+        end
+    end
+    midx
+end
+
+function get_view_bins(anglebins::AbstractVector{<:Real}, mm::SimpleMesh, m_floor::SimpleMesh, place_dir_idx::Vector{Tuple{Int64, Int64}};z=0.5, kwargs...)
+    left_gaze_place_dir_idx = NTuple{3, Int64}[]
+    right_gaze_place_dir_idx = NTuple{3, Int64}[]
+    for (pidx, lidx) in place_dir_idx
+        # player position
+        pos = centroid.(m_floor[pidx]) + Meshes.Vec(0.0, 0.0, z)
+        ϕ = anglebins[lidx]
+
+        midx_left = get_view_bins(mm, pos, ϕ+π/2)
+        for m in unique(midx_left)
+            cc = (m,pidx,lidx)
+            if !(cc in left_gaze_place_dir_idx)
+                push!(left_gaze_place_dir_idx, (m, pidx, lidx))
+            end
+        end
+        midx_right = get_view_bins(mm, pos, ϕ-π/2)
+        for m in unique(midx_right)
+            cc = (m,pidx,lidx)
+            if !(cc in right_gaze_place_dir_idx)
+                push!(right_gaze_place_dir_idx, (m, pidx, lidx))
+            end
+        end
+    end 
+    left_gaze_place_dir_idx, right_gaze_place_dir_idx
+end
+
+function get_egocentric_view_tuning(gidx, mm::SimpleMesh, m_floor::SimpleMesh;kwargs...)
+    λright = Vector{Vector{Float64}}(undef, length(gidx.occupancy))
+    λleft = Vector{Vector{Float64}}(undef, length(gidx.occupancy))
+    for i in 1:length(gidx.occupancy)
+        # get the place bins and traversal directions for this field
+        vq = [(k[2], k[4]) for k in keys(gidx.occupancy[i])]
+        left_gaze_place_dir_idx, right_gaze_place_dir_idx = get_view_bins(gidx.anglebins, mm, m_floor, unique(vq))
+        # seperate the occupancy and weight into left and right
+        λleft[i] = Float64[]
+        λright[i] = Float64[]
+        # create a view map first, by conditioning on place and direction
+        # then sum up bins according to left_.. and right_.. above
+        for (kk,vv) in gidx.occupancy[i]
+            if (kk[1], kk[2], kk[4]) in left_gaze_place_dir_idx
+                # TODO: Allow smoothing here
+                #       This is the view map, 
+                λ = get(gidx.weight[i], kk, 0.0)/vv
+                push!(λleft[i], λ)
+            elseif (kk[1], kk[2], kk[4]) in right_gaze_place_dir_idx
+                λ = get(gidx.weight[i], kk, 0.0)/vv
+                push!(λright[i], λ)
+            end
+        end
+    end
+    λleft, λright
+end
+
+"""
+Estimate the preference for left vs right gaze relative to the direction of traverersal through the field
+"""
+function get_egocentric_gaze(gidx;pv_threshold=0.01,z=0.5)
+    m_floor = (Hippocampus.floor_topology3(;nrefinements=3))
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    # this only makes sense for a direction field, so test that first
+    # actually, we can still get egocentric coding even without directionality
+    # the cell could be coding left/right gaze for any direction of traversal
+    μr,ϕ = get_directional_tuning_strength(gidx;do_shuffle=false, smooth=true,niter=1)
+    midx = Vector{Vector{CartesianIndex{6}}}(undef, length(μr))
+    for i in 1:length(μr)
+        midx[i] = CartesianIndex{6}[]
+        for (j,(θ ,direction)) in enumerate(zip([π, π/2, 0.0, -π/2], [West, North, East, South]))
+                # traversal direction
+            aidx = get_direction(gidx, direction)
+            for k in gidx.index[i]
+                if k[4] in aidx
+                    # the player is located z distance from the floor
+                    pos = centroid(m_floor[k[2]]) + Meshes.Vec(0.0, 0.0, z)
+                    # in the correct direction
+                    for (kk,Δϕ) in enumerate([π/2, -π/2])
+                        # TODO: Do we need to use multiple rays here; 
+                        ϕ0 = θ+Δϕ-π/6
+                        ϕ1 = θ+Δϕ+π/6
+                        # TODO Also go vertical
+                        for ξ in range(-π/6, stop=π/6, length=10)
+                            while ϕ0 < ϕ1 
+                                r0 = Ray(Tuple(pos), (sin(ξ)*cos(ϕ0),sin(ξ)*sin(ϕ0), cos(ξ)))
+                                # find all points where the ray intersects the maze
+                                iq0 = [Meshes.intersect(r0, m) for m in mm] 
+                                qidx0 = findall(iq0.!==nothing)
+                                idx0 = qidx0[argmin(norm.(centroid.(mm[qidx0]) .- pos))] 
+                                cc = CartesianIndex(idx0, k[2], k[3], k[4], kk, k[5] )
+                                if !(cc in mix[i])
+                                    push!(midx[i], cc)
+                                end
+                                ϕ0 += π/30 # 10 steps
+                            end
+                        end
+                    end
+
+                end
+                
+            end
+        end
+    end
+    midx
+end
+
 
 ## plots
 
