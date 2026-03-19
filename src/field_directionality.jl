@@ -367,14 +367,22 @@ function plot_field_directionality!(lg, λ::Matrix{<:Real}, θ::AbstractVector{<
     colsize!(lg, 1, Relative(0.7))
 end
 
-function plot_field_directionality!(lg, gidx::DirectionFiltered, rf::SpatialResponseFields)
+function plot_field_directionality!(lg, gidx::DirectionFiltered, rf::SpatialResponseFields;kwargs...)
     lg1 = GridLayout(lg[1,1])
     Label(lg1[1,1,TopLeft()], "A")
     plot_response_fields!(lg1, rf)
     lg2 = GridLayout(lg[1,2])
-    Label(lg2[1,1,TopLeft()], "B")
-    plot_directional_tuning!(lg2, gidx)
-    colsize!(lg, 1, Relative(0.7))
+    plot_directional_tuning!(lg2, gidx;kwargs...)
+    Label(lg2[0,1,TopLeft()], "B")
+    Label(lg2[0,1, Top()], "Firing rate", tellwidth=false, fontsize=14)
+    rowsize!(lg2, 0, 5)
+
+    lg3 = GridLayout(lg[1,3])
+    plot_directional_tuning!(lg3, gidx;occupancy_only=true, kwargs...)
+    Label(lg3[0,1,TopLeft()], "C")
+    Label(lg3[0,1, Top()], "Occupancy", tellwidth=false, fontsize=14)
+    rowsize!(lg3, 0, 5)
+    colsize!(lg, 1, Relative(0.6))
 end
 
 function plot_directional_view_field(dd::DirectionFiltered, args...;kwargs...)
@@ -449,11 +457,33 @@ function plot_directional_tuning!(lg, gidx::DirectionFiltered;kwargs...)
         hidedecorations!(ax)
         ax.thetagridvisible = true
         ax.rgridvisible = true
+        ax.spinevisible = false
+        ax.rticklabelsize = 10
+        ax.thetaticklabelsize=10
+        ax.rticksize = 0
+        ax.thetaticksize = 0
+        ax.thetaticklabelpad = 0
         lines!(ax, gidx.anglebins, λ[:,i], color=Cycled(i))
         ym = maximum(filter(isfinite, λ[:,i]))
-        linesegments!(ax,[ϕ[i],ϕ[i]], [0.0, ym], color=:red, linewidth=2)
-        Label(lg[i,2], L"$μ_r = %$(round(μr[i], sigdigits=2))$ \\ $p = %$(round(pv[i], sigdigits=2))$", rotation=-π/2, tellheight=false, 
-                        fontsize=14)
+        ym *= μr[i]
+        linesegments!(ax,[ϕ[i],ϕ[i]], [0.0, ym], color=:red, linewidth=1)
+        # indicate siginifance
+        if pv[i] < 0.001
+            lq = "**"
+        elseif pv[i] < 0.01
+            lq = "*"
+        else
+            lq = "ns"
+        end
+        ax.title = lq
+        ax.titlesize = 12
+        ax.titlegap = 0
+        if i > 1
+            rowgap!(lg, i-1, 0)
+        end
+        #Label(lg[i,2], lq, rotation=-π/2, tellheight=false,fontsize=14)
+        #Label(lg[i,2], L"$μ_r = %$(round(μr[i], sigdigits=2))$ \\ $p = %$(round(pv[i], sigdigits=2))$", rotation=-π/2, tellheight=false, 
+         #               fontsize=14)
     end
 end
 
