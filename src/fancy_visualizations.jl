@@ -2,7 +2,7 @@ using Makie
 using Meshes
 using FileIO
 
-function visualize_trial(qdata::Hippocampus.UnityRaytraceData, udata::Hippocampus.UnityData)
+function visualize_trial(qdata::Hippocampus.UnityRaytraceData, udata::Hippocampus.UnityData,trialnr=1)
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
     m_floor = (Hippocampus.floor_topology3(;nrefinements=3))
     poster_pos = Dict{Symbol, NTuple{3,Float64}}()
@@ -13,9 +13,9 @@ function visualize_trial(qdata::Hippocampus.UnityRaytraceData, udata::Hippocampu
     posters = Hippocampus.Posters(mm, poster_pos) 
     # poster name are sorted alpahbetically
     poster_ids = sort(collect(keys(poster_pos)))
-    posteridx = udata.triggers[1,1] - 10
+    posteridx = udata.triggers[trialnr,1] - 10
     poster_img = load(Hippocampus.poster_img[poster_ids[posteridx]])
-    tg,gaze,pos, fixmask,fo = Hippocampus.get_trial(qdata,1;trial_start=1);
+    tg,gaze,pos, fixmask,fo = Hippocampus.get_trial(qdata,trialnr;trial_start=1);
     gaze_point = Observable(Point3f(gaze[:,1]))
     pos_point = Observable(Point3f(pos[:,1]))
     line_of_gaze = Observable([Point3f(pos[:,1]), Point3f(gaze[:,1])])
