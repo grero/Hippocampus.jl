@@ -26,8 +26,10 @@ function get_pvalue(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,nruns=1
     pv = zeros(length(μr0))
     for i in 1:length(pv)
         if sum(isfinite.(μr[i,:])) > 20
-            G = fit(Gamma, filter(isfinite, μr[i,:]))
-            pv[i] = 1-cdf(G, μr0[i])
+            k = Makie.KernelDensity.kde(μr[i,:],boundary=(0,1))
+            xx = sort(μr[i,:])
+            cc = sum(pdf(k,xx[xx.<=μr0[i]]))/sum(pdf(k,xx))
+            pv[i] = 1-cc
         end
     end
     pv
