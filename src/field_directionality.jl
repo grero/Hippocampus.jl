@@ -17,10 +17,10 @@ function issignificant_old(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,
     pv .< pv_threshold
 end
 
-function get_pvalue(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,kwargs...)
+function get_pvalue(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,nruns=1000, kwargs...)
     μr0,ϕ0 = get_directional_tuning_strength(gidx;smooth=smooth, α=α,niter=niter,kwargs...)
-    μr = zeros(length(μr0),1000)
-    for i in 1:1000
+    μr = zeros(length(μr0),nruns)
+    for i in 1:nruns
         μr[:,i],_ = get_directional_tuning_strength(gidx;do_shuffle=true, smooth=smooth, α=α, niter=niter, kwargs...)
     end
     pv = zeros(length(μr0))
