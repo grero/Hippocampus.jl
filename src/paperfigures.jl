@@ -22,6 +22,7 @@ function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
 end
 
 function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vector{Int64}) where T<:Hippocampus.AbstractResponseFields
+    kwargs = (min_speed=1.0, trial_start=1, min_place_obs=-1, min_place_duration=-1.0, min_view_obs=-1, min_view_duration=-1.0, pv_threshold=0.01)
     mm = Hippocampus.get_mesh(T,(p=3,g=2))
     #m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
     with_theme(plot_theme) do
@@ -32,8 +33,8 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
         for (ii,jj) in enumerate(example_idx)
             lg1 = GridLayout(lgm[1,ii])
             sic,rfs = cd(celldirs[jj]) do
-                sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=100)
-                rfs = Hippocampus.get_response_fields(T, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=100,pv_threshold=0.01) 
+                sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=100,kwargs...)
+                rfs = Hippocampus.get_response_fields(T, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=100,pv_threshold=0.01,kwargs...) 
                 sic,rfs
             end
             if isempty(rfs.binidx) || sic === nothing
