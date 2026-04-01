@@ -131,6 +131,30 @@ function get_view_rate_map(dd::DirectionFiltered, ii::Integer, nbins, directions
     X, Y
 end
 
+function get_view_rate_map(occupancy::Dict{CartesianIndex{4},Float64}, weight::Dict{CartesianIndex{4},Float64}, view_place_dir_idx::Vector{NTuple{3,Int64}};smooth=false, smoothing_method=:laplace, α=0.1, niter=100)
+   # TODO: Make this more general 
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2);
+    X = zeros(nelements(mm))
+    Y = zeros(nelements(mm))
+    for (k,v) in occupancy
+        (vidx,pidx,hidx,lidx) = Tuple(k)
+        if (vidx,pidx,lidx) in view_place_dir_idx
+            Y[vidx] += v
+            X[vidx] += get(weight, k, 0.0)
+        end
+    end
+    if smooth
+        Ls = get_normalize_laplacian(mm)
+        X = laplace_smoothing(X, Ls,α;niter=niter)
+        Ys = laplace_smoothing(Y, Ls,α;niter=niter)
+    else
+        Ys = Y
+    end
+    λ = X./Ys
+    λ[Y.==0] .= NaN
+    λ[:]
+end
+
 """
     get_direction(pos::Matrix{<:Real}, mm::SimpleMesh, binidx::Vector{<:Integer})
 
