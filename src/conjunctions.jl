@@ -372,6 +372,8 @@ function FieldConjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: A
         xs = laplace_smoothing(xx,Ls, α;niter=niter)
         ws = laplace_smoothing(ww,Ls, α;niter=niter)
         λ[:,ii] = xs./ws
+        # Filter out unvisited bins< i.e. where the view occupancy is zero
+        λ[occupancy_v.==0] .= NaN
         λ_outfield[ii] = xs[nvidx]./ws[nvidx]
         for (jj,vc) in enumerate(view_clusters)
             vidx = fields2.binidx[vc]
