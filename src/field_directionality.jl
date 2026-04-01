@@ -735,7 +735,7 @@ function plot_field_traversals!(lg, gidx::DirectionFiltered, udata::UnityData;fl
     colormap = get(kwargs, :colormap, :viridis)
     ll = lines!(ax, trajectories, color=trajectory_color, colormap=colormap)
     # color bar
-    Colorbar(lg[2,1],ll, vertical=false, flipaxis=false,ticks=([0.05,0.95],["start","end"]) )
+    Colorbar(lg[2,1],ll, vertical=false, flipaxis=false,ticks=([0.05,0.95],["start","end"]),label="Subject position")
     ax
 end
 
