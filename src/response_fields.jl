@@ -481,49 +481,50 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     end
 end
 
-function plot_response_fields(rf::GazeResponseFields)
+function plot_response_fields(rf::GazeResponseFields,args...;kwargs...)
     with_theme(plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(579,639))
         lg = GridLayout(fig[1,1])
-        plot_response_fields!(lg, rf)
-        fig
+        lscene = plot_response_fields!(lg, rf, args...;kwargs...)
+        display(fig)
+        fig, lscene
     end
 end
 
-function plot_response_fields!(lg, rf::GazeResponseFields)
+function plot_response_fields(rf::SpatialResponseFields,args...;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure(size=(600,500))
+        lg = GridLayout(fig[1,1])
+        lscene = plot_response_fields!(lg, rf, args...;kwargs...)
+        display(fig)
+        fig, lscene
+    end
+end
+
+function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;filter_spurious=true, kwargs...)
     mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
     m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
     lscene = LScene(lg[1,1],show_axis=false)
-    plotmesh!(lscene, mm;color=rf.λ, ceiling_offset=10, floor_offset=-20, colormap=:binary)
+    floor_offset = get(kwargs, :floor_offset,-10)
+    ceiling_offset = get(kwargs, :ceiling_offset, 10)
+    colormap = get(kwargs, :colormap, :binary)
+    mazecolor = get(kwargs, :mazecolor, :lightgray)
+    plotmesh!(lscene, mm;color=mazecolor, showsegments=true, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
+    plotmesh!(lscene, mm;color=λ, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
     clusters = merge_fields(rf)
-
-    ccolors = Makie.wong_colors()
-    for (cc,cluster) in zip(ccolors,clusters)
-        pidx = rf.binidx[cluster]
-        cpoints = centroid.(mm[pidx])
-        floor_points = filter(Meshes.intersects(m_floor), cpoints)
-        ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
-        mid_points = setdiff(cpoints, union(floor_points, ceil_points))
-        if !isempty(floor_points)
-            viz!(lscene, Translate(0.0, 0.0, -20)(floor_points),color=cc)
-        end
-        if !isempty(ceil_points)
-            viz!(lscene, Translate(0.0, 0.0, 10)(ceil_points),color=cc)
-        end
-        if !isempty(mid_points)
-            viz!(lscene, mid_points,color=cc)
-        end
+    if filter_spurious
+        nclusters = Hippocampus.get_num_fields(rf)
+        cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).<0.001)
+    else
+        cidx = 1:length(clusters)
     end
-    Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf.λ)), colormap=:binary, label="Firing rate [Hz]")
-end
 
-function plot_response_fields!(lscene::LScene, rf::GazeResponseFields;ceiling_offset=10, floor_offset=-20)
-    mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
-    m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
-    clusters = merge_fields(rf)
-
-    ccolors = Makie.wong_colors()
-    for (cc,cluster) in zip(ccolors,clusters)
+    if colormap == :rain 
+        ccolors = [:red, :orange, :yellow]
+    else
+        ccolors = Makie.wong_colors()
+    end
+    for (cc,cluster) in zip(ccolors[cidx],clusters[cidx])
         pidx = rf.binidx[cluster]
         cpoints = centroid.(mm[pidx])
         floor_points = filter(Meshes.intersects(m_floor), cpoints)
@@ -539,35 +540,80 @@ function plot_response_fields!(lscene::LScene, rf::GazeResponseFields;ceiling_of
             viz!(lscene, mid_points,color=cc)
         end
     end
+    Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=get(kwargs, :colormap, :binary), label="Firing rate [Hz]")
+    lscene
 end
 
-function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields)
-    mm = Shadow("xy")(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
-    ax = Axis(lg[1,1])
-    hidedecorations!(ax)
-    ax.bottomspinevisible = false
-    ax.leftspinevisible = false
-    viz!(ax, mm;color=:lightgray)
-    viz!(ax, mm;color=rf.λ,colormap=:binary)
+function plot_response_fields!(lscene::LScene, rf::GazeResponseFields,idx::Union{Nothing,Integer}=nothing, λ=rf.λ ;ceiling_offset=10, floor_offset=-20)
+    mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
+    m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
     clusters = merge_fields(rf)
 
     ccolors = Makie.wong_colors()
-    for (cc,cluster) in zip(ccolors,clusters)
+    for (jj,(cc,cluster)) in enumerate(zip(ccolors,clusters))
+        if idx === nothing || jj == idx
+            pidx = rf.binidx[cluster]
+            cpoints = centroid.(mm[pidx])
+            floor_points = filter(Meshes.intersects(m_floor), cpoints)
+            ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
+            mid_points = setdiff(cpoints, union(floor_points, ceil_points))
+            if !isempty(floor_points)
+                viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc)
+            end
+            if !isempty(ceil_points)
+                viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc)
+            end
+            if !isempty(mid_points)
+                viz!(lscene, mid_points,color=cc)
+            end
+        end
+    end
+end
+
+function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields;filter_spurious=true, colorbar_below=false, kwargs...)
+    mm = Shadow("xy")(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
+    ax = Axis(lg[1,1],aspect=1)
+    hidedecorations!(ax)
+    ax.bottomspinevisible = false
+    ax.leftspinevisible = false
+    colormap = get(kwargs, :colormap, :binary)
+    mazecolor = get(kwargs, :mazecolor, :lightgray)
+    viz!(ax, mm;color=mazecolor)
+    viz!(ax, mm;color=rf.λ,colormap=colormap)
+    clusters = merge_fields(rf)
+    if filter_spurious
+        nclusters = Hippocampus.get_num_fields(rf)
+        cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).<0.001)
+    else
+        cidx = 1:length(clusters)
+    end
+    if colormap == :rain
+        ccolors = [:red, :orange, :yellow]
+    else
+        ccolors = Makie.wong_colors()
+    end
+    for (cc,cluster) in zip(ccolors[1:length(cidx)],clusters[cidx])
         pidx = rf.binidx[cluster]
         cpoints = centroid.(mm[pidx])
         viz!(ax, cpoints, color=cc)
     end
-    Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf.λ)), colormap=:binary, label="Firing rate [Hz]")
+    if colorbar_below
+        Colorbar(lg[2,1], colorrange=extrema(filter(isfinite, rf.λ)), colormap=colormap, label="Firing rate [Hz]", vertical=false, flipaxis=false, ticksvisible=true)
+    else
+        Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf.λ)), colormap=colormap, label="Firing rate [Hz]")
+    end
 end
 
-function plot_response_fields!(lscene::LScene, rf::SpatialResponseFields;offset=0.0)
+function plot_response_fields!(lscene::LScene, rf::SpatialResponseFields,idx::Union{Nothing,Integer}=nothing,;offset=0.0)
     mm = Translate(0.0, 0.0, offset)(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
     clusters = merge_fields(rf)
 
     ccolors = Makie.wong_colors()
-    for (cc,cluster) in zip(ccolors,clusters)
-        pidx = rf.binidx[cluster]
-        cpoints = centroid.(mm[pidx])
-        viz!(lscene, cpoints, color=cc)
+    for (jj,(cc,cluster)) in enumerate(zip(ccolors,clusters))
+        if idx === nothing || (jj == idx)
+            pidx = rf.binidx[cluster]
+            cpoints = centroid.(mm[pidx])
+            viz!(lscene, cpoints, color=cc)
+        end
     end
 end
