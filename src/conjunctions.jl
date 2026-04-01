@@ -340,7 +340,8 @@ function marginalize(::Type{GazeResponseFields}, X::Matrix{<:Real}, idx)
     dropdims(sum(X[idx,:],dims=1),dims=1)
 end
 
-function FieldConjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+function FieldConjunctions(jm::JointMap, fields1::T1, fields2::T2;smooth=true, smoothing_method=:laplace, α=0.1, niter=100,kwargs...) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+    # TODO: Make sure we use the same bin filtering as for fields1 and fields2 here
     mm1 = get_mesh(T1, fields1.args[:nrefinements])
     mm2 = get_mesh(T2, fields2.args[:nrefinements])
     view_clusters = merge_fields(fields2)
@@ -387,7 +388,7 @@ function FieldConjunctions(::Type{T1},::Type{T2};do_save=true, redo=fname->false
     jm = JointMap(;redo=fname->false, do_save=true, kwargs...)
     rf1 = get_response_fields(T1 ,get(kwargs, :nshuffles, 10_000);kwargs...)
     rf2 = get_response_fields(T2 ,get(kwargs, :nshuffles, 10_000);kwargs...)
-    FieldConjunctions(jm, rf1, rf2)
+    FieldConjunctions(jm, rf1, rf2;kwargs...)
 end
 
 function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
