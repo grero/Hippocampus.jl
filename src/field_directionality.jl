@@ -629,3 +629,121 @@ function plot_directional_tuning(gidx::DirectionFiltered;kwargs...)
         fig
     end
 end
+
+function plot_egocentric_gaze_tuning!(lg, λleft::Vector{<:Vector{<:Real}}, λright::Vector{<:Vector{<:Real}})
+    for i in 1:length(λleft)
+        ax = Axis(lg[i,1])
+        fidx_left = findall(isfinite, λleft[i])
+        fidx_right = findall(isfinite, λright[i])
+        xx = [fill(1.0, length(fidx_left));fill(2.0, length(fidx_right))]
+        yy = [λleft[i][fidx_left];λright[i][fidx_right]]
+        boxplot!(ax, xx, yy, color=Cycled(i),show_outliers=false)
+        ax.xticks = (1:2, ["Left","Right"])
+        xlims!(ax, 0.5, 2.5)
+        ax.ylabel = "Firing rate [Hz]"
+    end
+end
+
+function plot_egocentric_gaze_tuning(λleft::Vector{<:Vector{<:Real}}, λright::Vector{<:Vector{<:Real}})
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_egocentric_gaze_tuning!(lg, λleft, λright)
+        fig
+    end
+end
+
+function plot_field_directionality(rf_spatial, gidx, λleft, λright)
+    with_theme(plot_theme) do
+        fig = Figure(size=(1024, 600))
+        lg1 = GridLayout(fig[1,1])  
+        plot_field_directionality!(lg1, gidx, rf_spatial)
+        lg2 = GridLayout(fig[1,2])
+        plot_egocentric_gaze_tuning!(lg2, λleft, λright)
+        Label(lg2[1,1,TopLeft()], "D")
+        colsize!(fig.layout, 2, Relative(0.2))
+        fig
+    end
+end
+
+function plot_left_vs_right_rate(args...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_left_vs_right_rate!(lg, args...)
+        link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_left_vs_right_rate!(lg, gidx::DirectionFiltered, left_gaze_place_dir_idx::Vector{NTuple{3,Int64}}, right_gaze_place_dir_idx::Vector{NTuple{3,Int64}}, mm::SimpleMesh, m_floor::SimpleMesh)
+    occupancy = gidx.occupancy[1]
+    weight = gidx.weight[1]
+    lscene_left = LScene(lg[1,1], show_axis=false)
+    lscene_right = LScene(lg[1,2], show_axis=false)
+
+     λ_left = Hippocampus.get_view_rate_map(occupancy, weight, left_gaze_place_dir_idx)
+     λ_right = Hippocampus.get_view_rate_map(occupancy, weight, right_gaze_place_dir_idx)
+
+    cr = extrema(filter(isfinite, [λ_left;λ_right]))
+
+    plotmesh!(lscene_left, mm, color=:lightgray, showsegments=true, hide_ceiling=true, hide_floor=true)
+    plotmesh!(lscene_left, mm, color=λ_left , colorrange=cr, showsegments=false, hide_ceiling=true, hide_floor=false)
+
+    plotmesh!(lscene_right, mm, color=:lightgray, showsegments=true, hide_ceiling=true, hide_floor=true)
+    plotmesh!(lscene_right, mm, color=λ_right , colorrange=cr, showsegments=false, hide_ceiling=true, hide_floor=false)
+    Colorbar(lg[1,3], colorrange=cr, label="Firing rate [Hz]")
+    Label(lg[1,1,Top()], "Left gaze", tellwidth=false)
+    Label(lg[1,2,Top()], "right gaze", tellwidth=false)
+    # TODO: Indicate place field and direction
+    place_idx = unique(getindex.([left_gaze_place_dir_idx;right_gaze_place_dir_idx],2))
+    angle_idx = mode(getindex.([left_gaze_place_dir_idx;right_gaze_place_dir_idx],3))
+    ϕ = gidx.anglebins[angle_idx]
+    #bb = find_boundary(m_floor[place_idx])
+    m_floor2 = Translate(0.0, 0.0, -0.1)(m_floor)
+    bb = m_floor2[place_idx]
+    cm = mean(Point3f.(Tuple.(centroid.(bb))))
+    viz!(lscene_left, m_floor2, color=:darkgray, showsegments=true)
+    viz!(lscene_left, bb, color=:blue)
+    arrows3d!(lscene_left, cm,2.0*Point3f(cos(ϕ), sin(ϕ), 0.0), color=:orange)
+    viz!(lscene_right, m_floor2, color=:darkgray, showsegments=true)
+    viz!(lscene_right, bb, color=:blue)
+    arrows3d!(lscene_right, cm,2.0*Point3f(cos(ϕ), sin(ϕ), 0.0), color=:orange)
+end
+
+function plot_field_traversals!(lg, gidx::DirectionFiltered, udata::UnityData;floorcolor=:lightgray, kwargs...)
+    # get the trajectories 
+    trialidx = unique(getindex.(gidx.index[1], 5))
+    trajectories = Point2f[]
+    trajectory_color = Float64[]
+    for tidx in trialidx
+        tu,posx, posy,_ = get_trial(udata,tidx;trial_start=2);
+        color_idx = range(0.0, stop=1.0, length=length(posx))
+        for p in zip(posx, posy) 
+            push!(trajectories, Point2f(p...))
+        end
+        push!(trajectories, Point2f(NaN))
+        append!(trajectory_color, collect(color_idx))
+        push!(trajectory_color, NaN)
+    end
+    ax = Axis(lg[1,1], aspect=1)
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
+    viz!(ax, m_floor;color=floorcolor)
+    hidedecorations!(ax)
+    ax.bottomspinevisible = false
+    ax.leftspinevisible = false
+    colormap = get(kwargs, :colormap, :viridis)
+    ll = lines!(ax, trajectories, color=trajectory_color, colormap=colormap)
+    # color bar
+    Colorbar(lg[2,1],ll, vertical=false, flipaxis=false,ticks=([0.05,0.95],["start","end"]) )
+    ax
+end
+
+function plot_field_traversals(gidx, qdata;_plot_theme=plot_theme, kwargs...)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(600,600))
+        lg = GridLayout(fig[1,1])
+        plot_field_traversals!(lg, gidx, qdata;kwargs...)
+        fig
+    end
+end
