@@ -369,8 +369,8 @@ function FieldConjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: A
         #ww = dropdims(sum(occupancy[:,pidx],dims=2),dims=2)
         #ww = occupancy[:,pidx]*ps[pidx]./sum(ps[pidx])
         # smooth
-        xs = laplace_smoothing(xx,Ls, 0.1;niter=100)
-        ws = laplace_smoothing(ww,Ls, 0.1;niter=100)
+        xs = laplace_smoothing(xx,Ls, α;niter=niter)
+        ws = laplace_smoothing(ww,Ls, α;niter=niter)
         λ[:,ii] = xs./ws
         λ_outfield[ii] = xs[nvidx]./ws[nvidx]
         for (jj,vc) in enumerate(view_clusters)
