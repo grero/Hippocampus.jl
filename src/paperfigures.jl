@@ -29,6 +29,11 @@ end
 """
 Place cells
 """
+function figure2()
+    spatially_selective, example_idx = JLD2.load(joinpath(@__DIR__, "..","data","paper","figure2_data.jld2"), "spatially_selective", "example_cell_idx")
+    figure2(spatially_selective, example_idx)
+end
+
 function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
     CairoMakie.activate!()
     plot_field_summary(Hippocampus.SpatialResponseFields, spatial_cells, example_idx)
