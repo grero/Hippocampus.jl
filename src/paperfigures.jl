@@ -14,6 +14,19 @@ plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
                      fontsize=14)
 
 """
+    figure1()
+
+Behavioural task and recording sites
+"""
+function figure1()
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg1 = GridLayout(fig[1,1])
+        Hippocampus.plot_flat_maze_with_posters!(lg1)
+        fig
+    end
+end
+"""
 Place cells
 """
 function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
