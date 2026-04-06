@@ -167,7 +167,7 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
 
         # summary showing total number of fields and coverage
         lg3 = GridLayout(fig[2,1]) 
-        Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E","F"], pv_threshold=0.01, smooth=true, smoothing_method=:laplace, α=0.1,niter=100,kwargs...)
+        Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E","F"], pv_threshold=0.001, smooth=true, smoothing_method=:laplace, α=0.1,niter=50,kwargs...)
         rowsize!(fig.layout, 1, Relative(0.6))
         fig
     end
