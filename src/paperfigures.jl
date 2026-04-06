@@ -118,33 +118,7 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
                 @show jj
             end
             lg12 = GridLayout(lg1[1,1])
-            Z = rfs.λ
-            if embeddim(mm) == 2
-                ax = Axis(lg12[1,1],aspect=1)
-                hidedecorations!(ax)
-                ax.leftspinevisible = false
-                ax.bottomspinevisible = false
-                # show the outline of the maze
-                viz!(ax, mm;color=:lightgray)
-                viz!(ax,mm;color=Z)
-            else
-                ax = LScene(lg12[1,1],show_axis=false)
-                #TODO: only hide the ceiling if this cell has no field on the ceiling
-                Hippocampus.plotmesh!(ax, mm;color=Z,indicate_north=true,hide_ceiling=true)
-            end
-
-            clusters = Hippocampus.merge_fields(rfs)
-            nclusters = Hippocampus.get_num_fields(rfs)
-            # relative number of times we get cluster of at least length.(clusters) randomly
-            threshold = dropdims(sum(nclusters,dims=2),dims=2)/size(nclusters,2)
-            # only keep fields where the probabilty of getting the same field in the surroages is less than 0.01
-            valid_cluster_idx = findall(threshold .< kwargs.pv_threshold)
-            for cluster in clusters[valid_cluster_idx] 
-                bb = Hippocampus.find_boundary(mm, rfs.binidx[cluster])
-                viz!(ax, bb;color=:black)
-            end
-            Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite, Z)), label="Firing rate [Hz]",vertical=false,tellwidth=false)
-            #colsize!(lg1, 1, Relative(0.6))
+            Hippocampus.plot_response_fields!(lg12, rfs;filter_spurious=true, colorbar_below=true, colormap=:rain)
 
             # show SIC distribution
             #lg2 = GridLayout(fig[1,2])
