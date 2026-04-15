@@ -99,3 +99,54 @@ function visualize_trial(qdata::Hippocampus.UnityRaytraceData, udata::Hippocampu
     end
 
 end
+
+
+function plot_directional_place_map(gidx::DirectionFiltered,idx=1;kwargs...)
+    X,Y = Hippocampus.get_joint_cardinal_prob(gidx;do_shuffle=false)
+    ee, ees = Hippocampus.get_cardinal_direction_tuning_strength(gidx)
+    plot_directional_place_map(X[:,:,idx],Y[:,:,idx],ee[idx],ees[idx,:];kwargs...)
+end
+
+function plot_directional_place_map(X::Matrix{T},Y::Matrix{T},ee::T, ees::Vector{T};smooth=true, α=0.1, niter=50,_plot_theme=plot_theme) where T <: Real
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
+    if smooth
+        Ls = get_normalize_laplacian(m_floor)
+        Xs =  permutedims(laplace_smoothing(permutedims(X), Ls, α;niter=niter));
+        Ys =  permutedims(laplace_smoothing(permutedims(Y), Ls, α;niter=niter));
+    else
+        Xs = X
+        Ys = Y
+    end
+    λ = Xs./Ys
+    λ[Y.==0] .= NaN
+    with_theme(_plot_theme) do
+        fig = Figure(size=(800,600))
+        axs = [Axis(fig[i,j],aspect=1) for (i,j) in [(1,2),(3,2), (2,3), (2,1)]] 
+        for (l,ax,j) in zip(["Morth","South","East","West"], axs, axes(X,2))
+            hidedecorations!(ax)
+            ax.bottomspinevisible = false
+            ax.leftspinevisible = false
+            viz!(ax, m_floor;color=:darkgray)
+            qq = sum(isfinite.(λ[:,j]))
+            if qq == 0
+                continue
+            end
+            viz!(ax, m_floor;color=λ[:,j],colormap=:rain)
+            #ax.title = l
+        end
+        # central spot
+        lg1 = GridLayout(fig[2,2])
+        axv = Axis(lg1[1,1])
+        barplot!(axv, [1:4;], dropdims(mean(Xs,dims=1),dims=1))
+        axv.ylabel = "Mean spike count"
+        axv.xticks = ([1:4;], ["N","S","E","W"])
+        axg = Axis(lg1[1,2])
+        rainclouds!(axg, fill(1.0, length(ees)), ees;clouds=nothing, color=:darkgray)
+        hlines!(axg, ee, linestyle=:dot, color=:black)
+        axg.ylabel = "I(S;D|P)"
+        axg.bottomspinevisible = false
+        axg.xticksvisible = false
+        axg.xticklabelsvisible = false
+        fig
+    end
+end
