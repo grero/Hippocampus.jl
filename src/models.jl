@@ -439,3 +439,61 @@ function wander_cube(w::T,h::T,d::T,x0::Vector{T}=[0.1, 0.0, 0.1];nn=100,σ=0.01
     end
     X
 end
+
+
+"""
+Simulate a case in which apparent directional tuning comes simply from traversing a place field slightly 
+differently when traversing in two different directions
+"""
+function simulate_fake_directionality(;numtrials=100, additive=1.0, multiplicative=1.5)
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
+
+    place_field_center = (0.0, 0.0)
+    place_field_size = 4.0
+    λ_max = 5.0
+    λ_min = 0.1
+
+    # generate firing rate
+    # TODO: Maybe not use cityblock here because it looks a bit weird
+    D = distancematrix(m_floor)
+    # find the centroid
+    kn = KNearestSearch(m_floor,1)
+    ii = first(search(Meshes.Point(place_field_center...), kn))
+    λ = zeros(nelements(m_floor))
+    for i in 1:nelements(m_floor)
+        d = D[i,ii]
+        λ[i] = λ_min + (λ_max-λ_min)*exp(-d^2/(2*place_field_size^2))
+    end
+
+    # now simulate trajectories, where we go through the field when going from south to north, off-center
+    # when going the other way
+    X = zeros(length(λ),2)
+    X1 = zeros(size(X)...)
+    X2 = zeros(size(X)...)
+    Y = zeros(size(X)...)
+    A = adjacencymatrix(m_floor)
+    G = SimpleGraph(A)
+    # northward
+    starting_point = first(search(Meshes.Point(0.0, -11.0),kn))
+    ending_point = first(search(Meshes.Point(0.0, 11), kn))
+    dj = dijkstra_shortest_paths(G, starting_point)
+    northward_trajectory =  get_path(dj, ending_point)
+
+    #southward
+    starting_point = first(search(Meshes.Point(1.5, 11.0),kn))
+    ending_point = first(search(Meshes.Point(1.5, -10.0), kn))
+    dj = dijkstra_shortest_paths(G, starting_point)
+    southward_trajectory =  get_path(dj, ending_point)
+
+    for i in 1:numtrials
+        X[northward_trajectory,1] .+= rand.(Poisson.(λ[northward_trajectory]))
+        X1[northward_trajectory,1] .+= rand.(Poisson.(λ[northward_trajectory] .+ additive)) # pure directional
+        X2[northward_trajectory,1] .+= rand.(Poisson.(multiplicative*λ[northward_trajectory])) # interaction
+        Y[northward_trajectory, 1] .+= 0.05
+        X[southward_trajectory,2] .+= rand.(Poisson.(λ[southward_trajectory]))
+        X1[southward_trajectory,2] .+= rand.(Poisson.(λ[southward_trajectory]))
+        X2[southward_trajectory,2] .+= rand.(Poisson.(λ[southward_trajectory]))
+        Y[southward_trajectory, 2] .+= 0.05
+    end
+    X, X1, X2,Y, λ, northward_trajectory, southward_trajectory
+end
