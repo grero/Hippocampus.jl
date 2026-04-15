@@ -86,3 +86,90 @@ function plot_directionality_example(celldir::String;kwargs...)
         fig
     end
 end
+
+function plot_directional_conditioned_view_field_example(celldir::String;kwargs...)
+     rf, rfsp, gidx = cd(celldir) do 
+        rf = Hippocampus.get_response_fields(Hippocampus.GazeResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+        rfsp = Hippocampus.get_response_fields(Hippocampus.SpatialResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+        gidx = Hippocampus.DirectionFiltered(;only_full_traversal=true, min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, pv_threshold=0.001,redo=fname->false)
+        rf,rfsp, gidx
+    end
+    μr,ϕ = Hippocampus.get_directional_tuning_strength(gidx;do_shuffle=false, smooth=false,niter=1)
+    res,vc,λ = Hippocampus.analyse_directionality(gidx, rf;pv_threshold=0.01,niter=50)
+    spatial_clusters = Hippocampus.merge_fields(rfsp)
+    m_floor = Translate(0.0, 0.0, -20)(Hippocampus.floor_topology3(;nrefinements=3))
+    cm = Point3f.(Tuple.(centroid.(m_floor[rfsp.binidx[spatial_clusters[1]]])))
+    cmp = mean(cm)
+    with_theme(_plot_theme)  do
+        fig = Figure(size=(600,300))
+        lg1 = GridLayout(fig[1,1])
+        Hippocampus.plot_response_fields!(lg1, rf;colormap=:rain, filter_spurious=true, mazecolor=:darkgray,floor_offset=-20, ceiling_offset=15)
+        lg2 = GridLayout(fig[1,2])
+        lscene = Hippocampus.plot_response_fields!(lg2, rf, λ[1];colormap=:rain, filter_spurious=true, mazecolor=:darkgray, floor_offset=-20, ceiling_offset=15)
+        #viz!(lscene, cm, color=:orange)
+        scatter!(lscene, cm, color=:orange, markersize=10px)
+        arrows3d!(lscene, cmp + Point3f(0.0, 0.0, 0.1), Point3f(2*cos(ϕ[1]),2*sin(ϕ[1]), 0.0),color=:black)
+        Hippocampus.link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_view_conditioned_on_place(celldir::String;kwargs...)
+     rf_gaze, rf_spatial,jm = cd(celldir) do 
+        rf = Hippocampus.get_response_fields(Hippocampus.GazeResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+        rfsp = Hippocampus.get_response_fields(Hippocampus.SpatialResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+        jm = Hippocampus.JointMap(;redo=fname->true, do_save=false, nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
+        rf,rfsp, jm
+    end
+    view_clusters = Hippocampus.merge_fields(rf_gaze)
+    spatial_clusters = Hippocampus.merge_fields(rf_spatial)
+    
+    res = Hippocampus.conjunctions(jm, rf_spatial,rf_gaze.binidx[view_clusters[1]])
+    fidx = findall(isfinite, res[1]["λ_sub"])
+    qidx = fidx[argmax(res[1]["λ_sub"][fidx])]
+
+    vm = Hippocampus.ViewMapNew(jm, mm;placebins=res[1]["sub_idx"][qidx])
+    vm_orig = Hippocampus.ViewMapNew(jm, mm;placebins=rf_spatial.binidx[spatial_clusters[1]]);
+    m_floor = Translate(0.0, 0.0, -20)(Hippocampus.floor_topology3(;nrefinements=3))
+    with_theme(_plot_theme) do
+        fig = Figure(size=(600,500))
+        lg1 = GridLayout(fig[1,1])
+        lscene1 = Hippocampus.plot_response_fields!(lg1, rf_gaze, Hippocampus.get_rate_map(vm_orig), colormap=:rain, filter_spurious=true,mazecolor=:darkgray,floor_offset=-20, ceiling_offset=15)
+        scatter!(lscene1, Point3f.(Tuple.(centroid.(m_floor[rf_spatial.binidx[spatial_clusters[1]]]))), color=:orange)
+        lg2 = GridLayout(fig[1,2])
+        lscene2 = Hippocampus.plot_response_fields!(lg2, rf_gaze, Hippocampus.get_rate_map(vm), colormap=:rain, filter_spurious=true, mazecolor=:darkgray, floor_offset=-20, ceiling_offset=15)
+        scatter!(lscene2, Point3f.(Tuple.(centroid.(m_floor[res[1]["sub_idx"][qidx]]))), color=:orange)
+        Hippocampus.link_cameras_lscene(fig)
+        fig
+    end
+
+end
+
+function plot_cell_categories(;kwargs...)
+    allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+       readlines(fid)
+    end
+    spatially_selective = JLD2.load(joinpath(@__DIR__, "..","data","paper","figure2_data.jld2"), "spatially_selective")
+    view_selective = JLD2.load(joinpath(@__DIR__, "..","data","paper","figure3_data.jld2"), "view_selective")
+    non_selective = setdiff(allcelldirs, union(spatially_selective, view_selective))
+    num_place_fields = JLD2.load(joinpath(@__DIR__, "..","field_stats_73eba60a.jld2"), "nfields")
+    num_view_fields = JLD2.load(joinpath(@__DIR__, "..","field_stats_a91f3809.jld2"), "nfields")
+    place_cells = collect(keys(filter(k->k[2]>0, num_place_fields)))
+    directional_place_cells = [""]
+    view_cells = collect(keys(filter(k->k[2]>0, num_view_fields)))
+    place_and_view_selective = intersect(spatially_selective, view_selective)
+    conjuncrive = [""]
+    colors = Dict(:directional => :yellow, :place_cells => :orange, spatially_selective => :red,
+                  :view_selective => :blue, :view_cells => :green, :conjunctive => :purple)
+
+    with_theme(_plot_theme) do
+        fig = Figure(size=(300,300))
+        ax = Axis(fig[1,1])
+        barplot!(ax, [1:6;], length.([non_selective, spatially_selective, place_cells, view_selective, view_cells, place_and_view_selective]), 
+                                    color=[:gray, :red, :orange, :blue, :green,:purple])
+        ax.bottomspinevisible = false 
+        ax.xticklabelsvisible = false
+        ax.ylabel = "Number of cells"
+        fig
+    end
+end
