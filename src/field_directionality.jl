@@ -351,6 +351,110 @@ function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebin
     X ./ Y
 end
 
+function get_cardinal_direction_tuning_old(gidx::DirectionFiltered, deltaT, nspikes;nt::Union{Int64,Nothing}=nothing,do_shuffle=false)
+    qidx = gidx.index
+    # we need to get nt from somehwere
+    # get nt from the index for now
+    nc = length(qidx)
+    if nt === nothing
+        nt = 0
+        for i in 1:nc
+            nt = max(nt, maximum(getindex.(qidx[i],5)))
+        end
+    end
+    directions = [get_direction(gidx, d) for d in [North, South, East, West]]
+    X = zeros(4,nt,nc)
+    Y = zeros(4,nt,nc)
+    for j in 1:nc
+        if do_shuffle
+            _nspikes = shuffle(nspikes[j])
+        else
+            _nspikes = nspikes[j]
+        end
+        for (k,w,x) in zip(qidx[j], deltaT[j], _nspikes)
+            l = getindex(k,4)
+            tidx = getindex(k,5)
+            idx = findfirst(dd->in(dd)(l), directions)
+            if idx !== nothing
+                Y[idx,tidx,j] += w
+                X[idx,tidx,j] += x
+            end
+        end
+    end
+    X,Y
+end
+
+function get_cardinal_direction_tuning_strength_old(gidx::DirectionFiltered, deltaT, nspikes;nt::Union{Int64,Nothing}=nothing,do_shuffle=false)
+    X,Y = get_cardinal_direction_tuning(gidx, deltaT, nspikes;nt=nt)
+    λ = X./(Y .+ sqrt(eps(T)))
+    Hx = compute_skaggs_sic(λ[:], Y[:])
+    Ys = dropdims(sum(Y,dims=2),dims=(2,3))
+    Ps = Ys./sum(Ys)
+    Pxs = λ.*deltaT
+end
+
+function get_cardinal_direction_tuning_strength(gidx;nshuffles=1000)
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+    Ls = get_normalize_laplacian(m_floor)
+    X,Y = get_joint_cardinal_prob(gidx)
+    Xs = laplace_smoothing(X, Ls, 0.1;niter=50); 
+    Ys = laplace_smoothing(Y, Ls, 0.1;niter=50); 
+
+    ees = zeros(size(X,3),nshuffles)
+    ee = zeros(size(X,3))
+    for j in 1:size(X,3)
+        ee[j]= get_conditional_information(Xs[:,:,j],Ys[:,:,j])
+    end
+    for i in 1:nshuffles
+        X,Y = get_joint_cardinal_prob(gidx;do_shuffle=true)
+        Xs = laplace_smoothing(X, Ls, 0.1;niter=50); 
+        Ys = laplace_smoothing(Y, Ls, 0.1;niter=50); 
+        for j in 1:size(X,3)
+            ees[j,i] = get_conditional_information(Xs[:,:,j],Ys[:,:,j])
+        end
+    end
+    ee, ees, X,Y
+end
+
+function get_joint_cardinal_prob(gidx;do_shuffle=false)
+    directions = [get_direction(gidx, d) for d in [North, South, East, West]]
+    nc = length(gidx.index)
+    X = zeros(1344,4,nc)
+    Y = zeros(1344,4,nc)
+    for (j,(occupancy, weight)) in enumerate(zip(gidx.occupancy, gidx.weight))
+        for (k,v) in occupancy
+            if do_shuffle
+                lidx = rand(1:length(gidx.anglebins))
+            else
+                lidx = getindex(k,4)
+            end
+            pidx = getindex(k,2)
+            idx = findfirst(dd->in(dd)(lidx), directions)
+            if idx !== nothing
+                Y[pidx,idx,j] += v
+                if k in keys(weight)
+                    X[pidx,idx,j] += weight[k] 
+                end
+            end
+        end
+    end
+    X,Y
+end
+
+"""
+Compute the conditional information between the firing rate X and bins represented by the second
+dimennsion of X, conditioned on the bins represented by the first dimension of X.
+"""
+function get_conditional_information(X::Matrix{T},Y::Matrix{T}) where T <: Real
+    λ = X./(Y .+ eps(Float64)) # to avoid zeros
+    Pdy = Y./sum(Y)
+    Psdy = λ.*Pdy  
+    Py = sum(Pdy,dims=2)  
+    Psy = sum(Psdy,dims=2)
+    λm = sum(filter(isfinite, Psdy))
+    sum(filter(isfinite, Psdy.*log2.((Psdy.*Py)./(Psy.*Pdy))))/λm
+end
+
 """
 Return the bins in `mm` that wall within a 60 degree wedge centered on `pos`
 """

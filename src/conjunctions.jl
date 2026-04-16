@@ -391,6 +391,75 @@ function FieldConjunctions(::Type{T1},::Type{T2};do_save=true, redo=fname->false
     FieldConjunctions(jm, rf1, rf2;kwargs...)
 end
 
+# Type for doing conditional information; we need this so that we can easily managed the shuffling
+struct PlaceAccountingView{T<:Real}
+    weight::Matrix{T}
+    occupancy::Matrix{T}
+    ee::T
+    ees::Vector{T}
+    args::Dict{Symbol,Any}
+end
+
+function process_kwargs(PlaceAccountingView, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
+    h = process_kwargs(JointMap,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles),h)
+    h
+end
+
+function PlaceAccountingView(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, jocc_filtered::JointFilteredOccupancy;nshuffles=1000, kwargs...)
+    args = Dict{Symbol,Any}()
+    for (k,v) in kwargs
+        args[k] = v
+    end
+    args[:snuffles] = nshuffles
+    jm = JointMap(vpvrp, jocc, jocc_filtered)
+    method = get(kwargs, :smoothing_method, :laplace)
+    α = get(kwargs, :α, 0.1)
+    niter = get(kwargs, :niter, 50)
+    jml = JointSmoothedMap(jm;method=method, α=α,niter=niter);
+    # compute information about place given view
+    ee = get_conditional_information(jml.weight, jml.occupancy)
+    ees = zeros(nshuffles)
+    prog = Progress(nshuffles)
+    for i in 1:nshuffles
+        jms = JointMap(vpvrp, jocc, jocc_filtered;shuffle_view=true);
+        jmsl = JointSmoothedMap(jms;method=method, α=α, niter=niter);
+        ees[i] = get_conditional_information(jmsl.weight, jmsl.occupancy)
+        ProgressMeter.next!(prog)
+    end
+    PlaceAccountingView(jml.weight, jml.occupancy, ee, ees, args) 
+end
+
+function PlaceAccountingView(;redo=fname=>false, do_save=true, kwargs...)
+    fname = "place_accounting_view.jld2"
+    h = process_kwargs(PlaceAccountingView;kwargs...)
+    if h > 0
+        hs = string(h,base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(PlaceAccountingView, fname)
+    else
+        sessiondir = DPHT.get_level_path("session")
+        qdata, jocc = cd(sessiondir) do
+            qdata = UnityRaytraceData(;kwargs...)
+            jocc = JointOccupancy(;kwargs...)
+            qdata, jocc
+        end
+        jocc_filtered = JointFilteredOccupancy(jocc,qdata;kwargs...)
+        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        obj = PlaceAccountingView(vpvrp, jocc, jocc_filtered;kwargs...)
+        if do_save
+            save_jld2(obj, fname)
+        end
+    end
+    obj
+end
+
+struct ViewAccountingSpace
+end
+
+## plots
 function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
 
     # find the significant clusters
