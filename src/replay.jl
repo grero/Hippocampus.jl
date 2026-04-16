@@ -2570,18 +2570,36 @@ function JointMap(weight::Vector{T}, occupancy::Vector{T}, index) where T <: Rea
     JointMap{T}(weight, occupancy, index, [ng,np,nh])
 end
 
-function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy)
+function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,qidx::Vector{CartesianIndex{4}};shuffle_place=false, shuffle_view=false)
     nt = length(vpvrp.events)
     cc = Dict{CartesianIndex{4}, Int16}()
     for i in 1:nt
+        if isempty(jocc.index[i])
+            continue
+        end
+        if shuffle_view || shuffle_place
+            #kw = filter(q->q!=CartesianIndex(0,0,0), jocc.index[i])
+            kw = filter(qi->qi[4]==i,qidx)
+            view_idx = getindex.(kw,1)
+            place_idx = getindex.(kw,2)
+            hd_idx = getindex.(kw,3)
+            # TODO: This doesn't work since we will be checking the combination of place/view later on.
+            # maybe we do not need to do that?
+            # just make sure that both pidx and view is among the allowed indices for this trial?
+        end
         for _idx in  vpvrp.placeviewidx[i]
-            if isempty(jocc.index[i])
-                continue
-            end
             aidx = jocc.index[i][_idx]
             vidx,pidx,hidx = Tuple(aidx) 
             if (vidx == 0 || pidx ==0) || (hidx==0)
                 continue
+            end
+            if shuffle_place
+                # grab a random place index
+                pidx = rand(place_idx[view_idx.==vidx])
+            end
+            if shuffle_view
+                #grab a random view index
+                vidx = rand(view_idx[(place_idx.==pidx).&(hd_idx.==hidx)])
             end
             qq = CartesianIndex(vidx,pidx,hidx,i)
             cc[qq] = get(cc, qq, zero(Int16)) + one(Int16)
@@ -2621,15 +2639,18 @@ function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,uni
     JointMap(vpvrp, jocc, joccf.qidx)
 end
 
-function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,jocc_filtered::JointFilteredOccupancy;kwargs...)
-    cc = get_num_spikes(vpvrp, jocc)
+function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,jocc_filtered::JointFilteredOccupancy;shuffle_place=false, shuffle_view=false, kwargs...)
     qidx = jocc_filtered.index
+    cc = get_num_spikes(vpvrp, jocc,qidx;shuffle_place=shuffle_place, shuffle_view=shuffle_view)
     nspikes = zeros(Int16, length(qidx))
+    nincluded = 0
     for (ii,k) in enumerate(qidx)
         if k in keys(cc)
             nspikes[ii] = cc[k]
+            nincluded += cc[k]
         end
     end
+    @debug nincluded sum(values(nspikes))
     nrefinements = get(kwargs, :nrefinements, (p=3, g=2))
     ng = nrefinements.g
     np = nrefinements.p
