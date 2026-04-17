@@ -155,18 +155,20 @@ function plot_cell_categories(;kwargs...)
     num_place_fields = JLD2.load(joinpath(@__DIR__, "..","field_stats_73eba60a.jld2"), "nfields")
     num_view_fields = JLD2.load(joinpath(@__DIR__, "..","field_stats_a91f3809.jld2"), "nfields")
     place_cells = collect(keys(filter(k->k[2]>0, num_place_fields)))
-    directional_place_cells = [""]
+    directional_tuning_results = JLD2.load(joinpath(@__DIR__,"..","data","place_field_directional_cells.jld2"),"directional_tuning_results")
+    directional_place_cells = place_cells[directional_tuning_results.==true]
     view_cells = collect(keys(filter(k->k[2]>0, num_view_fields)))
     place_and_view_selective = intersect(spatially_selective, view_selective)
-    conjuncrive = [""]
+    res_pvc = JLD2.load("data/place_accounting_for_view.jld2", "pvc_results")
+    conjunctive = place_and_view_selective[res_pvc.==true]
     colors = Dict(:directional => :yellow, :place_cells => :orange, spatially_selective => :red,
                   :view_selective => :blue, :view_cells => :green, :conjunctive => :purple)
 
     with_theme(_plot_theme) do
         fig = Figure(size=(300,300))
         ax = Axis(fig[1,1])
-        barplot!(ax, [1:6;], length.([non_selective, spatially_selective, place_cells, view_selective, view_cells, place_and_view_selective]), 
-                                    color=[:gray, :red, :orange, :blue, :green,:purple])
+        barplot!(ax, [1:8;], length.([non_selective, spatially_selective, place_cells, directional_place_cells, view_selective, view_cells, place_and_view_selective, conjunctive]), 
+                                    color=[:gray, :red, :orange, :yellow, :blue, :green,:purple, :purple4])
         ax.bottomspinevisible = false 
         ax.xticklabelsvisible = false
         ax.ylabel = "Number of cells"
