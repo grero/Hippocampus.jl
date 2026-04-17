@@ -142,7 +142,7 @@ function plot_directional_place_map(X::Matrix{T},Y::Matrix{T},ee::T, ees::Vector
         axv.xticks = ([1:4;], ["N","S","E","W"])
         axg = Axis(lg1[1,2])
         rainclouds!(axg, fill(1.0, length(ees)), ees;clouds=nothing, color=:darkgray)
-        hlines!(axg, ee, linestyle=:dot, color=:black)
+        hlines!(axg, ee, linestyle=:dot, color=Cycled(1))
         axg.ylabel = "I(S;D|P)"
         axg.bottomspinevisible = false
         axg.xticksvisible = false
