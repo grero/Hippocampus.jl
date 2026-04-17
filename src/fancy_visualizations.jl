@@ -101,13 +101,25 @@ function visualize_trial(qdata::Hippocampus.UnityRaytraceData, udata::Hippocampu
 end
 
 
-function plot_directional_place_map(gidx::DirectionFiltered,idx=1;kwargs...)
-    X,Y = Hippocampus.get_joint_cardinal_prob(gidx;do_shuffle=false)
-    ee, ees = Hippocampus.get_cardinal_direction_tuning_strength(gidx)
-    plot_directional_place_map(X[:,:,idx],Y[:,:,idx],ee[idx],ees[idx,:];kwargs...)
+function plot_directional_place_map(card::CardinalPlaceFieldDirectionality{T}, idx=1,rf_spatial::Union{SpatialResponseFields,Nothing}=nothing;kwargs...) where T <: Real
+    X = card.weight[:,:,idx]
+    Y = card.occupancy[:,:,idx]
+    ee = card.ee[idx]
+    ees = card.ees[idx,:]
+    if rf_spatial !== nothing
+        clusters = merge_fields(rf_spatial)
+        nclusters = get_num_fields(rf_spatial) 
+        cidx = dropdims(mean(nclusters,dims=2),dims=2) .< 0.001
+        fieldidx = rf_spatial.binidx[clusters[cidx][idx]]
+    else
+        fieldidx = nothing
+    end
+    @show fieldidx
+    plot_directional_place_map(X,Y,ee,ees,fieldidx;kwargs...)
 end
 
-function plot_directional_place_map(X::Matrix{T},Y::Matrix{T},ee::T, ees::Vector{T};smooth=true, α=0.1, niter=50,_plot_theme=plot_theme) where T <: Real
+function plot_directional_place_map(X::Matrix{T},Y::Matrix{T},ee::T, ees::Vector{T},fieldidx::Union{Vector{Int64},Nothing}=nothing;smooth=true, α=0.1, niter=50,_plot_theme=plot_theme) where T <: Real
+    # TODO: Show the place field
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
     if smooth
         Ls = get_normalize_laplacian(m_floor)
@@ -119,6 +131,11 @@ function plot_directional_place_map(X::Matrix{T},Y::Matrix{T},ee::T, ees::Vector
     end
     λ = Xs./Ys
     λ[Y.==0] .= NaN
+    if fieldidx !== nothing
+        bb = find_boundary(m_floor, fieldidx)
+    else
+        bb = nothing
+    end
     with_theme(_plot_theme) do
         fig = Figure(size=(800,600))
         axs = [Axis(fig[i,j],aspect=1) for (i,j) in [(1,2),(3,2), (2,3), (2,1)]] 
@@ -132,6 +149,9 @@ function plot_directional_place_map(X::Matrix{T},Y::Matrix{T},ee::T, ees::Vector
                 continue
             end
             viz!(ax, m_floor;color=λ[:,j],colormap=:rain)
+            if bb !== nothing
+                viz!(ax, bb;color=:orange)
+            end
             #ax.title = l
         end
         # central spot
