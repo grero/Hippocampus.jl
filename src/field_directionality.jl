@@ -174,7 +174,8 @@ function get_direction(pos::Matrix{<:Real}, mm::SimpleMesh, binidx::AbstractVect
         end
         if entered > 0 && exited == 0
             if (!in(binidx))(idx)
-                exited = ii
+                exited = ii-1 # we want the last point inside the field
+                break # we found the exist; stop processing
             end
         end
     end
