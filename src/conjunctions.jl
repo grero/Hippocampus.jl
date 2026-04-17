@@ -448,7 +448,7 @@ function PlaceAccountingView(;redo=fname=>false, do_save=true, kwargs...)
         end
         jocc_filtered = JointFilteredOccupancy(jocc,qdata;kwargs...)
         vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
-        obj = PlaceAccountingView(vpvrp, jocc, jocc_filtered;kwargs...)
+        obj = get_conditional_information(PlaceAccountingView, vpvrp, jocc, jocc_filtered;kwargs...)
         if do_save
             save_jld2(obj, fname)
         end
