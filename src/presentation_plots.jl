@@ -175,3 +175,88 @@ function plot_cell_categories(;kwargs...)
         fig
     end
 end
+
+function plot_direction_selective_model()
+    # model direcion selectivity
+    X,X1,X2,Y, λ, northward_trajectory, southward_trajectory = Hippocampus.simulate_fake_directionality(;additive=2.0, multiplicative=2.0) 
+    # apply mild smoothing to avoid singularities
+    Xs = permutedims(Hippocampus.laplace_smoothing(permutedims(X), Ls, 0.1;niter=50));
+    X1s = permutedims(Hippocampus.laplace_smoothing(permutedims(X1), Ls, 0.1;niter=50));
+    X2s = permutedims(Hippocampus.laplace_smoothing(permutedims(X2), Ls, 0.1;niter=50))
+    Ys = permutedims(Hippocampus.laplace_smoothing(permutedims(Y), Ls, 0.1;niter=50));
+
+     m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+    with_theme(_plot_theme) do
+        fig = Figure(size=(1000,600))
+        # show the real field, with directions superimposed
+        ax1 = Axis(fig[1,1], aspect=1)
+        Label(fig[1,1,TopLeft()], "A")
+        viz!(ax1, m_floor, color=λ, colormap=:thermal)
+        hidedecorations!(ax1)
+        ax1.bottomspinevisible = false
+        ax1.leftspinevisible = false
+        # superimpose trajectories
+        viz!(ax1, centroid.(m_floor[northward_trajectory]), color=:red)
+        viz!(ax1, centroid.(m_floor[southward_trajectory]), color=:orange)
+        arrows2d!(ax1, Point2f(0.0), Point2f(0.0, 1.0), color=:red)
+        arrows2d!(ax1, Point2f(2.0, 1.0), Point2f(0.0, -1.0), color=:orange)
+        lg = GridLayout(fig[1,2])
+        Label(lg[1,1,TopLeft()], "B")
+        ax2 = Axis(lg[1,1])
+        lines!(ax2, 1:length(northward_trajectory), λ[northward_trajectory], color=:red)
+        lines!(ax2, 1:length(southward_trajectory), λ[southward_trajectory], color=:orange)
+        ax2.ylabel = "Firing rate [Hz]"
+        # additive
+        ax3 = Axis(lg[1,2])
+        lines!(ax3, 1:length(northward_trajectory), 0.08*λ[northward_trajectory] .+ 2.0, color=:red)
+        lines!(ax3, 1:length(southward_trajectory), λ[southward_trajectory], color=:orange)
+
+        ax4 = Axis(lg[1,3])
+        # multiplicative
+        lines!(ax4, 1:length(northward_trajectory), 2.0*λ[northward_trajectory], color=:red)
+        lines!(ax4, 1:length(southward_trajectory), λ[southward_trajectory], color=:orange)
+
+        Label(lg[2,1,TopLeft()],"C")
+        ax5 = Axis(lg[2,1])
+        barplot!(ax5, [1:2;], dropdims(mean(Xs,dims=1),dims=1), color=[:red, :orange])
+        ax5.ylabel = "Mean spike count"
+        ax5.xticks = ([1,2], ["Northward", "Southward"])
+
+        ax6 = Axis(lg[2,2])
+        barplot!(ax6, [1:2;], dropdims(mean(X1s,dims=1),dims=1), color=[:red, :orange])
+        ax6.xticks = ([1,2], ["Northward", "Southward"])
+
+        ax7 = Axis(lg[2,3])
+        barplot!(ax7, [1:2;], dropdims(mean(X2s,dims=1),dims=1), color=[:red, :orange])
+        ax7.xticks = ([1,2], ["Northward", "Southward"])
+        linkaxes!(ax5,ax6,ax7)
+        for ax in [ax5,ax6,ax7]
+            ax.xticklabelrotation = -π/6
+        end
+        # show joint information
+        ee1 = Hippocampus.get_conditional_information(Xs,Ys)
+        ee2 = Hippocampus.get_conditional_information(X1s,Ys)
+        ee3 = Hippocampus.get_conditional_information(X2s,Ys)
+        ax8 = Axis(lg[3,1:3])
+        Label(lg[3,1, TopLeft()], "D")
+        lines!(ax8, [1:3;], [ee1, ee2, ee3])
+        scatter!(ax8, [1:3;], [ee1, ee2, ee3])
+        ax8.xticks = ([1:3;], ["Place","Add","Mult"])
+        ax8.ylabel = "I(S;D|P)"
+        colsize!(fig.layout,1,Relative(0.6))
+        fig
+    end
+end
+
+
+function plot_direction_selectivity_example()
+    datadir = "/Volumes/Hippocampus/Data/picasso-misc"
+    celldir = joinpath(datadir ,"20180802","session01","array02","channel045","cell01")
+    card = cd(celldir) do
+       Hippocampus.CardinalPlaceFieldDirectionality(;nshuffles=1000,only_full_traversal=true, nrefinements=(p=3,g=2), min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0, pv_threshold=0.001,redo=fname->false)
+    end
+    @show Hippocampus.issignificant(card)
+    @show Hippocampus.DPHT.get_shortname(celldir)
+    fig = Hippocampus.plot_directional_place_map(card,1;_plot_theme=_plot_theme)
+
+end
