@@ -2167,10 +2167,10 @@ function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gd
         timestamps = rp.timestamps[i,:]
         
         # find the index of of each spike in this trial
-        idx0 = searchsortedfirst(sp, timestamps[1])
+        idx0 = searchsortedfirst(sp, timestamps[trial_start])
         idx1 = searchsortedlast(sp, timestamps[3])
 
-        sp_trial = sp[idx0:idx1] .- timestamps[1]
+        sp_trial = sp[idx0:idx1] .- timestamps[trial_start]
         nspikes = idx1-idx0+1
         trialevents = zeros(Float64, nspikes)
         _placeviewidx = zeros(Int64, nspikes)
