@@ -124,7 +124,7 @@ function process_dirs(func::Function,celldirs::Vector{String}, args...;skip_erro
     res
 end
 
-function process_kwargs(::Type{<:AbstractInformationContent};nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,kwargs...)
+function process_kwargs(::Type{<:AbstractInformationContent};nshuffles=10_000, nrefinements=(p=3,g=2),trial_start=2,smooth=false, smoothing_method=:gaussian, σ=3, α=1000.0^2,rseed::UInt32=UInt32(1234), use_trials=:all, kwargs...)
     h = zero(UInt32)
     if nshuffles != 10_000
         h = CRC32c.crc32c(string(:nshuffles=>nshuffles),h)
@@ -147,6 +147,12 @@ function process_kwargs(::Type{<:AbstractInformationContent};nshuffles=10_000, n
             h = CRC32c.crc32c(string(:α=>α),h)
             h = CRC32c.crc32c(string(:niter=>niter),h)
         end
+    end
+    if rseed != 1234
+        h = CRC32c.crc32c(string(:rseed=>rseed),h)
+    end
+    if use_trials != :all
+        h = CRC32c.crc32c(string(:use_trials>use_trials),h)
     end
     h
 end
