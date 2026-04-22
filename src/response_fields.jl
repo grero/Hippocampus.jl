@@ -340,6 +340,12 @@ function merge_fields(rf::T) where T <: AbstractResponseFields
     merge_fields(mm, rf.binidx)
 end
 
+function merge_fields(rf::T) where T <: SpatialResponseFields
+    mm = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=rf.args[:nrefinements].p))
+    merge_fields(mm, rf.binidx)
+end
+
+
 """
     get_num_fields(rf::T) where T <: AbstractResponseFields
 
