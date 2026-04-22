@@ -345,6 +345,21 @@ function merge_fields(rf::T) where T <: SpatialResponseFields
     merge_fields(mm, rf.binidx)
 end
 
+function get_major_axis(rf::SpatialResponseFields)
+    mm = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=rf.args[:nrefinements].p))
+    clusters = merge_fields(rf)
+    nclusters = get_num_fields(rf)
+    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2) .< 0.001)
+    v = Matrix{Float64}(undef, 2, length(cidx))
+    for (i,c) in enumerate(cidx)
+        points = Tuple.(centroid.(mm[rf.binidx[clusters[c]]]))
+        XX = cat([[x,y] for (x,y) in points]...,dims=2)
+        ss = svd(XX)
+        # major axis
+        v[:,i] = ss.U[:,1]
+    end
+    v
+end
 
 """
     get_num_fields(rf::T) where T <: AbstractResponseFields
