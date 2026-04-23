@@ -36,8 +36,8 @@ end
 
 function plot_view_field_example(celldir::String;kwargs...)
     rf_gaze,sic = cd(celldir) do
-        rf = Hippocampus.get_response_fields(Hippocampus.GazeResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
-        sic =  Hippocampus.compute_skaggs_sic(Hippocampus.GazeInformationContent, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=50,load_only=false,redo=fname->false,trial_start=2, min_speed=1.0, min_place_obs=5, min_place_duration=0.05, min_view_duration=0.02, min_view_obs=5)
+        rf = Hippocampus.get_response_fields(Hippocampus.GazeResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0,trial_start=2, pv_threshold=0.001)
+        sic =  Hippocampus.compute_skaggs_sic(Hippocampus.GazeInformationContent, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=50,load_only=false,redo=fname->false,trial_start=2, min_speed=1.0, min_place_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0, min_view_obs=-1)
         rf,sic
     end
     with_theme(_plot_theme) do
