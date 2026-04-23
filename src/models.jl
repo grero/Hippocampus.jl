@@ -1,6 +1,7 @@
 using Random
 using Distributions
 using Distances
+using Dierckx
 
 """
 Simulate a simple place field neuron using behavioural data in `udata`
@@ -26,6 +27,15 @@ function model_place_field(udata::UnityData, rpdata::RippleData;λmin=0.1, λmax
         Δt = t[2]-t[1]
         for (t0,posx,posy) in zip(t,mposx, mposy)
             λ = pdf(G, [posx,posy]) # firing rate based on place field
+            # What do we do if there is no movement
+            v = Dierckx.derivative(spl, t0)
+            v ./= norm(v)
+            f = 0.5*(v'*vm + 1.0) # from 0 to 1
+            if isfinite(f)
+                f = (1.0 - fd) + fd*f
+            else
+                f = 1.0
+            end
             # scale firing rate
             λ = λmax*λ/G0 + λmin
             _t = t0
