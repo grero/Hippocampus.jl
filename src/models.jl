@@ -6,8 +6,8 @@ using Dierckx
 """
 Simulate a simple place field neuron using behavioural data in `udata`
 """
-function model_place_field(udata::UnityData, rpdata::RippleData;λmin=0.1, λmax=3.0,dt=0.01,σ=1.0,μ=[3.5,1.2],rng=Random.default_rng())
-    Σ = [σ 0.0;0.0 σ]
+function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::RippleData;λmin=0.1, λmax=3.0,dt=0.01,σ1=1.0,σ2=σ1, μ=[3.5,1.2],ρ=1.0, fd=0.0, rng=Random.default_rng())
+    Σ = [σ1^2 ρ*σ1*σ2;ρ*σ1*σ2 σ2^2]
     G = MvNormal(μ, Σ)
     G0 = pdf(G, μ)
     nt = numtrials(udata)
@@ -18,12 +18,27 @@ function model_place_field(udata::UnityData, rpdata::RippleData;λmin=0.1, λmax
     spikes = Float64[]
     q = -log(rand(rng))
     r = 0.0
+    fd = min(1.0, max(0.0, fd))
+    tw = 0.5
     for i in 1:nt
-        t,mposx,mposy = get_trial(udata, i;trial_start=2)
+        if isa(udata, UnityData)
+            t,mposx,mposy = get_trial(udata, i;trial_start=2)
+        else
+            t,_,pos,_,_ = get_trial(udata, i;trial_start=2)
+            mposx = pos[1,:]
+            mposy = pos[2,:]
+        end
         # get the time from ripple
         trp = rpdata.timestamps[i,2]
         # reference to ripple time
-        t .= t .- t[1] .+ trp[1]
+        t .= t .- t[1] .+ trp
+        # create a paramtric spline of the path
+        Δ = permutedims([diff(mposx) diff(mposy)])
+        # first find points where the gradient is non-zero
+        idx = findall(norm.(eachcol(Δ)).>0)
+        pos = permutedims([mposx mposy])
+        spl = ParametricSpline(t[idx], pos[:,idx])
+
         Δt = t[2]-t[1]
         for (t0,posx,posy) in zip(t,mposx, mposy)
             λ = pdf(G, [posx,posy]) # firing rate based on place field
@@ -37,7 +52,7 @@ function model_place_field(udata::UnityData, rpdata::RippleData;λmin=0.1, λmax
                 f = 1.0
             end
             # scale firing rate
-            λ = λmax*λ/G0 + λmin
+            λ = f*λmax*λ/G0 + λmin
             _t = t0
             while _t < t0+Δt
                 r += λ*dt
