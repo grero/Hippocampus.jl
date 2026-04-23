@@ -10,7 +10,10 @@ function model_place_field(udata::UnityData, rpdata::RippleData;λmin=0.1, λmax
     G = MvNormal(μ, Σ)
     G0 = pdf(G, μ)
     nt = numtrials(udata)
-
+    # vector along the major axis
+    aa = (σ1^2+σ2^2)/2 + sqrt(((σ1^2-σ2^2)/2)^2 + ρ*σ1*σ2)
+    θ = atan(aa-σ1^2, ρ*σ1*σ2)
+    vm = [cos(θ), sin(θ)]
     spikes = Float64[]
     q = -log(rand(rng))
     r = 0.0
