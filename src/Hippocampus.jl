@@ -10,6 +10,7 @@ using Meshes
 using CRC32c
 
 const DPHT = DataProcessingHierarchyTools
+include("datautils.jl")
 include("topology.jl")
 include("utils.jl")
 include("paths.jl")
