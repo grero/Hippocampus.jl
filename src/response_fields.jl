@@ -354,7 +354,8 @@ function get_major_axis(rf::SpatialResponseFields)
     for (i,c) in enumerate(cidx)
         points = Tuple.(centroid.(mm[rf.binidx[clusters[c]]]))
         XX = cat([[x,y] for (x,y) in points]...,dims=2)
-        ss = svd(XX)
+        ss = svd(XX .- mean(XX, dims=2))
+        # or just use the direction of maximum deviation?
         # major axis
         v[:,i] = ss.U[:,1]
     end
