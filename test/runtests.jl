@@ -64,6 +64,19 @@ end
     length.(patches) == [81,41]
 end
 
+@testset "Spiketrain" begin
+    # make sure that basic shifting works properly
+    spr2 = Hippocampus.shift_spiketimes([0.1, 0.31, 0.5], 0.2;tmin=0.0) 
+    @test spr2 ≈ [0.01, 0.19999999999999996, 0.30000000000000004]
+    # the first point is shifted 0.2, which makes it 0.3, the second point is shifted to 0.51, which makes it 0.1, and the last point is shifted to 0.7, which because 0.2
+
+    # another shift, setting tmin to 0.05
+    spr2 = Hippocampus.shift_spiketimes([0.1, 0.31, 0.5], 0.2;tmin=0.05) 
+    @test spr2 ≈ [0.06, 0.25, 0.3]
+
+
+end
+
 @testset "Paths" begin
     results = Hippocampus.find_path(6, 1,2;path_length=22, max_npaths=1)
     @test length(results) == 1
