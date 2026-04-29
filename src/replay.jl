@@ -133,7 +133,7 @@ function DPHT.save(gdata::T;append_tag=true) where T
     MAT.matwrite(fname, qdata)
 end
 
-function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true) where T
+function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true, kwargs...) where T
     if SimpleMesh in fieldtypes(T)
         # this is a bit hacky, needed because SimpleMesh does not save cleanly
         qdata = Dict()
@@ -152,7 +152,7 @@ function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true) where T
     if append_tag
         tag!(metadata, storepatch=true)
     end
-    JLD2.save(fname, Dict("data"=>qdata, "meta"=>metadata))
+    JLD2.save(fname, Dict("data"=>qdata, "meta"=>metadata, "args"=>Dict(kwargs)))
 end
 
 function load_jld2(::Type{T},fname=DPHT.filename(T)) where T
