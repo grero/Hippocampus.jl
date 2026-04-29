@@ -145,19 +145,76 @@ end
 struct RandomlyShiftedSpiketrains
     Δt::Vector{Float64} # shifts
     timestamps::Matrix{Float64}
+    tmin::Float64
+    tmax::Float64
 end
 
-function RandomlyShiftedSpiketrains(sp::Spiketrain;nshifts::Integer=10_000, shift_min=0.1, shift_max=0.9, kwargs...)
-    n = length(sp.timestamps)
-    tmin,tmax = extrema(sp.timestamps)
+function RandomlyShiftedSpiketrains(Δt, timestamps)
+    tmin,tmax= extrema(timestamps)
+    RandomlyShiftedSpiketrains(Δt, timestamps, tmin, tmax)
+end
+
+function RandomlyShiftedSpiketrains(sp::Spiketrain;nshifts::Integer=10_000, shift_min=0.1, shift_max=0.9, rseed=UInt32(1234), tmin=minimum(sp.timestamps), tmax=maximum(sp.timestamps), kwargs...)
+    # TODO: Also shifting within a subset of trials
+    idx = findall(tmin .<= sp.timestamps .<= tmax)
+    n = length(idx)
     dur = tmax-tmin
 
     sptrains = zeros(n, nshifts) 
     Δt = zeros(nshifts)
     Δs = shift_max - shift_min
+    rng = Random.default_rng()
+    Random.seed!(rng, rseed)
     for i in 1:nshifts
-        Δt[i] = Δs*dur*rand() + shift_min*dur
-        shift_spiketimes!(view(sptrains, :, i), sp.timestamps, Δt[i];tmax=tmax)
+        Δt[i] = Δs*dur*rand(rng) + shift_min*dur
+        shift_spiketimes!(view(sptrains, :, i), sp.timestamps[idx], Δt[i];tmin=tmin, tmax=tmax)
     end
-    RandomlyShiftedSpiketrains(Δt, sptrains)
+    RandomlyShiftedSpiketrains(Δt, sptrains, tmin, tmax)
+end
+
+function process_kwargs(::Type{RandomlyShiftedSpiketrains},h::UInt32=zero(UInt32);nshifts=10_000, shift_min=0.1, shift_max=0.9, rseed=UInt32(1234), use_trials=:all, trial_start=2,kwargs...)
+    h = crc32c(string(:nshifts=>nshifts),h)
+    h = crc32c(string(:shift_min=>shift_min),h)
+    h = crc32c(string(:shift_max=>shift_max),h)
+    h = crc32c(string(:rseed=>rseed),h)
+    h = crc32c(string(:use_trials=>use_trials),h)
+    h = crc32c(string(:trial_starti=>trial_start),h)
+    h
+end
+
+function RandomlyShiftedSpiketrains(;redo::Function=fname->false, do_save=true, kwargs...)
+    fname = "randomly_shifted_spiketrains.jld2"
+    h = process_kwargs(RandomlyShiftedSpiketrains;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(RandomlyShiftedSpiketrains, fname)
+    else
+        # load rp data to get the extent of shifting
+        rp = cd(DPHT.process_level("session"))  do
+            RippleData()
+        end
+        trialstart = get(kwargs, :trial_start,2)
+        use_trials = get(kwargs, :use_trials, :all)
+        nt = div(size(rp.timestamps,1), 2)
+        if use_trials == :firstHalf
+            tmin = 1000.0*rp.timestamps[1,trialstart]
+            tmax = 1000.0*rp.timestamps[nt,3]
+        elseif use_trials == :secondHalf
+            tmin = 1000.0*rp.timestamps[nt+1,trialstart]
+            tmax = 1000.0*rp.timestamps[end,3]
+        else
+            # TODO: This should probably come from rpdata as well
+            tmin = 1000.0*rp.timestamps[1,trialstart]
+            tmax = 1000.0*rp.timestamps[end,3]
+        end
+        sp = Spiketrain()
+        obj = RandomlyShiftedSpiketrains(sp;tmin=tmin, tmax=tmax,kwargs...)
+        if do_save
+            save_jld2(obj, fname;kwargs...)
+        end
+    end
+    obj
 end
