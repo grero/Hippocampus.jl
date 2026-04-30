@@ -140,10 +140,10 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
         sp_r = RandomlyShiftedSpiketrains(;nshifts=nshuffles, use_trials = args[:use_trials], trial_start=args[:trial_start])
 
         unity_gaze_data = cd(DPHT.process_level("session")) do
-            UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
+            UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
         end
         jocc = cd(DPHT.process_level(level(JointOccupancy))) do
-            JointOccupancy(;redo=false, nrefinements=nrefinements,trial_start=trial_start,kwargs...)
+            JointOccupancy(;redo=fname->false, nrefinements=nrefinements,trial_start=trial_start,kwargs...)
         end
         jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;kwargs...)
         sic = zeros(nshuffles)
