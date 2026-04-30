@@ -56,6 +56,9 @@ function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);
             error("Unkown smoothing method $(smoothing_method)")
         end
     end
+    if use_trials != :all
+         h = CRC32c.crc32c(string(:use_trials=>use_trials),h)
+    end
     h
 end
 
@@ -81,7 +84,7 @@ end
 
 function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, pv_threshold=0.05, use_fitted=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,pv_threshold=pv_threshold, kwargs...)
-    args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth,:pv_threshold=>pv_threshold)
+    args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth,:pv_threshold=>pv_threshold,:use_trials=>get(kwargs, :use_trials, :all))
     @assert typeof(args) == fieldtype(T, :args)
     args[:dir] = pwd()
     if smooth
@@ -130,11 +133,12 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
     if do_compute
         # TODO: Here we can actually check if we an object already computed and surrogates fitted
         sp = Spiketrain()
-        sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, kwargs...)
 
         rp = cd(DPHT.process_level(level(RippleData))) do
             RippleData()
         end
+        sp_r = RandomlyShiftedSpiketrains(;nshifts=nshuffles, use_trials = args[:use_trials], trial_start=args[:trial_start])
+
         unity_gaze_data = cd(DPHT.process_level("session")) do
             UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
         end
@@ -145,7 +149,8 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
         sic = zeros(nshuffles)
         mm = get_mesh(T,nrefinements)
         vpvrpb = ViewAndPlaceRepresentationNew(sp,rp,unity_gaze_data;kwargs...)
-        jmb = JointMap(vpvrpb, jocc, jocc_filtered)
+        use_trials = get(kwargs, :use_trials, :all)
+        jmb = JointMap(vpvrpb, jocc, jocc_filtered;use_trials=use_trials)
         spmb = maptype(T)(jmb,mm)
         if smooth
             if args[:smoothing_method] == :gaussian
@@ -169,7 +174,7 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
         λ_shuffled = zeros(size(λ,1), nshuffles)
         @showprogress "Computing shuffled firing rates..." offset=prog_offset for (i,sptrain) in enumerate(eachcol(sp_r.timestamps))
             vpvrp = ViewAndPlaceRepresentationNew(sptrain/1000.0,rp,unity_gaze_data;kwargs...)
-            jm = JointMap(vpvrp, jocc, jocc_filtered)
+            jm = JointMap(vpvrp, jocc, jocc_filtered;use_trials=use_trials)
             spm = maptype(T)(jm,mm)
             if smooth
                 if args[:smoothing_method] == :gaussian
