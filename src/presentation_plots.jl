@@ -260,3 +260,87 @@ function plot_direction_selectivity_example()
     fig = Hippocampus.plot_directional_place_map(card,1;_plot_theme=_plot_theme)
 
 end
+
+function plot_direction_selectivity_summary()
+    larger, smaller, both = JLD2.load(joinpath(@__DIR__, "..","data","directional_selectivity_summary.jld2"),"larger","lower","both")
+    none = (~).(larger.|smaller.|both)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(400,400))
+        ax = Axis(fig[1,1])
+        barplot!(ax, 1:4, sum.([none, both, larger, smaller]))
+        ax.xticks = (1:4, ["Non-\nselective","Both","larger","smaller"])
+        ax.ylabel = "Number of cells"
+        fig
+    end
+end
+
+function plot_place_view_summary()
+    larger, smaller, both = JLD2.load(joinpath(@__DIR__, "..","data","place_conditioned_on_view_summary.jld2"),"larger","lower","both")
+    none = (~).(larger.|smaller.|both)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(400,400))
+        ax = Axis(fig[1,1])
+        barplot!(ax, 1:4, sum.([none, both, larger, smaller]))
+        ax.xticks = (1:4, ["Non-\nselective","Both","larger","smaller"])
+        ax.ylabel = "Number of cells"
+        fig
+    end
+
+end
+
+function plot_model_cell_directional_place_field()
+    testdata_dir = joinpath(@__DIR__,"..","data","testdata","ModelSubject","20260422")
+    test_sessiondir = joinpath(testdata_dir, "session01")
+    testcell = joinpath(sessiondir, "array01/channel001/cell03")
+    rf_spatial,gidx,vpvrp = cd(testcell) do
+        rf = Hippocampus.get_response_fields(Hippocampus.SpatialResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0,trial_start=2, pv_threshold=0.001)
+        gidx = Hippocampus.DirectionFiltered(;only_full_traversal=true, nrefinements=(p=3,g=2), min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0, pv_threshold=0.001,redo=fname->false, do_save=true)
+        vpvrp = Hippocampus.ViewAndPlaceRepresentationNew(;redo=fname->false,do_save=true,trial_start=2)
+        rf,gidx,vpvrp
+    end
+    jocc,qdata = cd(test_sessiondir)  do
+        jocc = Hippocampus.JointOccupancy(;redo=false, do_save=false, nrefinements=(p=3, g=2),trial_start=2,min_speed=1.0)
+        qdata = Hippocampus.UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
+        jocc, qdata
+    end
+    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2) = Hippocampus.get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata)
+    λ1 = spike_count_1./occupancy_1
+    λ2 = spike_count_2./occupancy_2
+    q1,q2 = Hippocampus.permutation_test(mean, λ1, λ2)
+    v = Hippocampus.get_major_axis(rf_spatial)
+    θ = atan(v[2,1], v[1,1])
+    bidx1 = findall(cos.(gidx.anglebins .- θ) .> cos(π/6))
+    trialidx1 = unique(getindex.(filter(q->in(bidx1)(q[4]), gidx.index[1]),5))
+    bidx2 = findall(cos.(gidx.anglebins .- (θ-π)) .> cos(π/6))
+    trialidx2 = unique(getindex.(filter(q->in(bidx2)(q[4]), gidx.index[1]),5))
+    jm1, jm2 = cd(testcell) do
+        jm1 = Hippocampus.JointMap(;redo=fname->false, do_save=false, nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0, trial_start=2, use_trials=trialidx1)
+        jm2 = Hippocampus.JointMap(;redo=fname->false, do_save=false, nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0, trial_start=2, use_trials=trialidx2)
+        jm1, jm2
+    end
+    spm1 = Hippocampus.SpatialMapNew(jm1,m_floor);
+    spml_1 = Hippocampus.SmoothedMap(spm1;method=:laplace, α=0.1, niter=50)
+    spm2 = Hippocampus.SpatialMapNew(jm2,m_floor);
+    spml_2 = Hippocampus.SmoothedMap(spm2;method=:laplace, α=0.1, niter=50)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(1100,400))
+        lg1 = GridLayout(fig[1,1])
+        ax = Hippocampus.plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=:rain)
+        arrows2d!(ax, Point2f(0.0, 0.0), Point2f(2.0*cos(θ), 2.0*sin(θ)), color=:black)
+        lg2 = GridLayout(fig[1,2])
+        Label(lg2[1,1,Top()], "Forward")
+        ax2 = Hippocampus.plot_response_fields!(lg2, rf_spatial,Hippocampus.get_rate_map(spml_1);_plot_theme=_plot_theme,colormap=:rain, show_points=false)
+        lg3 = GridLayout(fig[1,3])
+        Label(lg3[1,1,Top()], "Backward")
+        ax3 = Hippocampus.plot_response_fields!(lg3, rf_spatial,Hippocampus.get_rate_map(spml_2);_plot_theme=_plot_theme,colormap=:rain, show_points=false)
+        lg4 = GridLayout(fig[1,4])
+        ax4 = Axis(lg4[1,1])
+        boxplot!(ax4, fill(1.0, length(q1)), q1-q2)
+        hlines!(ax4, mean(λ1) - mean(λ2), color=:gray45, linestyle=:dot)
+        ax4.bottomspinevisible = false
+        ax4.xticklabelsvisible = false
+        ax4.ylabel = "λ_forward - λ_backward"
+        colsize!(fig.layout, 4, Relative(0.1))
+        fig
+    end
+end
