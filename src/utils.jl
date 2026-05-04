@@ -81,7 +81,7 @@ function reshape_triggers(markers::AbstractVector{T1}, timestamps::AbstractVecto
         if perform_fix
             main_marker = round.(Int64, floor.(_markers/10.0))
         else
-            error("Inconsistent number of markers")
+            error("Inconsistent number of markers. Total number of markers: $nn. First marker: $(markers[1])")
         end
     end
     @debug p1 p2 p1+p2 nt
