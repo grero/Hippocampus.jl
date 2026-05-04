@@ -103,9 +103,9 @@ function EyelinkData(;do_save=true,redo=false,kwargs...)
         sn = DPHT.get_level_name("session")
         sidx = parse(Int64,filter(isdigit, sn))
         edata = cd("..") do
-            EyelinkData()
+            EyelinkData(;kwargs...)
         end
-        edata = get_session(edata, sidx)
+        edata = get_session(edata, sidx;kwargs...)
     else
          if !redo && isfile(outfile)
             return DPHT.load(EyelinkData, outfile)
@@ -116,7 +116,7 @@ function EyelinkData(;do_save=true,redo=false,kwargs...)
         if isempty(edffiles)
             error("No EDF files found")
         end
-        edata = EyelinkData(first(edffiles))
+        edata = EyelinkData(first(edffiles);kwargs...)
         if do_save
             DPHT.save(edata)
         end
