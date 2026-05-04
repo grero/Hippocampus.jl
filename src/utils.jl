@@ -84,7 +84,7 @@ function reshape_triggers(markers::AbstractVector{T1}, timestamps::AbstractVecto
             error("Inconsistent number of markers")
         end
     end
-
+    @debug p1 p2 p1+p2 nt
     if p1+p2 != nt 
         if perform_fix
             # try to recover by removing trials that break the pattern
