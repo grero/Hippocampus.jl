@@ -832,3 +832,93 @@ function plot_view_responses(celldirs::Vector{String};kwargs...)
         fig = plot_view_responses(celldir;do_animate=true, fname=fname, kwargs...)
     end
 end
+
+function plot_spatial_maps(celldirs::Vector{String};use_response_field_rate=false, max_n_cols=10, _plot_theme=plot_theme, kwargs...)
+    
+    n = length(celldirs)
+    nrows = round(Int64, ceil(max_n_cols))
+    ncols = min(n, max_n_cols)
+    @show nrows ncols
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=nrefinements.p));
+    m_floor_hr = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+
+    λ_all = map(celldirs) do celldir
+        jm,rf = cd(celldir) do
+            jm = JointMap(;kwargs...)
+            rf = Hippocampus.get_response_fields(Hippocampus.SpatialResponseFields, 1000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, use_trials=:all)
+            jm, rf
+        end
+        spm = SpatialMapNew(jm,m_floor)
+        if use_response_field_rate
+            λ = rf.λ
+        else
+            λ=get_rate_map(spm)
+        end
+        # get an esimate of the size of the spatial fields
+        nclusters = get_num_fields(rf)
+        clusters = merge_fields(rf)
+        cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).< 0.001)
+        spatial_fields = [rf.binidx[c] for c in clusters[cidx]]
+        λ, spatial_fields
+    end
+    with_theme(_plot_theme) do 
+        fig = Figure(size=(250*ncols, 250*nrows))
+        for (i,(λ,ff)) in enumerate(λ_all)
+            r = div(i,ncols)+1
+            c = i - (r-1)*ncols
+            ax = Axis(fig[r,c],aspect=1.0)
+            hidedecorations!(ax)
+            ax.bottomspinevisible = false
+            ax.leftspinevisible = false
+            viz!(ax, m_floor;color=:gray)
+            if use_response_field_rate
+                viz!(ax, m_floor_hr;color=λ, colormap=:rain)
+            else
+                viz!(ax, m_floor;color=λ, colormap=:rain)
+            end
+            for _ff in ff
+                bb = find_boundary(m_floor_hr[_ff])
+                viz!(ax, bb, color=:red)
+            end
+            if i == length(λ_all)
+                Colorbar(fig[r,c+1], colorrange=(0,1), colormap=:rain, label="Firing rate", tellwidth=false, tellheight=false,alignmode=Outside(), ticksvisible = false, ticklabelsvisible=false)
+            end
+
+        end
+        fig
+    end
+end
+
+function wedge(r1, r2, θ1, θ2;origin=(0.0, 0.0))
+    BezierPath([MoveTo(r1*cos(θ1), r1*sin(θ1)),
+    EllipticalArc(origin[1], origin[2], r1, r1, 0.0, θ1, θ2),
+    LineTo(r2*cos(θ2), r2*sin(θ2)),
+    EllipticalArc(origin[1], origin[2], r2, r2, 0.0, θ2, θ1),
+    LineTo(r1*cos(θ1), r1*sin(θ1)),
+    ])
+end
+
+function plot_polar_histogram!(ax, r_data::AbstractVector{T}, θ_data::AbstractVector{T};nbins=(20,20)) where T <: Real
+    # actually, we can just use regular hist for this
+    θbins = range(-π, stop=π, length=nbins[1])
+    rbins = range(0.0, stop=maximum(r_data), length=nbins[2])
+    Z = zeros(length(θbins), length(rbins))
+    for (r,θ) in zip(r_data, θ_data)
+        i = searchsortedfirst(θbins, θ)
+        j = searchsortedfirst(rbins, r)
+        Z[i,j] += 1.0
+    end
+end
+
+function plot_polar_histogram!(ax, Z::Matrix{<:Real}, bins::Tuple{T2, T2}) where T2 <: AbstractVector{T} where T <: Real
+    # create wedges for the bins
+    θbins,rbins = bins
+    cr = extrema(Z)
+    for (j,(r0,r1)) in enumerate(zip(rbins[1:end-1], rbins[2:end]))
+        for (i,(θ0, θ1)) in enumerate(zip(θbins[1:end-1], θbins[2:end]))
+            w = wedge(r0,r1, θ0, θ1)
+            poly!(ax, w, color=Z[i,j], colorrange=cr)
+        end
+    end
+end
