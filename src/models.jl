@@ -3,10 +3,11 @@ using Distributions
 using Distances
 using Dierckx
 
+sigmoid(x, x0, a) = 1.0/(1+exp(a*(x-x0)))
 """
 Simulate a simple place field neuron using behavioural data in `udata`
 """
-function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::RippleData;λmin=0.1, λmax=3.0,dt=0.01,σ1=1.0,σ2=σ1, μ=[3.5,1.2],ρ=1.0, fd=0.0, rng=Random.default_rng())
+function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::RippleData;λmin=0.1, λmax=3.0,dt=0.01,σ1=1.0,σ2=σ1, μ=[3.5,1.2],ρ=1.0, fd=0.0, temporal_factor=0.0, sigmoid_params=(Inf,1.0), rng=Random.default_rng())
     Σ = [σ1^2 ρ*σ1*σ2;ρ*σ1*σ2 σ2^2]
     G = MvNormal(μ, Σ)
     G0 = pdf(G, μ)
@@ -20,6 +21,8 @@ function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::Ri
     r = 0.0
     fd = min(1.0, max(0.0, fd))
     tw = 0.5
+    qt = 1.0
+    qt_sigmoid = 1.0
     for i in 1:nt
         if isa(udata, UnityData)
             t,mposx,mposy = get_trial(udata, i;trial_start=2)
@@ -52,7 +55,7 @@ function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::Ri
                 f = 1.0
             end
             # scale firing rate
-            λ = f*λmax*λ/G0 + λmin
+            λ = qt_sigmoid*qt*f*λmax*λ/G0 + λmin
             _t = t0
             while _t < t0+Δt
                 r += λ*dt
@@ -62,6 +65,8 @@ function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::Ri
                     q = -log(rand(rng))
                 end
                 _t += dt
+                qt += temporal_factor*qt*dt
+                qt_sigmoid = sigmoid(_t, sigmoid_params[1], sigmoid_params[2])
             end
         end
     end
