@@ -238,7 +238,7 @@ function get_correspondence(rf1::SpatialResponseFields, rf2::SpatialResponseFiel
     end
      for (i,cidx) in enumerate(clusters2)
         j = argmax(measure.(m_floor[rf2.binidx[cidx]]))
-        push!(cp2, Point2(Tuple(centroid(m_floor[rf1.binidx[cidx[j]]]))))
+        push!(cp2, Point2(Tuple(centroid(m_floor[rf2.binidx[cidx[j]]]))))
     end
 
     ss = -Inf
