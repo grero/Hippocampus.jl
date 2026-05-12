@@ -93,7 +93,7 @@ function get_cross_correlation_1(λ1::AbstractVector{<:Real}, λ2::AbstractVecto
     qq,shifts
 end
 
-function get_cross_correlation(λ1::AbstractVector{<:Real}, λ2::AbstractVector{<:Real}, mm::SimpleMesh)
+function get_cross_correlation(λ1::AbstractVector{<:Real}, λ2::AbstractVector{<:Real}, mm::SimpleMesh;stepsize::Integer=1)
     # get the bins
     cp = Point2f.(Tuple.(centroid.(mm)))
     # get the binsize
@@ -101,12 +101,13 @@ function get_cross_correlation(λ1::AbstractVector{<:Real}, λ2::AbstractVector{
 
     D = maximum(norm.(cp .- permutedims(cp)))
     max_shift = round(Int64,ceil(floor(D/sqrt(2)/2)/binsize[1]))
-    qq = zeros(2*max_shift+1, 2*max_shift+1)
+    steps = -max_shift:stepsize:max_shift
+    qq = zeros(length(steps), length(steps))
     lags = Matrix{Tuple{Float64, Float64}}(undef, size(qq)...)
     _binsize = binsize[1]
-    for (i,sx) in enumerate(-max_shift:max_shift)
+    for (i,sx) in enumerate(steps)
         λ1s,_ = shift_mass(λ1, cp, binsize, Vec2(sx*_binsize, 0.0)) 
-        for (j,sy) in enumerate(-max_shift:max_shift)
+        for (j,sy) in enumerate(steps)
             λ1ss,_ = shift_mass(λ1s, cp, binsize, Vec2(0.0, sy*_binsize))
             qq[j,i] = compare_maps(λ1ss, λ2) 
             lags[j,i] = (sy*_binsize,sx*_binsize)
