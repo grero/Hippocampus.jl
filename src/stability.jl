@@ -201,6 +201,123 @@ function SpatialMapStability(;redo=fname->false, do_save=true, nshuffles=1000, k
     obj
 end
 
+struct SpatialMapStabilityCor
+    λ1::Vector{Float64}
+    λ2::Vector{Float64}
+    cp1::Vector{Point2f}
+    cp2::Vector{Point2f}
+    cc::Float64
+    ccs::Vector{Float64}
+end
+
+function process_kwargs(::Type{SpatialMapStabilityCor}, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
+    h = process_kwargs(SpatialResponseFields,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles))
+    h
+end
+
+"""
+    get_correspondence(rf1::SpatialResponseFields, rf2::SpatialResponseFields)
+
+Compute maximum correspondence between the two spatial fields `rf1` and `rf2`
+by finding the best alignment of each individual place field
+"""
+function get_correspondence(rf1::SpatialResponseFields, rf2::SpatialResponseFields)
+    nrefinements = rf1.args[:nrefinements]
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+    cp = Point2f.(Tuple.(centroid.(m_floor))) 
+    binsize = [measure(m).val for m in m_floor]
+    clusters1 = merge_fields(rf1)
+    clusters2 = merge_fields(rf2)
+    # attempt to align each field
+    cp1 = Point2f[]
+    cp2 = Point2f[]
+    for (i,cidx) in enumerate(clusters1)
+        j = argmax(measure.(m_floor[rf1.binidx[cidx]]))
+        push!(cp1, Point2(Tuple(centroid(m_floor[rf1.binidx[cidx[j]]]))))
+    end
+     for (i,cidx) in enumerate(clusters2)
+        j = argmax(measure.(m_floor[rf2.binidx[cidx]]))
+        push!(cp2, Point2(Tuple(centroid(m_floor[rf1.binidx[cidx[j]]]))))
+    end
+
+    ss = -Inf
+    ij = (0,0)
+    λ1 = rf1.λ
+    λ2 = rf2.λ
+    for (i,_cp1) in enumerate(cp1)
+        for (j,_cp2) in enumerate(cp2)
+            v = Vec2(_cp1 - _cp2)
+            λ2s,_ = shift_mass(λ2, cp,binsize,  v)
+            _ss = compare_maps(λ1, λ2s)
+            if _ss > ss
+                ss = _ss
+                ij = (i,j)
+            end
+        end
+    end
+    ss, ij, cp1, cp2
+end
+
+function SpatialMapStabilityCor(;redo=fname->false, do_save=true, nshuffles=1000, kwargs...)
+    fname = "spatial_map_stability_cor.jld2"
+    h = process_kwargs(SpatialMapStabilityCor;nshuffles=nshuffles, kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(SpatialMapStabilityCor, fname)
+    else
+        rf1 = get_response_fields(SpatialResponseFields, 1000;use_trials=:firstHalf, kwargs...)
+        rf2 = get_response_fields(SpatialResponseFields, 1000;use_trials=:secondHalf, kwargs...)
+        ss,ij, cp1, cp2 = get_correspondence(rf1, rf2)
+        v = Vec2(cp1[ij[1]] - cp2[ij[2]])
+        # get significance by repeatedly scrambling one map, smoothing, then re-computing correspondenceo
+        # using the original locations
+        # why the original locations? Because we have no guarantee that the scrambled maps themselves have any
+        # prominent local features
+        # get the correspoding maps
+         nrefinements = rf1.args[:nrefinements]
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        jocc,qdata,rpdata = cd(DPHT.process_level("session")) do
+            jocc = JointOccupancy(;kwargs...)
+            qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
+            rp = RippleData()
+            jocc,qdata,rp
+        end
+        jocc_filtered = JointFilteredOccupancy(jocc, qdata;kwargs...)
+
+        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        rs2 = Hippocampus.RandomlyShiftedSpiketrains(;use_trials=:secondHalf, trial_start=2,redo=fname->false)
+
+        smoothing_method = rf1.args[:smoothing_method]
+        α = rf1.args[:α]
+        niter = rf1.args[:niter]
+         cp = Point2f.(Tuple.(centroid.(m_floor))) 
+        binsize = [measure(m).val for m in m_floor]
+        λ1 = rf1.λ
+        ccs = zeros(nshuffles)
+        # TODO: This kind of shuffling gives a very low baseline, since the map basically becomes random. Do we instead need
+        #       to use the shuffled spike trains
+        trial_start = get(kwargs, :trial_start, 2)
+        @showprogress for i in 1:nshuffles
+            vpvrp = ViewAndPlaceRepresentationNew(rs2.timestamps[:,i]/1000.0, rpdata, qdata;trial_start=trial_start)
+            λ2 = get_spatial_map(vpvrp, jocc, jocc_filtered, m_floor;use_trials=:secondHalf, smooth=true, α=α, niter=niter)
+            λ2s,_ = shift_mass(λ2, cp,binsize,  v)
+            _ss = compare_maps(λ1, λ2s) 
+            ccs[i] = _ss
+        end
+        obj = SpatialMapStabilityCor(λ1, rf2.λ, cp1, cp2, ss, ccs)
+        if do_save
+            save_jld2(obj, fname;kwargs...)
+        end
+        obj
+    end
+end
+
 function get_spatial_map_stability(;nshuffles=10_000, kwargs...)
     # FIXME: There is something fishy with this function that prevents me from getting the result in the REPL
     nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
