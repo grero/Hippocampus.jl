@@ -354,32 +354,60 @@ function get_spatial_map_stability(;nshuffles=10_000, kwargs...)
     ccm, ccms
 end
 
-function get_spatial_map_stability2(;nshuffles=10_000, kwargs...)
-    # FIXME: There is something fishy with this function that prevents me from getting the result in the REPL
-    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
-    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
-    jm1 =  JointMap(;use_trials=:firstHalf, kwargs...)
-    spm1 = SpatialMapNew(jm1,m_floor);
-    λ1 = get_rate_map(spm1);
-    jm2 =  JointMap(;use_trials=:secondHalf, kwargs...)
-    spm2 = SpatialMapNew(jm2,m_floor); 
-    λ2 = get_rate_map(spm2);
+struct SpatialMapStabilitySimple
+    λ1::Vector{Float64}
+    λ2::Vector{Float64}
+    cc::Float64
+    ccs::Vector{Float64}
+end
 
-    P,D = get_dissimilarity(λ1, λ2, m_floor)
-    ccm = sum(P.*D)
-    qq, lags = get_cross_correlation(λ1, λ2, m_floor)
-    ccq = maximum(qq)
-    ccqs = zeros(nshuffles)
-    ccms = zeros(nshuffles)
-    for ii in 1:nshuffles
-        #λ1s = shuffle(λ1)
-        λ2s = shuffle(λ2)
-        P,D = get_dissimilarity(λ1, λ2s, m_floor)
-        ccms[ii] = sum(P.*D)
-        qq, _ = get_cross_correlation(λ1, λ2s, m_floor)
-        ccqs[ii] = maximum(qq)
+function process_kwargs(::Type{SpatialMapStabilitySimple}, h::UInt32=zero(UInt32);nshuffles=10_000, stepsize::Integer=1,kwargs...)
+    h = process_kwargs(JointMap,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles),h)
+    if stepsize != 1
+        h = crc32c(string(:stepsize=>stepsize),h)
     end
-    ccm, ccms, ccq, ccqs
+    h
+end
+
+function SpatialMapStabilitySimple(;redo=fname->false, do_save=true, nshuffles=10_000, stepsize=1, kwargs...)
+    fname = "spatial_map_stability_simply.jld2"
+    h = process_kwargs(SpatialMapStabilitySimple;nshuffles=nshuffles,kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(SpatialMapStabilitySimple, fname)
+    else
+        rf1 = get_response_fields(SpatialResponseFields, 1000;use_trials=:firstHalf, pv_threshold=0.001, kwargs...)
+        rf2 = get_response_fields(SpatialResponseFields, 1000;use_trials=:secondHalf, pv_threshold=0.001, kwargs...)
+        nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        #jm1 =  JointMap(;use_trials=:firstHalf, kwargs...)
+        #spm1 = SpatialMapNew(jm1,m_floor);
+        #λ1 = get_rate_map(spm1);
+        λ1 = rf1.λ
+        #jm2 =  JointMap(;use_trials=:secondHalf, kwargs...)
+        #spm2 = SpatialMapNew(jm2,m_floor); 
+        #λ2 = get_rate_map(spm2);
+        λ2 = rf2.λ
+
+        qq, lags = get_cross_correlation(λ1, λ2, m_floor;stepsize=stepsize)
+        ccq = maximum(qq)
+        ccqs = zeros(nshuffles)
+        @showprogress for ii in 1:nshuffles
+            λ2s = shuffle(λ2)
+            qq, _ = get_cross_correlation(λ1, λ2s, m_floor;stepsize=stepsize)
+            ccqs[ii] = maximum(qq)
+        end
+        ccq, ccqs
+        obj = SpatialMapStabilitySimple(λ1, λ2,ccq, ccqs)
+        if do_save
+            save_jld2(obj, fname;kwargs...)
+        end
+    end
+    return obj
 end
 
 
