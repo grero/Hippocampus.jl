@@ -562,10 +562,6 @@ function plot_stability_summary(::Type{SpatialMapStabilitySimple}, celldirs::Vec
         lg1 = GridLayout(lg[1,1], alignmode=Outside(5))
         lg2 = GridLayout(lg[1,2], alignmode=Outside(5))
         lg3 = GridLayout(lg[1,3], alignmode=Outside(5))
-        idx0 = argmin(norm.(spm_stability .- percentile(spm_stability, 5)))
-        idx1 = argmin(norm.(spm_stability .- percentile(spm_stability, 50)))
-        idx2 = argmin(norm.(spm_stability .- percentile(spm_stability, 95)))
-        @show idx0 idx1 idx2
         # indicate these points on the histogram
         colors = [:pink, :red, :orange]
         vlines!(ax, spm_stability[[idx0,idx1,idx2]], color=colors)
