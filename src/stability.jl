@@ -278,9 +278,7 @@ function SpatialMapStabilityCor(;redo=fname->false, do_save=true, nshuffles=1000
         # why the original locations? Because we have no guarantee that the scrambled maps themselves have any
         # prominent local features
         # get the correspoding maps
-         nrefinements = rf1.args[:nrefinements]
-        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
-        nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+        nrefinements = rf1.args[:nrefinements]
         m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
         jocc,qdata,rpdata = cd(DPHT.process_level("session")) do
             jocc = JointOccupancy(;kwargs...)
@@ -300,8 +298,6 @@ function SpatialMapStabilityCor(;redo=fname->false, do_save=true, nshuffles=1000
         binsize = [measure(m).val for m in m_floor]
         λ1 = rf1.λ
         ccs = zeros(nshuffles)
-        # TODO: This kind of shuffling gives a very low baseline, since the map basically becomes random. Do we instead need
-        #       to use the shuffled spike trains
         trial_start = get(kwargs, :trial_start, 2)
         @showprogress for i in 1:nshuffles
             vpvrp = ViewAndPlaceRepresentationNew(rs2.timestamps[:,i]/1000.0, rpdata, qdata;trial_start=trial_start)
