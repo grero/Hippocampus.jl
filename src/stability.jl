@@ -232,6 +232,7 @@ function get_correspondence(rf1::SpatialResponseFields, rf2::SpatialResponseFiel
     # attempt to align each field
     cp1 = Point2f[]
     cp2 = Point2f[]
+    # What do we do if there are no clusters in either of these periods?
     for (i,cidx) in enumerate(clusters1)
         j = argmax(measure.(m_floor[rf1.binidx[cidx]]))
         push!(cp1, Point2(Tuple(centroid(m_floor[rf1.binidx[cidx[j]]]))))
