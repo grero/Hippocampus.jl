@@ -709,6 +709,20 @@ function plot_stability!(lg, spm::SpatialMapStabilityNew, m_floor::SimpleMesh;pl
     plot_stability!(lg, spm.λ1, spm.λ2, m_floor, s1,s2)
 end
 
+function plot_stability!(lg, spm::Union{SpatialMapStabilitySimple,SpatialMapStabilityCor}, m_floor::SimpleMesh)
+    plot_stability!(lg, spm.λ1, spm.λ2, m_floor)
+    Label(lg[1,1,Top()], "First half")
+    Label(lg[1,2,Top()], "Second half")
+    ax = Axis(lg[2,1:3])
+    boxplot!(ax, fill(1.0, length(spm.ccs)), spm.ccs, color=:gray, orientation=:horizontal)
+    vlines!(ax, spm.cc, linestyle=:dot)
+    ax.xlabel = "1st vs 2nd half corr"
+    ax.leftspinevisible = false
+    ax.yticksvisible = false
+    ax.yticklabelsvisible = false
+    rowsize!(lg, 2, Relative(0.1))
+end
+
 function plot_stability!(lg, λ1::AbstractVector{<:Real},λ2::AbstractVector{<:Real}, m_floor, s1::AbstractVector{<:Real}, s2::AbstractVector{<:Real};ylabel="Cross-correlation", kwargs...)
     lg1 = GridLayout(lg[1,1])
     plot_stability!(lg1, λ1, λ2, m_floor;kwargs...)
