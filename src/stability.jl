@@ -615,6 +615,75 @@ function plot_stability_summary(::Type{SpatialMapStabilitySimple}, celldirs::Vec
     end
 end
 
+function plot_stability_summary(::Type{SpatialMapStabilityCor}, celldirs::Vector{String};_plot_theme=plot_theme, kwargs...)
+    kargs = (nshuffles=1000, nrefinements=(p=3,g=2), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50)
+    # TODO: Also add the spatial maps here
+    spm_stability_simple = map(celldirs) do celldir
+        spm_stability = cd(celldir) do
+            spm = Hippocampus.SpatialMapStabilityCor(;kargs...)
+            spm
+        end
+        spm_stability.cc, spm_stability.ccs
+    end
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
+    spm_stability = [s[1] for s in spm_stability_simple]
+    spm_stability_s = [percentile(s[2], 95) for s in spm_stability_simple]
+    vidx = spm_stability .> spm_stability_s
+    midx = findall(vidx)
+    @show length(midx)
+    idx0 = midx[argmin(norm.(spm_stability[vidx] .- percentile(spm_stability[vidx], 5)))]
+    idx1 = midx[argmin(norm.(spm_stability[vidx] .- percentile(spm_stability[vidx], 50)))]
+    idx2 = midx[argmin(norm.(spm_stability[vidx] .- percentile(spm_stability[vidx], 95)))]
+    @show idx0 idx1 idx2
+
+    with_theme(_plot_theme) do
+        fig = Figure(size=(1.5*650,1.5*300))
+        ax = Axis(fig[1,1])
+        hist!(ax, spm_stability[vidx.==false];color=(:white, 0.0), strokecolor=:gray, strokewidth=2.0)
+        hist!(ax, spm_stability[vidx.==true];color=(:white,0.0), strokecolor=:royalblue4, strokewidth=2.0)
+        ax.xlabel = "Stability"
+        # show example of the 5th percentile, the median, and the 95th percentile cells in terms of stability
+        lg = GridLayout(fig[1,2])
+        lg1 = GridLayout(lg[1,1], alignmode=Outside(5))
+        lg2 = GridLayout(lg[1,2], alignmode=Outside(5))
+        lg3 = GridLayout(lg[1,3], alignmode=Outside(5))
+        # indicate these points on the histogram
+        colors = [:pink, :red, :orange]
+        vlines!(ax, spm_stability[[idx0,idx1,idx2]], color=colors)
+        # draw boxes around the corresponding plots
+        Makie.Box(lg[1,1], color=(:white, 0.0), strokecolor=colors[1])
+        Makie.Box(lg[1,2], color=(:white,0.0), strokecolor=colors[2])
+        Makie.Box(lg[1,3], color=(:white,0.0), strokecolor=colors[3])
+        for (ii,(idx,_lg)) in enumerate(zip([idx0, idx1, idx2],[lg1,lg2,lg3]))
+            rf1,rf2 = cd(celldirs[idx])  do
+                rf1 = get_response_fields(SpatialResponseFields, 1000;use_trials=:firstHalf,kargs...)
+                rf2 = get_response_fields(SpatialResponseFields, 1000;use_trials=:secondHalf,kargs...)
+                rf1, rf2
+            end
+            _lg1 = GridLayout(_lg[1,1])
+            _lg2 = GridLayout(_lg[2,1])
+            cr = extrema(filter(isfinite, [rf1.λ;rf2.λ]))
+            ax1 = plot_response_fields!(_lg1, rf1;colorrange=cr, colormap=:rain, show_colorbar=false) 
+            ax2 =plot_response_fields!(_lg2, rf2;colorrange=cr, colormap=:rain, show_colorbar=false) 
+
+            rf = cd(celldirs[idx]) do
+                rf = get_response_fields(Hippocampus.SpatialResponseFields, 1000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, use_trials=:all)
+            end
+            bb = find_boundaries(rf)
+            # superimpose the boundaries from the original place cell calculation for illustration purposes only
+            for _bb in bb
+                viz!(ax1, _bb, color=:red)
+                viz!(ax2, _bb, color=:red)
+            end
+           
+        end
+        lgf = GridLayout(fig[1,3])
+        Label(lgf[1,1], "First half", rotation=π/2, tellheight=false)
+        Label(lgf[2,1], "Second half", rotation=π/2, tellheight=false)
+        colsize!(fig.layout, 1, Relative(0.4))
+        fig
+    end
+end
 
 function plot_stability(args...;_plot_theme=plot_theme,kwargs...)
     with_theme(_plot_theme) do
