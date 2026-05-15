@@ -12,6 +12,7 @@ using CRC32c
 const DPHT = DataProcessingHierarchyTools
 include("datautils.jl")
 include("topology.jl")
+include("displacement_fields.jl")
 include("utils.jl")
 include("paths.jl")
 include("sprites.jl")
