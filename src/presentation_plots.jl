@@ -5,11 +5,15 @@ _plot_theme = theme_dark()
 _plot_theme.Axis.xgridvisible = false
 _plot_theme.Axis.ygridvisible = false
 _plot_theme.Axis.leftspinevisible = true
+_plot_theme.Axis.bottomspinevisible = true
 _plot_theme.Axis.leftspinecolor = :gray45
+_plot_theme.Axis.bottomspinecolor = :gray45
 _plot_theme.Axis.yticksvisible = true
+_plot_theme.Axis.xticksvisible = true
 _plot_theme.Axis.ytickcolor = :gray45
 _plot_theme.Colorbar.ticksvisible = true
 _plot_theme.Colorbar.tickcolor = :gray45
+_plot_theme.fontsize = 18
 
 function plot_place_field_example(celldir::String;kwargs...)
     rf_spatial,sic = cd(celldir) do
