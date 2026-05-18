@@ -896,3 +896,102 @@ end
 function plot_stability(celldir::String;kargs...)
     
 end
+
+function plot_stability!(lg, stab::GazeMapStabilityGeo, mm;kwargs...)
+    # because of a bug in how the cp2 was saved, we nned to recompute this
+    peaks2 = get_peaks(stab.λ2, mm;t=2.5)
+    cp2 = get_peak_idx(stab.λ2, peaks2)
+    # match the peaks by plotting them in the same color
+    _, pidx = get_average_geodesic_distance(mm, stab.cp1, cp2)
+    colors = [:firebrick1, :orange, :sienna, :hotpink3]
+    @debug pidx
+    @debug length(stab.cp1) length(cp2)
+    @debug getindex.(pidx,1)
+    @debug getindex.(pidx,2)
+    if length(cp2) < length(stab.cp1)
+        colors1 = vec(colors[getindex.(pidx,2)])
+        colors2 = colors[1:length(cp2)]
+    else
+        colors1 = vec(colors[1:length(stab.cp1)])
+        colors2 = fill(:gray45, length(cp2))
+        colors2[getindex.(pidx,1)] .= colors1
+    end
+    # TODO: indicate geodesics
+    colormap = get(kwargs, :colormap, :rain)
+    lscene1 = LScene(lg[1,1],show_axis=false)
+    Label(lg[1,1,Top()], "First half", tellwidth=false)
+    plotmesh!(lscene1, mm;color=stab.λ1, floor_offset=0, ceiling_offset=15, showsegments=true, colormap=colormap)
+    cr = extrema(filter(isfinite,stab.λ1))
+    Colorbar(lg[1,2], colormap=colormap, colorrange=cr, label = "Firing rate [Hz]")
+    viz!(lscene1, centroid.(mm[stab.cp1]), pointsize=10, color=colors1)
+    lscene2 = LScene(lg[1,3],show_axis=false)
+    Label(lg[1,3,Top()], "Second half", tellwidth=false)
+    plotmesh!(lscene2, mm;color=stab.λ2, floor_offset=0, ceiling_offset=15, showsegments=true, colormap=colormap)
+    cr = extrema(filter(isfinite,stab.λ2))
+    @show colors2
+    viz!(lscene2, centroid.(mm[cp2]),pointsize=10, color=colors2)
+    Colorbar(lg[1,4], colormap=colormap, colorrange=cr, label="Firing rate [Hz]")
+    # indicate distrubion
+    ax3 = Axis(lg[1,5])
+    boxplot!(ax3, fill(1.0, length(stab.ccs)), stab.ccs;color=:gray45)
+    hlines!(ax3, stab.cc, color=:royalblue4, linestyle=:dot, linewidth=2.0)
+    colsize!(lg, 5, 50)
+    ax3.ylabel = "Geodesic dist [unit]"
+    ax3.xticklabelsvisible = false
+    ax3.xticksvisible = false
+    ax3.bottomspinevisible = false
+end
+
+function plot_stability!(lg, stab::GazeMapStabilityGeo, mm, rf::GazeResponseFields;kwargs...)
+    lg0 = GridLayout(lg[1,0])
+    Label(lg[1,0,Top()], "Whole session", tellwidth=false)
+    plot_response_fields!(lg0,rf;floor_offset=0.0, mazecolor=nothing, kwargs...)
+    plot_stability!(lg, stab,mm;kwargs...)
+end
+
+function plot_stability(stab::GazeMapStabilityGeo, mm, args...;_plot_theme=plot_theme, kwargs...)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_stability!(lg, stab, mm, args...;kwargs...)
+        fig
+    end
+end
+
+function plot_gaze_stability_summary!(lg, view_cells::Vector{String};kwargs...)
+    kargs = (nshuffles=1000, nrefinements=(p=3,g=2), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, smooth=true,smoothing_method=:laplace, α=0.1, niter=50)
+    nv = length(view_cells)
+    vm_stability_value = zeros(nv)
+    vm_stability_sig = fill(false, nv)
+
+    for (ii, celldir) in enumerate(view_cells)
+       vm_stability = cd(celldir) do
+       Hippocampus.get_map_stability_geo(Hippocampus.GazeMapStabilityGeo;kargs...)
+       end
+       vm_stability_value[ii] = vm_stability.cc
+       vm_stability_sig[ii] = vm_stability.cc < percentile(vm_stability.ccs, 5)
+    end
+
+    ax = Axis(lg[1,1,])
+    vms_sig = vm_stability_value[vm_stability_sig]
+    l,m,h = percentile(vms_sig, [5,50,95])
+    # invert beacuse small distance => large similarity
+    x0,idx0 = findmin(x->norm(x-h), vms_sig)
+    x1,idx1 = findmin(x->norm(x-m), vms_sig)
+    x2,idx2 = findmin(x->norm(x-l), vms_sig)
+    idx0,idx1,idx2 = findall(vm_stability_sig)[[idx0,idx1,idx2]]
+    @show idx0 idx1 idx2
+    hist!(ax, vm_stability_value[(!).(vm_stability_sig)], color=:gray45)
+    hist!(ax, vm_stability_value[vm_stability_sig], color=:royalblue4)
+    ax.xlabel = "Geodesic distance"
+    ax.ylabel = "Count"
+end
+
+function plot_gaze_stability_summary(view_cells::Vector{String};_plot_theme=plot_theme, kwargs...)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_gaze_stability_summary!(lg,view_cells;kwargs...)
+        fig
+    end
+end
