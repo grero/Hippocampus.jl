@@ -260,6 +260,142 @@ function get_correspondence(rf1::SpatialResponseFields, rf2::SpatialResponseFiel
     ss, ij, cp1, cp2
 end
 
+struct SpatialMapStabilityGeo 
+    λ1::Vector{Float64}
+    λ2::Vector{Float64}
+    cp1::Vector{Int64} # peak idx for map 1
+    cp2::Vector{Int64} # peak idx for map 2
+    cc::Float64
+    ccs::Vector{Float64}
+end
+
+DPHT.filename(::Type{SpatialMapStabilityGeo}) = "spatial_map_stability_geo.jld2"
+
+struct GazeMapStabilityGeo
+    λ1::Vector{Float64}
+    λ2::Vector{Float64}
+    cp1::Vector{Int64}
+    cp2::Vector{Int64}
+    cc::Float64
+    ccs::Vector{Float64}
+end
+DPHT.filename(::Type{GazeMapStabilityGeo}) = "gaze_map_stability_geo.jld2"
+
+MapStabilityGeo = Union{SpatialMapStabilityGeo, GazeMapStabilityGeo}
+
+function process_kwargs(::Type{GazeMapStabilityGeo}, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
+    h = process_kwargs(GazeResponseFields,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles))
+    h
+end
+
+function process_kwargs(::Type{SpatialMapStabilityGeo}, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
+    h = process_kwargs(SpatialResponseFields,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles))
+    h
+end
+
+get_response_field_type(::Type{GazeMapStabilityGeo}) = GazeResponseFields
+get_response_field_type(::Type{SpatialMapStabilityGeo}) = SpatialResponseFields
+
+function get_peak_idx(λ::AbstractVector{<:Real}, idx::Vector{T}) where T <: AbstractVector{T2} where T2 <: Integer
+    c1 = fill(0, length(idx))
+    for (ii,cidx1) in enumerate(idx)
+        # find the elemnt associated with the larget value within cidx1
+        c1[ii] = cidx1[argmax(λ[cidx1])]
+    end
+    c1
+end
+
+function get_average_geodesic_distance(rf1::T, rf2::T) where T <: AbstractResponseFields
+     # identity the significant peaks in both maps
+    nrefinements = rf1.args[:nrefinements]
+    mm = get_mesh(T,nrefinements)
+    clusters1 = Hippocampus.merge_fields(rf1)
+    nclusters1 = Hippocampus.get_num_fields(rf1)
+    cidx1 = findall(dropdims(mean(nclusters1,dims=2),dims=2) .< 0.001)
+    clusters1 = clusters1[cidx1]
+
+    clusters2 = Hippocampus.merge_fields(rf2)
+    nclusters2 = Hippocampus.get_num_fields(rf2)
+    cidx2 = findall(dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001)
+    clusters2 = clusters2[cidx2]
+
+    c1 = get_peak_idx(rf1.λ, [rf1.binidx[c] for c in clusters1])
+    c2 = get_peak_idx(rf2.λ, [rf2.binidx[c] for c in clusters2])
+    get_average_geodesic_distance(mm, c1, c2)
+end
+
+function get_average_geodesic_distance(mm::SimpleMesh, peak1::AbstractVector{<:Integer}, peak2::AbstractVector{<:Integer})
+    A = adjacencymatrix(mm)
+    G = SimpleGraph(A)
+    N = embeddim(mm)
+
+    dd = zeros(length(peak2), length(peak1))
+    for (j,_c1) in enumerate(peak1)
+        dj = dijkstra_shortest_paths(G, _c1)
+        for (i,_c2) in enumerate(peak2)
+            pth = get_path(dj, _c2)
+            dd[i,j] = Meshes.Unitful.ustrip(sum(norm.(diff(centroid.(mm[pth])))))
+        end
+    end
+    dmin = dropdims(minimum(dd, dims=1),dims=1)
+end
+
+function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, kwargs...) where T <: MapStabilityGeo
+    fname = DPHT.filename(T)
+    h = process_kwargs(T;nshuffles=nshuffles, kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+     if !redo(fname) && isfile(fname)
+        obj = load_jld2(SpatialMapStabilityCor, fname)
+    else
+        T_rf = get_response_field_type(T)
+        rf1 = get_response_fields(T_rf, 1000;use_trials=:firstHalf, kwargs...)
+        rf2 = get_response_fields(T_rf, 1000;use_trials=:secondHalf, kwargs...)
+        nrefinements = rf1.args[:nrefinements]
+        mm = get_mesh(T_rf,nrefinements)
+        peaks1 = Hippocampus.get_peaks(rf1.λ, mm;t=2.5)
+        c1 = Hippocampus.get_peak_idx(rf1.λ, peaks1)
+        peaks2 = Hippocampus.get_peaks(rf2.λ, mm;t=2.5)
+        c2 = Hippocampus.get_peak_idx(rf2.λ, peaks2)
+        dmin = Hippocampus.get_average_geodesic_distance(mm, c1, c2)
+        ss = mean(dmin)
+        jocc,qdata,rpdata = cd(DPHT.process_level("session")) do
+            jocc = JointOccupancy(;kwargs...)
+            qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
+            rp = RippleData()
+            jocc,qdata,rp
+        end
+        jocc_filtered = JointFilteredOccupancy(jocc, qdata;kwargs...)
+
+        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        rs2 = Hippocampus.RandomlyShiftedSpiketrains(;use_trials=:secondHalf, trial_start=2,redo=fname->false)
+
+        smoothing_method = rf1.args[:smoothing_method]
+        α = rf1.args[:α]
+        niter = rf1.args[:niter]
+        λ1 = rf1.λ
+        ccs = zeros(nshuffles)
+        trial_start = get(kwargs, :trial_start, 2)
+        @showprogress for i in 1:nshuffles
+            vpvrp = ViewAndPlaceRepresentationNew(rs2.timestamps[:,i]/1000.0, rpdata, qdata;trial_start=trial_start)
+            λ2 = get_map(vpvrp, jocc, jocc_filtered, mm;use_trials=:secondHalf, smooth=true, α=α, niter=niter)
+            peaks2 = Hippocampus.get_peaks(λ2, mm;t=2.5)
+            _c2 = Hippocampus.get_peak_idx(λ2, peaks2)
+            dmin = Hippocampus.get_average_geodesic_distance(mm, c1, _c2)
+            ccs[i] = mean(dmin) 
+        end
+        obj = T(λ1, rf2.λ, c1, c2, ss, ccs)
+        if do_save
+            save_jld2(obj, fname;kwargs...)
+        end
+        obj
+    end
+end
+
 function SpatialMapStabilityCor(;redo=fname->false, do_save=true, nshuffles=1000, kwargs...)
     fname = "spatial_map_stability_cor.jld2"
     h = process_kwargs(SpatialMapStabilityCor;nshuffles=nshuffles, kwargs...)
