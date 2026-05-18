@@ -508,8 +508,8 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     end
 end
 
-function plot_response_fields(rf::GazeResponseFields,args...;kwargs...)
-    with_theme(plot_theme) do
+function plot_response_fields(rf::GazeResponseFields,args...;_plot_theme=plot_theme, kwargs...)
+    with_theme(_plot_theme) do
         fig = Figure(size=(579,639))
         lg = GridLayout(fig[1,1])
         lscene = plot_response_fields!(lg, rf, args...;kwargs...)
@@ -518,8 +518,8 @@ function plot_response_fields(rf::GazeResponseFields,args...;kwargs...)
     end
 end
 
-function plot_response_fields(rf::SpatialResponseFields,args...;kwargs...)
-    with_theme(plot_theme) do
+function plot_response_fields(rf::SpatialResponseFields,args...;_plot_theme=plot_theme, kwargs...)
+    with_theme(_plot_theme) do
         fig = Figure(size=(600,500))
         lg = GridLayout(fig[1,1])
         lscene = plot_response_fields!(lg, rf, args...;kwargs...)
