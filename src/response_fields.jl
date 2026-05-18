@@ -536,8 +536,10 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     ceiling_offset = get(kwargs, :ceiling_offset, 10)
     colormap = get(kwargs, :colormap, :binary)
     mazecolor = get(kwargs, :mazecolor, :lightgray)
-    plotmesh!(lscene, mm;color=mazecolor, showsegments=true, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
-    plotmesh!(lscene, mm;color=λ, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
+    if mazecolor !== nothing
+        plotmesh!(lscene, mm;color=mazecolor, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
+    end
+    plotmesh!(lscene, mm;color=λ, showsegments=true, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
     clusters = merge_fields(rf)
     if filter_spurious
         nclusters = Hippocampus.get_num_fields(rf)
