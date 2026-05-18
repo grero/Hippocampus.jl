@@ -560,13 +560,13 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
         ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
         mid_points = setdiff(cpoints, union(floor_points, ceil_points))
         if !isempty(floor_points)
-            viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc)
+            viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=10)
         end
         if !isempty(ceil_points)
-            viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc)
+            viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=10)
         end
         if !isempty(mid_points)
-            viz!(lscene, mid_points,color=cc)
+            viz!(lscene, mid_points,color=cc, pointsize=10)
         end
     end
     Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=get(kwargs, :colormap, :binary), label="Firing rate [Hz]")
