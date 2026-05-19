@@ -298,6 +298,41 @@ end
 get_response_field_type(::Type{GazeMapStabilityGeo}) = GazeResponseFields
 get_response_field_type(::Type{SpatialMapStabilityGeo}) = SpatialResponseFields
 
+struct GazeMapStabilityHK
+    λ1::Vector{Float64}
+    λ2::Vector{Float64}
+    c11::Float64 # self correlation
+    c22::Float64 # self correlation
+    c12::Float64 # cross-correlation
+    c12ns::Vector{Float64} # normalized cross-correlation of surrogates
+end
+
+DPHT.filename(::Type{GazeMapStabilityHK}) = "gaze_maze_stability_hk.jld2"
+
+struct SpatialMapStabilityHK
+    λ1::Vector{Float64}
+    λ2::Vector{Float64}
+    c11::Float64
+    c22::Float64
+    c12::Float64
+    c12ns::Vector{Float64}
+end
+DPHT.filename(::Type{SpatialMapStabilityHK}) = "spatial_maze_stability_hk.jld2"
+
+
+get_response_field_type(::Type{GazeMapStabilityHK}) = GazeResponseFields
+get_response_field_type(::Type{SpatialMapStabilityHK}) = SpatialResponseFields
+
+MapStabilityHK = Union{GazeMapStabilityHK, SpatialMapStabilityHK}
+
+function process_kwargs(::Type{T}, h::UInt32=zero(UInt32);nshuffles=1000, σ=1.0, kwargs...) where T<:MapStabilityHK
+    Trf = get_response_field_type(T)
+    h = process_kwargs(Trf,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles),h)
+    h = crc32c(string(:σ=>σ),h)
+    h
+end
+
 function get_peak_idx(λ::AbstractVector{<:Real}, idx::Vector{T}) where T <: AbstractVector{T2} where T2 <: Integer
     c1 = fill(0, length(idx))
     for (ii,cidx1) in enumerate(idx)
