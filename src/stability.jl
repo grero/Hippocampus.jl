@@ -431,6 +431,58 @@ function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuff
     end
 end
 
+function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, kwargs...) where T <: MapStabilityHK
+    fname = DPHT.filename(T)
+    h = process_kwargs(T;nshuffles=nshuffles, σ=σ, kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+     if !redo(fname) && isfile(fname)
+        obj = load_jld2(SpatialMapStabilityCor, fname)
+    else
+        T_rf = get_response_field_type(T)
+        rf1 = get_response_fields(T_rf, 1000;use_trials=:firstHalf, kwargs...)
+        rf2 = get_response_fields(T_rf, 1000;use_trials=:secondHalf, kwargs...)
+        nrefinements = rf1.args[:nrefinements]
+        mm = get_mesh(T_rf,nrefinements)
+        D = distancematrix(mm;between_centroids=false)
+        c11 = heat_kernel_cross_correlation(rf1.λ, rf1.λ, D;σ=σ)
+        c22 = heat_kernel_cross_correlation(rf2.λ, rf2.λ, D;σ=σ)
+        c12 = heat_kernel_cross_correlation(rf1.λ, rf2.λ, D;σ=σ)
+        jocc,qdata,rpdata = cd(DPHT.process_level("session")) do
+            jocc = JointOccupancy(;kwargs...)
+            qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
+            rp = RippleData()
+            jocc,qdata,rp
+        end
+        jocc_filtered = JointFilteredOccupancy(jocc, qdata;kwargs...)
+
+        vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+        rs2 = Hippocampus.RandomlyShiftedSpiketrains(;use_trials=:secondHalf, trial_start=2,redo=fname->false)
+
+        smoothing_method = rf1.args[:smoothing_method]
+        α = rf1.args[:α]
+        niter = rf1.args[:niter]
+        λ1 = rf1.λ
+        ccs = zeros(nshuffles)
+        trial_start = get(kwargs, :trial_start, 2)
+        c12ns = zeros(nshuffles)
+        @showprogress for i in 1:nshuffles
+            vpvrp = ViewAndPlaceRepresentationNew(rs2.timestamps[:,i]/1000.0, rpdata, qdata;trial_start=trial_start)
+            λ2 = get_map(vpvrp, jocc, jocc_filtered, mm;use_trials=:secondHalf, smooth=true, α=α, niter=niter)
+            c22s = heat_kernel_cross_correlation(λ2, λ2,D;σ=σ)
+            c12s = heat_kernel_cross_correlation(rf1.λ, λ2,D;σ=σ)
+            c12ns[i] = c12s/sqrt(c11*c22s)
+        end
+        obj = T(rf1.λ, rf2.λ, c11, c22, c12, c12ns)
+        if do_save
+            save_jld2(obj, fname;kwargs...)
+        end
+        obj
+    end
+end
+
 function SpatialMapStabilityCor(;redo=fname->false, do_save=true, nshuffles=1000, kwargs...)
     fname = "spatial_map_stability_cor.jld2"
     h = process_kwargs(SpatialMapStabilityCor;nshuffles=nshuffles, kwargs...)
