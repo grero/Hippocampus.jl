@@ -346,6 +346,16 @@ DPHT.filename(::Type{GazeMapStabilityGeo}) = "gaze_map_stability_geo.jld2"
 
 MapStabilityGeo = Union{SpatialMapStabilityGeo, GazeMapStabilityGeo}
 
+get_value(X::T)  where T <: MapStabilityGeo = X.cc
+get_surrogate_value(X::T) where T <: MapStabilityGeo = X.ccs
+get_name(::Type{T}) where T <: MapStabilityGeo = "Geodesic distance"
+
+function issignificant(X::T;pv_threshold=0.05) where T <: MapStabilityGeo
+    ccs = get_surrogate_value(X)
+    threshold = percentile(ccs, 100*pv_threshold)
+    get_value(X) < threshold
+end
+
 function process_kwargs(::Type{GazeMapStabilityGeo}, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
     h = process_kwargs(GazeResponseFields,h;kwargs...)
     h = crc32c(string(:nshuffles=>nshuffles))
@@ -382,6 +392,16 @@ struct SpatialMapStabilityHK
 end
 DPHT.filename(::Type{SpatialMapStabilityHK}) = "spatial_maze_stability_hk.jld2"
 
+get_value(X::T)  where T <: MapStabilityHK = X.c12/sqrt(X.c11*X.c22)
+get_surrogate_value(X::T) where T <: MapStabilityHK = X.c12ns
+get_name(::Type{T}) where T <: MapStabilityHK = "Cross-correlation"
+
+function issignificant(X::T;pv_threshold=0.05) where T <: MapStabilityHK
+    ccs = get_surrogate_value(X)
+    cc = get_value(X)
+    threshold = percentile(ccs, 100*(1-pv_threshold))
+    cc > threshold
+end
 
 get_response_field_type(::Type{GazeMapStabilityHK}) = GazeResponseFields
 get_response_field_type(::Type{SpatialMapStabilityHK}) = SpatialResponseFields
