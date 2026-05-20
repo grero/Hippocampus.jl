@@ -1145,40 +1145,91 @@ function plot_stability(stab::GazeMapStabilityGeo, mm, args...;_plot_theme=plot_
     end
 end
 
-function plot_gaze_stability_summary!(lg, view_cells::Vector{String};kwargs...)
+function plot_stability_summary!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where T <: MapStability
     kargs = (nshuffles=1000, nrefinements=(p=3,g=2), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, smooth=true,smoothing_method=:laplace, α=0.1, niter=50)
-    nv = length(view_cells)
+    nv = length(celldirs)
     vm_stability_value = zeros(nv)
     vm_stability_sig = fill(false, nv)
 
-    for (ii, celldir) in enumerate(view_cells)
+    for (ii, celldir) in enumerate(celldirs)
        vm_stability = cd(celldir) do
-       Hippocampus.get_map_stability_geo(Hippocampus.GazeMapStabilityGeo;kargs...)
+       Hippocampus.get_map_stability(T;kargs...)
        end
-       vm_stability_value[ii] = vm_stability.cc
-       vm_stability_sig[ii] = vm_stability.cc < percentile(vm_stability.ccs, 5)
+       vm_stability_value[ii] = get_value(vm_stability)
+       vm_stability_sig[ii] = issignificant(vm_stability)
     end
 
     ax = Axis(lg[1,1,])
     vms_sig = vm_stability_value[vm_stability_sig]
-    l,m,h = percentile(vms_sig, [5,50,95])
-    # invert beacuse small distance => large similarity
-    x0,idx0 = findmin(x->norm(x-h), vms_sig)
+    @show sum(vm_stability_sig)
+    l,m,h = percentile(vms_sig, [10,50,90])
+    x0,idx0 = findmin(x->norm(x-l), vms_sig)
     x1,idx1 = findmin(x->norm(x-m), vms_sig)
-    x2,idx2 = findmin(x->norm(x-l), vms_sig)
+    x2,idx2 = findmin(x->norm(x-h), vms_sig)
     idx0,idx1,idx2 = findall(vm_stability_sig)[[idx0,idx1,idx2]]
     @show idx0 idx1 idx2
-    hist!(ax, vm_stability_value[(!).(vm_stability_sig)], color=:gray45)
-    hist!(ax, vm_stability_value[vm_stability_sig], color=:royalblue4)
-    ax.xlabel = "Geodesic distance"
+    h1 = hist!(ax, vm_stability_value[(!).(vm_stability_sig)], color=:gray25)
+    h2 = hist!(ax, vm_stability_value[vm_stability_sig], color=:royalblue4)
+    # fit density, most just for visualls
+    # scale density by height
+    max1 = maximum([v[2] for v in h1.points.value[]])
+    max2 = maximum([v[2] for v in h2.points.value[]])
+    kde1 = kde(vm_stability_value[(!).(vm_stability_sig)])
+    kde2 = kde(vm_stability_value[vm_stability_sig])
+    lines!(ax, kde1.x, max1*kde1.density/maximum(kde1.density), color=:gray45)
+    lines!(ax, kde2.x, max2*kde2.density/maximum(kde2.density), color=:royalblue2)
+    colors = [:pink, :red, :orange]
+    vlines!(ax, vm_stability_value[[idx0,idx1,idx2]], color=colors)
+    ax.xlabel = get_name(T)
     ax.ylabel = "Count"
+
+    lgq = GridLayout(lg[1,2])
+    lg1 = GridLayout(lgq[1,1], alignmode=Outside(5))
+    lg2 = GridLayout(lgq[1,2], alignmode=Outside(5))
+    lg3 = GridLayout(lgq[1,3], alignmode=Outside(5))
+    # indicate these points on the histogram
+    # draw boxes around the corresponding plots
+    Makie.Box(lgq[1,1], color=(:white, 0.0), strokecolor=colors[1])
+    Makie.Box(lgq[1,2], color=(:white,0.0), strokecolor=colors[2])
+    Makie.Box(lgq[1,3], color=(:white,0.0), strokecolor=colors[3])
+    Trf = get_response_field_type(T)
+    colormap = get_colormap(T)
+    for (ii,(idx,_lg)) in enumerate(zip([idx0, idx1, idx2],[lg1,lg2,lg3]))
+        rf1,rf2 = cd(celldirs[idx])  do
+            rf1 = get_response_fields(Trf, 1000;use_trials=:firstHalf,kargs...)
+            rf2 = get_response_fields(Trf, 1000;use_trials=:secondHalf,kargs...)
+            rf1, rf2
+        end
+        _lg1 = GridLayout(_lg[1,1])
+        _lg2 = GridLayout(_lg[2,1])
+        cr = extrema(filter(isfinite, [rf1.λ;rf2.λ]))
+        ax1 = plot_response_fields!(_lg1, rf1;colorrange=cr, colormap=colormap, show_colorbar=false, mazecolor=nothing,floor_offset=-20) 
+        ax2 =plot_response_fields!(_lg2, rf2;colorrange=cr, colormap=colormap, show_colorbar=false, mazecolor=nothing, floor_offset=-20) 
+
+        rf = cd(celldirs[idx]) do
+            rf = get_response_fields(Trf, 1000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, use_trials=:all)
+        end
+        bb = find_boundaries(rf)
+        # superimpose the boundaries from the original place cell calculation for illustration purposes only
+        for _bb in bb
+            viz!(ax1, _bb, color=:red)
+            viz!(ax2, _bb, color=:red)
+        end
+        
+    end
+    lgf = GridLayout(lg[1,3])
+    Label(lgf[1,1], "First half", rotation=π/2, tellheight=false)
+    Label(lgf[2,1], "Second half", rotation=π/2, tellheight=false)
+    colsize!(lg, 1, Relative(0.3))
 end
 
-function plot_gaze_stability_summary(view_cells::Vector{String};_plot_theme=plot_theme, kwargs...)
+function plot_stability_summary(::Type{T}, celldirs::Vector{String};_plot_theme=plot_theme, kwargs...) where T <: MapStability
+    w = 1024
+    h = (7/16)*w
     with_theme(_plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(w,h))
         lg = GridLayout(fig[1,1])
-        plot_gaze_stability_summary!(lg,view_cells;kwargs...)
+        plot_stability_summary!(lg,T, celldirs;kwargs...)
         fig
     end
 end
