@@ -618,7 +618,7 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ=rf.
         cidx = 1:length(clusters)
     end
     if colormap == :rain
-        ccolors = [:red, :orange, :yellow]
+        ccolors = [:red, :orange, :yellow, :salmon, :goldenrod1, :firebrick]
     else
         ccolors = Makie.wong_colors()
     end
