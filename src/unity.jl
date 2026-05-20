@@ -1487,13 +1487,16 @@ function bin_trajectory(pos::Matrix{<:Real},mm::SimpleMesh)
     bidx
 end
 
-function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2)
+function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2;do_compress=false)
     nt = numtrials(udata)
     bidx = Vector{Vector{Int64}}(undef, nt)
     for i in 1:nt
         tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
         pos = permutedims([posx posy])
         bidx[i] = bin_trajectory(pos, mm)
+    end
+    if do_compress
+        bidx = compress_trajectory.(bidx)
     end
     bidx
 end
