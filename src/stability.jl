@@ -63,6 +63,31 @@ function compare_maps(λ1, λ2;normalize=true)
     λ1n[fidx]'*λ2n[fidx]
 end
 
+function heat_kernel_cross_correlation(λ1, λ2, mm::SimpleMesh;σ=1.0)
+    D = distancematrix(mm;between_centroids=false)
+    heat_kernel_cross_correlation(λ1,λ2,D;σ=σ) 
+end
+
+function heat_kernel_cross_correlation(λ1, λ2, D::AbstractMatrix{<:Real};σ=1.0)
+    total = 0.0
+    μ1 = mean(filter(isfinite, λ1))
+    μ2 = mean(filter(isfinite, λ2))
+    for (k1,l1) in enumerate(λ1)
+        if !isfinite(l1)
+            continue
+        end
+        for (k2,l2) in enumerate(λ2)
+            if !isfinite(l2)
+                continue
+            end
+            d = D[k1,k2]
+            kk = exp(-d^2/σ^2)
+            total += (l1-μ1)*(l2-μ2)*kk
+        end
+    end
+    total
+end
+
 function get_cross_correlation_1(λ1::AbstractVector{<:Real}, λ2::AbstractVector{<:Real}, mm::SimpleMesh;max_x_shift=nothing, max_y_shift=nothing)
     nn = nelements(mm)
     max_shift = div(round(Int64, ceil(sqrt(nn))),2)
