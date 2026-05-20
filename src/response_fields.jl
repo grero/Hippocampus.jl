@@ -528,7 +528,7 @@ function plot_response_fields(rf::SpatialResponseFields,args...;_plot_theme=plot
     end
 end
 
-function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;filter_spurious=true, kwargs...)
+function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;filter_spurious=true, show_colorbar=true, kwargs...)
     mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
     m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
     lscene = LScene(lg[1,1],show_axis=false)
@@ -569,7 +569,9 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
             viz!(lscene, mid_points,color=cc, pointsize=10)
         end
     end
-    Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=get(kwargs, :colormap, :binary), label="Firing rate [Hz]")
+    if show_colorbar
+        Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=get(kwargs, :colormap, :binary), label="Firing rate [Hz]")
+    end
     lscene
 end
 
