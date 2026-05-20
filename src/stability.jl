@@ -464,7 +464,9 @@ function get_average_geodesic_distance(mm::SimpleMesh, peak1::AbstractVector{<:I
             dd[i,j] = Meshes.Unitful.ustrip(sum(norm.(diff(centroid.(mm[pth])))))
         end
     end
-    dmin = dropdims(minimum(dd, dims=1),dims=1)
+    pidx = argmin(dd, dims=1)
+    dmin,pidx = dd[pidx], pidx
+    dmin, pidx
 end
 
 function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, kwargs...) where T <: MapStabilityGeo
@@ -486,7 +488,7 @@ function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuff
         c1 = Hippocampus.get_peak_idx(rf1.λ, peaks1)
         peaks2 = Hippocampus.get_peaks(rf2.λ, mm;t=2.5)
         c2 = Hippocampus.get_peak_idx(rf2.λ, peaks2)
-        dmin = Hippocampus.get_average_geodesic_distance(mm, c1, c2)
+        dmin,pidx = Hippocampus.get_average_geodesic_distance(mm, c1, c2)
         ss = mean(dmin)
         jocc,qdata,rpdata = cd(DPHT.process_level("session")) do
             jocc = JointOccupancy(;kwargs...)
@@ -510,7 +512,7 @@ function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuff
             λ2 = get_map(vpvrp, jocc, jocc_filtered, mm;use_trials=:secondHalf, smooth=true, α=α, niter=niter)
             peaks2 = Hippocampus.get_peaks(λ2, mm;t=2.5)
             _c2 = Hippocampus.get_peak_idx(λ2, peaks2)
-            dmin = Hippocampus.get_average_geodesic_distance(mm, c1, _c2)
+            dmin,_ = Hippocampus.get_average_geodesic_distance(mm, c1, _c2)
             ccs[i] = mean(dmin) 
         end
         obj = T(λ1, rf2.λ, c1, c2, ss, ccs)
