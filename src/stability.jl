@@ -575,6 +575,14 @@ function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffl
     end
 end
 
+function get_map_stability(::Type{T}, args...;kwargs...) where T <: MapStabilityGeo
+    get_map_stability_geo(T, args...;kwargs...)
+end
+
+function get_map_stability(::Type{T}, args...;kwargs...) where T <: MapStabilityHK
+    get_map_stability_hk(T, args...;kwargs...)
+end
+
 function SpatialMapStabilityCor(;redo=fname->false, do_save=true, nshuffles=1000, kwargs...)
     fname = "spatial_map_stability_cor.jld2"
     h = process_kwargs(SpatialMapStabilityCor;nshuffles=nshuffles, kwargs...)
