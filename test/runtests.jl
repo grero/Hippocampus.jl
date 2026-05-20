@@ -173,6 +173,10 @@ end
     @test typeof(fig.content[1]) <: Hippocampus.Makie.Label
     @test typeof(fig.content[2]) <: Hippocampus.Makie.LScene
     @test length(fig.content[2].scene.plots) == 51 
+
+    # trajectory
+    traj = Hippocampus.compress_trajectory([1,1,1,2,2,3,4,5,5,6])
+    @test traj == [1,2,3,4,5,6]
 end
 
 @testset "Ripple markers" begin

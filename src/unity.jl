@@ -1498,3 +1498,16 @@ function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2)
     bidx
 end
 
+"""
+Compress a trajectory by removing contiguos duplicates
+"""
+function compress_trajectory(trajectory::Vector{<:Integer})
+    traj = trajectory[1:1]
+    for i in 2:length(trajectory)
+        if trajectory[i] != traj[end]
+            push!(traj, trajectory[i])
+        end
+    end
+    traj
+end
+
