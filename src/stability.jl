@@ -19,6 +19,28 @@ function get_spatial_map(vpvrp, jocc, jocc_filtered, m_floor;use_trials=:all, sm
     λ1
 end
 
+function get_gaze_map(vpvrp, jocc, jocc_filtered, mm;use_trials=:all, smooth=false, α=0.5, niter=50,kwargs...)
+    jm1 = JointMap(vpvrp, jocc,jocc_filtered;use_trials=use_trials)
+    vm1 = Hippocampus.ViewMapNew(jm1,mm)
+    if smooth
+        vml = SmoothedMap(vm1;method=:laplace, α=α, niter=niter)
+        λ1 = get_rate_map(vml)
+    else
+        λ1 = get_rate_map(vm1)
+    end
+    λ1
+end
+
+function get_map(vpvrp, jocc, jocc_filtered, mm;kwargs...)
+    ed = embeddim(mm)
+    if ed == 2
+        return get_spatial_map(vpvrp, jocc, jocc_filtered,mm;kwargs...)
+    elseif ed == 3
+        return get_gaze_map(vpvrp, jocc, jocc_filtered,mm;kwargs...)
+    end
+    return nothing
+end
+
 function get_cross_correlation(λ1, λ2)
     qidx = (isfinite.(λ1)).&(isfinite.(λ2))
     cc = crosscor(λ1[qidx], λ2[qidx])
