@@ -11,6 +11,7 @@ _plot_theme.Axis.bottomspinecolor = :gray45
 _plot_theme.Axis.yticksvisible = true
 _plot_theme.Axis.xticksvisible = true
 _plot_theme.Axis.ytickcolor = :gray45
+_plot_theme.Axis.xtickcolor = :gray45
 _plot_theme.Colorbar.ticksvisible = true
 _plot_theme.Colorbar.tickcolor = :gray45
 _plot_theme.fontsize = 18
