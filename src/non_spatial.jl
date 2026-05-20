@@ -28,7 +28,51 @@ function get_poster_cue_response(celldirs::Vector{String};kwargs...)
     anspikes, aposterid
 end
 
-function get_poster_cue_response(celldir::String;previous=false, future=0)
+function get_spikes(celldir::String;kwargs...)
+    rp, udata = cd(DPHT.get_level_path("session", celldir)) do
+        RippleData(), UnityData()
+    end
+    get_spikes(celldir, rp, udata;kwargs...)
+end
+
+function get_spikes(celldir::String, rp::RippleData, udata::UnityData;trial_start=2, trial_end=3)
+    # get the spiketrains
+    sp = cd(celldir) do
+        sp = Spiketrain()
+        sp
+    end
+    nt = numtrials(udata) 
+    spiketimes = sp.timestamps/1000
+    spikes = Vector{Vector{Float64}}(undef, nt)
+    for i in 1:nt
+        # TODO: Separate into correct and timeout trials here
+        t0 = rp.timestamps[i,trial_start]
+        t1 = rp.timestamps[i,trial_end]
+        idx0 = searchsortedfirst(spiketimes, t0)
+        idx1 = searchsortedlast(spiketimes, t1)
+        spikes[i] = spiketimes[idx0:idx1] .- t0
+    end
+    spikes
+end
+
+function get_spikes(celldirs::Vector{String};kwargs...)
+    allsessiondirs = DPHT.get_level_path.("session", celldirs)
+    sessiondirs = unique(allsessiondirs)
+    spikes = Vector{Vector{Float64}}[]
+    for sessiondir in sessiondirs
+        rp,udata = cd(sessiondir) do
+            RippleData(), UnityData()
+        end
+        cidx = allsessiondirs.==sessiondir
+        for celldir in celldirs[cidx]
+            _spikes = get_spikes(celldir, rp, udata;kwargs...)
+            push!(spikes, _spikes)
+        end
+    end
+    spikes
+end
+
+function get_poster_cue_response(celldir::String;previous=false, future=0, alignto=2, tmin=0.0)
     # get the spiketrains
     sp, rp, udata = cd(celldir) do
         sp = Spiketrain()
