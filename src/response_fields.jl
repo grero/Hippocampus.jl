@@ -636,6 +636,7 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ=rf.
             Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]")
         end
     end
+    ax
 end
 
 function plot_response_fields!(lscene::LScene, rf::SpatialResponseFields,idx::Union{Nothing,Integer}=nothing,;offset=0.0)
