@@ -599,7 +599,7 @@ function plot_response_fields!(lscene::LScene, rf::GazeResponseFields,idx::Union
     end
 end
 
-function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields;filter_spurious=true, colorbar_below=false, kwargs...)
+function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ=rf.λ;filter_spurious=true, show_points=true, colorbar_below=false, show_colorbar=true, kwargs...)
     mm = Shadow("xy")(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
     ax = Axis(lg[1,1],aspect=1)
     hidedecorations!(ax)
@@ -621,15 +621,19 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields;filter_
     else
         ccolors = Makie.wong_colors()
     end
-    for (cc,cluster) in zip(ccolors[1:length(cidx)],clusters[cidx])
-        pidx = rf.binidx[cluster]
-        cpoints = centroid.(mm[pidx])
-        viz!(ax, cpoints, color=cc)
+    if show_points
+        for (cc,cluster) in zip(ccolors[1:length(cidx)],clusters[cidx])
+            pidx = rf.binidx[cluster]
+            cpoints = centroid.(mm[pidx])
+            viz!(ax, cpoints, color=cc)
+        end
     end
-    if colorbar_below
-        Colorbar(lg[2,1], colorrange=extrema(filter(isfinite, rf.λ)), colormap=colormap, label="Firing rate [Hz]", vertical=false, flipaxis=false, ticksvisible=true)
-    else
-        Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf.λ)), colormap=colormap, label="Firing rate [Hz]")
+    if show_colorbar
+        if colorbar_below
+            Colorbar(lg[2,1], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]", vertical=false, flipaxis=false, ticksvisible=true)
+        else
+            Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]")
+        end
     end
 end
 
