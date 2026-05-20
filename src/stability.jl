@@ -407,6 +407,13 @@ get_response_field_type(::Type{GazeMapStabilityHK}) = GazeResponseFields
 get_response_field_type(::Type{SpatialMapStabilityHK}) = SpatialResponseFields
 
 MapStabilityHK = Union{GazeMapStabilityHK, SpatialMapStabilityHK}
+MapStability = Union{MapStabilityHK, MapStabilityGeo}
+
+GazeMapStabilityAll = Union{GazeMapStabilityGeo, GazeMapStabilityHK}
+SpatialMapStabilityAll = Union{SpatialMapStabilityGeo, SpatialMapStabilityHK}
+
+get_colormap(::Type{T}) where T <: SpatialMapStabilityAll = :rain
+get_colormap(::Type{T}) where T <: GazeMapStabilityAll = :navia
 
 function process_kwargs(::Type{T}, h::UInt32=zero(UInt32);nshuffles=1000, σ=1.0, kwargs...) where T<:MapStabilityHK
     Trf = get_response_field_type(T)
