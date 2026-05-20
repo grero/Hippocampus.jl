@@ -607,8 +607,9 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ=rf.
     ax.leftspinevisible = false
     colormap = get(kwargs, :colormap, :binary)
     mazecolor = get(kwargs, :mazecolor, :lightgray)
+    colorrange = get(kwargs, :colorrange, extrema(filter(isfinite, λ)))
     viz!(ax, mm;color=mazecolor)
-    viz!(ax, mm;color=rf.λ,colormap=colormap)
+    viz!(ax, mm;color=λ,colormap=colormap, colorrange=colorrange)
     clusters = merge_fields(rf)
     if filter_spurious
         nclusters = Hippocampus.get_num_fields(rf)
