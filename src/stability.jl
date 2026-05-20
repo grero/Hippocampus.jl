@@ -263,6 +263,22 @@ function process_kwargs(::Type{SpatialMapStabilityCor}, h::UInt32=zero(UInt32);n
     h
 end
 
+struct GazeMapStabilityCor
+    λ1::Vector{Float64}
+    λ2::Vector{Float64}
+    cp1::Vector{Point2f}
+    cp2::Vector{Point2f}
+    cc::Float64
+    ccs::Vector{Float64}
+end
+
+function process_kwargs(::Type{GazeMapStabilityCor}, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
+    h = process_kwargs(GazeResponseFields,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles))
+    h
+end
+
+
 """
     get_correspondence(rf1::SpatialResponseFields, rf2::SpatialResponseFields)
 
