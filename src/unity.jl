@@ -1504,13 +1504,73 @@ end
 """
 Compress a trajectory by removing contiguos duplicates
 """
-function compress_trajectory(trajectory::Vector{<:Integer})
+function compress_trajectory(trajectory::Vector{T};ignore_values::Union{Vector{T},Nothing}=nothing) where T
+    unique_bins = unique(trajectory)
+    sort!(unique_bins)
     traj = trajectory[1:1]
+    idx = [[1]]
+    function func(x)
+        if isnothing(ignore_values)
+            return false
+        end
+        in(ignore_values)(x)
+    end
     for i in 2:length(trajectory)
-        if trajectory[i] != traj[end]
-            push!(traj, trajectory[i])
+        traj_i = trajectory[i]
+        if func(traj_i)
+            continue
+        end
+        if traj_i != traj[end]
+            push!(traj, traj_i)
+            push!(idx, [i])
+        else
+            push!(idx[end], i)
         end
     end
-    traj
+    traj, idx
 end
 
+function analyse_trajectories(celldirs::Vector{String}, m_floor::SimpleMesh)
+    allsessiondirs = DPHT.get_level_path.("session", celldirs)
+    sessiondirs = unique(allsessiondirs)
+    num_obs = Dict{Vector{Int64},Int64}()
+    num_cells = Dict{Vector{Int64},Int64}()
+    for sessiondir in sessiondirs
+        ncells = sum(allsessiondirs.==sessiondir)
+        udata = cd(sessiondir) do
+            Hippocampus.UnityData()
+        end
+        binned_trajectory = Hippocampus.bin_trajectory(udata, m_floor)
+        bts = compress_trajectory.(binned_trajectory)
+        for bt in bts
+            if !(bt in keys(num_obs))
+                num_obs[bt] = 1
+                num_cells[bt] = 0
+            else
+                ek = num_obs[bt]
+                num_obs[bt] = ek + 1
+            end
+
+        end
+        for bt in unique(bts)
+            ek = num_cells[bt]
+            num_cells[bt] = ek+ncells
+        end
+    end
+    num_obs, num_cells
+end
+
+function get_poster_combinations(udata::UnityData)
+    nt = numtrials(udata)   
+    combos = Vector{Tuple{Int64, Int64}}(undef, nt-1)
+    correct = fill(false, nt-1)
+    for i in 2:nt
+        previous_poster = udata.triggers[i-1,1]
+        previous_poster -= 10
+        current_poster = udata.triggers[i,1]
+        current_poster -= 10
+        combos[i-1] = (previous_poster, current_poster)
+        correct[i-1] = (udata.triggers[i,3] - current_poster) == 30
+    end
+    combos, correct 
+end
