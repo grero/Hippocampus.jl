@@ -1505,17 +1505,23 @@ end
 Compress a trajectory by removing contiguos duplicates
 """
 function compress_trajectory(trajectory::Vector{T};ignore_values::Union{Vector{T},Nothing}=nothing) where T
+    nn = length(trajectory)
     unique_bins = unique(trajectory)
     sort!(unique_bins)
-    traj = trajectory[1:1]
-    idx = [[1]]
     function func(x)
         if isnothing(ignore_values)
             return false
         end
         in(ignore_values)(x)
     end
-    for i in 2:length(trajectory)
+    k = 1
+    while k <= nn && func(trajectory[k])
+        k += 1
+    end
+    traj = trajectory[k:k]
+    idx = [[k]]
+
+    for i in k+1:length(trajectory)
         traj_i = trajectory[i]
         if func(traj_i)
             continue
