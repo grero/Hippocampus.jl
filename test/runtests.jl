@@ -175,9 +175,12 @@ end
     @test length(fig.content[2].scene.plots) == 51 
 
     # trajectory
-    traj,idx = Hippocampus.compress_trajectory([1,1,1,2,2,3,4,5,5,6])
+    traj,idx = Hippocampus.compress_trajectory([0,1,1,1,2,2,3,4,5,5,6];ignore_values=[0])
     @test traj == [1,2,3,4,5,6]
-    @test idx == [[1,2,3],[4,5],[6],[7],[8,9],[10]]
+    @test idx == [[2,3,4],[5,6],[7],[8],[9,10],[11]]
+    traj,idx = Hippocampus.compress_trajectory([0];ignore_values=[0])
+    @test traj == Int64[]
+    @test idx == Vector{Int64}[]
 end
 
 @testset "Ripple markers" begin
