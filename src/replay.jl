@@ -2608,7 +2608,33 @@ function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupan
     cc
 end
 
-function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, min_speed=1, nrefinements=(p=3,g=2),kwargs...)
+function get_num_spikes_per_spatial_bin(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,qidx::Vector{CartesianIndex{4}};shuffle_place=false, shuffle_view=false)
+    nt = length(vpvrp.events)
+    trajectories = Vector{Vector{Int64}}(undef,nt)
+    spike_counts = Vector{Vector{Int64}}(undef, nt)
+    ffq = in(qidx)
+    for i in 1:nt
+        if isempty(jocc.index[i])
+            trajectories[i] = Int64[]
+            spike_counts[i] = Int64[]
+            continue
+        end
+        # TODO: This is no good
+        jidx = findall(_idx->!ffq(CartesianIndex(_idx[1], _idx[2], _idx[3], i)), jocc.index[i])
+        pidx = getindex.(jocc.index[i],2)
+        pidx[jidx] .= 0
+        trajectories[i],idx = compress_trajectory(pidx;ignore_values=[0])
+        ff = in(vpvrp.placeviewidx[i])
+        _spike_counts = zeros(length(idx))
+        for (jj,_idx) in enumerate(idx)
+            _spike_counts[jj] += sum(ff.(_idx))
+        end
+        spike_counts[i] = _spike_counts
+    end
+    spike_counts, trajectories
+end
+
+function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, min_speed=1, nrefinements=(p=3,g=2),use_trials=:all, kwargs...)
     if min_place_duration != 0.05
         h = CRC32c.crc32c(string(min_place_duration=>min_place_duration),h)
     end
