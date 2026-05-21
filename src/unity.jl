@@ -1518,6 +1518,9 @@ function compress_trajectory(trajectory::Vector{T};ignore_values::Union{Vector{T
     while k <= nn && func(trajectory[k])
         k += 1
     end
+    if k > nn
+        return Int64[], Vector{Int64}[]
+    end
     traj = trajectory[k:k]
     idx = [[k]]
 
