@@ -30,6 +30,7 @@ function get_spatial_data(celldirs::Vector{String};kwargs...)
     sessiondirs = unique(allsessiondirs)
     spike_counts = Vector{Float64}[]
     trajectories = Vector{Int64}[]
+    trialidx = Vector{Int64}[]
     prog = Progress(length(celldirs))
     cellcount = 0
     for (ii,sessiondir) in enumerate(sessiondirs)
@@ -47,13 +48,16 @@ function get_spatial_data(celldirs::Vector{String};kwargs...)
             end
             spike_counts_flat =  reduce(vcat, filter(sc->length(sc)>0, obj.spikecounts));
             trajectories_flat = reduce(vcat, filter(sc->length(sc)>0, obj.bins));
+            _trialidx = [fill(i,length(traj)) for (i,traj) in enumerate(obj.bins)]
+            trialidx_flat = reduce(vcat, filter(sc->length(sc)>0, _trialidx))
             push!(spike_counts, spike_counts_flat)
             push!(trajectories, trajectories_flat)
+            push!(trialidx, trialidx_flat)
             cellcount += 1
             next!(prog)
         end
     end
-    spike_counts, trajectories
+    spike_counts, trajectories, trialidx
 end
 
 
