@@ -170,7 +170,9 @@ function train_navigation_test_cue(spike_counts_nav, triallabels_nav, spike_coun
     # find a matrix to transform the pca space in the cue period to the pca space during the navigation period
     R = procrustes_transform(permutedims(pca.proj), permutedims(lda.projw))
     # project the cue responses onto the lda space during the navigation period
-    Zp = lda.projLDA'*R*pca.proj'*Y_cue[1,1:ntrain,:]'
+    W_cue = lda.projLDA'*R*pca.proj'
+    Zp = W_cue*Y_cue[1,1:ntrain,:]'
+    W_nav = lda.projLDA'*lda.projw'
     #decode position
     czmeans = predict(lda, lda.cmeans)
     lidx = [argmin(dropdims(sum(abs2, Zp[:,i] .- czmeans,dims=1),dims=1)) for i in 1:size(Zp,2)] 
@@ -195,7 +197,7 @@ function train_navigation_test_cue(spike_counts_nav, triallabels_nav, spike_coun
         perf[ii] += dl==tl
         nn[ii] += 1
     end
-    perf./nn, confusion_matrix, unique_poster_positions, poster_names
+    perf./nn, confusion_matrix, unique_poster_positions, poster_names, W_nav, W_cue
 end
 
 function get_colors(traj::Vector{Tuple{Int64, Int64}})
