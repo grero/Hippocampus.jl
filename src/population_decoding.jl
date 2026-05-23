@@ -77,7 +77,7 @@ function format_data(spikes, poster_labels)
     celloffset = 0
     for (session_spikes, session_labels) in zip(spikes, poster_labels)
         for i in 1:length(session_spikes)
-            spikecounts[1:length(session_spikes[i]),celloffset+1] .= length.(session_spikes[i])
+            spikecounts[1:length(session_spikes[i]),celloffset+i] .= length.(session_spikes[i])
             triallabels[celloffset+i] = session_labels
         end
         celloffset += length(session_spikes)
