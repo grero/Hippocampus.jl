@@ -2654,6 +2654,9 @@ function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_durati
         h = CRC32c.crc32c(string(trial_start=>trial_start),h)
     end
     h = CRC32c.crc32c(string(nrefinements=>nrefinements),h)
+    if use_trials != :all
+        h = CRC32c.crc32c(string(:use_trials=>use_trials),h)
+    end
     h
 end
 
