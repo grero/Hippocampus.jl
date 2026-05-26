@@ -218,12 +218,19 @@ function conjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: Abstra
         λ_infield[:,ii] = x_covered./w_covered
         # now we have firing rates for each of view bins conditioned on a particular place field
         # aggregate within each of the view fields
-        λ_covered[:,ii]  = [mean(filter(isfinite, x_covered[fields2.binidx[c]]./w_covered[fields2.binidx[c]])) for c in clusters2]
+        for (j,c) in enumerate(clusters2)
+            qidx = fields2.binidx[c]
+            _x = mean(x_covered[qidx])
+            _w = mean(w_covered[qidx])
+            λ_covered[j,ii] = _x./_w
+        end
         for (jj,cluster) in enumerate(clusters2)
             qidx = fields2.binidx[cluster]
             for kk in 1:1000
-                ll = x_not_covered_sub[qidx,kk]./w_not_covered_sub[qidx,kk]
-                λ_sub[kk,jj,ii] = mean(filter(isfinite, ll))
+                _x = mean(x_not_covered_sub[qidx,kk])
+                _w = mean(w_not_covered_sub[qidx,kk])
+                ll = _x/_w
+                λ_sub[kk,jj,ii] = ll
             end
         end
     end
