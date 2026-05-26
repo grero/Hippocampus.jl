@@ -470,22 +470,79 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     nclusters2 = get_num_fields(pvc.spatial_fields)
     spatial_clusters = spatial_clusters[dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001]
     mm = get_mesh(GazeResponseFields, pvc.view_fields.args[:nrefinements])
+    mm2 = floor_topology3(;nrefinements=pvc.spatial_fields.args[:nrefinements].p)
+    # translate down
+    mm2 = Translate(0.0, 0.0, -20.0)(mm2)
+    bbc = find_boundary(mm2, pvc.spatial_fields.binidx[spatial_clusters[idx]])
+    if smooth
+        # this is a bit clunky; we need to recompute weight and occupancy separately
+        jm = cd(pvc.spatial_fields.args[:dir]) do
+            # TODO: Make sure we use the correct parameters here
+            JointMap()
+        end
+        jml = JointSmoothedMap(jm;method=:laplace, α=0.1, niter=100)
+        ps = dropdims(sum(jml.occupancy,dims=1),dims=1)
+        px = dropdims(sum(jml.weight,dims=1),dims=1)
+        ccidx = pvc.spatial_fields.binidx[spatial_clusters[idx]] 
+        X = jml.weight[:,ccidx]*px[ccidx]
+        Y = jml.occupancy[:,ccidx]*ps[ccidx]
+         λ_infield = X./Y
+        _,occupancy = get_maps(jm)
+        occ =  occupancy[:,ccidx]*ps[ccidx]
+        λ_infield[occ.==0] .= NaN
 
+        uccidx = setdiff(1:nelements(mm2), pvc.spatial_fields.binidx)
+        X = jml.weight[:,uccidx]*px[uccidx]
+        Y = jml.occupancy[:,uccidx]*ps[uccidx]
+         λ_outfield = X./Y
+        _,occupancy = get_maps(jm)
+        occ =  occupancy[:,uccidx]*ps[uccidx]
+        λ_outfield[occ.==0] .= NaN
+
+    else
+        λ_infield = pvc.λ_infield[:,idx]
+        λ_outfield = pvc.λ_outfield
+    end
+     A = issignificant(pvc, pv_threshold=0.01)[:,idx]
+    pidx = findall(A)
+    scolor = fill(:black, length(A))
+    scolor[pidx] .= :red
+    cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(plot_theme) do
         fig = Figure()
         Label(fig[1,1], "In field", tellwidth=false)
         Label(fig[1,2], "Out of field", tellwidth=false)
         lscene1 = LScene(fig[2,1], show_axis=false)
-        plotmesh!(lscene1, mm;color=pvc.λ_infield[:,idx])
+        plotmesh!(lscene1, mm;color=λ_infield,colorrange=cr,showsegments=true)
         lscene2 = LScene(fig[2,2], show_axis=false)
-        plotmesh!(lscene2, mm;color=pvc.λ_outfield)
+        plotmesh!(lscene2, mm;color=λ_outfield,colorrange=cr)
         # indicate the original view fields
         for lscene in [lscene1, lscene2]
-            for vc in view_clusters
+            for (kk,vc) in enumerate(view_clusters)
                 bb = find_boundary(mm, pvc.view_fields.binidx[vc])
-                viz!(lscene, bb;color=:black)
+                viz!(lscene, bb;color=scolor[kk])
             end
+            viz!(lscene, mm2;color=:lightgray)
+            viz!(lscene, bbc;color=:black)
         end
+        # indicate the place field
+        link_cameras_lscene(fig)
+        # separate axis to show distribution of firing rate within each field
+        ax3 = Axis(fig[2,3])
+        yy = Float64[]
+        xx = Float64[]
+        for ii in 1:size(pvc.λ_sub,2)
+            _yy = filter(isfinite, pvc.λ_sub[:,ii,idx])
+            append!(yy, _yy)
+            append!(xx, fill(ii, length(_yy)))
+        end
+        boxplot!(ax3, xx,yy;show_outliers=false)
+        scatter!(ax3, 1:size(pvc.λ_covered,1), pvc.λ_covered[:,idx], color=scolor)
+        ax3.yaxisposition = :right
+        ax3.leftspinevisible = false
+        ax3.rightspinevisible = true
+        ax3.ylabel = "Firing rate [Hz]"
+        colsize!(fig.layout, 3, Relative(0.25))
         fig
     end
     #plot_conjunction(mm, pvc.spatial_fields.binidx[spatial_clusters[1]], pvc.view_fields.binidx[view_clusters[1]])
