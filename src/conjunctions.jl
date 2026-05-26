@@ -183,7 +183,8 @@ function conjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: Abstra
        end
     end
     λ_outfield = x_not_covered./w_not_covered
-    for (ii,covered) in enumerate(clusters1)
+    for (ii,covered_idx) in enumerate(clusters1)
+        covered = fields1.binidx[covered_idx]
         not_covered = setdiff(1:nelements(mm1), covered)
         not_covered_sub = [shuffle(all_not_covered)[1:length(covered)] for _ in 1:1000]
         # compare firing rates within vis outside the field
