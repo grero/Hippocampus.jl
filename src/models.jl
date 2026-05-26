@@ -3,11 +3,54 @@ using Distributions
 using Distances
 using Dierckx
 
+struct ViewField
+    μ::Vector{Float64}
+    σ::Float64
+    λ0::Float64
+    mm::SimpleMesh
+    D::Vector{Float64} # distance from the mean to all other points
+end
+
+function ViewField(μ, σ, λ0, mm::SimpleMesh)
+    kn = KNearestSearch(mm, 1)
+    idx = search(Meshes.Point(μ...), kn)
+    D = distancematrix(mm;between_centroids=false)
+    ViewField(μ, σ,λ0, mm,D[:,first(idx)])
+end
+
+function ViewField(μ::Vector{Float64}, σ::Vector{Float64}, ρ::Matrix{Float64},mm::SimpleMesh)
+    d = length(x)
+    Σ = zeros(d,d)
+    for i in 1:d
+        for j in 1:d
+            Σ[j,i] = vf.σ[i]*vf.σ[j]*ρ[i,j] 
+        end
+    end
+    D = distancematrix(mm;between_centroids=false)
+    # gaussian based on geodesic distance
+    # find the location the mean on the mesh
+    kn = KNearestSearcv(vf.mm, 1)
+    idx = search(Meshes.Point(μ...), kn)
+    ViewField(μ, Σ,mm,D[:,first(idx)])
+end
+
+function (vf::ViewField)(x::Vector{Float64})
+    # need to project onto the mesh
+    kn = KNearestSearch(vf.mm, 1)
+    idx = search(Meshes.Point(x...), kn)
+    vf(first(idx))
+end
+
+function (vf::ViewField)(pidx::Int64)
+    d = vf.D[pidx]
+    vf.λ0*exp(-d^2/(2*vf.σ^2))
+end
+
 sigmoid(x, x0, a) = 1.0/(1+exp(a*(x-x0)))
 """
 Simulate a simple place field neuron using behavioural data in `udata`
 """
-function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::RippleData;λmin=0.1, λmax=3.0,dt=0.01,σ1=1.0,σ2=σ1, μ=[3.5,1.2],ρ=1.0, fd=0.0, temporal_factor=0.0, sigmoid_params=(Inf,1.0), rng=Random.default_rng())
+function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::RippleData;λmin=0.1, λmax=3.0,dt=0.01,σ1=1.0,σ2=σ1, μ=[3.5,1.2],ρ=1.0, fd=0.0, temporal_factor=0.0, sigmoid_params=(Inf,1.0), view_field::Union{ViewField,Nothing}=nothing, rng=Random.default_rng())
     Σ = [σ1^2 ρ*σ1*σ2;ρ*σ1*σ2 σ2^2]
     G = MvNormal(μ, Σ)
     G0 = pdf(G, μ)
@@ -23,11 +66,11 @@ function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::Ri
     tw = 0.5
     qt = 1.0
     qt_sigmoid = 1.0
-    for i in 1:nt
+    @showprogress for i in 1:nt
         if isa(udata, UnityData)
             t,mposx,mposy = get_trial(udata, i;trial_start=2)
         else
-            t,_,pos,_,_ = get_trial(udata, i;trial_start=2)
+            t,gaze,pos,_,_ = get_trial(udata, i;trial_start=2)
             mposx = pos[1,:]
             mposy = pos[2,:]
         end
@@ -43,19 +86,28 @@ function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::Ri
         spl = ParametricSpline(t[idx], pos[:,idx])
 
         Δt = t[2]-t[1]
-        for (t0,posx,posy) in zip(t,mposx, mposy)
+        for (jk,(t0,posx,posy)) in enumerate(zip(t,mposx, mposy))
             λ = pdf(G, [posx,posy]) # firing rate based on place field
             # What do we do if there is no movement
-            v = Dierckx.derivative(spl, t0)
-            v ./= norm(v)
-            f = 0.5*(v'*vm + 1.0) # from 0 to 1
-            if isfinite(f)
-                f = (1.0 - fd) + fd*f
+            if fd > 0
+                v = Dierckx.derivative(spl, t0)
+                v ./= norm(v)
+                f = 0.5*(v'*vm + 1.0) # from 0 to 1
+                if isfinite(f)
+                    f = (1.0 - fd) + fd*f
+                else
+                    f = 1.0
+                end
             else
                 f = 1.0
             end
             # scale firing rate
-            λ = qt_sigmoid*qt*f*λmax*λ/G0 + λmin
+            if !isnothing(view_field)
+                tv = view_field(gaze[:,jk]) 
+            else
+                tv = 1.0
+            end
+            λ = tv*qt_sigmoid*qt*f*λmax*λ/G0 + λmin
             _t = t0
             while _t < t0+Δt
                 r += λ*dt
