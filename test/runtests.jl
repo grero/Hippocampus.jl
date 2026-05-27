@@ -338,3 +338,43 @@ end
     
     @test pth ≈ Point{3, Float64}[[-7.5, 2.45, 2.345], [-7.5, 2.45, 2.345], [-7.55, 7.45, 2.345], [-7.55, 7.449999999999999, 2.345], [-6.785714285714286, 7.55, 0.815]]
 end
+
+@testset "Clustering" begin
+    let
+        n1 = 7 
+        n2 = 19 
+        nt = 103
+        assignments = [zeros(Int64, nt) for _ in 1:2]
+        centers = [randn(3, n1), randn(2, n2)]
+        X = zeros(11,nt)
+        Y = zeros(5,nt)
+        q,r = qr(randn(11,11))
+        w = q[:,1:5]
+        for i in 1:nt
+            c1 = rand(1:n1)
+            c2 = rand(1:n2)
+            assignments[1][i] = c1
+            assignments[2][i] = c2
+            Y[1:3,i] = centers[1][:,c1]
+            Y[4:5,i] = centers[2][:,c2]
+            X[:,i]  = w*Y[:,i]
+        end
+        km_result1 = Clustering.KmeansResult(centers[1], assignments[1], rand(n1), rand(1:10, n1), rand(1:10,n1), 0.0, 100, true)
+        km_result2 = Clustering.KmeansResult(centers[2], assignments[2], rand(n2), rand(1:10,n2), rand(1:10, n2), 0.0, 100, true)
+        X2,Y2 = Hippocampus.merge_responses(X, [km_result1, km_result2])
+        @test size(X2,1) == 11 
+        @test size(Y2,1) == 5
+        # can we recover the original matrix?
+        Wp = X2'\Y2'
+        @test norm(Wp - w) < 1e-15
+    end
+
+end
+
+@testset "Response fields" begin
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+    binidx = [97, 98, 99, 100, 101, 104, 107, 108, 109, 110, 111, 112, 115, 116, 117, 118, 119, 120, 123, 124, 125, 126, 423, 425, 427, 428, 929, 930, 931, 933, 934, 935, 936, 937, 938, 940, 942, 944, 949, 1027, 1028, 1032, 1037, 1038, 1039, 1040, 1073, 1074, 1091, 1092, 1101, 1102, 1103, 1104]
+    clusters = Hipppocampus.merge_fields(m_floor, binidx)
+    @test length(clusters) == 3
+    @test length.(clusters) == [22,10,22]
+end
