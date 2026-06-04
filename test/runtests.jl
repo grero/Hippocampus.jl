@@ -380,6 +380,25 @@ end
 end
 
 @testset "Conjunections" begin
+    # simple test
+    rng = StableRNG()
+    spatial_field = [1,2,3,4]
+    view_field = [1,2,3,4,5]
+    idx = [CartesianIndex{4}(rand(rng, 1:10),rand(rng, 1:10),1,1) for _ in 1:100]
+    weight = zeros(100)
+    occupancy = fill(1.0, 100)
+    fidx = findall(k->in(view_field)(k[1])&&in(spatial_field)(k[2]),idx)
+    weight[fidx] .= 5.0
+    jm_test = Hippocampus.JointMap(weight, occupancy, idx, [3,2,1])
+    # test we get the same result whether we look space conditioned on view
+    λ_covered,λ_sub =Hippocampus.conjunctions2(jm_test, view_field, spatial_field, 1)
+    @test λ_covered ≈ 5.0
+    @test maximum(λ_sub) ≈ 0.0
+    # ... or view conditioned on space
+    λ_covered,λ_sub =Hippocampus.conjunctions2(jm_test, view_field, spatial_field, 2)
+    @test λ_covered ≈ 5.0
+    @test maximum(λ_sub) ≈ 0.0
+
     rng = StableRNG()
     testdata_dir = joinpath(@__DIR__, "data","ModelSubject","20260422")
     test_sessiondir = joinpath(testdata_dir, "session01")
