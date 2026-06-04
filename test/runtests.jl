@@ -378,3 +378,48 @@ end
     @test length(clusters) == 3
     @test length.(clusters) == [22,10,22]
 end
+
+@testset "Conjunections" begin
+    rng = StableRNG()
+    testdata_dir = joinpath(@__DIR__, "data","ModelSubject","20260422")
+    test_sessiondir = joinpath(testdata_dir, "session01")
+    testcell = joinpath(test_sessiondir, "array01/channel001/cell20")
+    jm = cd(testcell) do
+       Hippocampus.JointMap(;redo=fname->Hippocampus.isolderthan(fname, now(UTC)-Day(6)), do_save=true, nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
+    end;
+    valid_idx = Hippocampus.get_conditional_indices(jm.index,  rf_gaze.binidx[view_clusters[2]], p_idx)
+
+    #create a view neighborhood
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    D = Hippocampus.distancematrix(mm;between_centroids=false)
+    # create a view field
+    vidx = 34
+    view_cluster = sortperm(D[:,vidx] )[1:20]
+
+    # create a spatial field in view 
+    m_floor = Hippocampus.floor_topology3(;nrefinements=3)
+    spatial_idx = Int64[]
+    for l in 1:nelements(m_floor)
+        does_intersect = false
+        for v in view_cluster
+            ss = Segment(centroid(mm[v]), centroid(m_floor[l]))
+            # make sure we do not intersect the maze 
+            for l2 in 1:nelements(mm)
+                # this will always intersect, so skip it
+                if l2 == v 
+                    continue
+                end
+                ii = intersects(ss, mm[l2])
+                if ii
+                    does_intersect = true
+                    break
+                end
+            end
+        end
+        if does_intersect == false
+            push!(spatial_idc, l)
+        end
+    end
+    # we want to create a distribution of cluster that do not include points from view_cluster
+
+end
