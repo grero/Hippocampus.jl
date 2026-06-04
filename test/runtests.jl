@@ -120,7 +120,7 @@ end
     tt,pp1,pp2, hh = Hippocampus.get_trial(udata, 1)
     ll = length(tt)
     @test ll == 207
-    @test tt[[1,ll]] ≈ [0.04301112, 8.226267400000001]
+    @test tt[[1,ll]] ≈ [0.0, 8.183256280000002]
     @test pp2[[1,ll]] ≈ [-10.0, -1.5189]
     @test pp1[[1,ll]] ≈ [0.0, -6.0951]
     @test hh[[1,ll]] ≈ [0.0, 171.2082]
