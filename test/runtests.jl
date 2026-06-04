@@ -399,6 +399,16 @@ end
     @test λ_covered ≈ 5.0
     @test maximum(λ_sub) ≈ 0.0
 
+    # .. some residual spatial preference
+    fidx2 = findall(k->in(spatial_field)(k[2]),idx)
+    weight[fidx2] = max.(weight[fidx2], 2.5)
+    jm_test = Hippocampus.JointMap(weight, occupancy, idx, [3,2,1])
+    λ_covered,λ_sub =Hippocampus.conjunctions2(jm_test, view_field, spatial_field, 1)
+    # in this case, λ_sub should all contain of 2.5, since we are matching spatial locations
+    # from the spatial field, but view locations outside the view field
+    @test extrema(λ_sub) ≈ (2.5, 2.5)
+
+
     rng = StableRNG()
     testdata_dir = joinpath(@__DIR__, "data","ModelSubject","20260422")
     test_sessiondir = joinpath(testdata_dir, "session01")
