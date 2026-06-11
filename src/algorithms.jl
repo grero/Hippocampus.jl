@@ -334,3 +334,122 @@ function shuffle_sic(;nshuffles=1000,α=0.1, niter=100)
     end
     sic_true, sic_shuffle, Xgs
 end
+
+"""
+Create a summary table.
+
+For each cell compute:
+    whether it is place selective
+    number of place fields 
+    whether at least one place field is directional
+    whether it is view selective
+    number of view fields
+    whether it has at least one conjunction between place and view
+    whether it has at least one view field where the activity cannot be explained by just directionality
+"""
+function create_summary_table(celldirs::Vector{String};redo=fname->false, spatial_args::NamedTuple=(;), gaze_args::NamedTuple=(;), kwargs...)
+    # create kwargs for gaze related stuff by checking for keyowrd contains in gaze_args, replacing (or adding) the values in the default kwargs
+    kwargs_spatial = Dict{Symbol,Any}()
+    for (k,v) in kwargs
+        if k in keys(spatial_args)
+            kwargs_spatial[k] = spatial_args[k]
+        else
+            kwargs_spatial[k] = v
+        end
+    end
+
+    kwargs_gaze = Dict{Symbol,Any}()
+    for (k,v) in kwargs
+        if k in keys(gaze_args)
+            kwargs_gaze[k] = gaze_args[k]
+        else
+            kwargs_gaze[k] = v
+        end
+    end
+    # TODO: We might want to use different smoothing settings etc for gaze compared place
+    #       Currently, this is not possible because they both respond to the same keywords
+    h = process_kwargs(SpatialInformationContent;kwargs_spatial...)
+    h = process_kwargs(SpatialResponseFields,h;kwargs_spatial...)
+    h = process_kwargs(DirectionFiltered, h;kwargs_spatial...)
+    h = process_kwargs(GazeInformationContent,h;kwargs_gaze...)
+    h = process_kwargs(GazeResponseFields,h;kwargs_gaze...)
+    h = process_kwargs(FieldConjunctions,h;kwargs...)
+    hs = string(h,base=16)
+    # write the arguments
+    args_fname = "cell_summary_args_$(hs).toml"
+    csv_file = "cell_summary_$(hs).csv"
+    if !redo(csv_file) && isfile(csv_file)
+        hh = open(csv_file) do fid
+            h = readline(fid)
+            hh = readlines(fid)
+            hh
+        end
+        ncells = length(hh)
+        spatially_selective = fill(false, ncells)
+        view_selective = fill(false, ncells)
+        num_spatial_response_fields = fill(0, ncells)
+        num_gaze_response_fields = fill(0, ncells)
+        for (i,l) in enumerate(hh)
+            parts = split(l, ',')
+            spatially_selective[i]= parse(Bool, parts[1])
+            num_spatial_response_fields[i] = parse(Int64, parts[2])
+            view_selective[i] = parse(Bool, parts[3])
+            num_gaze_response_fields[i] = parse(Int64, parts[4])
+        end
+
+    else
+        ncells = length(celldirs)
+        spatially_selective = fill(false, ncells)
+        view_selective = fill(false, ncells)
+        num_spatial_response_fields = fill(0, ncells)
+        num_gaze_response_fields = fill(0, ncells)
+        @showprogress "Processing cells..." for (ii,celldir) in enumerate(celldirs)
+            cd(celldir) do
+                sic =compute_skaggs_sic(SpatialInformationContent,10_000;kwargs_spatial...)
+                spatially_selective[ii] = issignificant(sic)
+                rf_spatial = get_response_fields(SpatialResponseFields, 10_000;kwargs_spatial...)
+                nsp = get_num_fields(rf_spatial) 
+                num_spatial_response_fields[ii] = sum(dropdims(mean(nsp,dims=2),dims=2).<0.001)
+                # directional?
+                qdata, jocc = cd(DPHT.process_level("session")) do
+                    qdata = UnityRaytraceData(;kwargs...)
+                    jocc = JointOccupancy(;kwargs...)
+                    qdata, jocc
+                end
+                vpvrp = ViewAndPlaceRepresentationNew(;kwargs...)
+                gidx = DirectionFiltered(qgidx, vpvrp, jocc, m_floor;kwargs_spatial...) 
+
+                sic_gaze = compute_skaggs_sic(GazeInformationContent,10_000;kwargs_gaze...)
+                view_selective[ii] = issignificant(sic_gaze)
+                rf_gaze = get_response_fields(GazeResponseFields,10_000;kwargs_gaze...)
+                nsp = get_num_fields(rf_gaze) 
+                num_gaze_response_fields[ii] = sum(dropdims(mean(nsp,dims=2),dims=2).<0.001)
+                # conjunction?
+                jm = JointMap(;kwargs...)
+                conj1 = FieldConjunctions(jm, rf_spatial, rf_gaze) 
+                conj2 = FieldConjunctions(jm, rf_gaze, rf_spatial) 
+
+                # 
+            end
+        end
+    
+        open(args_fname,"w") do fid
+            TOML.print(fid, Dict(kwargs)) do x
+                if isa(x, @NamedTuple{p::Int64, g::Int64}) 
+                    return Dict(zip(keys(x), values(x)))
+                elseif isa(x,Symbol)
+                    return string(x)
+                end
+                return x
+            end
+        end
+        # write the CSV file with header
+        open(csv_file,"w") do fid
+            write(fid, "spatially_selective,num_place_fields,view_selective,num_view_fields\n")
+            for (ss,nsf,vs,nvf) in zip(spatially_selective, num_spatial_response_fields, view_selective, num_gaze_response_fields)
+                write(fid, "$(ss),$(nsf),$(vs),$(nvf)\n")
+            end
+        end
+    end
+    spatially_selective, num_spatial_response_fields, view_selective, num_gaze_response_fields
+end
