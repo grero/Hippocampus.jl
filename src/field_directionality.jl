@@ -104,7 +104,23 @@ function get_pvalue(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,nruns=1
     pv
 end
 
-function issignificant(gidx::DirectionFiltered;pv_threshold=0.01,kwargs...)
+function issignificant(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,nruns=10000,kwargs...)
+    μr0,ϕ0 = get_directional_tuning_strength(gidx;smooth=smooth, α=α,niter=niter,kwargs...)
+    μr = zeros(length(μr0),nruns)
+    for i in 1:nruns
+        μr[:,i],_ = get_directional_tuning_strength(gidx;do_shuffle=true, smooth=smooth, α=α, niter=niter, kwargs...)
+    end
+    res = fill(false, length(μr0))
+    # TODO: Maybe do some kind of interpolation here so that we can evaluate
+    #       this with arbitrary p-values
+    for i in 1:length(res)
+        pp = percentile(μr[i,:], 100*(1-α))
+        res[i] = μr0[i] > pp
+    end
+    res
+end
+
+function issignificant_param(gidx::DirectionFiltered;pv_threshold=0.01,kwargs...)
     pv = get_pvalue(gidx;kwargs...)
     pv .< pv_threshold
 end
