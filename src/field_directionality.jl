@@ -294,7 +294,7 @@ function get_direction(udata::UnityData, args...)
     p0,p1
 end
 
-function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, mm::SimpleMesh, rf::SpatialResponseFields;trial_start=1,kwargs...)
+function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, mm::SimpleMesh, rf::SpatialResponseFields;trial_start=1,only_full_traversal=false, kwargs...)
     nt = numtrials(qdata)
     θbins = range(-π, stop=π, length=24)
     nn = zeros(Int64, nt)
@@ -315,6 +315,10 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
             # find the first point at which the field is entered and when it is exited
             tg,gaze,pos, fixmask,fo = get_trial(qdata,i;trial_start=trial_start);
             idx0,idx1 = get_direction(pos[1:2,:], mm,rf.binidx[idx])
+            if only_full_traversal && idx1==length(tg)-1
+                # skip this trial if we did not see a full traversal, i.e. if idx1 is at the penultimate step
+                continue
+            end
             # debug: check the number of times the field is visited
             qmidx = jocc.index[i][vpvrp.placeviewidx[i]]
             nn[i] = length(filter(k->in(idx)(getindex(k,2)), qmidx))
