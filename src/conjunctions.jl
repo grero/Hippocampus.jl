@@ -41,7 +41,7 @@ Condition on either view or place fields and compare firing rates to the uncondi
 Compare the firing rates for e.g. view when the animal was in a particular place field vs 
     when it was elsewhere; if there is indeed a conjunction, the conditioned firing rate should be higher.
 """
-function conjunctions(jm::JointMap, fields::SpatialResponseFields)
+function conjunctions(jm::JointMap, fields::SpatialResponseFields, viewidx::Vector{<:Integer})
     m_floor = get_mesh(SpatialResponseFields, fields.args[:nrefinements])
     mm = get_maze_mesh(;nrefinements=fields.args[:nrefinements].g)
     # should we loop over fields?
