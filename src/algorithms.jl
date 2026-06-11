@@ -1,3 +1,4 @@
+using TOML
 abstract type AbstractInformationContent end
 
 struct SpatialInformationContent <: AbstractInformationContent
