@@ -303,6 +303,8 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
     nclusters = Hippocampus.get_num_fields(rf)
     cidx = findall(dropdims(mean(nclusters,dims=2),dims=2) .< 0.001)
     gidx = Vector{Vector{CartesianIndex{5}}}(undef, length(cidx))
+    deltaT = Vector{Vector{Float64}}(undef, length(cidx))
+    nspikes = Vector{Vector{Float64}}(undef, length(cidx))
     weight = Vector{Dict{CartesianIndex{4}, Float64}}(undef, length(cidx))
     occupancy = Vector{Dict{CartesianIndex{4},Float64}}(undef, length(cidx))
     for i in 1:length(cidx)
@@ -341,6 +343,7 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
                         # skip invalid bins
                         continue
                     end
+                    
                     Δt = tt[jj+1]-tt[jj]
                     kk = CartesianIndex(qp[1], qp[2], qp[3], l)
                     occupancy[ll][kk] = get(occupancy[ll], kk, 0.0) + Δt

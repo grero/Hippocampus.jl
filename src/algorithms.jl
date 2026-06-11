@@ -198,7 +198,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
     end
     if !redo(fname) && isfile(fname)
         sicobj = load_jld2(T, fname)
-    elseif load_only && !isfile(fname)
+    elseif (load_only(fname) && !isfile(fname)) || do_skip(fname)
         return nothing
     else
         sp = Spiketrain()
