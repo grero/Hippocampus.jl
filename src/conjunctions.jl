@@ -19,8 +19,21 @@ function Hippocampus.issignificant(fj::FieldConjunctions;pv_threshold=0.05)
     res
 end
 
-get_mesh(jf::FieldConjunctions{SpatialResponseFields}) = get_maze_mesh(;nrefinements=jf.fields.args[:nrefinements].g) 
-get_mesh(jf::FieldConjunctions{GazeResponseFields}) = Shadow("xy")(floor_topology3(;nrefinements=jf.fields.args[:nrefinements].p))
+function get_random_neighborhood(Am, i, k)
+    aa = [i]
+    while length(aa) < k
+        idx = Am[:,i].nzind
+        m = setdiff(idx,aa)
+        if isempty(m)
+            break
+        end
+        i = rand(m)
+        push!(aa, i)
+    end
+    aa
+end
+#get_mesh(jf::FieldConjunctions{SpatialResponseFields}) = get_maze_mesh(;nrefinements=jf.fields.args[:nrefinements].g) 
+#get_mesh(jf::FieldConjunctions{GazeResponseFields}) = Shadow("xy")(floor_topology3(;nrefinements=jf.fields.args[:nrefinements].p))
 
 """
 Condition on either view or place fields and compare firing rates to the unconditioned
