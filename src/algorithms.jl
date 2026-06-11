@@ -175,9 +175,9 @@ maptype(::Type{JointInformationContent}) = JointMap
 Compute Skagg's SIC for the cell in the current working directory using `nshuffles`
 random circular shuffles of the underlying spike train data
 """
-function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), load_only=fname->false, redo=fname->false, do_save=true, do_skip=fname->false, smooth=false, prog_offset=0, rseed=UInt32(1234), use_trials=:all, kwargs...) where T <: AbstractInformationContent
-    h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,smooth=smooth,rseed=rseed, use_trials=use_trials, kwargs...)
-    args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>get(kwargs, :trial_start, 1), :smooth=>smooth, :rseed=>rseed,:use_trials=>use_trials)
+function compute_skaggs_sic(::Type{T}, nshuffles::Integer;load_only=fname->false, redo=fname->false, do_save=true, do_skip=fname->false, smooth=false, prog_offset=0, rseed=UInt32(1234), use_trials=:all, kwargs...) where T <: AbstractInformationContent
+    h = process_kwargs(T;nshuffles=nshuffles, smooth=smooth,rseed=rseed, use_trials=use_trials, kwargs...)
+    args = Dict(:nshuffles=>nshuffles, :nrefinements=>get(kwargs, :nrefinements, (p=3,g=2)), :trial_start=>get(kwargs, :trial_start, 1), :smooth=>smooth, :rseed=>rseed,:use_trials=>use_trials)
     @assert typeof(args) == fieldtype(T, :args)
     if smooth
         args[:smoothing_method] = get(kwargs, :smoothing_method, :gaussian)
