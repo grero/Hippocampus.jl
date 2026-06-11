@@ -201,25 +201,39 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
     elseif (load_only(fname) && !isfile(fname)) || do_skip(fname)
         return nothing
     else
-        sp = Spiketrain()
-        sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, rseed=rseed, kwargs...)
-
-        jm = JointMap(;kwargs...)
         rp = cd(DPHT.process_level(level(RippleData))) do
             RippleData()
         end
+        sp = Spiketrain()
+        # TODO: shuffle only some spikes
+        trialstart = args[:trial_start]
+        nt = div(size(rp.timestamps,1), 2)
+        if use_trials == :firstHalf
+            tmin = 1000.0*rp.timestamps[1,trialstart]
+            tmax = 1000.0*rp.timestamps[nt,3]
+        elseif use_trials == :secondHalf
+            tmin = 1000.0*rp.timestamps[nt+1,trialstart]
+            tmax = 1000.0*rp.timestamps[end,3]
+        else
+            # TODO: This should probably come from rpdata as well
+            tmin = 1000.0*rp.timestamps[1,trialstart]
+            tmax = 1000.0*rp.timestamps[end,3]
+        end
+        sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, rseed=rseed, tmin=tmin, tmax=tmax, kwargs...)
+
+        jm = JointMap(;use_trials=use_trials, kwargs...)
         unity_gaze_data = cd(DPHT.process_level("session")) do
-            UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=false)
+            UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=redo)
         end
         jocc = cd(DPHT.process_level(level(JointOccupancy))) do
-            JointOccupancy(;redo=false, nrefinements=nrefinements,kwargs...)
+            JointOccupancy(;redo=redo, kwargs...)
         end
-        jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;kwargs...)
-        sic = zeros(nshuffles)
-        vpvrpb = ViewAndPlaceRepresentationNew(sp,rp,unity_gaze_data;kwargs...)
-        jmb = JointMap(vpvrpb, jocc, jocc_filtered)
-        jmb_fname = DPHT.filename(JointMap;kwargs...)
+        jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;redo=redo,kwargs...)
+        vpvrpb = ViewAndPlaceRepresentationNew(sp,rp,unity_gaze_data;redo=redo,kwargs...)
+        jmb = JointMap(vpvrpb, jocc, jocc_filtered;use_trials=use_trials)
+        jmb_fname = DPHT.filename(JointMap;use_trials=use_trials, kwargs...)
         save_jld2(jmb,jmb_fname)
+        sic = zeros(nshuffles)
         if T <: JointInformationContent
             if smooth
                 if smoothing_method == :laplace
@@ -232,7 +246,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
                 sic0 = compute_skaggs_sic(jm)
             end
         else
-            mm = get_mesh(T,nrefinements)
+            mm = get_mesh(T,args[:nrefinements])
             spmb = maptype(T)(jmb,mm)
             if smooth
                 if smoothing_method == :gaussian
@@ -250,7 +264,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2)
         end
         @showprogress "Computing sic...." offset=prog_offset for (i,sptrain) in enumerate(eachcol(sp_r.timestamps))
             vpvrp = ViewAndPlaceRepresentationNew(sptrain/1000.0,rp,unity_gaze_data;kwargs...)
-            jm = JointMap(vpvrp, jocc, jocc_filtered)
+            jm = JointMap(vpvrp, jocc, jocc_filtered;use_trials=use_trials)
             if T <: JointInformationContent
                 if smooth
                     if smoothing_method == :laplace
