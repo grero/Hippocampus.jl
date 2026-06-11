@@ -7,6 +7,75 @@ struct DirectionFiltered
     index::Vector{Vector{CartesianIndex{5}}}
 end
 
+struct CardinalPlaceFieldDirectionality{T<:Real}
+    directions::Vector{Symbol}
+    weight::Array{T,3}
+    occupancy::Array{T,3}
+    ee::Vector{T}
+    ees::Matrix{T}
+    args::Dict{Symbol,Any}
+end
+
+function issignificant(card::CardinalPlaceFieldDirectionality{T};pv_threshold=0.05, tail=:right) where T <: Real
+    res = fill(false, length(card.ee))
+    for i in 1:length(res)
+        vidx = isfinite.(card.ees[i,:])
+        l,u = percentile(card.ees[i,vidx], [100*pv_threshold, 100*(1-pv_threshold)])
+        if tail == :both
+            res[i] = card.ee[i] < l || card.ee[i] > u
+        elseif tail == :right
+            res[i] = card.ee[i] > u
+        elseif tail == :left
+            res[i] = card.ee[i] < l
+        else
+            error("`tail` should `:left`, `:right`, or `:both`, noth $(tail)")
+        end
+    end
+    res
+end
+
+function CardinalPlaceFieldDirectionality(gidx::DirectionFiltered;nshuffles=1000, kwargs...)
+     m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+    Ls = get_normalize_laplacian(m_floor)
+    X,Y = get_joint_cardinal_prob(gidx)
+    Xs = laplace_smoothing(X, Ls, 0.1;niter=50); 
+    Ys = laplace_smoothing(Y, Ls, 0.1;niter=50); 
+
+    ees = zeros(size(X,3),nshuffles)
+    ee = zeros(size(X,3))
+    for j in 1:size(X,3)
+        ee[j]= get_conditional_information(Xs[:,:,j],Ys[:,:,j])
+    end
+    for i in 1:nshuffles
+        X,Y = get_joint_cardinal_prob(gidx;do_shuffle=true)
+        Xs = laplace_smoothing(X, Ls, 0.1;niter=50); 
+        Ys = laplace_smoothing(Y, Ls, 0.1;niter=50); 
+        for j in 1:size(X,3)
+            ees[j,i] = get_conditional_information(Xs[:,:,j],Ys[:,:,j])
+        end
+    end
+    CardinalPlaceFieldDirectionality{Float64}([:North, :South, :East, :West], X,Y, ee, ees, Dict{Symbol,Any}())
+end
+
+function CardinalPlaceFieldDirectionality(;redo=fname->false, do_save=true, nshuffles=1000, kwargs...)
+    fname = "cardinal_place_field_directionality.jld2"
+    h = process_kwargs(CardinalPlaceFieldDirectionality;nshuffles=nshuffles, kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if isfile(fname) && !redo(fname)
+        card = load_jld2(CardinalPlaceFieldDirectionality, fname)
+    else
+        gidx = DirectionFiltered(;kwargs...)
+        card = CardinalPlaceFieldDirectionality(gidx;nshuffles=nshuffles)
+        if do_save
+            save_jld2(card, fname)
+        end
+    end
+    card
+end
+
 function issignificant_old(gidx::DirectionFiltered;smooth=true, α=0.1, niter=1,pv_threshold=0.01)
     λ = get_direction_tuning(gidx;smooth=smooth, niter=niter, α=α) 
     z = λ.*exp.(gidx.anglebins*im)
