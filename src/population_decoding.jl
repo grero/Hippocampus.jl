@@ -216,6 +216,15 @@ function get_colors(traj::Vector{Tuple{Int64, Int64}})
     colors
 end
 
+function get_confusion_matrix(true_labels::AbstractVector{T}, decoded_labels::AbstractVector{T}) where T <: Integer
+    lmax = max(maximum(true_labels), maximum(decoded_labels))
+    C = zeros(lmax, lmax)
+    for (tl,dl) in zip(true_labels, decoded_labels)
+        C[dl,tl] += 1.0
+    end
+    C
+end
+
 
 ## plots
 function plot_decoder_space(zq::Matrix{<:Real}, triallabels::Vector{Tuple{Int64, Int64}};_plot_theme=plot_theme)
