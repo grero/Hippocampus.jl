@@ -311,3 +311,24 @@ function plot_spatial_confusion_matrix(confusion_matrix, mm::SimpleMesh;_plot_th
         fig
     end
 end
+
+function plot_decoder_contribution(W_nav::Matrix{T}, W_cue::Matrix{T};_plot_theme = plot_theme, cell_color::Union{AbstractVector{T2}, Nothing}=nothing, color_legend::Dict{Symbol, Symbol}=Dict{Symbol, Symbol}()) where T <: Real where T2
+    if cell_color === nothing
+        cell_color = :royalblue2
+    end
+    w_nav = dropdims(sum(abs2, W_nav,dims=1),dims=1)
+    w_cue = dropdims(sum(abs2, W_cue,dims=1),dims=1)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        ax = Axis(fig[1,1])
+        scatter!(ax, w_nav, w_cue, color=cell_color)
+        ax.xlabel = "Code weight during navigation"
+        ax.ylabel = "Code weight during cue"
+        if !isempty(color_legend)
+            Legend(fig[1,1], [MarkerElement(marker=:cicle, color=color_legend[k]) for k in keys(color_legend)],
+                            String.(collect(keys(color_legend))),valign=:top, halign=:right, tellwidth=false,
+                            tellheight=false)
+        end
+        fig
+    end
+end
