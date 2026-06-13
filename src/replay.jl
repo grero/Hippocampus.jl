@@ -2613,6 +2613,9 @@ function get_num_spikes_per_spatial_bin(vpvrp::ViewAndPlaceRepresentationNew, jo
     trajectories = Vector{Vector{Int64}}(undef,nt)
     spike_counts = Vector{Vector{Int64}}(undef, nt)
     ffq = in(qidx)
+    _getindex(q) = getindex(q, T)
+    mm = get_mesh(T, get(kwargs, :nrefinements, (p=0,g=0))) 
+    categorize_bins(bidx) = categorize(bidx,mm)
     for i in 1:nt
         if isempty(jocc.index[i])
             trajectories[i] = Int64[]
@@ -2621,7 +2624,12 @@ function get_num_spikes_per_spatial_bin(vpvrp::ViewAndPlaceRepresentationNew, jo
         end
         # TODO: This is no good
         jidx = findall(_idx->!ffq(CartesianIndex(_idx[1], _idx[2], _idx[3], i)), jocc.index[i])
-        pidx = getindex.(jocc.index[i],2)
+        _pidx = _getindex.(jocc.index[i])
+        if recategorize_bins
+            pidx = categorize_bins(_pidx)
+        else
+            pidx = _pidx
+        end
         pidx[jidx] .= 0
         trajectories[i],idx = compress_trajectory(pidx;ignore_values=[0])
         ff = in(vpvrp.placeviewidx[i])
@@ -2632,6 +2640,35 @@ function get_num_spikes_per_spatial_bin(vpvrp::ViewAndPlaceRepresentationNew, jo
         spike_counts[i] = _spike_counts
     end
     spike_counts, trajectories
+end
+
+function get_num_spikes_per_bin(::Type{T};redo=fname->false, do_save=true, kwargs...) where T <: Union{SpikeCountPerSpatialBin, SpikeCountPerGazeBin}
+    fname = DPHT.filename(T;kwargs...)
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(T, fname)
+    else
+        jocc,qdata = cd(DPHT.process_level("session")) do
+            jocc = JointOccupancy(;kwargs...)
+            qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
+            jocc, qdata
+        end
+        jocc_filtered= JointFilteredOccupancy(jocc,qdata;kwargs...)
+        vpvrp = ViewAndPlaceRepresentationNew(;redo=fname->false,do_save=true,kwargs...)
+        spikecounts,trajectories = get_num_spikes_per_bin(T, vpvrp, jocc, jocc_filtered.index;kwargs...)
+        if get(kwargs, :correct_only, false)
+            udata = cd(DPHT.process_level("session")) do
+                UnityData()
+            end
+            cidx = round.(Int64, floor.(udata.triggers[:,3]./10)) .== 3
+        else
+            cidx = 1:length(spikecounts)
+        end  
+        obj = T(spikecounts[cidx], trajectories[cidx])
+        if do_save
+            save_jld2(obj,fname;kwargs...)
+        end
+    end
+    obj
 end
 
 function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, min_speed=1, nrefinements=(p=3,g=2),use_trials=:all, kwargs...)
