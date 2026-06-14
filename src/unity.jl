@@ -1570,16 +1570,23 @@ function analyse_trajectories(celldirs::Vector{String}, m_floor::SimpleMesh)
 end
 
 function get_poster_combinations(udata::UnityData)
-    nt = numtrials(udata)   
-    combos = Vector{Tuple{Int64, Int64}}(undef, nt-1)
-    correct = fill(false, nt-1)
-    for i in 2:nt
-        previous_poster = udata.triggers[i-1,1]
-        previous_poster -= 10
-        current_poster = udata.triggers[i,1]
+    get_poster_combinations(udata.triggers)
+end
+
+function get_poster_combinations(triggers::Matrix{<:Integer})
+    nt = size(triggers,1)
+    combos = Vector{Tuple{Int64, Int64}}(undef, nt)
+    correct = fill(false, nt)
+    previous_poster = 0
+    for i in 1:nt
+        current_poster = triggers[i,1]
         current_poster -= 10
-        combos[i-1] = (previous_poster, current_poster)
-        correct[i-1] = (udata.triggers[i,3] - current_poster) == 30
+        combos[i] = (previous_poster, current_poster)
+        correct[i] = (triggers[i,3] - current_poster) == 30
+        if correct[i]
+            # only update previous poster if the trial is correct
+            previous_poster = current_poster
+        end
     end
     combos, correct 
 end
