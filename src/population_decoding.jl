@@ -421,24 +421,36 @@ function plot_decoder_space(zq::Matrix{<:Real}, triallabels::Vector{Tuple{Int64,
     end
 end
 
-function plot_spatial_performance(true_labels::Vector{T}, decoded_labels::Vector{T},mm::SimpleMesh;_plot_theme=plot_theme, kwargs...) where T <: Integer
-    Z = zeros(nelements(mm)) 
-    nn = fill(0, nelements(mm))
+function plot_spatial_performance(true_labels::Vector{T}, decoded_labels::Vector{T},mm::SimpleMesh;_plot_theme=plot_theme, poster_positions=poster_pos, binidx=1:nelements(mm), kwargs...) where T <: Integer
+    Z = zeros(maximum(true_labels)) 
+    nn = fill(0, length(Z))
     colormap = get(kwargs, :colormap, :navia)
     for (tl,dl) in zip(true_labels, decoded_labels)
         Z[tl] += tl==dl
         nn[tl] += 1
     end
     Z ./= nn
+    Zq = zeros(nelements(mm))
+    for tl in true_labels
+        Zq[binidx.==tl] .= Z[tl]
+    end
+    @show Zq
     with_theme(_plot_theme) do
         fig = Figure()
-        ax = Axis(fig[1,1], aspect=1.0)
-        hidedecorations!(ax)
-        ax.bottomspinevisible = false
-        ax.leftspinevisible = false
-        viz!(ax, mm;color=Z,colormap=colormap)
-        text!(ax, Point2f.(poster_pos[k] for k in keys(poster_pos)), text=String.(collect(keys(poster_pos))), 
-                        align=(:center, :baseline), color=:gray85)
+        if embeddim(mm) == 2
+            ax = Axis(fig[1,1], aspect=1.0)
+            hidedecorations!(ax)
+            ax.bottomspinevisible = false
+            ax.leftspinevisible = false
+            viz!(ax, mm;color=Zq,colormap=colormap)
+            text!(ax, Point2f.(poster_positions[k] for k in keys(poster_positions)), text=String.(collect(keys(poster_positions))), 
+                            align=(:center, :baseline), color=:gray85)
+        else
+            lscene = LScene(fig[1,1], show_axis=false)
+            plotmesh!(lscene, mm, color=Zq, colormap=colormap, floor_offset=-10, ceiling_offset=10)
+            text!(lscene, Point3f.((poster_positions[k]...,3.5) for k in keys(poster_positions)), text=String.(collect(keys(poster_positions))), 
+                            align=(:center, :baseline), color=:gray85)
+        end
         Colorbar(fig[1,2], colorrange=extrema(filter(isfinite, Z)), label="Performance", colormap=colormap)
         fig
     end
