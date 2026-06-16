@@ -28,7 +28,8 @@ function get_data(celldirs::Vector{String};correct_after_correct_only=true,kwarg
     spikes, poster_labels
 end
 
-function get_spatial_data(celldirs::Vector{String};kwargs...)
+function get_spatial_data(::Type{T}, celldirs::Vector{String};kwargs...) where T <: Union{SpikeCountPerGazeBin, SpikeCountPerSpatialBin}
+    # TODO: This assumes that every session uses the same poster positions
     allsessiondirs = DPHT.get_level_path.("session", celldirs)
     sessiondirs = unique(allsessiondirs)
     spike_counts = Vector{Float64}[]
@@ -47,7 +48,7 @@ function get_spatial_data(celldirs::Vector{String};kwargs...)
         cidx = allsessiondirs.==sessiondir
         for (jj,celldir) in enumerate(celldirs[cidx])
             obj = cd(celldir) do 
-                SpikeCountPerSpatialBin(;nrefinements=(p=0,g=0), trial_start=2, min_speed=1.0, min_place_duration=0.05, min_view_duration=0.02, min_place_obs=5, min_view_obs=5)
+                get_num_spikes_per_bin(T;nrefinements=(p=0,g=0), trial_start=2, min_speed=1.0, min_place_duration=0.05, min_view_duration=0.02, min_place_obs=5, min_view_obs=5,kwargs...)
             end
             spike_counts_flat =  reduce(vcat, filter(sc->length(sc)>0, obj.spikecounts));
             trajectories_flat = reduce(vcat, filter(sc->length(sc)>0, obj.bins));
