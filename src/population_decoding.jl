@@ -247,6 +247,141 @@ function get_confusion_matrix(true_labels::AbstractVector{T}, decoded_labels::Ab
     C
 end
 
+function cluster_sequences(seqs::Vector{<:AbstractVector{<:T}};radius=2) where T
+    D = [Hippocampus.lcs_dist(a,b) for a in seqs, b in seqs]
+    rr = dbscan(D, radius;metric=nothing)
+    unique_seqs = Vector{Vector{T}}(undef, length(seqs))
+    sidx = Vector{Vector{Int64}}(undef, length(seqs))
+    for cc in rr.clusters
+        idx = cc.core_indices
+        _seqs = unique(seqs[idx])
+        if isempty(_seqs)
+            @show _seqs
+        end
+        #_lcs = Sequences.lccs_multiple(_seqs) 
+        #_lcs = Sequences.lcs_multiple(_seqs)
+        _lcs, cq = Sequences.longest_frequent_subsequence(_seqs)
+        if isempty(_lcs)
+            @show _seqs _lcs
+        end
+        has_gaps = false
+        for ii in idx
+            unique_seqs[ii] = _lcs
+            seqsii = seqs[ii]
+            # we need to find the index into the original sequence
+            # for contiguous sequences, the below works, but for non-contiguous ones
+            # we need to work a bit harder.
+            sidx[ii] = Sequences.find_index(_lcs, seqsii)
+            #for jj in 1:length(seqsii)-length(_lcs)+1
+            #    if seqsii[jj:jj+length(_lcs)-1] == _lcs
+            #        sidx[ii] = collect(jj:jj+length(_lcs)-1)
+            #        if length(_lcs) == 0
+            #        end
+            #        break
+            #    end
+            #end
+            if !isassigned(sidx, ii)
+                #why would this happen? The _lcs is computed from all the sequences,
+                # so seqsii, whicn is in the cluster representedy by idx, should have _lcs
+                # as a subsquence by definition
+                @show seqsii _lcs
+                has_gaps = true
+            end
+        end
+        if has_gaps
+            @show _lcs _seqs
+        end
+    end
+    unique_seqs, sidx
+end
+
+function reclassify_sequences(seqs::Vector{<:Vector{T}},sequence_labels::Vector{T2} ) where T where T2
+    unique_labels = unique(sequence_labels)
+    useqs = Vector{Vector{T}}(undef, length(seqs))
+    sidx = Vector{Vector{Int64}}(undef, length(seqs))
+    for ul in unique_labels
+        tidx = findall(k->k==ul, sequence_labels)
+        if length(tidx) > 1
+            _useqs,_sidx = cluster_sequences(seqs[tidx])
+            for (seq,ss,_tidx) in zip(_useqs, _sidx, tidx)
+                if isempty(seq)
+                end
+                useqs[_tidx] = seq 
+                sidx[_tidx] = ss
+            end
+        else
+            useqs[tidx] = seqs[tidx]
+            sidx[first(tidx)] = collect(1:length(seqs[first(tidx)]))
+        end
+        if isempty(seqs[first(tidx)])
+        end
+    end
+    useqs, sidx
+end
+
+"""
+Combine data
+"""
+function combine_data(objs::Vector{SpikeCountPerSpatialBin}, triallables::Vector{<:Vector{T}}) where T
+    nt = maximum(length.(triallables))
+    ncells = length(objs)
+    X = zeros(nt, ncells)
+    seqs = Vector{Vector{Vector{Int64}}}(undef, ncells)
+    for (ii,(obj,labels)) in enumerate(zip(objs, triallables))
+        useqs, isdx = reclassify_sequences(obj.bins, labels)
+        try
+            cc = [sum(_sc[_idx]) for (_sc, _idx) in zip(obj.spikecounts, isdx)]
+            X[1:length(cc),ii] .= cc
+            seqs[ii] = useqs
+        catch ee
+            @show ii
+            rethrow(ee)
+        end
+    end
+    X,seqs
+end
+
+function reshape_trial(X::Vector{T}, cellidx::Vector{<:Integer}) where T
+    # find the maximum number of trials
+    cc = countmap(cellidx)
+    ncells = maximum(cellidx)
+    ntrials,cellidx = findmax(cc)
+    Z = zeros(ntrials, ncells)
+    tidx = 1
+    for (x,ii) in zip(X,cellidx)
+        Z[tidx,ii] = x
+        if tidx >= cc[ii]
+            tidx = 1
+        else
+            tidx += 1
+        end
+    end
+    Z
+end
+
+function reshape_trial(sc::Vector{T2}, bidx::Vector{<:Vector{<:Integer}}, cellidx::Vector{<:Integer}) where T2 <: Vector{T} where T
+    # find the maximum number of trials
+    cc = countmap(cellidx)
+    ncells = maximum(cellidx)
+    ntrials,_cellidx = findmax(cc)
+    Z = zeros(ntrials, ncells)
+    tidx = 1
+    @show length(sc) length(bidx) length(cellidx)
+    for (_sc, _bidx,ii) in zip(sc,bidx,cellidx)
+        for _bb in _bidx
+            if _bb > 0
+                Z[tidx,ii] +=_sc[_bb] 
+            end
+        end
+        if tidx >= cc[ii]
+            tidx = 1
+        else
+            tidx += 1
+        end
+    end
+    Z
+end
+
 
 ## plots
 function plot_decoder_space(zq::Matrix{<:Real}, triallabels::Vector{Tuple{Int64, Int64}};_plot_theme=plot_theme)
