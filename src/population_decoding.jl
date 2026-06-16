@@ -126,6 +126,15 @@ function stabilize(X::Matrix{T};dims=1) where T <: Real
     Xs
 end
 
+function stabilize(X::Matrix{T},ntrials::Vector{<:Integer}) where T <: Real
+    Xs = zeros(size(X)...,)
+    for (ii,nt) in enumerate(ntrials)
+        Xs[1:nt,ii] .= sqrt.(X[1:nt,ii])
+        Xs[1:nt,ii] .-= mean(Xs[1:nt,ii])
+    end
+    Xs
+end
+
 function decode(spikecounts::Matrix{T}, triallabel::Vector{T2};ntrain=1500,ntest=100) where T2 <: Vector{T3} where T3 where T <: Real
     X = repeat(permutedims(spikecounts),1,1,1)
     Y, trainlabel, testlabel = CrossTemporalDecoding.sample_trials(X, triallabel;ntrain=ntrain,ntest=ntest)
