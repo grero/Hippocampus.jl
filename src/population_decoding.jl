@@ -166,7 +166,7 @@ function decode(Y::Matrix{T}, lda) where T <: Real
     lidx
 end
 
-function train_navigation_test_cue(spike_counts_nav, triallabels_nav, spike_counts_cue, triallabels_cue,mm::SimpleMesh;decode_goal=true, ntrain=1500,ntest=500)
+function train_navigation_test_cue(spike_counts_nav, triallabels_nav, spike_counts_cue, triallabels_cue,mm::SimpleMesh;decode_goal=true, ntrain=1500,ntest=500,poster_positions=poster_pos,recategorize_bins=false)
     # train a spatial decoder do decode space during navgation
     X_nav = repeat(permutedims(stabilize(spike_counts_nav)),1,1,1)
     # create pseudo-population response
@@ -177,18 +177,21 @@ function train_navigation_test_cue(spike_counts_nav, triallabels_nav, spike_coun
     traintestlabel = [idxs[l] for l in labels]
 
     lda = fit(SubspaceLDA, permutedims(Y[1,1:ntrain,:]), traintestlabel[1:ntrain])
-
     # create pseudo-population for cue period
     X_cue = repeat(permutedims(stabilize(spike_counts_cue)),1,1,1)
-    Y_cue, trainlabel_cue, testlabel_cue = CrossTemporalDecoding.sample_trials(X_nav, triallabels_cue;ntrain=ntrain,ntest=ntest)
+    # we are sampling trials based on pairs of starting and goal posters
+    Y_cue, trainlabel_cue, testlabel_cue = CrossTemporalDecoding.sample_trials(X_cue, triallabels_cue;ntrain=ntrain,ntest=ntest)
     # find the space spanning the variance
+    # is this a smart thing to do? 
     pca = fit(PCA, permutedims(Y_cue[1,1:ntrain,:]))
-
+    # TODO: Make sure all cells used actually respond
     # find a matrix to transform the pca space in the cue period to the pca space during the navigation period
     R = procrustes_transform(permutedims(pca.proj), permutedims(lda.projw))
     # project the cue responses onto the lda space during the navigation period
     W_cue = lda.projLDA'*R*pca.proj'
     Zp = W_cue*Y_cue[1,1:ntrain,:]'
+    #Zp = predict(lda, permutedims(Y_cue[1,1:ntrain,:]))
+    Zq = predict(lda, permutedims(Y[1,1:1500,:]))
     W_nav = lda.projLDA'*lda.projw'
     #decode position
     czmeans = predict(lda, lda.cmeans)
@@ -201,9 +204,15 @@ function train_navigation_test_cue(spike_counts_nav, triallabels_nav, spike_coun
     else
         kt = 1
     end
-    poster_pos_on_mesh = [get_poster_position(poster_pos[poster_names[k[kt]]],mm) for k in trainlabel_cue[1:ntrain]]
+    if recategorize_bins
+        bidx = categorize(mm)
+    else
+        bidx = [1:nelements(mm);]
+    end
+    poster_pos_on_mesh = bidx[[get_poster_position(poster_positions[poster_names[k[kt]]],mm) for k in trainlabel_cue[1:ntrain]]]
+    @show poster_pos_on_mesh
 
-    unique_poster_positions = [get_poster_position(poster_pos[poster_names[k]],mm) for k in 1:6]
+    unique_poster_positions = bidx[[get_poster_position(poster_positions[poster_names[k]],mm) for k in 1:6]]
     # find the performance for each poster
     perf = zeros(length(poster_pos))
     nn = fill(0, length(poster_pos))
@@ -214,7 +223,7 @@ function train_navigation_test_cue(spike_counts_nav, triallabels_nav, spike_coun
         perf[ii] += dl==tl
         nn[ii] += 1
     end
-    perf./nn, confusion_matrix, unique_poster_positions, poster_names, W_nav, W_cue
+    perf./nn, confusion_matrix, unique_poster_positions, poster_names, W_nav, W_cue, Zp, decoded_labels, Zq, trainlabel, trainlabel_cue
 end
 
 function get_colors(traj::Vector{Tuple{Int64, Int64}})
