@@ -456,7 +456,7 @@ function plot_spatial_performance(true_labels::Vector{T}, decoded_labels::Vector
     end
 end
 
-function plot_spatial_confusion_matrix(confusion_matrix, mm::SimpleMesh;_plot_theme=plot_theme,colormap=:managua)
+function plot_spatial_confusion_matrix(confusion_matrix, mm::SimpleMesh;_plot_theme=plot_theme,colormap=:managua,poster_positions=poster_pos)
     perf = diag(confusion_matrix)./dropdims(sum(confusion_matrix,dims=1),dims=1)
     with_theme(_plot_theme) do 
         fig = Figure()
@@ -481,9 +481,9 @@ function plot_spatial_confusion_matrix(confusion_matrix, mm::SimpleMesh;_plot_th
         end
         lw = 5*(lw .- minimum(lw))./(maximum(lw) - minimum(lw)) .+ 0.1
         linesegments!(lscene, ls, linewidth=lw, color=cc, colormap=colormap)
-        text!(lscene, Point3f.((poster_pos[k]...,-9) for k in keys(poster_pos)), text=String.(collect(keys(poster_pos))), 
+        text!(lscene, Point3f.((poster_positions[k]...,-9) for k in keys(poster_positions)), text=String.(collect(keys(poster_positions))), 
                         align=(:center, :baseline), color=:salmon, overdraw=true)#, markerspace=:data, fontsize=1.5)
-        linesegments!(lscene, [(Point3f(poster_pos[k]..., -10), Point3f(poster_pos[k]...,-9)) for k in keys(poster_pos)], color=:salmon,
+        linesegments!(lscene, [(Point3f(poster_positions[k]..., -10), Point3f(poster_positions[k]...,-9)) for k in keys(poster_positions)], color=:salmon,
                             overdraw=true)
         Colorbar(fig[1,2], colorrange=extrema(filter(isfinite, perf)), colormap=colormap, label="Performance")
         fig
