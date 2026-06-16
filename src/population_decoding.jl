@@ -4,7 +4,7 @@ using CrossTemporalDecoding
 
 Get spiketrains and poster combinations for all celldirs
 """
-function get_data(celldirs::Vector{String};kwargs...)
+function get_data(celldirs::Vector{String};correct_after_correct_only=true,kwargs...)
     allsessiondirs = DPHT.get_level_path.("session", celldirs)
     sessiondirs = unique(allsessiondirs)
     spikes = Vector{Vector{Vector{Vector{Float64}}}}(undef, length(sessiondirs))
@@ -14,11 +14,14 @@ function get_data(celldirs::Vector{String};kwargs...)
             RippleData(), UnityData()
         end
         _poster_labels,correct_trial_idx = get_poster_combinations(udata)
+        if correct_after_correct_only
+            correct_trial_idx = findall(correct_trial_idx[2:end].&correct_trial_idx[1:end-1]) .+ 1
+        end
         poster_labels[ii] = _poster_labels[correct_trial_idx]
         cidx = allsessiondirs.==sessiondir
         spikes[ii] = Vector{Vector{Float64}}(undef, sum(cidx))
         for (jj,celldir) in enumerate(celldirs[cidx])
-            _spikes = get_spikes(celldir;kwargs...)[2:end]
+            _spikes = get_spikes(celldir;kwargs...)
             spikes[ii][jj] = _spikes[correct_trial_idx]
         end
     end
