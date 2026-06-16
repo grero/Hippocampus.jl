@@ -382,6 +382,49 @@ function reshape_trial(sc::Vector{T2}, bidx::Vector{<:Vector{<:Integer}}, cellid
     Z
 end
 
+function decode_sequences(allcelldirs::Vector{String};redo=false, kwargs...)
+    fname = "data/population_sequence_decoder_data.jld2"
+    if !redo && isfile(fname)
+        allspikecounts, alltriallabels, allsequences, allidx,ntrials = JLD2.load(fname, "allspikecounts","alltriallabels","allsequences","allidx","ntrials")
+    else
+        # get the poster label combinations for all trials
+        spikes, poster_labels = get_data(String.(allcelldirs);trial_start=1, trial_end=2)
+        spikecounts, triallabels = format_data(spikes, poster_labels)
+
+        # get spike counts for navigation sequences
+        objs = map(allcelldirs) do celldir
+            try
+                obj = cd(celldir) do
+                    Hippocampus.get_num_spikes_per_bin(Hippocampus.SpikeCountPerSpatialBin;correct_after_correct_only=true, nrefinements=(p=0,g=0), trial_start=2, min_speed=1.0, min_place_duration=0.05, min_view_duration=0.02, min_place_obs=5, min_view_obs=5)
+                end
+            catch ee
+                return nothing
+            end
+        end
+        cidx = findall(objs.!==nothing)
+
+        # convert to flat structure
+        allspikecounts = reduce(vcat, [obj.spikecounts for obj in objs[cidx]]);
+        alltriallabels = reduce(vcat, triallabels[cidx])
+        allsequences = reduce(vcat, [obj.bins for obj in objs[cidx]])
+        allidx = reduce(vcat, [fill(i,length(obj.spikecounts)) for (i,obj) in enumerate(objs[cidx])])
+        ntrials = [length(obj.spikecounts) for obj in objs[cidx]]
+        # cluster sequences with in poster combination
+        # and find repreesntative sequences for each cluster
+        JLD2.save(fname, Dict("allspikecounts"=>allspikecounts,
+                             "alltriallabels"=>alltriallabels,
+                             "allsequences"=>allsequences,
+                             "allidx"=>allidx,
+                             "ntrials"=>ntrials))
+    end
+    useqs, isdx = reclassify_sequences(allsequences, alltriallabels)
+    # convert to sequnces per cell
+    labeled_seqs = [useqs[allidx.==i] for i in 1:maximum(allidx)]
+    Z = reshape_trial(allspikecounts, isdx, allidx)
+    Zs = stabilize(Z,ntrials) 
+    perf, testlabel, decoded_label, trainstate, lda, ulabels = decode(Zs,labeled_seqs;ntest=500)
+end
+
 
 ## plots
 function plot_decoder_space(zq::Matrix{<:Real}, triallabels::Vector{Tuple{Int64, Int64}};_plot_theme=plot_theme)
