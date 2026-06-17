@@ -1158,6 +1158,27 @@ end
 
 ## plots
 
+function plot_directional_summary(qq) 
+    with_theme(plot_theme) do
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
+        fig,ax = viz(m_floor, color=:lightgray, showsegments=false)
+        hidedecorations!(ax)
+        ax.xticklabelsvisible = false
+        ax.yticklabelsvisible = false
+        ax.bottomspinevisible = false
+        ax.leftspinevisible = false
+        nn = 0
+        for q in qq
+            if q[1]
+                arrows3d!(ax, Point2f.(q[3]), Point2f.(cos.(q[2]), sin.(q[2])),color=:red)
+                nn += 1
+            end
+        end    
+        @show nn
+        fig
+    end
+end
+
 function plot_field_directionality!(lg::GridLayout, λ::AbstractVector{<:Real}, θ::AbstractVector{<:Real};kwargs...)
     # compute circular mean
     qidx = isfinite.(λ)
