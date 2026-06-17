@@ -863,6 +863,19 @@ function get_view_bins(mm::SimpleMesh, pos, ϕ;Δϕ=π/3)
     midx
 end
 
+function get_ray_intersect(pos, ϕ, mm)
+    r = Ray(Tuple(pos), (cos(ϕ), sin(ϕ), 0.0))
+    intersect_set = NTuple{3,Float64}[]
+    for i in 1:nelements(mm)
+        m = mm[i]
+        iq = Meshes.intersect(r, m)
+        if iq !== nothing
+            push!(intersect_set, Tuple(first(iq)))
+        end
+    end
+    intersect_set
+end
+
 function get_view_bins(anglebins::AbstractVector{<:Real}, mm::SimpleMesh, m_floor::SimpleMesh, place_dir_idx::Vector{Tuple{Int64, Int64}};z=0.5, kwargs...)
     left_gaze_place_dir_idx = NTuple{3, Int64}[]
     right_gaze_place_dir_idx = NTuple{3, Int64}[]
