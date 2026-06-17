@@ -1032,6 +1032,129 @@ function get_egocentric_gaze(gidx;pv_threshold=0.01,z=0.5)
     midx
 end
 
+# TODO: Type for View conditioned on spatial location and traversal
+struct SpatialTraversalView
+    issignificant::Matrix{Bool}
+    view_clusters::Vector{Vector{Int64}}
+    λ::Vector{Vector{Float64}} # firing rate
+    args::Dict{Symbol,Any}
+end
+
+issignificant(obj::SpatialTraversalView) = any(obj.res)
+
+function analyse_directionality(gidx, rf_gaze::GazeResponseFields;pv_threshold=0.001,α=0.1, niter=100)
+    # get the significant view field clusters
+    view_clusters = merge_fields(rf_gaze)
+    nclusters = get_num_fields(rf_gaze)
+    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).< 0.001)
+    view_clusters = view_clusters[cidx]
+    # get the tuning strength and direction of the field
+    # TODO: Establish whether there is tuning
+    pv = get_pvalue(gidx)
+    μr0,ϕ0 = Hippocampus.get_directional_tuning_strength(gidx;do_shuffle=false, smooth=false,niter=1)
+    res = fill(false, length(view_clusters), length(pv))
+    λ = Vector{Vector{Float64}}(undef, size(res,2))
+    for i in 1:length(pv)
+        if pv[i] < pv_threshold 
+            # find the indices of a 60 degree cone around the dominant direction
+            bidx = findall(cos.(gidx.anglebins .- ϕ0[i]) .>= cos(π/6))
+            # find the spatial and directional bins within this cone
+            vq = unique([(k[2], k[4]) for k in keys(filter(k->in(bidx)(k[1][4]), gidx.occupancy[i]))])
+            # get the associated view bin indices as well (can probably just be combined with the above)
+            vidx = [(k[1], k[2], k[4]) for k in filter(k->(k[2], k[4]) in vq, keys(gidx.occupancy[i]))] 
+            # get the view map conditioned on place and directionality
+            λ_all = Hippocampus.get_view_rate_map(gidx.occupancy[i], gidx.weight[i], vidx)
+            λ[i] =  Hippocampus.get_view_rate_map(gidx.occupancy[i], gidx.weight[i], vidx;smooth=true,α=α,niter=niter) 
+            idx = findall(isfinite, λ_all)
+            # run a permutation test to see whether the firing rate in (one of) the view fields is siginificant
+            for (j,vc) in enumerate(view_clusters)
+                qidx = findall(in(rf_gaze.binidx[vc]), idx)
+                if isempty(qidx)
+                    continue
+                end
+                μ0 = mean(λ_all[idx[qidx]])
+                μs = [mean(shuffle(λ_all[idx])[qidx]) for _ in 1:10_000]
+                μs_u = percentile(μs, 100*(1-pv_threshold))
+                if μ0 > μs_u
+                    res[j,i] = true
+                end
+            end
+        end
+    end
+    res, view_clusters, λ
+end
+
+function SpatialTraversalView(;redo=fname->false, do_save=true, kwargs...)
+    h = process_kwargs(GazeResponseFields;kwargs...)
+    h = process_kwargs(DirectionFiltered,h;kwargs...)
+    fname = "spatial_traversal_view.jld2"
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(SpatialTraversalView, fname)
+    else
+        rf_gaze = get_response_fields(GazeResponseFields, 10_000;kwargs...)
+        gidx = DirectionFiltered(;kwargs...)
+        res, view_clusters, λ = analyse_directionality(gidx, rf_gaze;kwargs...) 
+        obj = SpatialTraversalView(res, view_clusters, λ,Dict(kwargs))
+        if do_save
+            save_jld(obj, fname)
+        end
+    end
+    obj
+end
+
+function get_directionality(celldirs::Vector{String}, args...;kwargs...)
+    h = process_kwargs(DirectionFiltered;kwargs...)
+    fname = joinpath(@__DIR__,"..", "data","spatial_directionality.jld2")
+    if h > 0
+        hs = string(h,base=16)
+        fname = replace(fname, ".jld2"=>"_(hs).jld2")
+    end
+    if isfile(fname)
+        qq = JLD2.load(fname, "qq")
+    else
+        m_floor = floor_topology3(;nrefinements=3)
+        qq = map(celldirs) do celldir
+            gidx = cd(celldir) do
+                Hippocampus.DirectionFiltered(;only_full_traversal=true,kwargs...) 
+            end
+            dr = Hippocampus.issignificant(gidx)
+            if any(dr)
+                μr, ϕ0 = Hippocampus.get_directional_tuning_strength(gidx;do_shuffle=false, smooth=false,niter=1)
+                # also find the center of each field
+                m = [mean(Point3f.(Tuple.(centroid.(m_floor[unique(getindex.(keys(gidx.occupancy[ii]),2))])))) for ii in findall(dr)]
+            else
+                ϕ0 = fill(NaN, length(dr))
+                m = Point3f[]
+            end
+            return any(dr), ϕ0[dr],m
+        end
+    end
+    return qq
+end
+
+"""
+Get cells with directional view fields where the view fields cannot be explained simply from these directional view fields.
+"""
+function get_non_directional_view(celldirs)
+     map(celldirs) do celldir
+       gidx,rf_gaze = cd(celldir) do
+       gidx = DirectionFiltered(;only_full_traversal=true, min_speed=1.0, trial_start=1, smooth=true, smoothing_method=:laplace, α=0.1, niter=100, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0, pv_threshold=0.01,redo=fname->false)
+       rf_gaze = Hippocampus.get_response_fields(Hippocampus.GazeResponseFields, 10_000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=-1, min_view_obs=-1, min_place_duration=-1.0, min_view_duration=-1.0,trial_start=1, pv_threshold=0.001)
+       gidx, rf_gaze
+       end
+       if any(Hippocampus.issignificant(gidx))
+
+          res,vc,λ = Hippocampus.analyse_directionality(gidx, rf_gaze;pv_threshold=0.01)
+          return any(res)
+       end
+       return false
+       end
+end
+
 
 ## plots
 
