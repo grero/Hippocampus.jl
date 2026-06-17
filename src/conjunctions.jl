@@ -167,7 +167,358 @@ end
 Base.getindex(qidx::CartesianIndex{4}, ::Type{SpatialResponseFields}) = getindex(qidx,2)
 Base.getindex(qidx::CartesianIndex{4}, ::Type{GazeResponseFields}) = getindex(qidx,1)
 
-function conjunctions(jm::JointMap, fields1::T1, fields2::T2) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+function get_conditional_activity(jm::JointMap, fields1::T1, fields2::T2)  where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+    mm1 = get_mesh(T1, fields1.args[:nrefinements])
+    mm2 = get_mesh(T2, fields2.args[:nrefinements])
+    clusters1 = Hippocampus.merge_fields(fields1)
+    nclusters1 = get_num_fields(fields1)
+    clusters1 = clusters1[dropdims(mean(nclusters1,dims=2),dims=2) .< 0.001]
+    clusters2 = Hippocampus.merge_fields(fields2)
+    nclusters2 = get_num_fields(fields2)
+    clusters2 = clusters2[dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001]
+
+    all_not_covered = setdiff(1:nelements(mm1), fields1.binidx)
+    x_not_covered = zeros(nelements(mm2))
+    w_not_covered = zeros(nelements(mm2))
+    for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+       pidx = getindex(qidx,T1)
+       vidx = getindex(qidx,T2) 
+       if pidx in all_not_covered
+            x_not_covered[vidx] += w
+            w_not_covered[vidx] += occ
+       end
+    end
+    x_covered = zeros(nelements(mm2), length(clusters1))
+    w_covered = zeros(nelements(mm2), length(clusters1))
+    for (ii,covered) in enumerate(clusters1)
+        # compare firing rates within vis outside the field
+        n_covered = 0
+        for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+            pidx = getindex(qidx,T1)
+            vidx = getindex(qidx,T2)
+            if pidx in covered
+                #push!(Z_covered, λ)
+                n_covered += 1
+                x_covered[vidx,ii] += w
+                w_covered[vidx,ii] += occ
+            end
+        end
+    end
+    (covered = (x=x_covered, w=w_covered), not_covered=(x=x_not_covered, w=w_not_covered))
+end
+
+"""
+Return all valid indices om `idx` where the first index is not in `cluster1` but the second index is in `cluster2`
+"""
+function get_conditional_indices(idx::Vector{CartesianIndex{4}}, cluster1::Vector{<:Integer}, cluster2::Vector{<:Integer})
+    valid_idx = Int64[]
+    for (jj,ii) in enumerate(idx)
+        k1 = getindex(ii,1)
+        k2 = getindex(ii,2)
+        if (k1 in cluster1) && (k2 in cluster2)
+            push!(valid_idx,jj)
+        end
+    end
+    valid_idx
+end
+
+
+function get_equivalent_cluster(idx::Vector{CartesianIndex{4}}, cluster1::Vector{<:Integer}, cluster2::Vector{<:Integer},n::Integer, D::AbstractMatrix{<:Real};dims=1)
+    valid_idx = get_conditional_indices(idx, cluster1, cluster2)
+    get_equivalent_cluster(idx,valid_idx, cluster1,cluster2,n,D;dims=dims)
+end
+"""
+Create a cluster with `n` mmembers from from `cluster1` so that the second index is also in `cluster2`
+"""
+function get_equivalent_cluster(idx::Vector{CartesianIndex{4}}, valid_idx::Vector{<:Integer}, cluster1::Vector{<:Integer}, cluster2::Vector{<:Integer},n::Integer, D::AbstractMatrix{<:Real};dims=1,rng=Random.default_rng())
+    clusters = [cluster1,cluster2]
+    @assert length(clusters[dims]) == size(D,1)
+    # grab a random index to use as a starting point
+    fidx = rand(rng, valid_idx)
+    # create a neighborhood
+    if dims == 1
+        midx = findfirst(cluster1.==getindex(idx[fidx],1))
+        pidx = sortperm(D[:,midx])[1:n]
+        new_cluster = cluster1[pidx]
+    else
+        midx = findfirst(cluster2.==getindex(idx[fidx],2))
+        pidx = sortperm(D[:,midx])[1:n]
+        new_cluster = cluster2[pidx]
+    end
+    new_cluster
+end
+
+function get_conditional_activity(jm::JointMap, cluster1::Vector{<:Integer}, cluster2::Vector{<:Integer},N::Union{Nothing, Int64}=nothing;dims=2)
+    # get a set of valid indices, i.e. where elements of both cluster 1 and cluster 2 are present
+    if dims==2
+        dim_v = 1
+        dim_p = 2
+    else
+        dim_v = 2
+        dim_p = 1
+    end
+    if isnothing(N)
+        N = maximum(getindex.(jm.index, dims))
+    end
+    X = zeros(N)
+    W = zeros(N)
+    f1 = in(cluster1)
+    f2 = in(cluster2)
+    for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+        idx1 = getindex(qidx, 1)
+        idx2 = getindex(qidx, 2)
+        if f1(idx1)  && f2(idx2)
+            if dims==2
+                vidx = idx1
+                pidx = idx2
+            else
+                vidx = idx2
+                pidx = idx1
+            end
+            X[pidx] += w
+            W[pidx] += occ
+        end
+    end
+    X,W
+end
+
+
+# TODO: Create a more barebones version that is easier to test
+function conjunctions_new(jm::JointMap, fields1::T1, fields2::T2;nshuffles=1000) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
+     mm1 = get_mesh(T1, fields1.args[:nrefinements])
+    mm2 = get_mesh(T2, fields2.args[:nrefinements])
+   
+    D = distancematrix(mm1;between_centroids=false)
+    # TODO: Get signifiance
+    clusters1 = Hippocampus.merge_fields(fields1)
+    nclusters1 = get_num_fields(fields1)
+    clusters1 = clusters1[dropdims(mean(nclusters1,dims=2),dims=2) .< 0.001]
+    clusters2 = Hippocampus.merge_fields(fields2)
+    nclusters2 = get_num_fields(fields2)
+    clusters2 = clusters2[dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001]
+
+    # distance matrix between points that are not in fields of fields1
+    all_not_covered = setdiff(1:nelements(mm1), fields1.binidx)
+    Da = D[all_not_covered, :]
+    # compute outfield first
+    x_not_covered = zeros(nelements(mm2))
+    w_not_covered = zeros(nelements(mm2))
+    for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+       pidx = getindex(qidx,T1)
+       vidx = getindex(qidx,T2) 
+       if pidx in all_not_covered
+            x_not_covered[vidx] += w
+            w_not_covered[vidx] += occ
+       end
+    end
+    λ_outfield = x_not_covered./w_not_covered
+
+    λ_infield = zeros(nelements(mm2), length(clusters1))
+    λ_covered = zeros(length(clusters2), length(clusters1))
+
+    for (ii,covered_idx) in enumerate(clusters1)
+        x_covered = zeros(nelements(mm2))
+        w_covered = zeros(nelements(mm2))
+        covered = fields1.binidx[covered_idx]
+        for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+            pidx = getindex(qidx,T1)
+            vidx = getindex(qidx,T2)
+            if pidx in covered
+                x_covered[vidx] += w
+                w_covered[vidx] += occ
+            end
+        end
+        λ_infield[:,ii] = x_covered./w_covered
+        for (j,c) in enumerate(clusters2)
+            qidx = fields2.binidx[c]
+            _x = mean(x_covered[qidx])
+            _w = mean(w_covered[qidx])
+            λ_covered[j,ii] = _x./_w
+        end
+    end
+
+    # now for the sub-sampling
+    # grab indices for which element1 is the part of mm1 not covered by cluster 1
+    # and element 2 in cluster 2
+    
+    λ_sub = fill(NaN, 1000, length(clusters2), length(clusters1))
+    xx = fill(0.0, nelements(mm2))
+    ww = fill(0.0, nelements(mm2))
+    for (jj, _cidx2) in enumerate(clusters2)
+        qidx = fields2.binidx[_cidx2]
+        if T1 <: GazeResponseFields
+            cidx1 = all_not_covered
+            cidx2 = qidx 
+            dims=1
+        else
+            cidx1 = qidx 
+            cidx2 = all_not_covered
+            dims=2
+        end
+        valid_idx = get_conditional_indices(jm.index, cidx1, cidx2)
+        vidx1 = getindex.(jm.index[valid_idx],dims)
+        # repeatedly grab an an index from 
+        for (ii,_cidx1) in enumerate(clusters1)
+            for kk in 1:nshuffles
+                _vidx = rand(vidx1)
+                # build a neighbourhood
+                nnidx = all_not_covered[sortperm(Da[:,_vidx])[1:length(_cidx1)]]
+                fill!(xx, 0.0)
+                fill!(ww, 0.0)
+                for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+                    pidx = getindex(qidx,T1)
+                    vidx = getindex(qidx,T2)
+                    if pidx in nnidx 
+                        xx[vidx] += w
+                        ww[vidx] += occ
+                    end
+                end
+                λ_sub[kk,jj,ii] = mean(xx[qidx])/mean(ww[qidx])
+            end
+        end
+    end
+    λ_covered,λ_sub, λ_infield, λ_outfield
+end
+
+"""
+    conjunctions2(jm::JointMap, viewidx::AbstractVector{<:Integer}, placeidx::AbstractVector{<:Integer})
+
+Compute the mean firing rate when location was within `placeidx` and the view was in `viewidx`.
+
+Compare to surrogates where the view was not in `view idx` by seelcting random views elicited by the same place idx, but from
+outside the view field.
+"""
+# TODO: Test this!
+function conjunctions2(jm::JointMap, viewidx::AbstractVector{<:Integer}, placeidx::AbstractVector{<:Integer}, condition_on::Integer=1)
+    # get all view indices experienecd with placeidx
+    matchindex(k1,k2) = condition_on == 1 ? (getindex(k1,2)==getindex(k2,2)) : (getindex(k1,1)==getindex(k2,1))
+    ffp = in(placeidx)
+    ffv = in(viewidx)
+    ffc(idx) = ((condition_on==1 && ffv(getindex(idx,1))) || (condition_on==2 && ffp(getindex(idx,2))))
+    ffk(idx) = ((condition_on==1 && ffp(getindex(idx,2))) || (condition_on==2 && ffv(getindex(idx,1))))
+    in_view_idx = Int64[]
+    out_view_idx = Int64[]
+    time_in_field = 0.0
+    spikes_in_field = 0.0
+    time_out_field = 0.0
+    spikes_out_field =0.0
+    x_covered = 0.0
+    w_covered = 0.0
+    in_field_matched = Tuple{Int64, Int64, Float64, Float64}[]
+    out_field_matched = Tuple{Int64, Int64, Float64, Float64}[]
+    for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+        vidx = getindex(qidx,1)
+        pidx = getindex(qidx,2)
+        if ffk(qidx)
+        #if ffp(pidx)
+            if ffc(qidx)
+                push!(in_view_idx,vidx)
+                time_in_field += occ
+                spikes_in_field += w
+                push!(in_field_matched, (vidx, pidx, w, occ))
+            else
+                # TODO: If there is a strong imbalance in gaze direction between
+                # infield and outfield, we might get induced biases here
+                push!(out_view_idx,vidx)
+                time_out_field += occ
+                spikes_out_field += w
+                push!(out_field_matched, (vidx, pidx, w,occ))
+            end
+        end
+    end
+    λ_sub = fill(0.0, 1000)
+    # TODO: Do we also need to worry about directional bias here?
+    for r in 1:1000
+        xx = 0.0
+        ww = 0.0
+        # draw one matched (v,p) from the outfield for each infield
+        for vp in in_field_matched
+            # find all outfield combos where the place idx was p
+            midx = findall(k->matchindex(k,vp), out_field_matched)
+            # grab a random index
+            # what if we have no matches?
+            if !isempty(midx)
+                ridx = rand(midx)
+                xx += out_field_matched[ridx][3]
+                ww += out_field_matched[ridx][4]
+            end
+        end
+        λ_sub[r] = xx/ww
+    end
+    λ_covered = spikes_in_field/time_in_field
+    λ_covered, λ_sub
+end
+
+function get_spatial_rate_map(jm::JointMap, view_idx::AbstractVector{<:Integer},N::Integer)
+    xx = zeros(N)
+    yy = zeros(N)
+    for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+        vidx = getindex(qidx,1)
+        pidx = getindex(qidx, 2)
+        if vidx in view_idx
+            xx[pidx] += w
+            yy[pidx] += occ
+        end
+    end
+    xx./yy
+end
+
+function get_view_rate_map(jm::JointMap, spatial_idx::AbstractVector{<:Integer},N::Integer)
+    xx = zeros(N)
+    yy = zeros(N)
+    for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
+        vidx = getindex(qidx,1)
+        pidx = getindex(qidx, 2)
+        if pidx in spatial_idx
+            xx[vidx] += w
+            yy[vidx] += occ
+        end
+    end
+    xx./yy
+end
+
+function conjunctions2(jm::JointMap, rf_gaze::GazeResponseFields, rf_spatial::SpatialResponseFields, condition_on::Integer)
+    view_clusters = Hippocampus.merge_fields(rf_gaze)
+    nclusters = Hippocampus.get_num_fields(rf_gaze)
+    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).< 0.001)
+    view_clusters = view_clusters[cidx]
+    spatial_clusters = Hippocampus.merge_fields(rf_spatial)
+    nclusters = Hippocampus.get_num_fields(rf_spatial)
+    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).< 0.001)
+    spatial_clusters = spatial_clusters[cidx]
+    # compute infield/outfield
+    if condition_on == 1
+        # compute spatial fields conditioned on each of the view clusters
+        N = length(rf_spatial.λ)
+        all_outfield = setdiff(1:N, rf_spatial.binidx)
+        λ_outfield = get_spatial_rate_map(jm, all_outfield,N)
+        λ_infield = zeros(N, length(view_clusters))
+        for (ii,vc) in enumerate(view_clusters)
+            λ_infield[:,ii] = get_spatial_rate_map(jm, rf_gaze.binidx[vc],N)
+        end
+    else   
+        N = length(rf_gaze.λ)
+        all_outfield = setdiff(1:N, rf_gaze.binidx)
+        λ_outfield = get_view_rate_map(jm, all_outfield,N)
+        λ_infield = zeros(N, length(spatial_clusters))
+        for (ii,sc) in enumerate(spatial_clusters)
+            λ_infield[:,ii] = get_view_rate_map(jm, rf_spatial.binidx[sc],N)
+        end
+    end
+    λ_covered = zeros(length(spatial_clusters), length(view_clusters))
+    λ_sub = zeros(size(λ_covered)..., 1000)
+    for (j,vc) in enumerate(view_clusters)
+        for (i,sc) in enumerate(spatial_clusters)
+            λ_covered[i,j],λ_sub[i,j,:] =Hippocampus.conjunctions2(jm, rf_gaze.binidx[vc], rf_spatial.binidx[sc],condition_on);
+        end
+    end
+    λ_covered, λ_sub, λ_infield, λ_outfield
+end
+
+"""
+Condition responses on `field1`
+"""
+function conjunctions(jm::JointMap, fields1::T1, fields2::T2;nshuffles=1000) where T1 <: AbstractResponseFields where T2 <: AbstractResponseFields
     # T1 <: SpatialResponseFields, T2 <: GazeResponseFields
     mm1 = get_mesh(T1, fields1.args[:nrefinements])
     mm2 = get_mesh(T2, fields2.args[:nrefinements])
