@@ -347,18 +347,25 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
                     end
                     
                     Δt = tt[jj+1]-tt[jj]
+                    # since we have filtered out invalid bins above, we do not need to worry about gaps here
                     kk = CartesianIndex(qp[1], qp[2], qp[3], l)
                     occupancy[ll][kk] = get(occupancy[ll], kk, 0.0) + Δt
+                    #if time point jj had a spike
                     vv = findfirst(vpvrp.placeviewidx[i].==jj)
                     if vv !== nothing
                         weight[ll][kk] = get(weight[ll], kk, 0.0) + 1.0
+                        push!(nspikes[ll], 1.0)
+                    else
+                        push!(nspikes[ll],0.0)
                     end
                     push!(gidx[ll], CartesianIndex(qp[1], qp[2], qp[3], l, i))
+                    push!(deltaT[ll], Δt)
                 end
             end
         end
     end
-    DirectionFiltered(θbins, weight, occupancy, gidx )
+    obj = DirectionFiltered(θbins, weight, occupancy, gidx )
+    return obj
 end
 
 function DirectionFiltered(;redo=fname->false, do_save=true,kwargs...)
