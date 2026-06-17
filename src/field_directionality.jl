@@ -1195,19 +1195,28 @@ function plot_field_directionality!(lg::GridLayout, λ::AbstractVector{<:Real}, 
     Label(lg[1,2], L"\mu_r=%$(round(x, sigdigits=2))", tellheight=false,rotation=-π/2)
 end
 
-function plot_field_directionality(args...)
+function plot_field_directionality(args...;kwargs...)
     with_theme(plot_theme) do
         fig = Figure(size=(700,400))
         lg = GridLayout(fig[1,1])
-        plot_field_directionality!(lg,args...)
+        plot_field_directionality!(lg,args...;kwargs...)
         fig
     end
 end
 
-function plot_field_directionality!(lg, gidx::DirectionFiltered, rf::T) where T <: AbstractResponseFields
-    λ = get_direction_tuning(gidx)
-    plot_field_directionality!(lg, λ, gidx.anglebins, rf)
+function plot_field_directionality!(lg, celldir::String;kwargs...)
+    gidx,rf = cd(celldir) do
+        gidx = DirectionFiltered(;kwargs...)
+        rf = get_response_fields(SpatialResponseFields, 10_000;kwargs...)
+        gidx,rf
+    end
+    plot_field_directionality!(lg, gidx, rf)
 end
+
+#function plot_field_directionality!(lg, gidx::DirectionFiltered, rf::T) where T <: AbstractResponseFields
+#    λ = get_direction_tuning(gidx)
+#    plot_field_directionality!(lg, λ, gidx.anglebins, rf)
+#end
 
 function plot_field_directionality!(lg, λ::Matrix{<:Real}, θ::AbstractVector{<:Real}, rf::T) where T <: AbstractResponseFields
     lg1 = GridLayout(lg[1,1])
