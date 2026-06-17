@@ -440,6 +440,7 @@ function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebin
     nc = length(gidx.index)
     X = zeros(length(gidx.anglebins),nc)
     Y = zeros(length(gidx.anglebins),nc)
+    # TODO: Can we sub-sample here?
     for j in 1:nc
         for (k,v) in gidx.occupancy[j]
             if do_shuffle
