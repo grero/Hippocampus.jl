@@ -1488,3 +1488,45 @@ function plot_field_traversals(gidx, qdata;_plot_theme=plot_theme, kwargs...)
         fig
     end
 end
+
+
+function plot_field_direction_tuning(mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx=1;_plot_theme=plot_theme)
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3));
+    v = mdt.v
+    # FIXME: This doesnt work
+    clusters = merge_fields(rf_spatial)
+    nclusters = get_num_fields(rf_spatial)
+    cidx = dropdims(mean(nclusters,dims=2),dims=2) .< 0.001
+    spatial_clusters = clusters[cidx]
+
+    cm = mean(Point2f.(Tuple.(centroid.(m_floor[rf_spatial.binidx[spatial_clusters[idx]]]))))
+
+    λf = mdt.spike_count_forward[idx]./mdt.occupancy_forward[idx]
+    λr = mdt.spike_count_reverse[idx]./mdt.occupancy_reverse[idx]
+    q1,q2 = Hippocampus.permutation_test(mean, λf,λr)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(1100,300))
+        lg1 = GridLayout(fig[1,1])
+        ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=:rain)
+        lg2 = GridLayout(fig[1,2])
+        spm_forward = SpatialMapNew(jm, m_floor;trialidx=mdt.trialidx_forward[idx])
+        spml_forward = SmoothedMap(spm_forward;method=:laplace, α=0.1, niter=50)
+        ax2 = plot_response_fields!(lg2, rf_spatial,get_rate_map(spml_forward), colormap=:rain, show_points=false)
+        arrows2d!(ax2, cm, 2.5*Vec2(v[:,idx]), color=:black)
+        lg3 = GridLayout(fig[1,3])
+        spm_reverse = SpatialMapNew(jm, m_floor;trialidx=mdt.trialidx_reverse[idx])
+        spml_reverse = SmoothedMap(spm_reverse;method=:laplace, α=0.1, niter=50)
+        ax3 = plot_response_fields!(lg3, rf_spatial,get_rate_map(spml_reverse), colormap=:rain, show_points=false)
+        arrows2d!(ax3, cm, -2.5*Vec2(v[:,idx]), color=:orange)
+
+        lg4 = GridLayout(fig[1,4])
+        ax4 = Axis(lg4[1,1])
+        boxplot!(ax4, fill(1.0, length(q1)), q1-q2)
+        hlines!(ax4, mean(λf) - mean(λr), color=:gray45, linestyle=:dot)
+        ax4.bottomspinevisible = false
+        ax4.xticklabelsvisible = false
+        ax4.ylabel = "λ_forward - λ_backward"
+        colsize!(fig.layout, 4, Relative(0.1))
+        fig
+    end
+end
