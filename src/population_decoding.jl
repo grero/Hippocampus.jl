@@ -84,8 +84,7 @@ function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsi
     nt = length(correct_trial_idx)
     tmax = maximum(maximum.(filter(l->length(l) > 0, qdata.timestamps)))
     max_nsteps = round(Int64,ceil(tmax/binsize))
-    @show nt tmax max_nsteps
-    bins = range(0.0, length=max_nsteps+1, step=binsize)
+    bins = range(0.0, length=max_nsteps, step=binsize)
     Z = fill(0.0, max_nsteps, nt)
     spatial_label = fill(0, max_nsteps, nt)
     nsteps = fill(0, nt)
