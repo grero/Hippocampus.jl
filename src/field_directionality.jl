@@ -903,31 +903,83 @@ function get_view_bins(anglebins::AbstractVector{<:Real}, mm::SimpleMesh, m_floo
     left_gaze_place_dir_idx, right_gaze_place_dir_idx
 end
 
-function get_egocentric_view_tuning(gidx, mm::SimpleMesh, m_floor::SimpleMesh;kwargs...)
+struct EgoCentricViewTuning
+    λleft::Vector{Vector{Float64}}
+    λright::Vector{Vector{Float64}}
+    place_view_dir_points::Vector{Vector{Tuple{Int64, Int64}}}
+    args::Dict{Symbol,Any}
+end
+
+function process_kwargs(::Type{EgoCentricViewTuning},h::UInt32=zero(UInt32);kwargs...)
+    h = process_kwargs(DirectionFiltered,h;kwargs...)
+end
+
+function get_egocentric_view_tuning(gidx, mm::SimpleMesh, m_floor::SimpleMesh;smooth=true, α=0.1, niter=100, kwargs...)
     λright = Vector{Vector{Float64}}(undef, length(gidx.occupancy))
     λleft = Vector{Vector{Float64}}(undef, length(gidx.occupancy))
+    place_view_dir_points = Vector{Vector{Tuple{Int64,Int64}}}(undef, length(gidx.occupancy))
     for i in 1:length(gidx.occupancy)
         # get the place bins and traversal directions for this field
         vq = [(k[2], k[4]) for k in keys(gidx.occupancy[i])]
+        place_view_dir_points[i] = unique(vq)
         left_gaze_place_dir_idx, right_gaze_place_dir_idx = get_view_bins(gidx.anglebins, mm, m_floor, unique(vq))
         # seperate the occupancy and weight into left and right
-        λleft[i] = Float64[]
-        λright[i] = Float64[]
+        Xleft = zeros(nelements(mm))
+        Xright = zeros(nelements(mm))
+        Yleft = zeros(nelements(mm))
+        Yright = zeros(nelements(mm))
         # create a view map first, by conditioning on place and direction
         # then sum up bins according to left_.. and right_.. above
         for (kk,vv) in gidx.occupancy[i]
+            #TODO: Is this correct? If so, we should never have zeros here. Actually, yes we could because we are using
+            #      a 60 degree cone centered on left-right, and so if the animal never looks there, it would not be captured
+            #      So it this perhaps too strict? For one, the animal is not likely to look behind.
             if (kk[1], kk[2], kk[4]) in left_gaze_place_dir_idx
                 # TODO: Allow smoothing here
                 #       This is the view map, 
-                λ = get(gidx.weight[i], kk, 0.0)/vv
-                push!(λleft[i], λ)
-            elseif (kk[1], kk[2], kk[4]) in right_gaze_place_dir_idx
-                λ = get(gidx.weight[i], kk, 0.0)/vv
-                push!(λright[i], λ)
+                Xleft[kk[1]] += get(gidx.weight[i], kk, 0.0)
+                Yleft[kk[1]] += vv
+            end
+            if (kk[1], kk[2], kk[4]) in right_gaze_place_dir_idx
+                Xright[kk[1]] += get(gidx.weight[i], kk, 0.0)
+                Yright[kk[1]] += vv
             end
         end
+        # optionally smooth
+        if smooth
+            Ls = get_normalize_laplacian(mm)
+            Xright = laplace_smoothing(Xright, Ls, α;niter=niter) 
+            Yright = laplace_smoothing(Yright, Ls, α;niter=niter) 
+            Xleft = laplace_smoothing(Xleft, Ls, α;niter=niter) 
+            Yleft = laplace_smoothing(Yleft, Ls, α;niter=niter) 
+        end
+        λright[i] = (Xright./Yright)[unique(first.(right_gaze_place_dir_idx))]
+        λleft[i] = (Xleft./Yleft)[unique(first.(left_gaze_place_dir_idx))]
     end
-    λleft, λright
+    λleft, λright, place_view_dir_points
+end
+
+function EgoCentricViewTuning(;redo=fname->false, do_save=true, kwargs...)
+    fname = "egocentric_view_tuning.jld2"
+    h = process_kwargs(EgoCentricViewTuning;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if isfile(fname) && !redo(fname)
+        obj = load_jld2(EgoCentricViewTuning,fname)
+    else
+        gidx = DirectionFiltered(;kwargs...)
+        nrefinements = get(kwargs, :nrefinements, (p=3, g=2))
+        m_floor = floor_topology3(;nrefinements=nrefinements.p)
+        mm = get_maze_mesh(;nrefinements=nrefinements.g)
+        λleft, λright,pv_idx = get_egocentric_view_tuning(gidx, mm, m_floor;kwargs...) 
+        obj = EgoCentricViewTuning(λleft, λright,pv_idx,Dict(kwargs))
+        if do_save
+            save_jld2(obj, fname)
+        end
+    end
+    return obj
 end
 
 """
