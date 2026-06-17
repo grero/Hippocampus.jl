@@ -82,15 +82,17 @@ function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsi
     correct_trial_idx = findall([!ismissing(x) && x for x in (30 .< edata.triggers[:,3] .< 40)])
     nt = length(correct_trial_idx)
     tmax = maximum(maximum.(filter(l->length(l) > 0, qdata.timestamps)))
-    nsteps = round(Int64,ceil(tmax/binsize))
-    @show nt tmax nsteps
-    bins = range(0.0, length(nsteps+1), step=binsize)
-    Z = fill(0.0, nsteps, nt)
-    spatial_label = fill(0, nsteps, nt)
+    max_nsteps = round(Int64,ceil(tmax/binsize))
+    @show nt tmax max_nsteps
+    bins = range(0.0, length=max_nsteps+1, step=binsize)
+    Z = fill(0.0, max_nsteps, nt)
+    spatial_label = fill(0, max_nsteps, nt)
+    nsteps = fill(0, nt)
     for (tidx,i) in enumerate(correct_trial_idx)
         tg,gaze,pos, fixmask,fo = get_trial(qdata,i;trial_start=2)
         _events = vpvrp.events[i]
         jindex = jocc.index[i]
+        nsteps[tidx] = searchsortedlast(bins, tg[end])
         _placeviewidx = vpvrp.placeviewidx[i]
         for (jj,b) in enumerate(bins)
             idx = findall(b .<= _events .<= b+window)
@@ -105,7 +107,7 @@ function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsi
             end
         end
     end
-    Z, spatial_label
+    Z, spatial_label, nsteps
 end
 
 """
