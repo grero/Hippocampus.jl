@@ -882,16 +882,17 @@ function get_view_bins(anglebins::AbstractVector{<:Real}, mm::SimpleMesh, m_floo
     for (pidx, lidx) in place_dir_idx
         # player position
         pos = centroid.(m_floor[pidx]) + Meshes.Vec(0.0, 0.0, z)
+        # direction of traversal
         ϕ = anglebins[lidx]
 
-        midx_left = get_view_bins(mm, pos, ϕ+π/2)
+        midx_left = get_view_bins(mm, pos, ϕ+π/3)
         for m in unique(midx_left)
             cc = (m,pidx,lidx)
             if !(cc in left_gaze_place_dir_idx)
                 push!(left_gaze_place_dir_idx, (m, pidx, lidx))
             end
         end
-        midx_right = get_view_bins(mm, pos, ϕ-π/2)
+        midx_right = get_view_bins(mm, pos, ϕ-π/3)
         for m in unique(midx_right)
             cc = (m,pidx,lidx)
             if !(cc in right_gaze_place_dir_idx)
