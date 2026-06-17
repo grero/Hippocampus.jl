@@ -1235,7 +1235,7 @@ end
 function plot_field_directionality!(lg, gidx::DirectionFiltered, rf::SpatialResponseFields;kwargs...)
     lg1 = GridLayout(lg[1,1])
     Label(lg1[1,1,TopLeft()], "A")
-    plot_response_fields!(lg1, rf)
+    plot_response_fields!(lg1, rf;kwargs...)
     lg2 = GridLayout(lg[1,2])
     plot_directional_tuning!(lg2, gidx;kwargs...)
     Label(lg2[0,1,TopLeft()], "B")
