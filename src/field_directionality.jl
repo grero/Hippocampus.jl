@@ -311,6 +311,8 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
         gidx[i] = CartesianIndex{5}[]
         weight[i] = Dict{CartesianIndex{4}, Float64}()
         occupancy[i] = Dict{CartesianIndex{4}, Float64}()
+        deltaT[i] = Float64[]
+        nspikes[i] = Float64[]
     end
     for i in 1:nt
         for (ll,idx) in enumerate(clusters[cidx])
