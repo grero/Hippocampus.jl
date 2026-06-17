@@ -1317,6 +1317,13 @@ function plot_directional_tuning!(lg, gidx::DirectionFiltered;kwargs...)
     μr,ϕ = get_directional_tuning_strength(gidx;kwargs...)
     @show μr, ϕ
     pv = get_pvalue(gidx;kwargs...)
+    # compute p-value using a Chisq distribution
+    colormap = get(kwargs, :colormap, :binary)
+    if colormap == :rain
+        colors = [:red, :orange, :yellow, :salmon, :goldenrod1, :firebrick]
+    else
+        colors = Makie.wong_colors()
+    end
     for i in axes(λ,2)
         ax = PolarAxis(lg[i,1])
         hidedecorations!(ax)
@@ -1328,10 +1335,11 @@ function plot_directional_tuning!(lg, gidx::DirectionFiltered;kwargs...)
         ax.rticksize = 0
         ax.thetaticksize = 0
         ax.thetaticklabelpad = 0
-        lines!(ax, gidx.anglebins, λ[:,i], color=Cycled(i))
+        scatter!(ax, gidx.anglebins, λ[:,i], color=colors[i], markersize=7.5px)
         ym = maximum(filter(isfinite, λ[:,i]))
-        ym *= μr[i]
-        linesegments!(ax,[ϕ[i],ϕ[i]], [0.0, ym], color=:red, linewidth=1)
+        yq = ym*μr[i]
+        #linesegments!(ax,[ϕ[i],ϕ[i]], [0.0, ym], color=:red, linewidth=1)
+        lines!(ax, [ϕ[i],ϕ[i]], [0.0, yq], color=:darkgray, linewidth=2)
         # indicate siginifance
         if pv[i] < 0.001
             lq = "**"
@@ -1343,9 +1351,11 @@ function plot_directional_tuning!(lg, gidx::DirectionFiltered;kwargs...)
         ax.title = lq
         ax.titlesize = 12
         ax.titlegap = 0
+        rlims!(ax, 0.0, 1.075*ym)
         if i > 1
             rowgap!(lg, i-1, 0)
         end
+        
         #Label(lg[i,2], lq, rotation=-π/2, tellheight=false,fontsize=14)
         #Label(lg[i,2], L"$μ_r = %$(round(μr[i], sigdigits=2))$ \\ $p = %$(round(pv[i], sigdigits=2))$", rotation=-π/2, tellheight=false, 
          #               fontsize=14)
