@@ -110,6 +110,31 @@ function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsi
     Z, spatial_label, nsteps
 end
 
+function get_spatial_response_per_time(celldirs::Vector{String};kwargs...)
+    Z = Vector{Matrix{Float64}}(undef, length(celldirs))
+    spatial_label = Vector{Matrix{Int64}}(undef, length(celldirs))
+    nsteps = Vector{Vector{Int64}}(undef, length(celldirs))
+    @showprogress for ii in 1:length(celldirs)
+        _Z, _spatial_label, _steps = get_spatial_response_per_time(celldirs[ii];kwargs...)
+        Z[ii]  = _Z
+        spatial_label[ii] = _spatial_label
+        nsteps[ii] = _steps
+    end
+    # need to reshape
+    max_ntrials = maximum(size.(Z,2))
+    max_nsteps = maximum(size.(Z,1))
+    Zall = fill(0.0, max_nsteps, max_ntrials, length(celldirs))
+    spatial_label_all = fill(0, max_nsteps, max_ntrials, length(celldirs))
+    nsteps_all = fill(0, max_ntrials, length(celldirs))
+    for ii in 1:length(celldirs)
+        _nsteps, _ntrials = size(Z[ii])
+        Zall[1:_nsteps, 1:_ntrials,ii] = Z[ii][1:_nsteps,:]
+        spatial_label_all[1:_nsteps, 1:_ntrials,ii] = spatial_label[ii][1:_nsteps,:]
+        nsteps_all[1:_ntrials,ii] = nsteps[ii]
+    end
+    Zall, spatial_label_all, nsteps_all
+end
+
 """
     format_data(spikes, poster_labels)
 
