@@ -1,4 +1,5 @@
 using CrossTemporalDecoding
+using Combinatorics
 """
     get_data(celldirs::Vector{String};kwargs...)
 
