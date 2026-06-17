@@ -469,6 +469,272 @@ function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebin
     X ./ Y
 end
 
+function get_cardinal_direction_tuning(gidx::DirectionFiltered;do_shuffle=false)
+    direction_label = Symbol.([North, South, East, West])
+    directions = [get_direction(gidx, d) for d in [North, South, East, West]]
+    # group spike counts by cardinal directions
+    # TODO: Do not use cardinal directions here (necessarily); rather use the main axis of the field
+    # But for now just do this
+    spike_count = Dict{Symbol,Vector{Float64}}()
+    occupancy = Dict{Symbol,Vector{Float64}}()
+    λ = Dict{Symbol,Vector{Float64}}()
+    i = 1
+    for (k,v) in gidx.occupancy[i]
+        qidx = getindex(k,4)
+        lidx = findfirst([in(d)(qidx) for d in directions])
+        if lidx === nothing
+            continue
+        end
+        dl = direction_label[lidx]
+        if !(dl in keys(occupancy))
+            spike_count[dl] = Float64[]
+            occupancy[dl] = Float64[]
+            λ[dl] = Float64[]
+        end 
+        push!(occupancy[dl], v)
+        if k in keys(gidx.weight[i])
+            push!(spike_count[dl],gidx.weight[i][k])
+            push!(λ[dl], gidx.weight[i][k]/v)
+        end
+    end
+    spike_count, occupancy, λ
+end
+
+function get_major_axis_direction_tuning_alt(gidx::DirectionFiltered,rf::SpatialResponseFields;do_shuffle=false)
+    v = get_major_axis(rf)
+    spike_count = Vector{Dict{Symbol,Vector{Float64}}}(undef, size(v,2))
+    occupancy = Vector{Dict{Symbol,Vector{Float64}}}(undef, size(v,2))
+    λ = Vector{Dict{Symbol,Vector{Float64}}}(undef, size(v,2))
+    for i in 1:length(gidx.occupancy)
+        spike_count[i] = Dict{Symbol,Vector{Float64}}()
+        occupancy[i] = Dict{Symbol,Vector{Float64}}()
+        λ[i] = Dict{Symbol,Vector{Float64}}()
+        θ = atan(v[2],v[1])
+        # grab a 60 degree cone around θ
+        bidx1 = findall(cos.(gidx.anglebins .- θ) .> cos(π/6))
+        f1 = in(bidx1)
+        # grab a 60 degree cone around the opposite direction
+        bidx2 = findall(cos.(gidx.anglebins .- (θ-π)) .> cos(π/6))
+        f2 = in(bidx2)
+        for (k,v) in gidx.occupancy[i]
+            qidx = getindex(k,4)
+            if f1(qidx)
+                dl = :forward
+            elseif f2(qidx)
+                dl = :backward
+            else
+                continue
+            end
+            if !(dl in keys(occupancy[i]))
+                spike_count[i][dl] = Float64[]
+                occupancy[i][dl] = Float64[]
+                λ[i][dl] = Float64[]
+            end 
+            push!(occupancy[i][dl], v)
+            if k in keys(gidx.weight[i])
+                push!(spike_count[i][dl],gidx.weight[i][k])
+                push!(λ[i][dl], gidx.weight[i][k]/v)
+            else
+                push!(λ[i][dl], 0.0)
+            end
+        end
+    end
+    spike_count, occupancy, λ
+end
+
+struct MajorAxisDirectionTuning{T<:Real}
+    v::Matrix{T} # direciton for each place field
+    spike_count_forward::Vector{Vector{T}}
+    spike_count_reverse::Vector{Vector{T}}
+    occupancy_forward::Vector{Vector{T}}
+    occupancy_reverse::Vector{Vector{T}}
+    trialidx_forward::Vector{Vector{Int64}}
+    trialidx_reverse::Vector{Vector{Int64}}
+end
+
+function process_kwargs(::Type{MajorAxisDirectionTuning},h::UInt32=zero(UInt32);kwargs...)
+    h = process_kwargs(SpatialResponseFields,h;kwargs...)
+    h = process_kwargs(DirectionFiltered, h;kwargs...)
+    h
+end
+
+function get_major_axis_direction_tuning(gidx::DirectionFiltered,rf::SpatialResponseFields,jocc::JointOccupancy, vpvrp::ViewAndPlaceRepresentationNew,qdata::UnityRaytraceData;do_shuffle=false,trial_start=2)
+    v = get_major_axis(rf)
+    spike_count = Float64[]
+    spike_count_1 = Vector{Vector{Float64}}(undef, size(v,2))
+    spike_count_2 = Vector{Vector{Float64}}(undef, size(v,2))
+    occupancy_1 = Vector{Vector{Float64}}(undef, size(v,2))
+    occupancy_2 = Vector{Vector{Float64}}(undef, size(v,2))
+    trialidx_forward = Vector{Vector{Int64}}(undef, size(v,2))
+    trialidx_reverse = Vector{Vector{Int64}}(undef, size(v,2))
+    occupancy = Float64[]
+    sindex = CartesianIndex{5}[]
+    for i in 1:length(spike_count_1)
+        spike_count_1[i] = Float64[]
+        spike_count_2[i] = Float64[]
+        occupancy_1[i] = Float64[]
+        occupancy_2[i] = Float64[]
+        trialidx_forward[i] = Int64[]
+        trialidx_reverse[i] = Int64[]
+        θ = atan(v[2,i],v[1,i])
+        bidx1 = findall(cos.(gidx.anglebins .- θ) .> cos(π/6))
+        f1 = in(bidx1)
+        # grab a 60 degree cone around the opposite direction
+        bidx2 = findall(cos.(gidx.anglebins .- (θ-π)) .> cos(π/6))
+        f2 = in(bidx2)
+        # get all the trials
+        gindex = gidx.index[i]
+        trialidx= sort(unique(getindex.(gindex, 5)))
+        for tidx in trialidx
+
+            timestamps,gaze,pos, fixmask,fo = get_trial(qdata,tidx;trial_start=trial_start);
+            placeviewidx = vpvrp.placeviewidx[tidx]
+            # find the corresponding indices in jocc
+            idx1 = [CartesianIndex(k[1],k[2],k[3]) for k in filter(q->(q[5]==tidx)&(f1(q[4])), gindex)]
+            vidx1 = findall(in(idx1), jocc.index[tidx])
+
+            idx2 = [CartesianIndex(k[1],k[2],k[3]) for k in filter(q->(q[5]==tidx)&(f2(q[4])), gindex)]
+            vidx2 = findall(in(idx2), jocc.index[tidx])
+            # vidx1/2 now contains all points for this trial where the subject was within the spatial field and moving either along
+            # the major axis (1) or opposite to the major axis (2)
+            # for each of them, grap the occupancy and the spike count
+            # TODO: Do we want a trial by trial measure here instead? 
+            #       That is, the activity for each trial that the subject pass through
+            #       the field either in the forward or reverse direction
+            if !isempty(vidx1)
+                push!(occupancy_1[i], sum(timestamps[vidx1.+1] - timestamps[vidx1]))
+                push!(spike_count_1[i], sum(in(placeviewidx).(vidx1)))
+                push!(trialidx_forward[i], tidx)
+            end
+            if !isempty(vidx2)
+                push!(spike_count_2[i], sum(in(placeviewidx).(vidx2)))
+                push!(occupancy_2[i], sum(timestamps[vidx2.+1] - timestamps[vidx2]))
+                push!(trialidx_reverse[i], tidx)
+            end
+
+            for (kq, vidx) in enumerate([vidx1, vidx2])
+                w = timestamps[vidx.+1] - timestamps[vidx]
+                sp = in(placeviewidx).(vidx)
+                append!(spike_count, Float64.(sp))
+                append!(occupancy, w)
+                for qq in jocc.index[tidx][vidx]
+                    push!(sindex, CartesianIndex(qq[1], qq[2], qq[3], kq, tidx))
+                end
+            end
+        end
+    end
+    # TODO: Aggregate over windows
+    #spike_count, occupancy, sindex, 
+    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2), (trialidx_forward, trialidx_reverse)
+end
+
+function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
+    fname = "major_axis_direction_tuning.jld2"
+    h = process_kwargs(MajorAxisDirectionTuning;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(MajorAxisDirectionTuning, fname)
+    else
+        sessiondir = DPHT.get_level_path("session")
+        qdata, jocc = cd(sessiondir) do
+            qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=redo)
+            jocc = Hippocampus.JointOccupancy(;redo=redo, do_save=false, kwargs...)
+            qdata, jocc
+        end
+        rf_spatial =  get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);redo=redo,kwargs...)
+        v = get_major_axis(rf_spatial)
+        gidx = DirectionFiltered(;redo=redo,kwargs...)
+        vpvrp = ViewAndPlaceRepresentationNew(;redo=redo,kwargs...)
+        (spike_count_1, occupancy_1), (spike_count_2, occupancy_2),(trialidx_forward, trialidx_reverse) = get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata;trial_start=get(kwargs, :trial_start,2))
+        obj = MajorAxisDirectionTuning(v, spike_count_1, spike_count_2,occupancy_1, occupancy_2, trialidx_forward, trialidx_reverse)
+        if do_save
+            save_jld2(obj, fname)
+        end
+    end
+    return obj
+end
+
+function issignificant(madt::MajorAxisDirectionTuning;pv_threshold=0.05)
+    res = fill(false, length(madt.spike_count_forward))
+    for i in 1:length(res)
+        λ1 = madt.spike_count_forward[i]./madt.occupancy_forward[i]
+        λ2 = madt.spike_count_reverse[i]./madt.occupancy_reverse[i]
+        μ = mean(λ1) - mean(λ2)
+        if all(length.((λ1, λ2)).>=5)
+            q1,q2 = permutation_test(mean, λ1,λ2) 
+            res[i] = μ > percentile(q1-q2, 100*(1-pv_threshold)) || μ < percentile(q1-q2, 100*pv_threshold)
+        end
+    end
+    res
+end
+
+function aggregate(spike_count::Vector{T}, occupancy::Vector{T}, sindex::Vector{CartesianIndex{5}};window=0.05) where T <: Real
+    tidx,vidx = (getindex(sindex[1],5), getindex(sindex[1], 4))
+    midx = findall(q->(q[4]==vidx)&(q[5]==tidx), sindex)
+    wsum = sum(occupancy[midx])
+    mm = round(Int64,floor(wsum/window))
+    _window = wsum/mm
+
+    spike_count_new = T[]
+    occupancy_new = T[]
+    sindex_new = CartesianIndex{5}[]
+    w = zero(T)
+    ss = zero(T)
+    # TODO Balance w so that it covers all points within a trial roughyl equally
+    for (sp,occ,sidx) in zip(spike_count, occupancy, sindex)
+        if (sidx[5] == tidx) && (sidx[4]==vidx) && (w <= _window)
+            w += occ
+            ss += sp
+        else
+            push!(spike_count_new, ss)
+            push!(occupancy_new, w)
+            push!(sindex_new, sidx)
+            w = zero(T)
+            ss = zero(T)
+            tidx = sidx[5]
+            vidx = sidx[4]
+             midx = findall(q->(q[4]==vidx)&(q[5]==tidx), sindex)
+            wsum = sum(occupancy[midx])
+            mm = round(Int64,floor(wsum/window))
+            _window = wsum/mm
+        end
+    end
+    spike_count_new, occupancy_new, sindex_new
+end
+
+function get_cardinal_direction_tuning(gidx::DirectionFiltered,card::CardinalPlaceFieldDirectionality;do_shuffle=false)
+    direction_label = Symbol.([North, South, East, West])
+    directions = [get_direction(gidx, d) for d in [North, South, East, West]]
+    # group spike counts by cardinal directions
+    # TODO: Do not use cardinal directions here (necessarily); rather use the main axis of the field
+    # But for now just do this
+    spike_count = Dict{Symbol,Vector{Float64}}()
+    occupancy = Dict{Symbol,Vector{Float64}}()
+    λ = Dict{Symbol,Vector{Float64}}()
+    i = 1
+    for (k,v) in gidx.occupancy[i]
+        pidx = getindex(k,2)
+        qidx = getindex(k,4)
+        lidx = findfirst([in(d)(qidx) for d in directions])
+        if lidx === nothing
+            continue
+        end
+        dl = direction_label[lidx]
+        if !(dl in keys(occupancy))
+            spike_count[dl] = Float64[]
+            occupancy[dl] = Float64[]
+            λ[dl] = Float64[]
+        end 
+        push!(occupancy[dl], card.occupancy[pidx,lidx,i])
+        push!(spike_count[dl],card.weight[pidx,lidx,i])
+        push!(λ[dl], card.weight[pidx,lidx,i]/card.occupancy[pidx,lidx,i])
+    end
+    spike_count, occupancy, λ
+end
+
 function get_cardinal_direction_tuning_old(gidx::DirectionFiltered, deltaT, nspikes;nt::Union{Int64,Nothing}=nothing,do_shuffle=false)
     qidx = gidx.index
     # we need to get nt from somehwere
