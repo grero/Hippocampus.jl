@@ -497,7 +497,11 @@ function decode_sequences(allcelldirs::Vector{String};redo=false, kwargs...)
     labeled_seqs = [useqs[allidx.==i] for i in 1:maximum(allidx)]
     Z = reshape_trial(allspikecounts, isdx, allidx)
     Zs = stabilize(Z,ntrials) 
+    # map back to poster combinations
     perf, testlabel, decoded_label, trainstate, lda, ulabels = decode(Zs,labeled_seqs;ntest=500)
+    test_combos = [alltriallabels[findfirst(k->k==l, useqs)] for l in testlabel]
+    decoded_combos = [alltriallabels[findfirst(k->k==l, useqs)] for l in decoded_label]
+    perf, (testlabel, test_combos), (decoded_label, decoded_combos), trainstate, lda, ulabels
 end
 
 
