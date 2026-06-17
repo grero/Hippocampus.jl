@@ -436,7 +436,7 @@ function get_directionality(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceReprese
     λ, θ, gaze
 end
 
-function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebins), do_shuffle=false, smooth=false, α=0.1, niter=1, spikes_only=false, occupancy_only=false)
+function get_direction_tuning(gidx::DirectionFiltered;idx=1:length(gidx.anglebins), do_shuffle=false, smooth=false, α=0.1, niter=1, spikes_only=false, occupancy_only=false,kwargs...)
     nc = length(gidx.index)
     X = zeros(length(gidx.anglebins),nc)
     Y = zeros(length(gidx.anglebins),nc)
