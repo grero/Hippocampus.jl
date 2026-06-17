@@ -64,7 +64,49 @@ function get_spatial_data(::Type{T}, celldirs::Vector{String};kwargs...) where T
     spike_counts, trajectories, trialidx
 end
 
+# TODO:
+# Get all spatial responses as a function of time
+function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsize,nrefinements=(p=0,g=0))
 
+    jocc, qdata,edata = cd(DPHT.get_level_path("session", celldir)) do
+        jocc = JointOccupancy(;redo=fname->false, do_save=false, nrefinements=nrefinements,trial_start=2,min_speed=1.0)
+        qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
+        edata = EyelinkData()
+        jocc, qdata, edata
+    end
+
+    vpvrp = cd(celldir) do
+        ViewAndPlaceRepresentationNew(;redo=fname->false,do_save=false,trial_start=2)
+    end
+
+    correct_trial_idx = findall([!ismissing(x) && x for x in (30 .< edata.triggers[:,3] .< 40)])
+    nt = length(correct_trial_idx)
+    tmax = maximum(maximum.(filter(l->length(l) > 0, qdata.timestamps)))
+    nsteps = round(Int64,ceil(tmax/binsize))
+    @show nt tmax nsteps
+    bins = range(0.0, length(nsteps+1), step=binsize)
+    Z = fill(0.0, nsteps, nt)
+    spatial_label = fill(0, nsteps, nt)
+    for (tidx,i) in enumerate(correct_trial_idx)
+        tg,gaze,pos, fixmask,fo = get_trial(qdata,i;trial_start=2)
+        _events = vpvrp.events[i]
+        jindex = jocc.index[i]
+        _placeviewidx = vpvrp.placeviewidx[i]
+        for (jj,b) in enumerate(bins)
+            idx = findall(b .<= _events .<= b+window)
+            Z[jj] = length(idx)
+            # now how do quantify space here: Just the mean?
+            qidx = jindex[_placeviewidx[idx]]
+            # spatial index
+            pidx = getindex.(qidx, 2)
+            # maybe majority bin
+            if !isempty(pidx)
+                spatial_label[jj,tidx] = mode(pidx)
+            end
+        end
+    end
+    Z, spatial_label
+end
 
 """
     format_data(spikes, poster_labels)
