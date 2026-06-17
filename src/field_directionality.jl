@@ -394,6 +394,10 @@ function DirectionFiltered(;redo=fname->false, do_save=true,kwargs...)
     end
     if !redo(fname) && isfile(fname)
         obj = load_jld2(DirectionFiltered,fname)
+        #hack: I have no idea why  this is needed
+        if !isa(obj, DirectionFiltered)
+            obj = first(obj)
+        end
     else
         nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
         m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
