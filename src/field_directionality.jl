@@ -368,11 +368,25 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
     return obj
 end
 
-function DirectionFiltered(;redo=fname->false, do_save=true,kwargs...)
+function process_kwargs(::Type{DirectionFiltered},h::UInt32=zero(UInt32);only_full_traversal=false, kwargs...)
     h = process_kwargs(UnityRaytraceData;kwargs...)
     h = process_kwargs(ViewAndPlaceRepresentationNew,h;kwargs...)
     h = process_kwargs(JointOccupancy,h;kwargs...)
     h = process_kwargs(SpatialResponseFields,h;kwargs...)
+    if only_full_traversal
+        h = crc32c(string(:only_full_traversal=>true),h)
+    end
+    h
+end
+
+function process_kwargs(::Type{CardinalPlaceFieldDirectionality},h::UInt32=zero(UInt32);nshuffles=10000, kwargs...)
+    h = process_kwargs(DirectionFiltered,h;kwargs...)
+    h = crc32c(string(:nshuffles=>nshuffles),h)
+    h
+end
+
+function DirectionFiltered(;redo=fname->false, do_save=true,kwargs...)
+    h = process_kwargs(DirectionFiltered;kwargs...)
     fname = "direction_filtered_placefields.jld2"
     if h > 0
         hs = string(h, base=16)
