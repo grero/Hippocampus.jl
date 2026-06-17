@@ -464,6 +464,64 @@ function plot_decoder_space(zq::Matrix{<:Real}, triallabels::Vector{Tuple{Int64,
     end
 end
 
+function plot_confusion_matrix(cmatrix::Matrix{<:Real}, unique_seqs::Vector{<:Vector{<:Integer}},m_floor::SimpleMesh;_plot_theme=plot_theme)
+    Z = zeros(nelements(m_floor))
+    with_theme(_plot_theme) do
+        fig = Figure(size=(1675,1675))
+        lg1 = GridLayout(fig[1,1])
+        lg2 = GridLayout(fig[2,2])
+        lgm = GridLayout(fig[1,2])
+        ax = Axis(lgm[1,1]) 
+        hidedecorations!(ax)
+        heatmap!(ax, cmatrix, colormap=:rain)
+        for (ii,uq) in enumerate(unique_seqs)
+            fill!(Z, 0.0)
+            axq = Axis(lg1[ii,1], aspect=1)
+            axp = Axis(lg2[1,ii], aspect=1)
+            hidedecorations!(axq)
+            hidedecorations!(axp)
+            Z[uq] .= 1.0
+            viz!(axq, m_floor;color=Z)
+            viz!(axp, m_floor;color=Z)
+        end
+        colsize!(fig.layout, 1, 25)
+        rowsize!(fig.layout, 2, 25)
+        colgap!(fig.layout, 1, 0)
+        rowgap!(fig.layout, 1, 0)
+        fig
+    end
+end
+
+function plot_confusion_matrix(cmatrix::Matrix{<:Real}, poster_combos::Vector{Tuple{Int64,Int64}};_plot_theme=plot_theme,kwargs...)
+    colormap = get(kwargs, :colormap, :rain)
+    tcolor = get_colors(poster_combos) 
+    with_theme(_plot_theme) do
+        fig = Figure(size=(800,700))
+        ax = Axis(fig[1,2],xticklabelsize=11, yticklabelsize=11) 
+        ax.xticklabelsvisible = false
+        ax.yticklabelsvisible = false
+        h = heatmap!(ax, cmatrix, colormap=colormap)
+        Colorbar(fig[1,3],h, label="Prop of trials")
+        # TODO: Instead of lables, using colors
+        axl = Axis(fig[1,1])
+        axl.xticklabelsvisible = false
+        axl.yticklabelsvisible = false
+        image!(axl, reshape(tcolor, 1, :),interpolate=false)
+        axb = Axis(fig[2,2])
+        axb.xticklabelsvisible = false
+        axb.yticklabelsvisible = false
+        image!(axb, reshape(tcolor, :, 1),interpolate=false)
+        xlabels = [strip(string(pl), ['(',')']) for pl in poster_combos]
+        axb.xlabel = "Decoded"
+        axl.ylabel = "True"
+        ax.xticklabelrotation = π/2
+        colsize!(fig.layout,1, 10)
+        rowsize!(fig.layout,2,10)
+        fig
+    end
+end
+
+
 function plot_spatial_performance(true_labels::Vector{T}, decoded_labels::Vector{T},mm::SimpleMesh;_plot_theme=plot_theme, poster_positions=poster_pos, binidx=1:nelements(mm), kwargs...) where T <: Integer
     Z = zeros(maximum(true_labels)) 
     nn = fill(0, length(Z))
