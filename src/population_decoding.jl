@@ -307,11 +307,17 @@ function get_colors(traj::Vector{Tuple{Int64, Int64}})
     colors
 end
 
-function get_confusion_matrix(true_labels::AbstractVector{T}, decoded_labels::AbstractVector{T}) where T <: Integer
-    lmax = max(maximum(true_labels), maximum(decoded_labels))
+function get_confusion_matrix(true_labels::AbstractVector{T}, decoded_labels::AbstractVector{T};do_normalize=true) where T
+    pidx = MultivariateStats.toindices([true_labels;decoded_labels])
+    true_idx = pidx[1:length(true_labels)]
+    decoded_idx = pidx[length(true_labels)+1:end]
+    lmax = max(maximum(true_idx), maximum(decoded_idx))
     C = zeros(lmax, lmax)
-    for (tl,dl) in zip(true_labels, decoded_labels)
+    for (tl,dl) in zip(true_idx, decoded_idx)
         C[dl,tl] += 1.0
+    end
+    if do_normalize
+        C ./= sum(C,dims=1)
     end
     C
 end
