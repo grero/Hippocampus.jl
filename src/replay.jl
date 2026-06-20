@@ -2141,14 +2141,14 @@ function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1
     JointOccupancy(weight,aindex)
 end
 
-function JointOccupancy(;redo=false, do_save=true,kwargs...)
+function JointOccupancy(;redo=fname->false, do_save=true,kwargs...)
     fname = DPHT.filename(JointOccupancy)
     h = process_kwargs(JointOccupancy;kwargs...)
     if h > 0
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
-    if isfile(fname) && !redo
+    if isfile(fname) && !redo(fname)
         jocc = load_jld2(JointOccupancy, fname)
     else 
         udata = UnityData()
