@@ -1653,8 +1653,9 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, vr::ViewRepresentation)
             push!(gazepos, pq)
         end
     end
-    ax3 = S.Axis3(plots=[S.Scatter(gazepos)])
-    S.GridLayout(ax3)
+    #ax3 = S.Axis3(plots=[S.Scatter(gazepos)])
+    #S.GridLayout(ax3)
+    S.Scatter(gazepos)
 end
 
 function create_axis(obj::ViewRepresentation, fig;kwargs...)
