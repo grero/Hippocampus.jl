@@ -1011,15 +1011,7 @@ function compute_histogram(gdata::UnityRaytraceData,mm::MazeModel)
         gaze[i] = gdata.gaze[i][:,1:end-1] # Skip the last point
     end
 
-    counts = Dict{Symbol,Vector{Array{Float64,3}}}()
-    idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(gdata.gaze))
-    # initialize
-    for ii in 1:length(idx)
-        idx[ii] = fill((0,0,0,:unknown), size(gaze[ii],2))
-    end
-    for k in keys(bins)
-        counts[k] = compute_histogram!(idx, gaze,bins[k],weight,k)
-    end
+    counts, idx = compute_histogram(gaze,bins,weight)
     # replace the object place holder with the actual fixated object as reported
     # by unity
     for ii in 1:length(idx)
