@@ -1287,7 +1287,7 @@ function show_maze!(lscene, bins,counts::Union{Dict{Symbol,Vector{Array{T,3}}},N
     end
 end
 
-function explore_maze(mm::MazeModelNew, points::Vector{Point3f}=Point3f[])
+function explore_maze(mm::MazeModelNew;points::Vector{Point3f}=Point3f[], paths::Vector{Vector{Point2f}}=Vector{Point2f}[],head_direction::Vector{Vector{Float32}}=Vector{Float32}[])
     with_theme(plot_theme) do
         fig = Figure()
         lscene = LScene(fig[1,1])
@@ -1334,6 +1334,20 @@ function explore_maze(mm::MazeModelNew, points::Vector{Point3f}=Point3f[])
             if ispressed(lscene.scene, Keyboard.left)
                 rotate_cam!(lscene.scene,cc, Point3f(0.0, 0.1, 0.0))
                 return Consume()
+            end
+        end
+        if !isempty(paths) && !isempty(head_direction)
+            # replay
+            display(fig)
+            for (path,hd) in zip(paths, head_direction)
+                for (p,θ) in zip(path,hd)
+                    θ = Float32(π/180)*θ
+                    pos = Point3f(p[1], p[2], 1.5)
+                    cc.lookat[] = Point3f(sin(θ), cos(θ), 0.0) + pos
+                    cc.eyeposition[] = pos 
+                    update_cam!(lscene.scene, cc)
+                    sleep(0.01)
+            end
             end
         end
         fig
