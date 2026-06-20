@@ -1599,3 +1599,9 @@ function get_poster_combinations(triggers::Matrix{<:Integer})
     end
     combos, correct 
 end
+
+function get_poster_position(pos::NTuple{N,T}, mm::SimpleMesh) where T <: Real where N
+    kn = KNearestSearch(mm, 1)
+    midx = search(Meshes.Point(pos...), kn)
+    first(midx)
+end
