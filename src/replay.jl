@@ -699,8 +699,9 @@ function get_session(qdata::UnityRaytraceData, edata::EyelinkData, idx::Integer)
     fixating = qdata.fixating[tidx]  
     position = qdata.position[tidx]
     triggers = qdata.triggers[tidx,:]
-    # TODO: Reset these
-    timestamps = [qdata.timestamps[_tidx] .- triggers[1,1] for _tidx in findall(tidx)]
+    #We do not need to to this because the timestamps are already aligned to trial start
+    #timestamps = [qdata.timestamps[_tidx] .- triggers[1,1] for _tidx in findall(tidx)]
+    timestamps = qdata.timestamps[tidx]
     # reset to zero
     rawgaze = qdata.rawgaze[tidx]
     gaze = qdata.gaze[tidx]
