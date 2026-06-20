@@ -3,6 +3,8 @@ using CSV
 using DataFrames
 using Makie
 using ProgressMeter
+using Meshes
+using CRC32c
 
 abstract type AbstractViewMap <: AbstractMap end
 struct DummyCam
