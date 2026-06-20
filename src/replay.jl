@@ -2608,7 +2608,71 @@ function get_num_spikes(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupan
     cc
 end
 
-function get_num_spikes_per_spatial_bin(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,qidx::Vector{CartesianIndex{4}};shuffle_place=false, shuffle_view=false)
+struct SpikeCountPerSpatialBin
+    spikecounts::Vector{Vector{Float64}}
+    bins::Vector{Vector{Int64}}
+end
+
+function process_kwargs(::Type{SpikeCountPerSpatialBin},h::UInt32=zero(UInt32);correct_only=true, correct_after_correct_only=false, kwargs...)
+    h = process_kwargs(JointMap,h;kwargs...)
+    if correct_only
+        h = crc32c(string(:correct_only=>correct_only),h)
+    end
+    if correct_after_correct_only
+        h = crc32c(string(:correct_after_correct_only=>correct_after_correct_only),h)
+    end
+    h
+end
+
+function DPHT.filename(::Type{SpikeCountPerSpatialBin};kwargs...)
+    fname = "spike_count_per_spatial_bin.jld2"
+    h = process_kwargs(SpikeCountPerSpatialBin;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    fname
+end
+
+struct SpikeCountPerGazeBin
+    spikecounts::Vector{Vector{Float64}}
+    bins::Vector{Vector{Int64}}
+end
+
+function process_kwargs(::Type{SpikeCountPerGazeBin},h::UInt32=zero(UInt32);recategorize_bins=false, correct_only=false, kwargs...)
+    if recategorize_bins
+        h = crc32c(string(:recategorize_bins=>recategorize_bins),h)
+    end
+    if correct_only
+        h = crc32c(string(:correct_only=>correct_only),h)
+    end
+    h = process_kwargs(JointMap,h;kwargs...)
+end
+
+function DPHT.filename(::Type{SpikeCountPerGazeBin};kwargs...)
+    fname = "spike_count_per_gaze_bin.jld2"
+    h = process_kwargs(SpikeCountPerGazeBin;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
+    end
+    fname
+end
+
+Base.getindex(qidx::CartesianIndex{N}, ::Type{SpikeCountPerSpatialBin}) where N = getindex(qidx,2)
+Base.getindex(qidx::CartesianIndex{N}, ::Type{SpikeCountPerGazeBin}) where N = getindex(qidx,1)
+get_mesh(::Type{SpikeCountPerSpatialBin}, nrefinements) = get_mesh(SpatialResponseFields, nrefinements)
+get_mesh(::Type{SpikeCountPerGazeBin}, nrefinements) = get_mesh(GazeResponseFields, nrefinements)
+
+function get_num_spikes_per_spatial_bin(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,qidx::Vector{CartesianIndex{4}};kwargs...)
+    get_num_spikes_per_bin(SpikeCountPerSpatialBin, vpvrp, jocc, qidx;kwargs...)
+end
+
+function get_num_spikes_per_gaze_bin(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,qidx::Vector{CartesianIndex{4}};kwargs...)
+    get_num_spikes_per_bin(SpikeCountPerGazeBin, vpvrp, jocc, qidx;kwargs...)
+end
+
+function get_num_spikes_per_bin(::Type{T}, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,qidx::Vector{CartesianIndex{4}};shuffle_place=false, shuffle_view=false, recategorize_bins=false,correct_only=false, kwargs...) where T <: Union{SpikeCountPerGazeBin, SpikeCountPerSpatialBin}
     nt = length(vpvrp.events)
     trajectories = Vector{Vector{Int64}}(undef,nt)
     spike_counts = Vector{Vector{Int64}}(undef, nt)
@@ -2655,11 +2719,15 @@ function get_num_spikes_per_bin(::Type{T};redo=fname->false, do_save=true, kwarg
         jocc_filtered= JointFilteredOccupancy(jocc,qdata;kwargs...)
         vpvrp = ViewAndPlaceRepresentationNew(;redo=fname->false,do_save=true,kwargs...)
         spikecounts,trajectories = get_num_spikes_per_bin(T, vpvrp, jocc, jocc_filtered.index;kwargs...)
-        if get(kwargs, :correct_only, false)
+        # TODO: Use correct after correct here
+        if get(kwargs, :correct_only, false) || get(kwargs, :correct_after_correct_only, false)
             udata = cd(DPHT.process_level("session")) do
                 UnityData()
             end
             cidx = round.(Int64, floor.(udata.triggers[:,3]./10)) .== 3
+            if get(kwargs, :correct_after_correct_only, false)
+                cidx = findall(cidx[2:end].&cidx[1:end-1]) .+ 1
+            end
         else
             cidx = 1:length(spikecounts)
         end  
