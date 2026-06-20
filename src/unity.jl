@@ -214,7 +214,8 @@ function read_unity_file(fname::String)
                 if k == "name" 
                     # grab the next line which shoud be the position
                     k2,v2 = split(lines[i+1], ':')
-                    _header[poster_idx] = parse(NTuple{3,Float64},v2)
+                    # reoarrange to put z last
+                    _header[poster_idx] = parse(NTuple{3,Float64},v2)[[1,3,2]]
                 elseif k == "posterPosition"
                     # do nothing since we've already processed this line above
                 end
