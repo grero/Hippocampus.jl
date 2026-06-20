@@ -644,6 +644,11 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ::Ab
             cpoints = centroid.(mm[pidx])
             viz!(ax, cpoints, color=cc)
         end
+    elseif show_boundaries
+        bb = find_boundaries(rf)
+        for (cc,_bb) in zip(ccolors, bb)
+            viz!(ax, _bb, color=cc)
+        end
     end
     if show_colorbar
         ticks = WilkinsonTicks(3)
