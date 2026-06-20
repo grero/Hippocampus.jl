@@ -674,3 +674,10 @@ function plot_response_fields!(lscene::LScene, rf::SpatialResponseFields,idx::Un
         end
     end
 end
+
+function plot_response_fields!(lg, rf_place::SpatialResponseFields, rf_gaze::GazeResponseFields;kwargs...)
+    lgs = GridLayout(lg[1,1])
+    plot_response_fields!(lgs, rf_place;kwargs...)
+    lgg = GridLayout(lg[1,2])
+    plot_response_fields!(lgg, rf_gaze;kwargs...)
+end
