@@ -653,9 +653,9 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ::Ab
     if show_colorbar
         ticks = WilkinsonTicks(3)
         if colorbar_below
-            Colorbar(lg[2,1], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]", vertical=false, flipaxis=false, ticksvisible=true)
+            Colorbar(lg[2,1], colorrange=colorrange, colormap=colormap, label=label, vertical=false, flipaxis=false, ticksvisible=true,ticks=ticks)
         else
-            Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]")
+            Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label=label,ticks=ticks)
         end
     end
     ax
