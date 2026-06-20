@@ -53,6 +53,14 @@ poster_pos_new[:donkey] = (-7.6, 5.0, 1.4)
 poster_pos_new[:croc] = (-2.4, 5.0, 1.4)
 poster_pos_new[:rabbit] = (5.0, 7.6, 1.4)
 
+poster_color = Dict{Symbol, Symbol}()
+poster_color[:camel] = :navajowhite2
+poster_color[:cat] = :orange
+poster_color[:pig] = :salmon
+poster_color[:donkey] = :gray55
+poster_color[:croc] = :seagreen
+poster_color[:rabbit] = :whitesmoke
+poster_names = [:camel, :cat, :croc, :donkey, :pig, :rabbit]
 
 #poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
 # for some reason x and y appear to be flipped
