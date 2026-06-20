@@ -1910,17 +1910,18 @@ function ViewOccupancyNew(gdata::Union{GazeOnMaze,UnityRaytraceData}, mm::Simple
     ViewOccupancyNew(counts,mm)
 end
 
-function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata::UnityData, mm::SimpleMesh;fixations_only=false, check_dist=false)
+function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata::UnityData, mm::SimpleMesh,m_floor::SimpleMesh;fixations_only=false, check_dist=false, )
     nt = numtrials(gdata)
     nt == numtrials(udata) || error("View and gaze data should have the same number of trials")
-    ss = Slice(x=(-12.5, 12.5), y=(-12.5, 12.5), z=(0.0, 0.0))
-    m_floor = ss(mm)
+    #ss = Slice(x=(-12.5, 12.5), y=(-12.5, 12.5), z=(0.0, 0.0))
+    #m_floor = 
     kn = KNearestSearch(mm,1)
     kn_floor = KNearestSearch(m_floor,1)
-    weight_place = zeros(nelements(m_floor))
+    weight_place = zeros(nelements(m_floor),nt)
     placebin_idx = Vector{Vector{Int64}}(undef, nt)
     viewbin_idx = Vector{Vector{Int64}}(undef, nt)
-    weight_view = zeros(nelements(mm), size(weight_place,1))
+    weight_view = zeros(nelements(mm), size(weight_place,1),nt)
+    duration_on_hint = 0.0
     for i in 1:nt
         tg, gaze,_,fixmask,fo = get_trial(gdata,i;trial_start=1)
         if isempty(tg)
@@ -1933,6 +1934,7 @@ function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata
         tu,posx,posy,hd = get_trial(udata, i;trial_start=1)
         tu .-= tu[1]
         Δtu = diff(tu)
+        speed = sqrt.((diff(posx).^2 .+ diff(posy).^2)./Δtu.^2)
         push!(Δtu, maximum(Δtu))
         _placebin_idx = zeros(Int64, length(tu))
         _viewbin_idx = zeros(Int64, length(tg))
@@ -1942,7 +1944,7 @@ function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata
             _mm = m_floor[_idx]
             Δ=mean(norm.(_mm.vertices .- centroid(_mm)))
             if (dd[1] <= Δ) || (check_dist == false)
-                weight_place[_idx] += Δtu[j] 
+                weight_place[_idx,i] += Δtu[j] 
                 _placebin_idx[j] = _idx
             else
                 continue
@@ -1955,7 +1957,9 @@ function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata
             end
             for k in idx0:idx1-1
                 # do not include the hint image
+                Δtt = tg[k+1]-tg[k]
                 if fixated_object[k] == "HintImage"
+                    duration_on_hint +=  Δtt
                     continue
                 end
                 pg = gaze[:,k]
@@ -1968,7 +1972,7 @@ function ViewAndPlaceOccupancy(gdata::Union{GazeOnMaze,UnityRaytraceData}, udata
                     if _idxv == 3336 && _idx == 831
                         @debug "indices" tg[k+1]-tg[k]
                     end
-                    weight_view[_idxv, _idx] += tg[k+1] -tg[k]
+                    weight_view[_idxv, _idx,i] += Δtt 
                     _viewbin_idx[k] = _idxv
                 else
                     @debug "indices" _idx _idxv dd[1] Δ pg
