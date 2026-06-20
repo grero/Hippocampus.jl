@@ -615,7 +615,7 @@ function plot_response_fields!(lscene::LScene, rf::GazeResponseFields,idx::Union
     end
 end
 
-function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ=rf.λ;filter_spurious=true, show_points=true, colorbar_below=false, show_colorbar=true, kwargs...)
+function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ::AbstractVector{<:Real}=rf.λ;filter_spurious=true, show_points=true, show_boundaries=false, colorbar_below=false, show_colorbar=true, label="Firing rate [Hz]", kwargs...)
     mm = Shadow("xy")(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
     ax = Axis(lg[1,1],aspect=1)
     hidedecorations!(ax)
