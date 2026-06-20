@@ -244,6 +244,7 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
     # what the camera 'sees' is a normalized coordinate system (not the physical sensor.)
     # find the angle of the point
     # height of frustrum at near clip
+    # Unity is also using the far instead of the near plane, setting the far plane at 25 units
     fovr = π*fov/180
     fheight = 2*tan(fovr/2)*near_clip
     fwidth = fheight*frustrum_ratio
@@ -275,6 +276,10 @@ function raytrace(x, y, pos,direction, fov, near_clip=0.3;camera_height=1.85,fru
     end
     xp,yp,zp
 end
+
+
+# TODO: Map a view field onto the scene. Basically, a view field would just be a 2D field on the field
+# of vision. To map this back onto real space, you need to know where you are. This is the basics
 
 """
 Construct GazeMaze from eyelinkata and raytrace data from Unity
@@ -311,6 +316,7 @@ Return the 3D eye position on objects in the maze
 function GazeOnMaze(edata::EyelinkData, udata::UnityData)
     # we an only align edata and udata using events, so we need to operate on trials
     # the most compact representation
+    # TODO: This probably only works for the first session
     nt = size(udata.triggers,1)
     gaze = Vector{Matrix{Float64}}(undef, nt)
     gtime = Vector{Vector{Float64}}(undef,nt)
