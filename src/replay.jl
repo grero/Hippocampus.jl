@@ -2367,7 +2367,8 @@ function get_spike_counts(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccup
 end
 
 
-function compute_speed(pos::Matrix{T}, timestamp::Array{T}, binidx::Vector{Int64},bmax=maximum(binidx)) where T <: Real
+# TODO: Verify that this actually works.
+function compute_speed_old(pos::Matrix{T}, timestamp::Array{T}, binidx::Vector{Int64},bmax=maximum(binidx)) where T <: Real
     if isempty(binidx)
         return fill(NaN, bmax) 
     end
