@@ -15,6 +15,32 @@ struct DummyCam
     frustrum_ratio::Float32
 end
 
+function DummyCam(pos::Point3f, θ::Float32, ϕ::Float32, fov::Float32, z_near::Float32, frustrum_ratio::Float32)
+    v = Vec3(cos(ϕ)*sin(θ), sin(ϕ)*sin(θ), cos(θ))
+    DummyCam(pos, v,fov, z_near, frustrum_ratio)
+end
+
+
+function raytrace(xbins::AbstractArray{T}, ybins::AbstractArray{T}, idx, cam ,mm) where T <: Real
+    Z = zeros(T, 3, length(idx))
+    for (j,ii) in enumerate(idx)
+        Z[:,j] .= raytrace(xbins[ii.I[1]], ybins[ii.I[2]], cam, mm)
+    end
+    Z
+end
+
+function raytrace(X::Matrix{T}, cam, mm) where T <: Real
+    Z = zeros(T, 3, size(X,2))
+    raytrace!(Z, X, cam, mm)
+end
+
+function raytrace!(Z::Array{T,3}, X::Matrix{T}, cam, mm) where T <: Real
+    for i in axes(X,2)
+        Z[:,i] .= raytrace(X[1,i], X[2,i], cam, mm)
+    end
+    Z
+end
+
 """
 Trace a ray from position `x,y` through the camera with focal length `focal_length` until it
 impacts something in the arena
