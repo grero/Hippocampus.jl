@@ -1690,7 +1690,7 @@ function JointRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{Ga
     events = Vector{Vector{Float64}}(undef, nt)
     data = Vector{Matrix{Float32}}(undef, nt)
     for i in 1:nt
-        tg,gaze,fixmask = get_trial(gdata,i)
+        tg,gaze,pos, fixmask,fo = get_trial(gdata,i)
         if isempty(tg)
             events[i] = Float64[]
             data[i] = Matrix{Float32}(undef, 0,0)
