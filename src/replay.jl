@@ -45,7 +45,7 @@ end
 Trace a ray from position `x,y` through the camera with focal length `focal_length` until it
 impacts something in the arena
 """
-function raytrace(x, y, cam::DummyCam,mm::MazeModel)
+function raytrace(x::T, y::T, cam::DummyCam,mm::MazeModel) where T <: Real
     # TODO: It looks like the raytracing function in Unity just uses the viewport. In other words,
     # what the camera 'sees' is a normalized coordinate system (not the physical sensor.)
     # find the angle of the point
@@ -60,9 +60,11 @@ function raytrace(x, y, cam::DummyCam,mm::MazeModel)
     # flip x since x-values left-of-center should be associated with a positive angle
     θ = atan(xc, cam.z_near)
     θc = atan(cam.dir[2],cam.dir[1])
+    ϕc = atan(cam.dir[3], sqrt(cam.dir[2]^2 + cam.dir[1]^2))
     θ += θc
     # TODO: Assumes no camera elevation angle
     ϕ = atan(yc,cam.z_near) 
+    ϕ += ϕc
     v = [cos(θ)*cos(ϕ), sin(θ)*cos(ϕ), sin(ϕ)]
     # alternatively
     #b = [cam.dir nullspace(permutedims(cam.dir))]
