@@ -1548,6 +1548,9 @@ struct ViewRepresentation <: AbstractRepresentation{Float32, Float64}
     event::Vector{Vector{Float64}}
 end
 
+DPHT.filename(::Type{ViewRepresentation}) = "view_representation.jld2"
+DPHT.filename(X::ViewRepresentation) = "view_representation.jld2"
+
 function ViewRepresentation(gaze::Vector{Vector{Point3f}}, timestamp::Vector{Vector{Float64}}, time_window, event)
     position = [[Point2f(NaN) for _ in length(gaze[i])] for i in 1:length(gaze)]
     ViewRepresentation(gaze, position, timestamp, time_window, event)
