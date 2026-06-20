@@ -1613,15 +1613,35 @@ function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{Gaz
     ViewRepresentation(gaze, pos, timestamp, time_window, events)
 end
 
-function ViewRepresentation(gaze_type::Type{T};kwrgas...) where T <: Union{GazeOnMaze, UnityRaytraceData}
-    gdata = cd(DPHT.process_level(T)) do
-        T()
+function get_gaze(vrp::ViewRepresentation)
+    nn = length.(vrp.gaze)
+    gaze = zeros(Float32, 3, sum(nn))
+    offset = 0
+    for i in 1:numtrials(vrp)
+        gaze[:,offset+1:offset+nn[i]] = cat(vrp.gaze[i]...,dims=2)
+        offset += nn[i]
     end
-    rp = cd(DPHT.process_level(RippleData)) do
-        RippleData()
+    gaze
+end
+
+function ViewRepresentation(gaze_type::Type{T};redo=false, do_save=true, kwargs...) where T <: Union{GazeOnMaze, UnityRaytraceData}
+    fname = DPHT.filename(ViewRepresentation)
+    if !redo && isfile(fname)
+        vrp = load_jld2(ViewRepresentation)
+    else
+        gdata = cd(DPHT.process_level(T)) do
+            T(;kwargs...)
+        end
+        rp = cd(DPHT.process_level(RippleData)) do
+            RippleData()
+        end
+        sp = Spiketrain()
+        vrp = ViewRepresentation(sp,rp,gdata;kwargs...)
+        if do_save
+            save_jld2(vrp)
+        end
     end
-    sp = Spiketrain()
-    ViewRepresentation(sp,rp,gdata)
+    vrp
 end
 
 numtrials(vrp::ViewRepresentation) = length(vrp.position)
