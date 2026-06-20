@@ -565,20 +565,22 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     else
         ccolors = Makie.wong_colors()
     end
-    for (cc,cluster) in zip(ccolors[cidx],clusters[cidx])
-        pidx = rf.binidx[cluster]
-        cpoints = centroid.(mm[pidx])
-        floor_points = filter(Meshes.intersects(m_floor), cpoints)
-        ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
-        mid_points = setdiff(cpoints, union(floor_points, ceil_points))
-        if !isempty(floor_points)
-            viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=10)
-        end
-        if !isempty(ceil_points)
-            viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=10)
-        end
-        if !isempty(mid_points)
-            viz!(lscene, mid_points,color=cc, pointsize=10)
+    if show_points
+        for (cc,cluster) in zip(ccolors[cidx],clusters[cidx])
+            pidx = rf.binidx[cluster]
+            cpoints = centroid.(mm[pidx])
+            floor_points = filter(Meshes.intersects(m_floor), cpoints)
+            ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
+            mid_points = setdiff(cpoints, union(floor_points, ceil_points))
+            if !isempty(floor_points)
+                viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=10)
+            end
+            if !isempty(ceil_points)
+                viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=10)
+            end
+            if !isempty(mid_points)
+                viz!(lscene, mid_points,color=cc, pointsize=10)
+            end
         end
     end
     if show_colorbar
@@ -644,6 +646,7 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ=rf.
         end
     end
     if show_colorbar
+        ticks = WilkinsonTicks(3)
         if colorbar_below
             Colorbar(lg[2,1], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]", vertical=false, flipaxis=false, ticksvisible=true)
         else
