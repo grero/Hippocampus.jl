@@ -1556,7 +1556,7 @@ function ViewRepresentation(gaze::Vector{Vector{Point3f}}, timestamp::Vector{Vec
     ViewRepresentation(gaze, position, timestamp, time_window, event)
 end
 
-get_rep(vp::ViewRepresentation) = vp.position
+get_rep(vp::ViewRepresentation) = zip(vp.gaze, vp.position)
 
 function ViewRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{GazeOnMaze,UnityRaytraceData};fixations_only=true, kwargs...)
     nt = numtrials(gdata)
