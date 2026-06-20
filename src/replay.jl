@@ -510,9 +510,16 @@ function match_trajectories(gaze1::Matrix{<:Real}, gaze2::Matrix{<:Real},m::Inte
     d,idx,k0
 end
 
-function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_fname="unityfile_eyelink_new.csv", extradir::String="",fix_eyelink=false, apply_fix=false, kwargs...)
+function process_kwargs(::Type{UnityRaytraceData},h=zero(UInt32);raytrace_fname="unityfile_eyelink_new.csv", kwargs...)
+    if raytrace_fname != "unityfile_eyelink_new.csv"
+        h = circ32c(string(:raytrace_fname=>raytrace_fname),h)
+    end
+    h
+end
+
+function UnityRaytraceData(;do_save=true, redo=fname->false,append_tag=true, raytrace_fname="unityfile_eyelink_new.csv", extradir::String="",fix_eyelink=false, apply_fix=false, kwargs...)
     fname = DPHT.filename(UnityRaytraceData)
-    if !redo && isfile(fname)
+    if !redo(fname) && isfile(fname)
         t1 = time()
         qdata = DPHT.load(UnityRaytraceData)
         t2 = time()-t1
@@ -525,7 +532,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
             sidx = parse(Int64, filter(isdigit, DPHT.get_level_name("session")))
 
             qdata,edata = cd("..") do 
-                edata = EyelinkData()
+                edata = EyelinkData(;kwargs...)
                 qdata = UnityRaytraceData(;do_save=do_save, redo=redo, raytrace_fname=raytrace_fname)
                 qdata, edata
             end
@@ -534,7 +541,7 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
                 save_jld2(qdata;append_tag=append_tag)
             end
         else
-            if !redo && isfile(fname)
+            if !redo(fname) && isfile(fname)
                 t1 = time()
                 qdata = DPHT.load(UnityRaytraceData)
                 t2 = time()-t1
@@ -543,11 +550,14 @@ function UnityRaytraceData(;do_save=true, redo=false,append_tag=true, raytrace_f
                     save_jld2(ut)
                 end
             else
-                edata = cd(DPHT.process_level(EyelinkData)) do
+                edata = cd(DPHT.process_level("session")) do
                     EyelinkData()
                 end
                 if !isempty(extradir)
                     raytrace_fname = joinpath(extradir, raytrace_fname)
+                end
+                if !ispath(raytrace_fname)
+                    raytrace_fname = joinpath("backup-day-level-dependencies", raytrace_fname)
                 end
                 if !ispath(raytrace_fname)
                     error("$(raytrace_fname) not found in $(pwd())")
