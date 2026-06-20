@@ -1835,7 +1835,12 @@ function load_jld2(::Type{ViewOccupancyNew})
     fname = replace(fname, ".mat"=>".jld2")
     meta,data = JLD2.load(fname, "meta","data")
     mm = get_maze_mesh()
-    ViewOccupancyNew(data["counts"],mm)
+    if "counts" in keys(data)
+        weight = data["counts"]
+    else
+        weight = data["weight"]
+    end
+    ViewOccupancyNew(weight,mm)
 end
 
 function save_jld2(voc::ViewOccupancyNew{T};append_tag=true) where T <: Real
