@@ -1476,6 +1476,11 @@ function visualize(fig::Union{Figure,GridLayout,GridPosition}, objects::VectorOr
                 for (kk,_obj) in obj
                     axtype = get_axis_type(typeof(_obj))
                     push!(scenes, create_axis(axtype, lg[ii,jj];kvs...))
+                    # check aspect so that we can set it at the grid level
+                    aspect = get(kws, :aspect, 1.0)
+                    if aspect != 1.0
+                        colsize!(lg, jj, Aspect(jj, aspect))
+                    end
                     push!(fobjects, _obj)
                 end
                 scene_offset += length(obj)
