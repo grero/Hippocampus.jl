@@ -1893,14 +1893,15 @@ function ViewOccupancyNew(gdata::Union{GazeOnMaze,UnityRaytraceData}, mm::Simple
     gaze = zeros(3, ng)
     weight = zeros(ng)
     offset = 0
-    for (_gaze, _timestamps,_fix) in zip(gdata.gaze, gdata.timestamps,gdata.fixating)
+    for (_gaze, _timestamps,_fix, _fo) in zip(gdata.gaze, gdata.timestamps,gdata.fixating, gdata.fixated_object)
+        _fidx = (!).(in(["HintImage","CueImage"]).(_fo[1:end-1]))
         Δt = diff(_timestamps)
         nb = length(Δt)
         if fixations_only
-            weight[offset+1:offset+nb] = Δt.*_fix[1:end-1]
+            weight[offset+1:offset+nb] = Δt.*_fix[1:end-1].*_fidx
             gaze[:,offset+1:offset+nb] = _gaze[:,1:end-1] # Skip the last point
         else
-            weight[offset+1:offset+nb] = Δt
+            weight[offset+1:offset+nb] = Δt.*_fidx
             gaze[:,offset+1:offset+nb] = _gaze[:,1:end-1] # Skip the last point
         end
         offset += nb
