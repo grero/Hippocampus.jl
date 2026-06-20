@@ -547,10 +547,11 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     ceiling_offset = get(kwargs, :ceiling_offset, 10)
     colormap = get(kwargs, :colormap, :binary)
     mazecolor = get(kwargs, :mazecolor, :lightgray)
+    colorrange = get(kwargs, :colorrange, extrema(filter(isfinite, λ)))
     if mazecolor !== nothing
-        plotmesh!(lscene, mm;color=mazecolor, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
+        plotmesh!(lscene, mm;color=mazecolor, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
     end
-    plotmesh!(lscene, mm;color=λ, showsegments=true, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,kwargs...)
+    plotmesh!(lscene, mm;color=λ, showsegments=true, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
     clusters = merge_fields(rf)
     if filter_spurious
         nclusters = Hippocampus.get_num_fields(rf)
@@ -581,7 +582,7 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
         end
     end
     if show_colorbar
-        Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=get(kwargs, :colormap, :binary), label="Firing rate [Hz]")
+        Colorbar(lg[1,2], colorrange=colorrange, colormap=get(kwargs, :colormap, :binary), label=label)
     end
     lscene
 end
