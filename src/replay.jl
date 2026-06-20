@@ -1362,7 +1362,13 @@ Visualizables = Union{MazeModel, UnityData}
 # I feel like this is duplicating functionality that must be in Makie somwhere...
 function create_axis(::Type{T},fig;kwargs...) where T <: Makie.AbstractAxis
     if T <: LScene
-        axis_args = (show_axis=get(kwargs, :show_axis,false),)
+        aspect = get(kwargs, :aspect, 1.0)
+        width = Relative(1.0)
+        height = Relative(1/aspect)
+        if aspect != 1.0
+            colsize!(fig, 1, Aspect(1, aspect))
+        end
+        axis_args = (show_axis=get(kwargs, :show_axis,false),width=width,height=height)
     else
         axis_args = (backgroundcolor=get(kwargs, :backgroundcolor, :white),)
     end
