@@ -1379,9 +1379,6 @@ end
 function create_axis(obj::EyelinkData, fig;kwargs...)
     axtype = get_axis_type(EyelinkData)
     ax = create_axis(axtype, fig;kwargs...)
-    # hide everything
-    hidedecorations!(ax)
-    ax.backgroundcolor = RGBA(1.0, 1.0, 1.0, 0.0) 
     ax
 end
 
