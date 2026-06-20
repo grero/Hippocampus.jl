@@ -1495,7 +1495,7 @@ function bin_trajectory(pos::Matrix{<:Real},mm::SimpleMesh)
     bidx
 end
 
-function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2;do_compress=false)
+function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2,do_compress=false)
     nt = numtrials(udata)
     bidx = Vector{Vector{Int64}}(undef, nt)
     for i in 1:nt
