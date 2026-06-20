@@ -1682,7 +1682,8 @@ end
 
 get_rep(jp::JointRepresentation) = jp.data
 
-function JointRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{GazeOnMaze,UnityRaytraceData}, udata::UnityData)
+function JointRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{GazeOnMaze,UnityRaytraceData}, udata::UnityData;fixation_only=false)
+    # TODO: Make sure that time works here, since I can't seem to decode neither place nor view separately
     sp = spikes.timestamps/1000.0 
     nt = numtrials(gdata)
     nt == numtrials(udata) || error("`gdata` and `udata` should have the same number of trials")
@@ -1714,7 +1715,7 @@ function JointRepresentation(spikes::Spiketrain, rp::RippleData, gdata::Union{Ga
             kg = searchsortedfirst(tg,sp_trial[j])
             ku = searchsortedfirst(tu,sp_trial[j])
 
-            if (0 < kg <= size(gaze,2) && fixmask[kg]) && (0 < ku <= length(posx))
+            if (0 < kg <= size(gaze,2) && (fixmask[kg] || !fixation_only)) && (0 < ku <= length(posx))
                 trialdata[1:3, js] .= gaze[:,kg]
                 trialdata[4, js] = posx[ku]
                 trialdata[5, js] = posy[ku]
