@@ -1405,7 +1405,7 @@ end
 
  get_axis_type(::Type{T}) where T <: Any = LScene
 
-function visualize(objects;kwargs...)
+function visualize(objects;outfile::Union{Nothing,String}=nothing, timestamps::Union{Nothing,Vector{Vector{T}}}=nothing, kwargs...) where T <: Real
     fig = Figure()
     
     # attach events
@@ -1440,8 +1440,23 @@ function visualize(objects;kwargs...)
     end
     Label(lg[1,1],stitle, tellheight=true, tellwidth=false)
     visualize(lg[2,1], objects;current_time=current_time, trial=current_trial, kwargs...)
-    current_trial[] = Trial(1)
-    current_time[] = 0.0
+    if outfile !== nothing
+        # rotate through all the trials
+    elseif timestamps !== nothing
+        display(fig)
+        for (i,tt) in enumerate(timestamps)
+            current_time[] = 0.0
+            current_trial[] = Trial(i)
+            for _tt in tt
+                current_time[] = _tt
+                sleep(0.05)
+                yield()
+            end
+        end
+    else
+        current_trial[] = Trial(1)
+        current_time[] = 0.0
+    end
     fig
 end
 
