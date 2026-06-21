@@ -490,7 +490,8 @@ function decode_sequences(allcelldirs::Vector{String};redo=false, kwargs...)
                              "alltriallabels"=>alltriallabels,
                              "allsequences"=>allsequences,
                              "allidx"=>allidx,
-                             "ntrials"=>ntrials))
+                             "ntrials"=>ntrials,
+                             "cidx"=>cidx))
     end
     useqs, isdx = reclassify_sequences(allsequences, alltriallabels)
     # convert to sequnces per cell
