@@ -561,7 +561,7 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     end
 
     if in([:rain , :navia])(colormap)
-        ccolors = [:red, :orangered2, :orange, :yellow, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
+        ccolors = [:red, :yellow, :orangered2, :orange, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
     else
         ccolors = Makie.wong_colors()
     end
