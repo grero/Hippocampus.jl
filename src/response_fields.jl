@@ -548,6 +548,7 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     colormap = get(kwargs, :colormap, :binary)
     mazecolor = get(kwargs, :mazecolor, :lightgray)
     colorrange = get(kwargs, :colorrange, extrema(filter(isfinite, λ)))
+    pointsize = get(kwargs, :pointsize, 10)
     if mazecolor !== nothing
         plotmesh!(lscene, mm;color=mazecolor, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
     end
@@ -573,13 +574,13 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
             ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
             mid_points = setdiff(cpoints, union(floor_points, ceil_points))
             if !isempty(floor_points)
-                viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=10)
+                viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=pointsize)
             end
             if !isempty(ceil_points)
-                viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=10)
+                viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=pointsize)
             end
             if !isempty(mid_points)
-                viz!(lscene, mid_points,color=cc, pointsize=10)
+                viz!(lscene, mid_points,color=cc, pointsize=pointsize)
             end
         end
     end
