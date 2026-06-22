@@ -5,7 +5,7 @@ using MultivariateStats
 function MultivariateStats.toindices(labels::Vector{T}) where T <:AbstractVector{<:Any}
     unique_labels = unique(reduce(vcat, labels))
     idxs = Dict(l=>i for (i,l) in enumerate(unique_labels))
-    out_labels = Vector{T}(undef, length(labels))
+    out_labels = Vector{Vector{Int64}}(undef, length(labels))
     for (i,label) in enumerate(labels)
         out_labels[i] = [idxs[l] for l in label]
     end
