@@ -67,22 +67,34 @@ end
 
 # TODO:
 # Get all spatial responses as a function of time
-function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsize,nrefinements=(p=0,g=0))
+function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsize,nrefinements=(p=0,g=0), correct_after_correct=false)
 
-    jocc, qdata,edata = cd(DPHT.get_level_path("session", celldir)) do
-        jocc = JointOccupancy(;redo=fname->false, do_save=false, nrefinements=nrefinements,trial_start=2,min_speed=1.0)
+    jocc, qdata,udata = cd(DPHT.get_level_path("session", celldir)) do
+        jocc = JointOccupancy(;redo=fname->false, do_save=false, nrefinements=nrefinements,trial_start=2,min_speed=-1.0)
         qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
-        edata = EyelinkData()
-        jocc, qdata, edata
+        udata = UnityData()
+        jocc, qdata,udata
     end
-
+   
     vpvrp = cd(celldir) do
         ViewAndPlaceRepresentationNew(;redo=fname->false,do_save=false,trial_start=2)
     end
 
-    correct_trial_idx = findall([!ismissing(x) && x for x in (30 .< edata.triggers[:,3] .< 40)])
+    edata = cd(DPHT.get_level_path("day", celldir)) do
+        edata = EyelinkData()
+    end
+    @assert size(edata.triggers) == size(udata.triggers)
+
+    #correct_trial_idx = [!ismissing(x) && x for x in (30 .< edata.triggers[:,3] .< 40)]
+    correct_trial_idx = (30 .< udata.triggers[:,3] .< 40)
+
+    if correct_after_correct
+        correct_trial_idx = findall(correct_trial_idx[2:end].&correct_trial_idx[1:end-1]) .+ 1
+    else
+        correct_trial_idx = findall(correct_trial_idx)
+    end
     nt = length(correct_trial_idx)
-    tmax = maximum(maximum.(filter(l->length(l) > 0, qdata.timestamps)))
+    tmax = maximum(maximum.(filter(l->length(l) > 0, qdata.timestamps[correct_trial_idx])))
     max_nsteps = round(Int64,ceil(tmax/binsize))
     bins = range(0.0, length=max_nsteps, step=binsize)
     Z = fill(0.0, max_nsteps, nt)
@@ -90,15 +102,23 @@ function get_spatial_response_per_time(celldir::String;binsize=0.1, window=binsi
     nsteps = fill(0, nt)
     for (tidx,i) in enumerate(correct_trial_idx)
         tg,gaze,pos, fixmask,fo = get_trial(qdata,i;trial_start=2)
+        if isempty(tg)
+            continue
+        end
         _events = vpvrp.events[i]
         jindex = jocc.index[i]
         nsteps[tidx] = searchsortedlast(bins, tg[end])
         _placeviewidx = vpvrp.placeviewidx[i]
         for (jj,b) in enumerate(bins)
-            idx = findall(b .<= _events .<= b+window)
-            Z[jj] = length(idx)
+            idx = findall(b .<= _events .< b+window)
+            Z[jj,tidx] = length(idx)
+            # why do we not see a value at the first bin always
+            # because these bins are labeled as invalid
+            bidx = findall(b .<= tg .< b+window)
+            bidx = bidx[0 .< bidx .<= length(jindex)]
             # now how do quantify space here: Just the mean?
-            qidx = jindex[_placeviewidx[idx]]
+            # If the cell does not respond, we should still include this bin
+            qidx = jindex[bidx]
             # spatial index
             pidx = getindex.(qidx, 2)
             # maybe majority bin
