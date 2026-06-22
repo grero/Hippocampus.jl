@@ -917,7 +917,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
         for k in [:ceiling, :middle, :floor]
             use_color[k] = Observable(:lightgray)
         end
-        cr = Observable{Union{Nothing, Tuple{Float64, Float64}}}(nothing)
+        cr = Observable{Union{Nothing, Symbol, Tuple{Float64, Float64}}}(nothing)
         nanidx = nothing
         on(tcolor) do _tcolor
             if isa(_tcolor, AbstractArray{<:Any})
@@ -930,7 +930,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
                 if eltype(_tcolor) <: Real
                     cr[] = extrema(qcolor[nanidx.==false])
                 else
-                    cr[] = nothing
+                    cr[] = (1.0, 1.0) 
                 end
                 use_color[:middle][] = qcolor[m_middle.inds]
                 use_color[:floor][] = qcolor[m_floor2.inds]
@@ -940,7 +940,7 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
                 use_color[:middle][] = _tcolor 
                 use_color[:floor][] = _tcolor 
                 use_color[:ceiling][] = _tcolor 
-                cr[] = nothing
+                cr[] = _tcolor 
             end
         end
         # kind of dumb;trigger a change
@@ -966,6 +966,9 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             use_alpha[:floor] = qalpha[m_floor2.inds]
             use_alpha[:ceiling] = qalpha[m_ceiling2.inds]
         else
+            if talpha === nothing
+                talpha = 1.0
+            end
             use_alpha[:middle] = talpha
             use_alpha[:floor] = talpha
             use_alpha[:ceiling] = talpha
