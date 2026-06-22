@@ -157,13 +157,15 @@ function get_spatial_response_per_time(celldirs::Vector{String};kwargs...)
     Zall = fill(0.0, max_nsteps, max_ntrials, length(celldirs))
     spatial_label_all = fill(0, max_nsteps, max_ntrials, length(celldirs))
     nsteps_all = fill(0, max_ntrials, length(celldirs))
+    ntrials_all = fill(0, length(celldirs))
     for ii in 1:length(celldirs)
         _nsteps, _ntrials = size(Z[ii])
         Zall[1:_nsteps, 1:_ntrials,ii] = Z[ii][1:_nsteps,:]
         spatial_label_all[1:_nsteps, 1:_ntrials,ii] = spatial_label[ii][1:_nsteps,:]
         nsteps_all[1:_ntrials,ii] = nsteps[ii]
+        ntrials_all[ii] = _ntrials
     end
-    Zall, spatial_label_all, nsteps_all
+    Zall, spatial_label_all, nsteps_all, ntrials_all
 end
 
 """
