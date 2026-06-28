@@ -1237,3 +1237,28 @@ function map_from_matlab(pillar_height=2.5f0)
     allidx = [vec(floor_idx);vec(ceiling_idx);vec(wall_idx);vec(p1_br_idx);vec(p2_bl_idx);vec(p3_tr_idx);vec(p4_tl_idx)]
     [floor_points;ceiling_points;wall_points;pillar_points...], allidx
 end
+
+function find_boundary(mm::SimpleMesh, idx::Vector{<:Integer})
+    find_boundary(mm[idx])
+end
+
+function find_boundary(m::Vector{<:Quadrangle})
+    edges = Dict{NTuple{2,Meshes.Point},Int64}()
+    for q in m
+        b = boundary(q)
+        for (p1,p2) in zip(b.vertices, circshift(b.vertices,-1))
+            if (p1,p2) in keys(edges)
+                p1p2 = (p1,p2)
+                v = edges[p1p2]
+            elseif  (p2,p1) in keys(edges)
+                p1p2 = (p2,p1)
+                v = edges[p1p2]
+            else
+                p1p2 = (p1,p2)
+                v = 0
+            end
+            edges[(p1p2)] = v + 1 
+        end
+    end
+    boundary_edges = Meshes.Segment.(keys(filter(k->k[2]==1, edges)))
+end
