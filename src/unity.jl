@@ -62,10 +62,40 @@ poster_color[:croc] = :seagreen
 poster_color[:rabbit] = :whitesmoke
 poster_names = [:camel, :cat, :croc, :donkey, :pig, :rabbit]
 
+maze_colors = Dict(:yellow => RGB(165/255,140/255,24/255), #yellow
+                :blue => RGB(31/255,70/255,129/255), #blue 
+                :green => RGB(59/255,130/255,37/255), # green
+                :red => RGB(125/255,60/255,55/255), # red
+                :floor => RGB(109/255,109/255,100/255),
+                :wall => RGB(163/255,159/255,142/255),
+                :ceiling => RGB(122/255,112/255,83/255)
+                )
+
 #poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
 # for some reason x and y appear to be flipped
 #poster_pos = reverse.(poster_pos)
 poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DIR__, "..","artefacts",  ["camel 1.png","cat 1.png","crocodile.png","donkey 1.png","pig 1.png","rabbit 1.png"])))
+
+# hard coded outer maze and pillar boundaries
+maze_boundary = Ring(Meshes.Point(-12.5, -12.5), Meshes.Point(12.5, -12.5), Meshes.Point(12.5, 12.5),
+                     Meshes.Point(-12.5, 12.5))
+pillar1_boundary = Ring(Meshes.Point(-7.5, -7.5), Meshes.Point(-2.5, -7.5), Meshes.Point(-2.5, -2.5), Meshes.Point(-7.5, -2.5))
+pillar2_boundary = Ring(Meshes.Point(2.5, -7.5), Meshes.Point(7.5, -7.5), Meshes.Point(7.5, -2.5), Meshes.Point(2.5, -2.5))
+pillar3_boundary = Ring(Meshes.Point(2.5, 2.5), Meshes.Point(7.5, 2.5), Meshes.Point(7.5, 7.5), Meshes.Point(2.5, 7.5))
+pillar4_boundary = Ring(Meshes.Point(-7.5, 2.5), Meshes.Point(-2.5, 2.5), Meshes.Point(-2.5, 7.5), Meshes.Point(-7.5, 7.5))
+#pillar_boundaries = [pillar1_boundary, pillar2_boundary, pillar3_boundary, pillar4_boundary]
+
+pillar_boundaries = Dict(:blue => pillar1_boundary,
+                         :yellow => pillar4_boundary,
+                         :green => pillar2_boundary,
+                         :red => pillar3_boundary)
+
+
+function plot_pillars!(ax)
+    for k in [:red, :yellow, :blue, :green]
+        viz!(ax, Meshes.PolyArea(pillar_boundaries[k]), color=maze_colors[k])
+    end
+end
 
 # TODO: Use actual values here
 camera_height = 2.5
