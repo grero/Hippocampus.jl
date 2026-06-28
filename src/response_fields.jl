@@ -479,6 +479,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     for (k,v) in field_size
         append!(field_sizes, v)
     end
+    colormap = get(kwargs, :colormap, :rain)
     with_theme(plot_theme) do
         lg1 = GridLayout(lg[1,1])
         ax = Axis(lg1[1,1])
@@ -511,13 +512,13 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
             ax3.topspinevisible = true
             ax3.rightspinevisible = true
             viz!(ax3, mm;color=:lightgray)
-            viz!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray)
+            viz!(ax3, mm;color=Z, showsegments=false, colormap=colormap)
         else
             ax3 = LScene(lg2[1,1], show_axis=false)
-            plotmesh!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10)
+            plotmesh!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10, colormap=colormap)
         end
         Label(lg2[1,1,TopLeft()], labels[4])
-        Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count")
+        Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count", colormap=colormap)
         #rowsize!(lg, 1, Relative(0.4))
         colsize!(lg, 1, Relative(0.25))
         colsize!(lg, 2, Relative(0.25))
