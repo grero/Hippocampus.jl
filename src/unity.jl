@@ -77,12 +77,12 @@ maze_colors = Dict(:yellow => RGB(165/255,140/255,24/255), #yellow
 poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DIR__, "..","artefacts",  ["camel 1.png","cat 1.png","crocodile.png","donkey 1.png","pig 1.png","rabbit 1.png"])))
 
 # hard coded outer maze and pillar boundaries
-maze_boundary = Ring(Meshes.Point(-12.5, -12.5), Meshes.Point(12.5, -12.5), Meshes.Point(12.5, 12.5),
-                     Meshes.Point(-12.5, 12.5))
-pillar1_boundary = Ring(Meshes.Point(-7.5, -7.5), Meshes.Point(-2.5, -7.5), Meshes.Point(-2.5, -2.5), Meshes.Point(-7.5, -2.5))
-pillar2_boundary = Ring(Meshes.Point(2.5, -7.5), Meshes.Point(7.5, -7.5), Meshes.Point(7.5, -2.5), Meshes.Point(2.5, -2.5))
-pillar3_boundary = Ring(Meshes.Point(2.5, 2.5), Meshes.Point(7.5, 2.5), Meshes.Point(7.5, 7.5), Meshes.Point(2.5, 7.5))
-pillar4_boundary = Ring(Meshes.Point(-7.5, 2.5), Meshes.Point(-2.5, 2.5), Meshes.Point(-2.5, 7.5), Meshes.Point(-7.5, 7.5))
+maze_boundary = Ring(Meshes.Point(-12.5, -12.5,0.0), Meshes.Point(12.5, -12.5, 0.0), Meshes.Point(12.5, 12.5,0.0),
+                     Meshes.Point(-12.5, 12.5,0.0))
+pillar1_boundary = Ring(Meshes.Point(-7.5, -7.5,0.0), Meshes.Point(-2.5, -7.5,0.0), Meshes.Point(-2.5, -2.5,0.0), Meshes.Point(-7.5, -2.5, 0.0))
+pillar2_boundary = Ring(Meshes.Point(2.5, -7.5,0.0), Meshes.Point(7.5, -7.5,0.0), Meshes.Point(7.5, -2.5,0.0), Meshes.Point(2.5, -2.5, 0.0))
+pillar3_boundary = Ring(Meshes.Point(2.5, 2.5, 0.0), Meshes.Point(7.5, 2.5, 0.0), Meshes.Point(7.5, 7.5, 0.0), Meshes.Point(2.5, 7.5, 0.0))
+pillar4_boundary = Ring(Meshes.Point(-7.5, 2.5, 0.0), Meshes.Point(-2.5, 2.5, 0.0), Meshes.Point(-2.5, 7.5, 0.0), Meshes.Point(-7.5, 7.5, 0.0))
 #pillar_boundaries = [pillar1_boundary, pillar2_boundary, pillar3_boundary, pillar4_boundary]
 
 pillar_boundaries = Dict(:blue => pillar1_boundary,
