@@ -493,7 +493,13 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         lg3 = GridLayout(lg[1,2])
         axf = Axis(lg3[1,1])
         Label(lg[1,2, TopLeft()], labels[3])
-        density!(axf, collect(values(peak_firing_rate)),direction=:y, color=:gray)
+        yy = Float64.(collect(values(peak_firing_rate)))
+        x = range(minimum(yy), stop=1.1*maximum(yy), length=30)
+        hist!(axf, yy, bins=x, normalization=:pdf, color=:gray, direction=:x)
+        if estimate_fr_density
+            yf = log_kde(yy,x)
+            lines!(axf, yf, x, color=:black)
+        end
         axf.ylabel = "Peak firing rate [Hz]"
         axf.xticklabelsvisible = false
         axf.xticksvisible = false
