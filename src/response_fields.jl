@@ -432,7 +432,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     h = process_kwargs(T;kwargs...)
     h = CRC32c.crc32c(string(celldirs),h)
     hs = string(h, base=16)
-    fname = "field_stats_$(hs).jld2"
+    fname = joinpath(@__DIR__, "..","data","field_stats_$(hs).jld2")
     if !redo && isfile(fname)
         Z,nfields,field_size, field_boundaries, peak_firing_rate, args = JLD2.load(fname, "Z", "nfields","field_size", "field_boundaries","peak_firing_rate", "args")
     else
