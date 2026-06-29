@@ -924,7 +924,7 @@ end
 """
 Plot view conditioned on place
 """
-function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:darkgray,non_covered_idx::Union{Vector{Int64}, Nothing}=nothing, kwargs...)
+function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:darkgray,non_covered_idx::Union{Vector{Vector{Int64}}, Nothing}=nothing, kwargs...)
     # find the significant clusters
     view_clusters = merge_fields(pvc.view_fields)
     nclusters1 = get_num_fields(pvc.view_fields)
@@ -937,8 +937,10 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     ppc = pvc.view_fields.binidx[view_clusters[idx]]
     # get all points not part of a view field
     if non_covered_idx === nothing
-        nppc = reduce(vcat, [pvc.view_fields.binidx[view_clusters[c]] for c in 1:length(view_clusters)])
-        nppc = setdiff(1:nelements(mm2), nppc)
+        _nppc = reduce(vcat, [pvc.view_fields.binidx[view_clusters[c]] for c in 1:length(view_clusters)])
+        _nppc = setdiff(1:nelements(mm2), nppc)
+        nppc = Matrix{Vector{Int64}}(undef, size(pvc.λ_covered,1))
+        nppc .= _nppc
     else
         nppc = non_covered_idx
     end
@@ -983,9 +985,9 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     end
     A = issignificant(pvc, pv_threshold=get(kwargs, :pv_threshold, 0.01))[:,idx]
     pidx = findall(A)
-    @show pidx
     scolor = fill(:gray55, length(A))
-    scolor[pidx] .= [:firebrick, :salmon, :goldenrod2, :orange][1:length(pidx)]
+    qcolor = [:firebrick, :salmon, :goldenrod2, :orange]
+    scolor[pidx] .= qcolor[1:length(pidx)]
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(_plot_theme) do
         fig = Figure()
@@ -1001,7 +1003,9 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         Z_infield = fill(NaN, nelements(mm2))
         Z_infield[ppc] .= 1.0
         Z_outfield = fill(NaN, nelements(mm2))
-        Z_outfield[nppc] .= 1.0
+        for (jj,vv) in enumerate(nppc)
+            Z_outfield[vv] .= jj 
+        end
         for lscene in [lscene1, lscene2]
             for (kk,bc) in enumerate(spatial_clusters)
                 bb = find_boundary(mm, pvc.spatial_fields.binidx[bc])
@@ -1010,11 +1014,12 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         end
         hide_ceiling = get(kwargs, :hide_ceiling, false)
         indicate_north = get(kwargs, :indicate_north, false)
-        for (lscene, Zq,cc) in zip([lscene1, lscene2],[Z_infield, Z_outfield],[:goldenrod1,:steelblue4])
+        colormaps = [:goldenred, [:steelblue4, ]]
+        for (lscene, Zq,cc) in zip([lscene1, lscene2],[Z_infield, Z_outfield],[[:goldenrod1],scolor])
             # indicate the view vields
             plotmesh!(lscene, mm2;alpha=0, showsegments=true, segmentcolor=mazecolor,floor_offset=-10, ceiling_offset=10,hide_ceiling=hide_ceiling, indicate_north=indicate_north)
             #viz!(lscene, bbc;color=:black)
-            plotmesh!(lscene, mm2;color=Zq,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=[cc], hide_ceiling=hide_ceiling, indicate_north=indicate_north)
+            plotmesh!(lscene, mm2;color=Zq,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=cc, hide_ceiling=hide_ceiling, indicate_north=indicate_north)
         end
         # indicate the place field
         link_cameras_lscene(fig)
