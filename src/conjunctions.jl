@@ -985,7 +985,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     pidx = findall(A)
     @show pidx
     scolor = fill(:gray55, length(A))
-    scolor[pidx] .= [:orange, :firebrick, :salmon, :goldenrod2][1:length(pidx)]
+    scolor[pidx] .= [:firebrick, :salmon, :goldenrod2, :orange][1:length(pidx)]
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(_plot_theme) do
         fig = Figure()
