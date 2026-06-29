@@ -977,7 +977,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         λ_infield = pvc.λ_infield[:,idx]
         λ_outfield = pvc.λ_outfield
     end
-    A = issignificant(pvc, pv_threshold=0.01)[:,idx]
+    A = issignificant(pvc, pv_threshold=get(kwargs, :pv_threshold, 0.01))[:,idx]
     pidx = findall(A)
     @show pidx
     scolor = fill(:black, length(A))
