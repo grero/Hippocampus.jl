@@ -998,7 +998,9 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     scolorp = parse.(Colorant, scolor)
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(_plot_theme) do
-        fig = Figure()
+        w = 1100 
+        h = 575
+        fig = Figure(size=(w,h))
         Label(fig[1,1], "In field", tellwidth=false)
         Label(fig[1,2], "Out of field", tellwidth=false)
         lscene1 = LScene(fig[2,1], show_axis=false)
