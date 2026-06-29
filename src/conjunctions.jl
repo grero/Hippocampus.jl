@@ -510,12 +510,14 @@ function conjunctions2(jm::JointMap, rf_gaze::GazeResponseFields, rf_spatial::Sp
     end
     λ_covered = zeros(length(spatial_clusters), length(view_clusters))
     λ_sub = zeros(size(λ_covered)..., 1000)
+    matched_idx = Matrix{Vector{Int64}}(undef, size(λ_covered)...)
     for (j,vc) in enumerate(view_clusters)
         for (i,sc) in enumerate(spatial_clusters)
-            λ_covered[i,j],λ_sub[i,j,:] =Hippocampus.conjunctions2(jm, rf_gaze.binidx[vc], rf_spatial.binidx[sc],condition_on);
+            λ_covered[i,j],λ_sub[i,j,:],midx =Hippocampus.conjunctions2(jm, rf_gaze.binidx[vc], rf_spatial.binidx[sc],condition_on);
+            matched_idx[i,j] = unique(midx[:])
         end
     end
-    λ_covered, λ_sub, λ_infield, λ_outfield
+    λ_covered, λ_sub, λ_infield, λ_outfield, matched_idx
 end
 
 """
