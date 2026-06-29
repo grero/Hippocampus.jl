@@ -1040,7 +1040,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         for lscene in [lscene1, lscene2]
             for (kk,bc) in enumerate(spatial_clusters)
                 bb = find_boundary(mm, pvc.spatial_fields.binidx[bc])
-                viz!(lscene, bb;color=scolor[kk], linewidth=3.0)
+                viz!(lscene, bb;color=scolor[kk], segmentsize=3.0)
             end
         end
         hide_ceiling = get(kwargs, :hide_ceiling, false)
