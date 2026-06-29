@@ -924,7 +924,7 @@ end
 """
 Plot view conditioned on place
 """
-function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:darkgray,kwargs...)
+function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:darkgray,non_covered_idx::Union{Vector{Int64}, Nothing}=nothing, kwargs...)
     # find the significant clusters
     view_clusters = merge_fields(pvc.view_fields)
     nclusters1 = get_num_fields(pvc.view_fields)
@@ -936,8 +936,12 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     bbc = find_boundary(mm2, pvc.view_fields.binidx[view_clusters[idx]])
     ppc = pvc.view_fields.binidx[view_clusters[idx]]
     # get all points not part of a view field
-    nppc = reduce(vcat, [pvc.view_fields.binidx[view_clusters[c]] for c in 1:length(view_clusters)])
-    nppc = setdiff(1:nelements(mm2), nppc)
+    if non_covered_idx === nothing
+        nppc = reduce(vcat, [pvc.view_fields.binidx[view_clusters[c]] for c in 1:length(view_clusters)])
+        nppc = setdiff(1:nelements(mm2), nppc)
+    else
+        nppc = non_covered_idx
+    end
 
     mm = floor_topology3(;nrefinements=pvc.spatial_fields.args[:nrefinements].p)
     # translate down
