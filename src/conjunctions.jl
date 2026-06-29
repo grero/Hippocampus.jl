@@ -131,7 +131,7 @@ end
 function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05)
     pv = fill(false, size(pvc.λ_covered)[1:2]...)
     for ii in CartesianIndices(pv) 
-        vv = filter(isfinite, pvc.λ_sub[:,ii])
+        vv = filter(isfinite, pvc.λ_sub[ii,:])
         if !isempty(vv)
             qt = percentile(vv, 100*(1-pv_threshold))
             pv[ii] = pvc.λ_covered[ii] > qt
