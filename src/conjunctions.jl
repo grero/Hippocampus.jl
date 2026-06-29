@@ -428,17 +428,20 @@ function conjunctions2(jm::JointMap, viewidx::AbstractVector{<:Integer}, placeid
     end
     λ_sub = fill(0.0, 1000)
     # TODO: Do we also need to worry about directional bias here?
+    # keep an record of which indices where used
+    matched_idx = fill(0, length(in_field_matched), 1000)
     for r in 1:1000
         xx = 0.0
         ww = 0.0
         # draw one matched (v,p) from the outfield for each infield
-        for vp in in_field_matched
+        for (j,vp) in enumerate(in_field_matched)
             # find all outfield combos where the place idx was p
             midx = findall(k->matchindex(k,vp), out_field_matched)
             # grab a random index
             # what if we have no matches?
             if !isempty(midx)
                 ridx = rand(midx)
+                matched_idx[j,r] = out_field_matched[ridx][condition_on]
                 xx += out_field_matched[ridx][3]
                 ww += out_field_matched[ridx][4]
             end
@@ -446,7 +449,7 @@ function conjunctions2(jm::JointMap, viewidx::AbstractVector{<:Integer}, placeid
         λ_sub[r] = xx/ww
     end
     λ_covered = spikes_in_field/time_in_field
-    λ_covered, λ_sub
+    λ_covered, λ_sub, matched_idx
 end
 
 function get_spatial_rate_map(jm::JointMap, view_idx::AbstractVector{<:Integer},N::Integer)
