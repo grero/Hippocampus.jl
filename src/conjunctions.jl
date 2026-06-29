@@ -980,8 +980,8 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     A = issignificant(pvc, pv_threshold=get(kwargs, :pv_threshold, 0.01))[:,idx]
     pidx = findall(A)
     @show pidx
-    scolor = fill(:black, length(A))
-    scolor[pidx] .= :red
+    scolor = fill(:gray55, length(A))
+    scolor[pidx] .= [:orange, :firebrick, :salmon, :goldenrod2][1:length(pidx)]
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(plot_theme) do
         fig = Figure()
