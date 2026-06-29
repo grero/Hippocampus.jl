@@ -91,7 +91,7 @@ pillar_boundaries = Dict(:blue => pillar1_boundary,
                          :red => pillar3_boundary)
 
 
-function plot_pillars!(ax::Axis)
+function plot_pillars!(ax::Axis;kwargs...)
     for k in [:red, :yellow, :blue, :green]
         viz!(ax, Meshes.PolyArea(Meshes.Shadow("xy")(pillar_boundaries[k])), color=maze_colors[k])
     end
