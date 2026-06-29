@@ -628,15 +628,16 @@ function PlaceViewConjunction(;redo=fname->false, do_save=true, load_only=false,
         # we just want to skip here
         return nothing
     end
+    nshuffles = get(kwargs, :nshuffles, 10_000)
     if do_compute
         jm = JointMap(;kwargs...)
-        rf_spatial = get_response_fields(SpatialResponseFields,10_000;kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields,nshuffles;kwargs...)
         if isa(rf_spatial, JLD2.ReconstructedMutable)
-            rf_spatial = get_response_fields(SpatialResponseFields,10_000;redo=fname->true, kwargs...)
+            rf_spatial = get_response_fields(SpatialResponseFields,nshuffles;redo=fname->true, kwargs...)
         end
-        rf_gaze = get_response_fields(GazeResponseFields,10_000;kwargs...)
+        rf_gaze = get_response_fields(GazeResponseFields,nshuffles;kwargs...)
         if isa(rf_gaze, JLD2.ReconstructedMutable)
-            rf_gaze = get_response_fields(GazeResponseFields,10_000;redo=fname->true, kwargs...)
+            rf_gaze = get_response_fields(GazeResponseFields,nshuffles;redo=fname->true, kwargs...)
         end
         λ_covered, λ_sub,λ_infield, λ_outfield = conjunctions(jm, rf_spatial, rf_gaze)
         X = PlaceViewConjunction(rf_spatial, rf_gaze, λ_covered, λ_sub,λ_infield, λ_outfield)
