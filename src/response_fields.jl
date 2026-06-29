@@ -474,6 +474,9 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     end
     mm = get_mesh(T,args[:nrefinements])
     cc = countmap(values(nfields))
+    non_place_cells = collect(keys(filter(k->k[2]==0, nfields)))
+    place_cells = collect(keys(filter(k->k[2]>0, nfields)))
+
     kk = sort(collect(keys(cc)))
     field_sizes = Float64[]
     for (k,v) in field_size
@@ -484,27 +487,39 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         lg1 = GridLayout(lg[1,1])
         ax = Axis(lg1[1,1])
         Label(lg1[1,1,TopLeft()], labels[1], padding=(0, 0, 10, 0))
-        barplot!(ax, kk, [cc[k] for k in kk],color=:gray)
+        bcolors = fill(parse(Colorant, :gray), length(kk))
+        bcolors[findall(k->k==0, kk)] .= parse(Colorant, :black)
+        barplot!(ax, kk, [cc[k] for k in kk],color=bcolors)
         ax.xlabel = "No of fields"
         ax.ylabel = "Count"
-        ax2 = Axis(lg1[2,1])
+        ax2 = Axis(lg1[2,1],xticks=WilkinsonTicks(3))
         Label(lg1[2,1, TopLeft()], labels[2], padding=(0,0,10,0))
         hist!(ax2, field_sizes,color=:gray)
         ax2.xlabel = "Field size [unit^2]"
         lg3 = GridLayout(lg[1,2])
         axf = Axis(lg3[1,1])
         Label(lg[1,2, TopLeft()], labels[3])
-        yy = Float64.(collect(values(peak_firing_rate)))
-        x = range(minimum(yy), stop=1.1*maximum(yy), length=30)
-        hist!(axf, yy, bins=x, normalization=:pdf, color=:gray, direction=:x)
-        if estimate_fr_density
-            yf = log_kde(yy,x)
-            lines!(axf, yf, x, color=:black)
-        end
+        yy_pp = [Float64(peak_firing_rate[k]) for k in place_cells]
+        kde_pp = betakde(yy_pp;lower=0.0, upper=maximum(yy_pp))
+        yy_np = [Float64(peak_firing_rate[k]) for k in non_place_cells]
+        kde_np = betakde(yy_np;lower=0.0, upper=maximum(yy_np))
+        xx_pp = range(minimum(yy_pp), stop=1.1*maximum(yy_pp), length=30)
+        xx_np = range(minimum(yy_np), stop=1.1*maximum(yy_np), length=30)
+        @show KruskalWallisTest(yy_pp, yy_np)
+        hh_pp = normalize(fit(Histogram, yy_pp, xx_pp),mode=:pdf)
+        
+        #hist!(axf, yy_pp, bins=xx_pp, normalization=:pdf, color=:gray, direction=:x)
+        scatter!(axf, hh_pp.weights, hh_pp.edges[1][1:end-1], color=:gray)
+        lines!(axf, kde_pp.density, kde_pp.x, color=:gray)
+        #hist!(axf, yy_np, bins=xx_np, normalization=:pdf, color=:black, direction=:x)
+        hh_np = normalize(fit(Histogram, yy_np, xx_np);mode=:pdf)
+        scatter!(axf, hh_np.weights, hh_np.edges[1][1:end-1], color=:black)
+        lines!(axf, kde_np.density, kde_np.x, color=:black)
         axf.ylabel = "Peak firing rate [Hz]"
         axf.xticklabelsvisible = false
-        axf.xticksvisible = false
-        axf.bottomspinevisible = false
+        axf.xticksvisible = true 
+        axf.bottomspinevisible = true 
+        axf.xlabel = "Density"
         lg2 = GridLayout(lg[1,3])
         if embeddim(mm) == 2
             ax3 = Axis(lg2[1,1],aspect=1)
