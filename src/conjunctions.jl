@@ -1076,6 +1076,12 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         ax3.leftspinevisible = false
         ax3.rightspinevisible = true
         ax3.ylabel = "Firing rate [Hz]"
+
+        # legend
+        bbox = BBox(w/2-100, w/2+100, 20, 400)
+        allcolors = [parse(Colorant, :goldenrod1);unique(C_outfield)]
+        alllabels = ["In field";["Outfield $i" for i in 1:(length(allcolors)-1)]]
+        Legend(fig, bbox=bbox, [MarkerElement(color=c, marker=:rect) for c in allcolors], allabels)
         colsize!(fig.layout, 3, 100)
         fig
     end
