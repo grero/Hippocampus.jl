@@ -985,9 +985,10 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     end
     A = issignificant(pvc, pv_threshold=get(kwargs, :pv_threshold, 0.01))[:,idx]
     pidx = findall(A)
-    scolor = fill(:gray55, length(A))
+    scolor = fill(:black, length(A))
     qcolor = [:firebrick, :salmon, :goldenrod2, :orange]
     scolor[pidx] .= qcolor[1:length(pidx)]
+    scolorp = parse.(Colorant, scolor)
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(_plot_theme) do
         fig = Figure()
@@ -1003,8 +1004,29 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         Z_infield = fill(NaN, nelements(mm2))
         Z_infield[ppc] .= 1.0
         Z_outfield = fill(NaN, nelements(mm2))
+        C_outfield = Vector{eltype(scolorp)}(undef, nelements(mm2))
+        alpha_outfield = fill(1.0, nelements(mm2))
+        alpha_infield = Float64.(isfinite.(Z_infield))
+        # TODO: Mix colors for those elements that overlap?
+        nn_outfield = fill(0, nelements(mm2), length(nppc))
         for (jj,vv) in enumerate(nppc)
-            Z_outfield[vv] .= jj 
+            zvv = Z_outfield[vv]
+            fidx = isfinite.(zvv)
+            Z_outfield[vv][fidx] .+= jj
+            Z_outfield[vv][(~).(fidx)] .= jj 
+            nn_outfield[vv,jj] .+= 1
+        end
+        # decide colors
+        for jj in axes(nn_outfield,1)
+            _idx = findall(nn_outfield[jj,:] .> 0)
+            if length(_idx)==1
+                C_outfield[jj] = scolorp[first(_idx)]
+            elseif length(_idx) > 1
+                C_outfield[jj] = sum(nn_outfield[jj,_idx].*scolorp[_idx])/sum(nn_outfield[jj,_idx])
+            else
+                C_outfield[jj] = parse(Colorant, mazecolor)
+                alpha_outfield[jj] = 0.0
+            end
         end
         for lscene in [lscene1, lscene2]
             for (kk,bc) in enumerate(spatial_clusters)
@@ -1014,13 +1036,19 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         end
         hide_ceiling = get(kwargs, :hide_ceiling, false)
         indicate_north = get(kwargs, :indicate_north, false)
-        colormaps = [:goldenred, [:steelblue4, ]]
-        for (lscene, Zq,cc) in zip([lscene1, lscene2],[Z_infield, Z_outfield],[[:goldenrod1],scolor])
+        showsegments = get(kwargs, :showsegments, true)
+        segmentcolor = get(kwargs, :segmentcolor, mazecolor)
+        for lscene in [lscene1, lscene2]
             # indicate the view vields
-            plotmesh!(lscene, mm2;alpha=0, showsegments=true, segmentcolor=mazecolor,floor_offset=-10, ceiling_offset=10,hide_ceiling=hide_ceiling, indicate_north=indicate_north)
+            if showsegments
+                plotmesh!(lscene, mm2;alpha=0, showsegments=true, segmentcolor=segmentcolor,floor_offset=-10, ceiling_offset=10,hide_ceiling=hide_ceiling, indicate_north=indicate_north)
+            else
+                plotmesh!(lscene, mm2;color=mazecolor, showsegments=false, floor_offset=-10, ceiling_offset=10,hide_ceiling=hide_ceiling, indicate_north=indicate_north)
+            end
             #viz!(lscene, bbc;color=:black)
-            plotmesh!(lscene, mm2;color=Zq,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=cc, hide_ceiling=hide_ceiling, indicate_north=indicate_north)
         end
+        plotmesh!(lscene1, mm2;color=Z_infield,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=[:goldenrod1], hide_ceiling=hide_ceiling, indicate_north=indicate_north)
+        plotmesh!(lscene2, mm2;color=C_outfield,alpha=alpha_outfield, showsegments=false, floor_offset=-10, ceiling_offset=10, hide_ceiling=hide_ceiling, indicate_north=indicate_north)
         # indicate the place field
         link_cameras_lscene(fig)
         # separate axis to show distribution of firing rate within each field
