@@ -994,14 +994,21 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         viz!(lscene2, mm;color=mazecolor)
         viz!(lscene2, mm;color=λ_outfield,colorrange=cr, colormap=colormap)
         # indicate the original view fields
+        Z_infield = fill(NaN, nelements(mm2))
+        Z_infield[ppc] .= 1.0
+        Z_outfield = fill(NaN, nelements(mm2))
+        Z_outfield[nppc] .= 1.0
         for lscene in [lscene1, lscene2]
             for (kk,bc) in enumerate(spatial_clusters)
                 bb = find_boundary(mm, pvc.spatial_fields.binidx[bc])
                 viz!(lscene, bb;color=scolor[kk])
             end
+        end
+        for (lscene, Zq,cc) in zip([lscene1, lscene2],[Z_infield, Z_outfield],[:goldenrod1,:steelblue4])
             # indicate the view vields
-            plotmesh!(lscene, mm2;alpha=0, showsegments=true, segmentcolor=:lightgray,floor_offset=-10, ceiling_offset=10)
-            viz!(lscene, bbc;color=:black)
+            plotmesh!(lscene, mm2;alpha=0, showsegments=true, segmentcolor=mazecolor,floor_offset=-10, ceiling_offset=10)
+            #viz!(lscene, bbc;color=:black)
+            plotmesh!(lscene, mm2;color=Zq,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=[cc])
         end
         # indicate the place field
         link_cameras_lscene(fig)
