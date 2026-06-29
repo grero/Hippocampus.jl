@@ -530,7 +530,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
             viz!(ax3, mm;color=Z, showsegments=false, colormap=colormap)
         else
             ax3 = LScene(lg2[1,1], show_axis=false)
-            plotmesh!(ax3, mm;color=Z, showsegments=true, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10, colormap=colormap)
+            plotmesh!(ax3, mm;color=Z, showsegments=true, indicate_north=false, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10, colormap=colormap)
         end
         Label(lg2[1,1,TopLeft()], labels[4])
         Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count", colormap=colormap)
