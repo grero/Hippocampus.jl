@@ -1030,7 +1030,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         ax3.leftspinevisible = false
         ax3.rightspinevisible = true
         ax3.ylabel = "Firing rate [Hz]"
-        colsize!(fig.layout, 3, Relative(0.25))
+        colsize!(fig.layout, 3, 100)
         fig
     end
 end
