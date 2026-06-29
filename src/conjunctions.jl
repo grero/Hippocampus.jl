@@ -1021,7 +1021,10 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
             append!(yy, _yy)
             append!(xx, fill(ii, length(_yy)))
         end
-        boxplot!(ax3, xx,yy;show_outliers=false)
+        boxplot!(ax3, xx,yy;show_outliers=false,color=:steelblue4)
+        ax3.xticklabelsvisible = false
+        ax3.xticksvisible = false
+        ax3.bottomspinevisible = false
         scatter!(ax3, 1:size(pvc.λ_covered,1), pvc.λ_covered[:,idx], color=scolor)
         ax3.yaxisposition = :right
         ax3.leftspinevisible = false
