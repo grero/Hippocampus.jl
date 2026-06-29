@@ -838,7 +838,7 @@ struct ViewAccountingSpace
 end
 
 ## plots
-function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
+function plot_conjunction_old(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
 
     # find the significant clusters
     view_clusters = merge_fields(pvc.view_fields)
