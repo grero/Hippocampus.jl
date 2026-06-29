@@ -1005,7 +1005,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         for lscene in [lscene1, lscene2]
             for (kk,bc) in enumerate(spatial_clusters)
                 bb = find_boundary(mm, pvc.spatial_fields.binidx[bc])
-                viz!(lscene, bb;color=scolor[kk])
+                viz!(lscene, bb;color=scolor[kk], linewidth=3.0)
             end
         end
         for (lscene, Zq,cc) in zip([lscene1, lscene2],[Z_infield, Z_outfield],[:goldenrod1,:steelblue4])
