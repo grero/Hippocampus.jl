@@ -988,11 +988,11 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         Label(fig[1,1], "In field", tellwidth=false)
         Label(fig[1,2], "Out of field", tellwidth=false)
         lscene1 = LScene(fig[2,1], show_axis=false)
-        viz!(lscene1, mm;color=:lightgray)
-        viz!(lscene1, mm;color=λ_infield,colorrange=cr)
+        viz!(lscene1, mm;color=mazecolor)
+        viz!(lscene1, mm;color=λ_infield,colorrange=cr,colormap=colormap)
         lscene2 = LScene(fig[2,2], show_axis=false)
-        viz!(lscene2, mm;color=:lightgray)
-        viz!(lscene2, mm;color=λ_outfield,colorrange=cr)
+        viz!(lscene2, mm;color=mazecolor)
+        viz!(lscene2, mm;color=λ_outfield,colorrange=cr, colormap=colormap)
         # indicate the original view fields
         for lscene in [lscene1, lscene2]
             for (kk,bc) in enumerate(spatial_clusters)
