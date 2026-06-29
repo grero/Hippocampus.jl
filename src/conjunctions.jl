@@ -639,7 +639,7 @@ function PlaceViewConjunction(;redo=fname->false, do_save=true, load_only=false,
         if isa(rf_gaze, JLD2.ReconstructedMutable)
             rf_gaze = get_response_fields(GazeResponseFields,nshuffles;redo=fname->true, kwargs...)
         end
-        λ_covered, λ_sub,λ_infield, λ_outfield = conjunctions(jm, rf_spatial, rf_gaze)
+        λ_covered, λ_sub,λ_infield, λ_outfield = conjunctions2(jm, rf_gaze, rf_spatial, 1)
         X = PlaceViewConjunction(rf_spatial, rf_gaze, λ_covered, λ_sub,λ_infield, λ_outfield)
         if do_save
             save_jld2(X,fname)
