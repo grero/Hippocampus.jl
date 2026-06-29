@@ -1055,8 +1055,8 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         ax3 = Axis(fig[2,3])
         yy = Float64[]
         xx = Float64[]
-        for ii in 1:size(pvc.λ_sub,2)
-            _yy = filter(isfinite, pvc.λ_sub[:,ii,idx])
+        for ii in 1:size(pvc.λ_sub,1)
+            _yy = filter(isfinite, pvc.λ_sub[ii,idx,:])
             append!(yy, _yy)
             append!(xx, fill(ii, length(_yy)))
         end
