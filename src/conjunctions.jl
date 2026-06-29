@@ -983,7 +983,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     scolor = fill(:gray55, length(A))
     scolor[pidx] .= [:orange, :firebrick, :salmon, :goldenrod2][1:length(pidx)]
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
-    with_theme(plot_theme) do
+    with_theme(_plot_theme) do
         fig = Figure()
         Label(fig[1,1], "In field", tellwidth=false)
         Label(fig[1,2], "Out of field", tellwidth=false)
