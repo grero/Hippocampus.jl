@@ -419,9 +419,9 @@ function find_boundaries(rf::T) where T <: AbstractResponseFields
      boundaries
 end
 
-function plot_n_fields(::Type{T}, celldirs::Vector{String};kwargs...) where T <: AbstractResponseFields
+function plot_n_fields(::Type{T}, celldirs::Vector{String};figsize=(900,500), kwargs...) where T <: AbstractResponseFields
     with_theme(plot_theme) do
-        fig = Figure(size=(900,500))
+        fig = Figure(size=figsize)
         lg = GridLayout(fig[1,1])
         plot_n_fields!(lg, T, celldirs;kwargs...)
         fig
@@ -537,8 +537,8 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         Label(lg2[1,1,TopLeft()], labels[4])
         Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count", colormap=colormap)
         #rowsize!(lg, 1, Relative(0.4))
-        colsize!(lg, 1, Relative(0.25))
-        colsize!(lg, 2, Relative(0.25))
+        colsize!(lg, 1, Relative(0.2))
+        colsize!(lg, 2, Relative(0.2))
         [ax,ax2, ax3]
     end
 end
