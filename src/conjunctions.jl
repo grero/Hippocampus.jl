@@ -943,9 +943,11 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     # get all points not part of a view field
     if non_covered_idx === nothing
         _nppc = reduce(vcat, [pvc.view_fields.binidx[view_clusters[c]] for c in 1:length(view_clusters)])
-        _nppc = setdiff(1:nelements(mm2), nppc)
-        nppc = Matrix{Vector{Int64}}(undef, size(pvc.λ_covered,1))
-        nppc .= _nppc
+        _nppc = setdiff(1:nelements(mm2), _nppc)
+        nppc = Vector{Vector{Int64}}(undef, size(pvc.λ_covered,1))
+        for i in 1:length(nppc)
+            nppc[i] = _nppc
+        end
     else
         nppc = non_covered_idx
     end
