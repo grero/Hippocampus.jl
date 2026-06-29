@@ -1008,11 +1008,13 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
                 viz!(lscene, bb;color=scolor[kk], linewidth=3.0)
             end
         end
+        hide_ceiling = get(kwargs, :hide_ceiling, false)
+        indicate_north = get(kwargs, :indicate_north, false)
         for (lscene, Zq,cc) in zip([lscene1, lscene2],[Z_infield, Z_outfield],[:goldenrod1,:steelblue4])
             # indicate the view vields
-            plotmesh!(lscene, mm2;alpha=0, showsegments=true, segmentcolor=mazecolor,floor_offset=-10, ceiling_offset=10)
+            plotmesh!(lscene, mm2;alpha=0, showsegments=true, segmentcolor=mazecolor,floor_offset=-10, ceiling_offset=10,hide_ceiling=hide_ceiling, indicate_north=indicate_north)
             #viz!(lscene, bbc;color=:black)
-            plotmesh!(lscene, mm2;color=Zq,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=[cc])
+            plotmesh!(lscene, mm2;color=Zq,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=[cc], hide_ceiling=hide_ceiling, indicate_north=indicate_north)
         end
         # indicate the place field
         link_cameras_lscene(fig)
