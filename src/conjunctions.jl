@@ -118,7 +118,9 @@ struct PlaceViewConjunction <: AbstractFieldConjunctions
     λ_sub::Array{Float64,3}
     λ_infield::Matrix{Float64}
     λ_outfield::Vector{Float64}
+    non_covered_idx::Matrix{Vector{Int64}}
 end
+
 struct ViewPlaceConjunction <: AbstractFieldConjunctions
     view_fields::GazeResponseFields
     spatial_fields::SpatialResponseFields
@@ -126,6 +128,7 @@ struct ViewPlaceConjunction <: AbstractFieldConjunctions
     λ_sub::Array{Float64,3}
     λ_infield::Matrix{Float64}
     λ_outfield::Vector{Float64}
+    non_covered_idx::Matrix{Vector{Int64}}
 end
 
 function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05)
@@ -644,8 +647,8 @@ function PlaceViewConjunction(;redo=fname->false, do_save=true, load_only=false,
         if isa(rf_gaze, JLD2.ReconstructedMutable)
             rf_gaze = get_response_fields(GazeResponseFields,nshuffles;redo=fname->true, kwargs...)
         end
-        λ_covered, λ_sub,λ_infield, λ_outfield = conjunctions2(jm, rf_gaze, rf_spatial, 1)
-        X = PlaceViewConjunction(rf_spatial, rf_gaze, λ_covered, λ_sub,λ_infield, λ_outfield)
+        λ_covered, λ_sub,λ_infield, λ_outfield,matched_idx = conjunctions2(jm, rf_gaze, rf_spatial, 1)
+        X = PlaceViewConjunction(rf_spatial, rf_gaze, λ_covered, λ_sub,λ_infield, λ_outfield, matched_idx)
         if do_save
             save_jld2(X,fname)
         end
