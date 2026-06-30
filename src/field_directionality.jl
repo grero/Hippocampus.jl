@@ -1505,29 +1505,43 @@ function plot_field_direction_tuning(mdt::MajorAxisDirectionTuning, rf_spatial::
     λf = mdt.spike_count_forward[idx]./mdt.occupancy_forward[idx]
     λr = mdt.spike_count_reverse[idx]./mdt.occupancy_reverse[idx]
     q1,q2 = Hippocampus.permutation_test(mean, λf,λr)
+    spm_forward = SpatialMapNew(jm, m_floor;trialidx=mdt.trialidx_forward[idx])
+    spml_forward = SmoothedMap(spm_forward;method=:laplace, α=0.1, niter=50)
+    spm_reverse = SpatialMapNew(jm, m_floor;trialidx=mdt.trialidx_reverse[idx])
+    spml_reverse = SmoothedMap(spm_reverse;method=:laplace, α=0.1, niter=50)
+    cr0 = extrema(filter(isfinite, rf_spatial.λ))
+    λ_forward = get_rate_map(spml_forward)
+    cr_f = extrema(filter(isfinite, λ_forward))
+    λ_reverse = get_rate_map(spml_reverse)
+    cr_r = extrema(filter(isfinite, λ_reverse))
+    cr = (minimum([cr0[1],cr_f[1], cr_r[1]]), maximum([cr0[2], cr_f[2], cr_r[2]]))
+
     with_theme(_plot_theme) do
-        fig = Figure(size=(1100,300))
+        fig = Figure(size=(700,250))
         lg1 = GridLayout(fig[1,1])
-        ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=:rain)
+        ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=:rain, show_colorbar=false, colorrange=cr)
+        ax.title = "All trials"
         lg2 = GridLayout(fig[1,2])
-        spm_forward = SpatialMapNew(jm, m_floor;trialidx=mdt.trialidx_forward[idx])
-        spml_forward = SmoothedMap(spm_forward;method=:laplace, α=0.1, niter=50)
-        ax2 = plot_response_fields!(lg2, rf_spatial,get_rate_map(spml_forward), colormap=:rain, show_points=false)
+        ax2 = plot_response_fields!(lg2, rf_spatial,λ_forward, colormap=:rain, show_points=false, show_colorbar=false, colorrange=cr)
+        ax2.title = "Forward"
         arrows2d!(ax2, cm, 2.5*Vec2(v[:,idx]), color=:black)
         lg3 = GridLayout(fig[1,3])
-        spm_reverse = SpatialMapNew(jm, m_floor;trialidx=mdt.trialidx_reverse[idx])
-        spml_reverse = SmoothedMap(spm_reverse;method=:laplace, α=0.1, niter=50)
-        ax3 = plot_response_fields!(lg3, rf_spatial,get_rate_map(spml_reverse), colormap=:rain, show_points=false)
+        ax3 = plot_response_fields!(lg3, rf_spatial,λ_reverse, colormap=:rain, show_points=false, show_colorbar=false, colorrange=cr)
+        ax3.title = "Reverse"
         arrows2d!(ax3, cm, -2.5*Vec2(v[:,idx]), color=:orange)
-
-        lg4 = GridLayout(fig[1,4])
+        Colorbar(fig[1,4], colormap=:rain, colorrange=cr, label="Firing rate [Hz]")
+        lg4 = GridLayout(fig[1,5])
         ax4 = Axis(lg4[1,1])
-        boxplot!(ax4, fill(1.0, length(q1)), q1-q2)
-        hlines!(ax4, mean(λf) - mean(λr), color=:gray45, linestyle=:dot)
+        boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray)
+        hlines!(ax4, mean(λf) - mean(λr), color=:black, linestyle=:dot)
         ax4.bottomspinevisible = false
         ax4.xticklabelsvisible = false
-        ax4.ylabel = "λ_forward - λ_backward"
-        colsize!(fig.layout, 4, Relative(0.1))
+        ax4.xticksvisible = false
+        ax4.yaxisposition = :right
+        ax4.leftspinevisible = false
+        ax4.rightspinevisible = true
+        ax4.ylabel = "Forward - reverse"
+        colsize!(fig.layout, 5, 50)
         fig
     end
 end
