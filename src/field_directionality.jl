@@ -369,7 +369,7 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
 end
 
 function process_kwargs(::Type{DirectionFiltered},h::UInt32=zero(UInt32);only_full_traversal=false, kwargs...)
-    h = process_kwargs(UnityRaytraceData;kwargs...)
+    h = process_kwargs(UnityRaytraceData,h;kwargs...)
     h = process_kwargs(ViewAndPlaceRepresentationNew,h;kwargs...)
     h = process_kwargs(JointOccupancy,h;kwargs...)
     h = process_kwargs(SpatialResponseFields,h;kwargs...)
