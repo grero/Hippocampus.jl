@@ -932,7 +932,7 @@ end
 """
 Plot view conditioned on place
 """
-function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:darkgray,non_covered_idx::Union{Vector{Vector{Int64}}, Nothing}=nothing, kwargs...)
+function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:lightgray,non_covered_idx::Union{Vector{Vector{Int64}}, Nothing}=nothing, figsize=(992,500), kwargs...)
     # find the significant clusters
     view_clusters = merge_fields(pvc.view_fields)
     nclusters1 = get_num_fields(pvc.view_fields)
@@ -1001,8 +1001,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     scolorp = parse.(Colorant, scolor)
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(_plot_theme) do
-        w = 1100 
-        h = 575
+        (w,h) = figsize
         fig = Figure(size=(w,h))
         Label(fig[1,1], "In field", tellwidth=false)
         Label(fig[1,2], "Out of field", tellwidth=false)
