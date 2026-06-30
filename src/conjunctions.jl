@@ -951,10 +951,10 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     else
         nppc = non_covered_idx
     end
-
+    nppc = pvc.non_covered_idx[:,idx]
     mm = floor_topology3(;nrefinements=pvc.spatial_fields.args[:nrefinements].p)
     # translate down
-    mm = Translate(0.0, 0.0, floor_offset)(mm)
+    mm = Translate(0.0, 0.0, 3*floor_offset)(mm)
     if smooth
         # this is a bit clunky; we need to recompute weight and occupancy separately
         jm = cd(pvc.spatial_fields.args[:dir]) do
@@ -1015,7 +1015,6 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         Z_outfield = fill(NaN, nelements(mm2))
         C_outfield = Vector{eltype(scolorp)}(undef, nelements(mm2))
         alpha_outfield = fill(1.0, nelements(mm2))
-        alpha_infield = Float64.(isfinite.(Z_infield))
         # TODO: Mix colors for those elements that overlap?
         nn_outfield = fill(0, nelements(mm2), length(nppc))
         for (jj,vv) in enumerate(nppc)
@@ -1026,8 +1025,10 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
             nn_outfield[vv,jj] .+= 1
         end
         # decide colors
+        overlap = Vector{Vector{Int64}}(undef, nelements(mm2))
         for jj in axes(nn_outfield,1)
             _idx = findall(nn_outfield[jj,:] .> 0)
+            overlap[jj] = _idx
             if length(_idx)==1
                 C_outfield[jj] = scolorp[first(_idx)]
             elseif length(_idx) > 1
@@ -1056,38 +1057,80 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
             end
             #viz!(lscene, bbc;color=:black)
         end
-        plotmesh!(lscene1, mm2;color=Z_infield,showsegments=false, floor_offset=-10, ceiling_offset=10, colormap=[:goldenrod1], hide_ceiling=hide_ceiling, indicate_north=indicate_north)
-        plotmesh!(lscene2, mm2;color=C_outfield,alpha=alpha_outfield, showsegments=false, floor_offset=-10, ceiling_offset=10, hide_ceiling=hide_ceiling, indicate_north=indicate_north)
+        plotmesh!(lscene1, mm2;color=Z_infield,showsegments=false, floor_offset=floor_offset, ceiling_offset=10, colormap=[:goldenrod1], hide_ceiling=hide_ceiling, indicate_north=indicate_north)
+        plotmesh!(lscene2, mm2;color=C_outfield,alpha=alpha_outfield, showsegments=false, floor_offset=floor_offset, ceiling_offset=10, hide_ceiling=hide_ceiling, indicate_north=indicate_north)
         # indicate the place field
         link_cameras_lscene(fig)
         # separate axis to show distribution of firing rate within each field
-        ax3 = Axis(fig[2,3])
+        lg3 = GridLayout(fig[2,3])
+        axes3 = [Axis(lg3[1,ii]) for ii in 1:length(A)]
         yy = Float64[]
         xx = Float64[]
-        for ii in 1:size(pvc.λ_sub,1)
+        boxplot_width = 75*length(A) + 25
+        for (ii,_ax) in enumerate(axes3)
             _yy = filter(isfinite, pvc.λ_sub[ii,idx,:])
-            append!(yy, _yy)
-            append!(xx, fill(ii, length(_yy)))
+            _xx = fill(1.0, length(_yy))
+            boxplot!(_ax, _xx, _yy, color=scolorp[ii],show_outliers=false)
+            if A[ii]
+                marker = :star5
+            else
+                marker = :circle
+            end
+            scatter!(_ax, [1.0], [pvc.λ_covered[ii,idx]], color=scolor[ii], marker=marker)
+            #append!(yy, _yy)
+            #append!(xx, fill(ii, length(_yy)))
+            _ax.yaxisposition = :right
+            if ii < length(A)
+                _ax.yticklabelsvisible = true 
+                _ax.yticksvisible = true 
+            else
+                _ax.ylabel = "Firing rate within place field [Hz]"
+            end
+            _ax.rightspinevisible = true 
+            _ax.leftspinevisible = false
+            _ax.xticksvisible = false
+            _ax.xticklabelsvisible = false
         end
-        boxplot!(ax3, xx,yy;show_outliers=false,color=:steelblue4)
-        ax3.xticklabelsvisible = false
-        ax3.xticksvisible = false
-        ax3.bottomspinevisible = false
-        scatter!(ax3, 1:size(pvc.λ_covered,1), pvc.λ_covered[:,idx], color=scolor)
-        ax3.yaxisposition = :right
-        ax3.leftspinevisible = false
-        ax3.rightspinevisible = true
-        ax3.ylabel = "Firing rate [Hz]"
+        # TODO I think we just have separate axes here since we are not really interested in comparing across
+        #boxplot!(ax3, xx,yy;show_outliers=false,colormap=scolorp,color=xx)
+        #ax3.xticklabelsvisible = false
+        #ax3.xticksvisible = false
+        #jax3.bottomspinevisible = false
+        #marker = fill(:circle, length(scolor))
+        #marker[pidx] .= :star5
+        #scatter!(ax3, 1:size(pvc.λ_covered,1), pvc.λ_covered[:,idx], color=scolor, marker=marker)
+        #ax3.yaxisposition = :right
+        #ax3.leftspinevisible = false
+        #ax3.rightspinevisible = true
+        #ax3.ylabel = "Firing rate within place field [Hz]"
 
         # legend
         bbox = lift(fig.scene.viewport) do vp 
             _w,_h = vp.widths
-            BBox((_w-100)/2-100, (_w-100)/2+100, 10, 150)
+            BBox((_w-boxplot_width)/2-100, (_w-boxplot_width)/2+100, 10, 150)
         end
-        allcolors = [parse(Colorant, :goldenrod1);unique(C_outfield)]
-        alllabels = ["View field";["Out field $i" for i in 1:(length(allcolors)-1)]]
+        # TODO: Identify the mixture
+        # the pure colors all come from scolorp 
+        used_colors = C_outfield[alpha_outfield.>0]
+        unique_used_colors = unique(used_colors)
+        unique_idx = [findfirst(used_colors.==c) for c in unique_used_colors]
+        used_overlap = overlap[alpha_outfield.>0]
+        unique_used_overlap = used_overlap[unique_idx]
+
+        allcolors = [parse(Colorant, :goldenrod1)]
+        alllabels = ["View field"]
+
+        for (cc,ov) in zip(unique_used_colors, unique_used_overlap)
+            if length(ov) == 1
+                push!(alllabels, "Out field $(first(ov))")
+            else
+                sq = join(string.(ov), " & ")
+                push!(alllabels, "Out field $(sq)") 
+            end
+            push!(allcolors, cc)
+        end
         Legend(fig, bbox=bbox, [MarkerElement(color=c, marker=:rect) for c in allcolors], alllabels)
-        colsize!(fig.layout, 3, 100)
+        colsize!(fig.layout, 3, boxplot_width)
         fig
     end
 end
