@@ -2249,8 +2249,7 @@ DPHT.level(::Type{ViewAndPlaceRepresentationNew}) = "cell"
 DPHT.level(::ViewAndPlaceRepresentationNew) = "cell"
 DPHT.filename(::Type{ViewAndPlaceRepresentationNew}) = "view_and_place_representation.jld2"
 
-function process_kwargs(::Type{ViewAndPlaceRepresentationNew};trial_start=2,kwargs...)
-    h = UInt32(0)
+function process_kwargs(::Type{ViewAndPlaceRepresentationNew},h::UInt32=zero(UInt32);trial_start=2,kwargs...)
     if trial_start != 2
         h = crc32c(string((:trial_start=>trial_start)),h)
     end
