@@ -1009,9 +1009,12 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         lscene1 = LScene(fig[2,1], show_axis=false)
         viz!(lscene1, mm;color=mazecolor)
         viz!(lscene1, mm;color=λ_infield,colorrange=cr,colormap=colormap)
+        plot_pillars!(lscene1;floor_offset=3*floor_offset)
         lscene2 = LScene(fig[2,2], show_axis=false)
         viz!(lscene2, mm;color=mazecolor)
         viz!(lscene2, mm;color=λ_outfield,colorrange=cr, colormap=colormap)
+        plot_pillars!(lscene2;floor_offset=3*floor_offset)
+
         # indicate the original view fields
         Z_infield = fill(NaN, nelements(mm2))
         Z_infield[ppc] .= 1.0
