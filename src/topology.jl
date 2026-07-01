@@ -14,8 +14,12 @@ end
 
 function link_cameras_lscene(f; step=0.01)
     scenes = f.content[findall(x -> typeof(x) == LScene,f.content)]
-    cameras = [x.scene.camera_controls for x in scenes]
+    link_cameras_lscene(scenes;step=step)
+    return f
+end
 
+function link_cameras_lscene(scenes::Vector{LScene}; step=0.01)
+    cameras = [x.scene.camera_controls for x in scenes]
     for i in 1:length(cameras)
         on(cameras[i].eyeposition) do x
             for j in collect(1:length(cameras))[1:end .!= i]
@@ -30,7 +34,6 @@ function link_cameras_lscene(f; step=0.01)
             end
         end
     end
-    return f
 end
 
 # highly brittle and likely to break, but quick and easy
