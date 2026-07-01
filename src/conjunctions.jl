@@ -1132,7 +1132,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
             end
             push!(allcolors, cc)
         end
-        Legend(fig, bbox=bbox, [MarkerElement(color=c, marker=:rect) for c in allcolors], alllabels)
+        Legend(fig, bbox=bbox, [MarkerElement(color=c, marker=:rect) for c in allcolors], alllabels, halign=:center)
         colsize!(fig.layout, 3, boxplot_width)
         fig
     end
