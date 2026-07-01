@@ -1635,3 +1635,45 @@ function get_poster_position(pos::NTuple{N,T}, mm::SimpleMesh) where T <: Real w
     midx = search(Meshes.Point(pos...), kn)
     first(midx)
 end
+
+## plots
+function plot_flat_maze_with_posters(;figsize=(350,350),kwargs...)
+    with_theme(poster_theme) do
+        fig = Figure(size=figsize)
+        lg = GridLayout(fig[1,1])
+        plot_flat_maze_with_posters!(lg;kwargs...)
+        fig
+    end
+end
+
+function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=nothing, end_point::Union{Nothing, Point2f}=nothing, indicate_north=true)
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    colors = [maze_colors[:yellow], #yellow
+              maze_colors[:blue], #blue
+              maze_colors[:red], #red
+              maze_colors[:green] #geen
+            ] 
+
+    with_theme(poster_theme) do
+        ax = Axis(lg[1,1],backgroundcolor=maze_colors[:floor],aspect=1.0)
+        ax.xticksvisible = false
+        ax.xticklabelsvisible = false
+        ax.yticksvisible = false
+        ax.yticklabelsvisible = false
+        ax.topspinevisible = true
+        ax.rightspinevisible = true
+
+        limits!(ax, -12.5, 12.5, -12.5, 12.5)
+        scatter!(ax, [Point2f(-5,5), Point2f(-5,-5), Point2f(5,5), Point2f(5,-5)], marker=Rect, markerspace=:data,color=colors, markersize=5)
+        scatter!([Point2f(v[1:2]...) for (k,v) in poster_pos],  marker=[images[k] for (k,v) in poster_pos], markersize=4, markerspace=:data)
+        if start_point !== nothing
+            scatter!(ax, start_point, marker=teardrop_shape(), markersize=20px, color=:red)
+        end
+        if end_point !== nothing
+            scatter!(ax, end_point, marker=teardrop_shape(), markersize=20px, color=:orange)
+        end
+        if indicate_north
+            arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
+        end
+    end
+end
