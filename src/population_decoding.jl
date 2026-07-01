@@ -725,7 +725,7 @@ function plot_decoder_contribution(W_nav::Matrix{T}, W_cue::Matrix{T};_plot_them
     end
 end
 
-function plot_sequence_decoder_performance(perf::Matrix{<:Real}, cell_weights::Array{T,3},nlabels::Integer;_plot_theme=plot_theme, figsize=(600,700)) where T <: Real
+function plot_sequence_decoder_performance!(lg, perf::Matrix{<:Real}, cell_weights::Array{T,3},nlabels::Integer;sort_order=1:size(cell_weights,1)) where T <: Real
     μp = dropdims(mean(perf,dims=2),dims=2)
     σp = dropdims(std(perf,dims=2),dims=2)
 
@@ -736,35 +736,41 @@ function plot_sequence_decoder_performance(perf::Matrix{<:Real}, cell_weights::A
     μq = dropdims(mean(Q,dims=2),dims=2)
     σq = dropdims(std(Q,dims=2),dims=2)
 
-    with_theme(_plot_theme) do
-        fig = Figure(size=figsize)
-        ax1 = Axis(fig[1,1])
-        lines!(ax1, 1:length(μp), μp)
-        errorbars!(ax1, 1:length(μp), μp, σp)
-        ax1.ylabel = "Decoder performance"
-        hlines!(ax1, 1/nlabels, color=:black, linestyle=:dot)
-        ax1.xticks = 1:length(μp)
-        ax1.xticklabelsvisible = false
+    ax1 = Axis(lg[1,1])
+    lines!(ax1, 1:length(μp), μp)
+    errorbars!(ax1, 1:length(μp), μp, σp)
+    ax1.ylabel = "Decoder performance"
+    hlines!(ax1, 1/nlabels, color=:black, linestyle=:dot)
+    ax1.xticks = 1:length(μp)
+    ax1.xticklabelsvisible = false
 
-        ax2 = Axis(fig[2,1]) 
-        h = heatmap!(ax2, permutedims(dropdims(mean(cell_weights,dims=3),dims=3)))
-        ax2.ylabel = "Cell id"
-        ax2.xticks = 1:length(μp)
-        ax2.xticklabelsvisible = false
-        Colorbar(fig[2,2], h, label="Code weight")
+    ax2 = Axis(lg[2,1]) 
+    h = heatmap!(ax2, permutedims(dropdims(mean(cell_weights[sort_order,:,:],dims=3),dims=3)))
+    ax2.ylabel = "Cell id"
+    ax2.xticks = 1:length(μp)
+    ax2.xticklabelsvisible = false
+    Colorbar(lg[2,2], h, label="Code weight")
 
-        ax3 = Axis(fig[3,1])
-        lines!(ax3, 2:length(μp), μq)
-        errorbars!(ax3, 2:length(μp),μq, σq)
-        ax3.ylabel = "Contribution alignment"
-        linkxaxes!(ax1, ax2, ax3)
-        ax3.xticks = 1:length(μp)
-        ax3.xlabel = "Time step"
-        fig
-    end
+    ax3 = Axis(lg[3,1])
+    lines!(ax3, 2:length(μp), μq)
+    errorbars!(ax3, 2:length(μp),μq, σq)
+    ax3.ylabel = "Contribution alignment"
+    linkxaxes!(ax1, ax2, ax3)
+    ax3.xticks = 1:length(μp)
+    ax3.xlabel = "Time step"
+    rowsize!(lg, 2, Relative(0.5))
 end
 
-function plot_sequence_decoder_weights!(lg, cell_weights::Matrix{<:Real}, decoder_cells::Vector{String}, view_selective_cells::Vector{String}, place_selective_cells::Vector{String})
+function plot_sequence_decoder_performance(perf::Matrix{<:Real}, cell_weights::Array{T,3},nlabels::Integer;sort_order=1:size(cell_weights,1), _plot_theme=plot_theme, figsize=(600,700)) where T <: Real
+     with_theme(_plot_theme) do
+        fig = Figure(size=figsize)
+        lg = GridLayout(fig[1,1])
+        plot_sequence_decoder_performance!(perf, cell_weights, nalbels;sort_order=sort_order)
+        fig
+     end
+end
+
+function plot_sequence_decoder_weights!(lg, cell_weights::Matrix{<:Real}, decoder_cells::Vector{String}, view_selective_cells::Vector{String}, place_selective_cells::Vector{String};kwargs...)
     cw = dropdims(mean(cell_weights, dims=2),dims=2)
     xx = fill(0, length(cw))
 
@@ -772,12 +778,23 @@ function plot_sequence_decoder_weights!(lg, cell_weights::Matrix{<:Real}, decode
     xx[in(setdiff(view_selective_cells, place_selective_cells)).(decoder_cells)] .= 3 # only view selective
     xx[in(intersect(place_selective_cells, view_selective_cells)).(decoder_cells)] .= 4 # both place and view
     all_selective = in(union(place_selective_cells, view_selective_cells)).(decoder_cells)
-    ax = Axis(lg[1,1])
-    boxplot!(ax, xx, cw,color=:gray)
-    boxplot!(ax, fill(1, sum(all_selective)), cw[all_selective],color=:gray)
-    ax.xticks = (0:4, ["Non-selective\n$(sum(xx.==0))","Selective\n$(sum(all_selective))", "Only place\n$(sum(xx.==2))","Only view\n$(sum(xx.==3))", "Both\n$(sum(xx.==4))"])
+    ax = Axis(lg[1,1],alignmode=Outside())
+    bb1 = boxplot!(ax, xx, cw,color=:gray, show_outliers=false)
+    bb2 = boxplot!(ax, fill(1, sum(all_selective)), cw[all_selective],color=:gray, show_outliers=false)
+    q5s = bb1.q5s[]
+    insert!(q5s, 2, bb2.q5s[][1])
+    # plot text with number above each
+    text!(ax, [Point2f(i-1, y) for (i,y) in enumerate(q5s)], text=string.([sum(xx.==0), sum(all_selective), sum(xx.==2), sum(xx.==3), sum(xx.==4)]),
+                                                            align=(:center, :bottom))
+    ax.xticks = (0:4, ["Non-selective","Selective", "Only place","Only view", "Both"])
+    if haskey(kwargs, :xticklabelrotation)
+        ax.xticklabelrotation = kwargs[:xticklabelrotation]
+    end
     ax.ylabel = "Cell weight"
-    ax
+    # adjust ylims so that we do not cut off the text
+    mxx = percentile(cw, 99)
+    ylims!(ax, (0.0, 0.9*mxx))
+    ax, xx
 end
 
 function plot_sequence_decoder_weights(cell_weights::Matrix{<:Real}, decoder_cells::Vector{String}, view_selective_cells::Vector{String}, place_selective_cells::Vector{String};_plot_theme=plot_theme)
@@ -785,6 +802,63 @@ function plot_sequence_decoder_weights(cell_weights::Matrix{<:Real}, decoder_cel
         fig = Figure()
         lg = GridLayout(fig[1,1])
         plot_sequence_decoder_weights!(lg, cell_weights, decoder_cells, view_selective_cells, place_selective_cells)
+        fig
+    end
+end
+
+function plot_sequences!(lg, flat_unique_sequences::Vector{Vector{Int64}}, cluster_assignments::Vector{Int64}, selected_clusters::Vector{Int64}, m_floor::SimpleMesh)
+   ax = Axis(lg[1,1],aspect=1.0) 
+   hidedecorations!(ax)
+   ax.bottomspinevisible = false
+   ax.leftspinevisible = false
+   viz!(ax, m_floor;color=:lightgray)
+   Z = zeros(nelements(m_floor))
+    for seq in flat_unique_sequences
+        Z[seq] .+= 1
+    end
+    Z[Z.==0.0] .= NaN
+    viz!(ax, m_floor;color=Z)
+    plot_pillars!(ax)
+    # plot one trajectory per class
+     for sc in selected_clusters
+       qidx = findfirst(cluster_assignments.==sc)
+       seq = flat_unique_sequences[qidx]
+       viz!(ax, Rope(centroid.(m_floor[seq])),color=:white)
+    end
+end
+
+function plot_sequences(flat_unique_sequences::Vector{Vector{Int64}}, cluster_assignments::Vector{Int64}, selected_clusters::Vector{Int64}, m_floor::SimpleMesh;_plot_theme=plot_theme)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_sequences!(lg, flat_unique_sequences, cluster_assignments, selected_clusters, m_floor)
+        fig
+    end
+end
+
+function plot_sequence_decoder(;_plot_theme=plot_theme,figsize=(650, 800))
+    decoder_data = JLD2.load(joinpath(@__DIR__,"..", "data","sequence_decoder_data.jld2"))
+    allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+        readlines(fid)
+    end
+    place_selective_cells = readlines(open(joinpath(@__DIR__,"..", "data","place_selective_cells.txt")))
+    place_cells = readlines(open(joinpath(@__DIR__,"..", "data","place_cells.txt")))
+    view_selective_cells = readlines(open(joinpath(@__DIR__,"..", "data","view_selective_cells.txt")))
+    view_cells = readlines(open(joinpath(@__DIR__,"..", "data","view_cells.txt")))
+
+    decoder_cells = allcelldirs[decoder_data["cidx"]][decoder_data["selected_cells"]]
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+    with_theme(_plot_theme) do
+        fig = Figure(size=figsize)
+        lg1 = GridLayout(fig[1,1])
+        lg11 = GridLayout(lg1[1,1])
+        plot_sequences!(lg11, decoder_data["flat_unique_sequences"], decoder_data["cluster_assignments"], decoder_data["selected_clusters"], m_floor)
+        lg12 = GridLayout(lg1[1,2])
+        ax,xx = plot_sequence_decoder_weights!(lg12, decoder_data["cell_weights"][:,2,:], decoder_cells, view_selective_cells, place_selective_cells;xticklabelrotation=-pi/6)
+        colsize!(lg1, 1, Relative(0.5))
+        lg2 = GridLayout(fig[2,1])
+        plot_sequence_decoder_performance!(lg2, decoder_data["perf"], decoder_data["cell_weights"], length(decoder_data["selected_clusters"]);sort_order=sortperm(xx))
+        rowsize!(fig.layout, 1, Relative(0.3))
         fig
     end
 end
