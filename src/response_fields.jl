@@ -523,6 +523,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         axf.bottomspinevisible = true 
         axf.xlabel = "Density"
         lg2 = GridLayout(lg[1,3])
+        floor_offset = get(kwargs, :floor_offset, -20)
         if embeddim(mm) == 2
             ax3 = Axis(lg2[1,1],aspect=1)
             hidedecorations!(ax3)
@@ -532,10 +533,11 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
             viz!(ax3, mm;color=Z, showsegments=false, colormap=colormap)
         else
             ax3 = LScene(lg2[1,1], show_axis=false)
-            plotmesh!(ax3, mm;color=Z, showsegments=true, indicate_north=false, segmentcolor=:lightgray, floor_offset=-20, ceiling_offset=10, colormap=colormap)
+            hide_ceiling = get(kwargs, :hide_ceiling, true)
+            plotmesh!(ax3, mm;color=Z, showsegments=true, indicate_north=false, segmentcolor=:lightgray, floor_offset=floor_offset, ceiling_offset=10, colormap=colormap, hide_ceiling=hide_ceiling)
         end
         # indicate where the pillars are
-        plot_pillars!(ax3;floor_offset=-20)
+        plot_pillars!(ax3;floor_offset=floor_offset)
         Label(lg2[1,1,TopLeft()], labels[4])
         Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count", colormap=colormap)
         #rowsize!(lg, 1, Relative(0.4))
