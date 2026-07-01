@@ -932,7 +932,7 @@ end
 """
 Plot view conditioned on place
 """
-function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:lightgray,non_covered_idx::Union{Vector{Vector{Int64}}, Nothing}=nothing, figsize=(992,500), kwargs...)
+function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:lightgray,non_covered_idx::Union{Vector{Vector{Int64}}, Nothing}=nothing, figsize=(992,500), boxplot_width=75, boxplot_extra=25, kwargs...)
     # find the significant clusters
     view_clusters = merge_fields(pvc.view_fields)
     nclusters1 = get_num_fields(pvc.view_fields)
@@ -1069,9 +1069,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         # separate axis to show distribution of firing rate within each field
         lg3 = GridLayout(fig[2,3])
         axes3 = [Axis(lg3[1,ii]) for ii in 1:length(A)]
-        yy = Float64[]
-        xx = Float64[]
-        boxplot_width = 75*length(A) + 25
+        boxplot_width = boxplot_width*length(A) + boxplot_extra 
         for (ii,_ax) in enumerate(axes3)
             _yy = filter(isfinite, pvc.λ_sub[ii,idx,:])
             _xx = fill(1.0, length(_yy))
