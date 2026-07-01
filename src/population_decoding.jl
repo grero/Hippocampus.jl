@@ -724,3 +724,67 @@ function plot_decoder_contribution(W_nav::Matrix{T}, W_cue::Matrix{T};_plot_them
         fig
     end
 end
+
+function plot_sequence_decoder_performance(perf::Matrix{<:Real}, cell_weights::Array{T,3},nlabels::Integer;_plot_theme=plot_theme, figsize=(600,700)) where T <: Real
+    μp = dropdims(mean(perf,dims=2),dims=2)
+    σp = dropdims(std(perf,dims=2),dims=2)
+
+    # compute alignment of coding spaces across time
+    w = cell_weights .- mean(cell_weights, dims=1)
+    w ./= sqrt.(sum(abs2, w, dims=1))
+    Q = dropdims(sum(w[:,1:end-1,:].*w[:,2:end,:],dims=1),dims=1)
+    μq = dropdims(mean(Q,dims=2),dims=2)
+    σq = dropdims(std(Q,dims=2),dims=2)
+
+    with_theme(_plot_theme) do
+        fig = Figure(size=figsize)
+        ax1 = Axis(fig[1,1])
+        lines!(ax1, 1:length(μp), μp)
+        errorbars!(ax1, 1:length(μp), μp, σp)
+        ax1.ylabel = "Decoder performance"
+        hlines!(ax1, 1/nlabels, color=:black, linestyle=:dot)
+        ax1.xticks = 1:length(μp)
+        ax1.xticklabelsvisible = false
+
+        ax2 = Axis(fig[2,1]) 
+        h = heatmap!(ax2, permutedims(dropdims(mean(cell_weights,dims=3),dims=3)))
+        ax2.ylabel = "Cell id"
+        ax2.xticks = 1:length(μp)
+        ax2.xticklabelsvisible = false
+        Colorbar(fig[2,2], h, label="Code weight")
+
+        ax3 = Axis(fig[3,1])
+        lines!(ax3, 2:length(μp), μq)
+        errorbars!(ax3, 2:length(μp),μq, σq)
+        ax3.ylabel = "Contribution alignment"
+        linkxaxes!(ax1, ax2, ax3)
+        ax3.xticks = 1:length(μp)
+        ax3.xlabel = "Time step"
+        fig
+    end
+end
+
+function plot_sequence_decoder_weights!(lg, cell_weights::Matrix{<:Real}, decoder_cells::Vector{String}, view_selective_cells::Vector{String}, place_selective_cells::Vector{String})
+    cw = dropdims(mean(cell_weights, dims=2),dims=2)
+    xx = fill(0, length(cw))
+
+    xx[in(setdiff(place_selective_cells, view_selective_cells)).(decoder_cells)] .= 2 # only place selective
+    xx[in(setdiff(view_selective_cells, place_selective_cells)).(decoder_cells)] .= 3 # only view selective
+    xx[in(intersect(place_selective_cells, view_selective_cells)).(decoder_cells)] .= 4 # both place and view
+    all_selective = in(union(place_selective_cells, view_selective_cells)).(decoder_cells)
+    ax = Axis(lg[1,1])
+    boxplot!(ax, xx, cw,color=:gray)
+    boxplot!(ax, fill(1, sum(all_selective)), cw[all_selective],color=:gray)
+    ax.xticks = (0:4, ["Non-selective\n$(sum(xx.==0))","Selective\n$(sum(all_selective))", "Only place\n$(sum(xx.==2))","Only view\n$(sum(xx.==3))", "Both\n$(sum(xx.==4))"])
+    ax.ylabel = "Cell weight"
+    ax
+end
+
+function plot_sequence_decoder_weights(cell_weights::Matrix{<:Real}, decoder_cells::Vector{String}, view_selective_cells::Vector{String}, place_selective_cells::Vector{String};_plot_theme=plot_theme)
+    with_theme(_plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_sequence_decoder_weights!(lg, cell_weights, decoder_cells, view_selective_cells, place_selective_cells)
+        fig
+    end
+end
