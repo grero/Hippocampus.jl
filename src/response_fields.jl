@@ -507,6 +507,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         xx_pp = range(minimum(yy_pp), stop=1.1*maximum(yy_pp), length=30)
         xx_np = range(minimum(yy_np), stop=1.1*maximum(yy_np), length=30)
         @show KruskalWallisTest(yy_pp, yy_np)
+        @show median(yy_pp), median(yy_np)
         hh_pp = normalize(fit(Histogram, yy_pp, xx_pp),mode=:pdf)
         
         #hist!(axf, yy_pp, bins=xx_pp, normalization=:pdf, color=:gray, direction=:x)
