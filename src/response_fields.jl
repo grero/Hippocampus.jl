@@ -613,7 +613,12 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
         end
     end
     if show_colorbar
-        Colorbar(lg[1,2], colorrange=colorrange, colormap=get(kwargs, :colormap, :binary), label=label)
+        ticks = WilkinsonTicks(3)
+        if colorbar_below
+            Colorbar(lg[2,1], colorrange=colorrange, colormap=get(kwargs, :colormap, :binary), label=label, vertical=false, flipaxis=false, ticksvisible=true,ticks=ticks)
+        else
+            Colorbar(lg[1,2], colorrange=colorrange, colormap=get(kwargs, :colormap, :binary), label=label)
+        end
     end
     lscene
 end
