@@ -1093,6 +1093,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
             _ax.leftspinevisible = false
             _ax.xticksvisible = false
             _ax.xticklabelsvisible = false
+            _ax.bottomspinevisible = false
         end
         # TODO I think we just have separate axes here since we are not really interested in comparing across
         #boxplot!(ax3, xx,yy;show_outliers=false,colormap=scolorp,color=xx)
