@@ -996,7 +996,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     A = issignificant(pvc, pv_threshold=get(kwargs, :pv_threshold, 0.01))[:,idx]
     pidx = findall(A)
     scolor = fill(:black, length(A))
-    qcolor = [:firebrick, :salmon, :goldenrod2, :orange]
+    qcolor = [:salmon, :firebrick, :goldenrod2, :orange]
     scolor[pidx] .= qcolor[1:length(pidx)]
     scolorp = parse.(Colorant, scolor)
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
