@@ -1150,6 +1150,150 @@ function lossfunc2(β::AbstractVector{<:Number}, X::AbstractMatrix{<:Number}, y:
     ll1 + ll2
 end
 
+"""
+@author: Mistral
+"""
+function lossfunc_zip(β::AbstractVector{T}, X::AbstractMatrix{T}, y::AbstractVector{T2}, L::AbstractMatrix{T}, α::T) where T <: Number where T2 <: Integer
+    Xβ = X*β
+    Ψ = logistic.(Xβ)
+    μ = exp.(Xβ)
+    ll = zero(T) 
+    for i in eachindex(y)
+        Ψi = Ψ[i]
+        if y[i] == 0
+            ll += log(Ψi*exp(-μ[i]) + (1-Ψi))
+        else
+            ll += log(Ψi) + y[i]*log(μ[i]) - μ[i] - lfactorial(y[i])
+        end
+    end
+    ll -= α*β'*L*β
+    return -ll
+end
+
+"""
+@author: Mistral
+"""
+function lossfunc_zip_grad!(g::AbstractVector{T}, β, y, X, L, α) where T <:  Number
+    fill!(g, zero(T))
+    Xβ = X*β
+    Ψ = logistic.(Xβ)
+    μ = exp.(Xβ)
+    for i in axes(X,1)
+        xi = @view X[i,:]
+        ψi = Ψ[i]
+        yi = y[i]
+        μi = μ[i]
+
+        if yi == 0
+           numerator = ψi * (1 - ψi) * exp(-μi) - ψi * μi * exp(-μi) - ψi * (1 - ψi)
+           denominator = ψi * exp(-μi) + (1 - ψi)
+           g .+= -numerator .* xi ./ denominator 
+        else
+            g .+= -xi .* (1 - ψi + yi - μi)
+        end
+    end
+    g .+= α*(L+L')*β
+    nothing
+end
+
+"""
+@author: Mistral
+"""
+function lossfunc_zip_hessian!(H::Matrix{T}, β, y, X, L, α) where T <: Real
+    H .= 2*α*L  # L2 penalty Hessian (L1 has no Hessian)
+
+    Xβ = X*β
+    ψ = logistic.(Xβ)
+    μ = exp.(Xβ)
+    #xi_outer = zeros(size(H)...)
+    t1_tot = 0.0
+    t2_tot = 0.0
+    t3_tot = 0.0
+    t4_tot = 0.0
+    t5_tot = 0.0
+    #xi_outer = zeros(T, size(H)...)
+    for i in axes(X,1) 
+        xi = @view X[i, :]
+        # since xi is an indicator
+        j = findall(!iszero, xi)
+        if isempty(j)
+            continue
+        end
+        #fill!(xi_outer, zero(T))
+        #jj = xi .> 0
+        #xi_outer[jj,jj] .= one(T)
+        t1 = time()
+        #xi_outer = xi * xi'
+        #kron!(xi_outer, xi, permutedims(xi))
+        t1_tot += time() - t1
+        yi = y[i]
+        ψi = ψ[i]
+        μi = μ[i]
+        if yi == 0
+            # Compute A_i and B_i
+            t2 = time()
+            A_i = ψi * exp(-μi) + (1 - ψi)
+            B_i = ψi * (1 - ψi) * exp(-μi) - ψi * μi * exp(-μi) - ψi * (1 - ψi)
+            # Compute ∂A_i/∂β and ∂B_i/∂β
+            dA_dβ = (ψi * (1 - ψi) * exp(-μi) - ψi * exp(-μi) * μi - ψi * (1 - ψi)) * xi[j]
+            dB_dβ = (
+                ( (1 - 2ψi) * ψi^2 * exp(-μi) + ψi^2 * (1 - ψi) * exp(-μi) ) * xi[j] -  # ∂/∂β [ψ(1-ψ)e^{-μ}]
+                ( (1 - ψi) * exp(-μi) * μi + ψi * exp(-μi) * μi + ψi * exp(-μi) * μi^2 ) * xi[j] -  # ∂/∂β [ψμe^{-μ}]
+                ( (1 - 2ψi) * ψi^2 ) * xi[j]  # ∂/∂β [ψ(1-ψ)]
+            )
+            t2_tot += time() - t2
+            t3 = time()
+            # Compute ∂(B_i / A_i)/∂β
+            term = (A_i .* dB_dβ - B_i .* dA_dβ) / (A_i^2)
+            t3_tot += time() - t3
+            t4 = time()
+            #H .+= xi_outer .* term
+            H[j,j] .+= xi[j]*xi[j]'.*term
+            t4_tot += time() - t4
+        else
+            # Hessian for y_i > 0
+            t5 = time()
+            #H .-= xi_outer .* (ψi* (1 - ψi) + μi)
+            term = xi[j]*xi[j]' .* (ψi* (1 - ψi) + μi)
+            #term = -(ψi* (1 - ψi) + μi)
+            H[j,j] .+= term
+            t5_tot += time()-t5
+        end
+    end
+    @debug t1_tot t2_tot t3_tot t4_tot t5_tot
+    return nothing 
+end
+
+function fit_glm_zip(X::SparseMatrixCSC{T,Int64}, y::AbstractVector{Int64}, Ls::AbstractMatrix{T},α::T;β0=randn(T, size(X,2)),kwargs...) where T <: Number
+    # set up functions
+    f(β) =  lossfunc_zip(β, X, y, Ls, α)
+    g!(dβ,β) = lossfunc_zip_grad!(dβ, β, y, X, Ls, α)
+    h!(H,β) = lossfunc_zip_hessian!(H, β, y, X, Ls, α)
+    opt = Optim.Options(iterations=get(kwargs, :iterations, 1000))
+    res = optimize(f, g!, h!, β0, Newton(),opt)
+end
+
+function toindicator(idx::AbstractVector{<:Integer}, n=maximum(idx))
+    X = zeros(n,length(idx))
+    for (i,p) in enumerate(idx)
+        if p > 0
+            X[p,i] = 1.0
+        end
+    end
+    X
+end
+
+function toindicator(idx::Vector{<:AbstractVector{<:Integer}}, n=maximum(idx))
+    m = sum(length.(idx))
+    X = zeros(n, m)
+    offset = 0
+    for (j,pidx) in enumerate(idx)
+        X[:,offset+1:offset+length(pidx)] .= toindicator(pidx,n)
+        offset += length(pidx)
+    end
+    X
+end
+
 function α_penalty!(gg, β::AbstractVector{<:Number}, L::AbstractMatrix{<:Number},α::Number)
     gg .+= α*(L + L')*β
 end
