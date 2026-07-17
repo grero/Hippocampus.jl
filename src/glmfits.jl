@@ -1442,25 +1442,23 @@ function zip_hessian_laplace(β, y, X, α_laplace, L)
             η_i = β₀ + β_mesh[j]
             j_mesh = j + 1  # +1 to account for intercept column in H
         end
-
+        ψi = ψ[i]
+        μi = μ[i]
         if y[i] == 0
             A_i = ψ[i] * exp(-μ[i]) + (1 - ψ[i])
-            B_i = ψ[i] * (1 - ψ[i]) * exp(-μ[i]) - ψ[i] * μ[i] * exp(-μ[i]) - ψ[i] * (1 - ψ[i])
 
-            # First derivatives of A_i and B_i w.r.t. η_i
             dψ_dη = ψ[i] * (1 - ψ[i])
+            dψ2_dη2 = ψi*(1-ψi)*(1-2*ψi)
             dμ_dη = μ[i]
+            dμ2_dη2 = μ[i]
             dA_dη = dψ_dη * exp(-μ[i]) - ψ[i] * exp(-μ[i]) * dμ_dη - dψ_dη
-            dB_dη = (
-                ((1 - 2ψ[i]) * ψ[i]^2 + ψ[i]^2 * (1 - ψ[i])) * exp(-μ[i]) -
-                ((1 - ψ[i]) * dμ_dη + ψ[i] * dμ_dη + ψ[i] * μ[i] * dμ_dη) * exp(-μ[i]) -
-                (1 - 2ψ[i]) * ψ[i]^2
-            )
 
-            term = -(A_i * dB_dη - B_i * dA_dη) / (A_i^2 + 1e-10)  # Add epsilon for stability
+            dA2_dη2 = dψ2_dη2*exp(-μi) -2*dψ_dη*exp(-μi)*dμ_dη + ψi*exp(-μi)*(dμ_dη)^2 - ψi*exp(-μi)*dμ2_dη2 - dψ2_dη2
+
+            term = (1/A_i^2)*(dA_dη)^2 - (1/A_i)*dA2_dη2
 
             if k
-                @show A_i B_i dA_dη dB_dη term ψ[i] μ[i]
+                @show A_i dA_dη dA2_dη2 term ψ[i] μ[i]
                 k = false
             end
         else
