@@ -1490,9 +1490,9 @@ end
 
 function fit_glm_zip(X::SparseMatrixCSC{T,Int64}, y::AbstractVector{Int64}, Ls::AbstractMatrix{T},α::T;β0=randn(T, size(X,2)),kwargs...) where T <: Number
     # set up functions
-    f(β) =  lossfunc_zip(β, X, y, Ls, α)
-    g!(dβ,β) = lossfunc_zip_grad!(dβ, β, y, X, Ls, α)
-    h!(H,β) = lossfunc_zip_hessian!(H, β, y, X, Ls, α)
+    f(β) = zip_loglik_laplace(β, y, X, α, Ls)
+    g!(dβ,β) = zip_grad_laplace!(dβ, β, y, X, α, Ls)
+    h!(H,β) = zip_hessian_laplace!(H, β, y, X, α, Ls)
     opt = Optim.Options(iterations=get(kwargs, :iterations, 1000))
     res = optimize(f, g!, h!, β0, Newton(),opt)
 end
