@@ -1458,7 +1458,7 @@ function zip_hessian_laplace(β, y, X, α_laplace, L)
             term = (1/A_i^2)*(dA_dη)^2 - (1/A_i)*dA2_dη2
 
             if k
-                @show A_i dA_dη dA2_dη2 term ψ[i] μ[i]
+                @debug A_i dA_dη dA2_dη2 term ψ[i] μ[i]
                 k = false
             end
         else
