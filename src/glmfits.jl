@@ -1452,7 +1452,7 @@ function zip_hessian_laplace!(H::AbstractMatrix{T}, β, y, X, α_laplace, L) whe
         ψi = ψ[i]
         μi = μ[i]
         if y[i] == 0
-            A_i = ψ[i] * exp(-μ[i]) + (1 - ψ[i])
+            A_i = max(ψ[i] * exp(-μ[i]) + (1 - ψ[i]), 1e-10)
 
             dψ_dη = ψ[i] * (1 - ψ[i])
             dψ2_dη2 = ψi*(1-ψi)*(1-2*ψi)
