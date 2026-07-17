@@ -1410,6 +1410,13 @@ function zip_hessian_laplace(β, y, X, α_laplace, L)
     n, p_total = size(X)  # p_total = 1 (intercept) + p (mesh elements)
     p = p_total - 1       # Number of mesh elements (excluding intercept)
     H = zeros(p_total, p_total)
+    zip_hessian_laplace!(H, β, y, X, α_laplace, L)
+end
+
+function zip_hessian_laplace!(H::AbstractMatrix{T}, β, y, X, α_laplace, L) where T <: Number
+    fill!(H, zero(T))
+    n, p_total = size(X)  # p_total = 1 (intercept) + p (mesh elements)
+    p = p_total - 1       # Number of mesh elements (excluding intercept)
 
     # Extract intercept and mesh coefficients
     β₀ = β[1]
