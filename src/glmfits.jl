@@ -1264,6 +1264,225 @@ function lossfunc_zip_hessian!(H::Matrix{T}, β, y, X, L, α) where T <: Real
     return nothing 
 end
 
+function zip_hessian_intercept(β, y, X, L, α)
+    n, p = size(X)  # p = number of mesh elements + 1 (intercept)
+    H = zeros(p, p)
+     H[2:end, 2:end] .= 2*α*L 
+
+    # Extract intercept and one-hot coefficients
+    β₀ = β[1]
+    β_mesh = @view β[2:end]
+
+    ψ = zeros(n)
+    μ = zeros(n)
+    for i in 1:n
+        # Find the one-hot index j for observation i (column 2:end of X)
+        j = findfirst(!iszero, @view X[i, 2:end]) + 1  # +1 to account for intercept column
+        η_i = β₀ + β_mesh[j-1]  # Linear predictor: intercept + one-hot coefficient
+        ψ[i] = logistic(η_i)
+        μ[i] = exp(η_i)
+    end
+
+    for i in 1:n
+        j = findfirst(!iszero, @view X[i, 2:end]) + 1  # One-hot index (1-based for β)
+
+        if y[i] == 0
+            A_i = ψ[i] * exp(-μ[i]) + (1 - ψ[i])
+            B_i = ψ[i] * (1 - ψ[i]) * exp(-μ[i]) - ψ[i] * μ[i] * exp(-μ[i]) - ψ[i] * (1 - ψ[i])
+
+            # Derivatives of A_i and B_i w.r.t. η_i
+            dA_dη = ψ[i] * (1 - ψ[i]) * exp(-μ[i]) - ψ[i] * exp(-μ[i]) * μ[i] - ψ[i] * (1 - ψ[i])
+            dB_dη = (
+                ((1 - 2ψ[i]) * ψ[i]^2 + ψ[i]^2 * (1 - ψ[i])) * exp(-μ[i]) -
+                ((1 - ψ[i]) * μ[i] + ψ[i] * μ[i] + ψ[i] * μ[i]^2) * exp(-μ[i]) -
+                (1 - 2ψ[i]) * ψ[i]^2
+            )
+
+            # Second derivative term
+            term = (A_i * dB_dη - B_i * dA_dη) / (A_i^2)
+
+            # Update Hessian: H[1,1], H[j,j], and H[1,j] = H[j,1]
+            H[1, 1] += term
+            H[j, j] += term
+            H[1, j] += term
+            H[j, 1] += term
+        else
+            term = -(ψ[i] * (1 - ψ[i]) + μ[i])
+            H[1, 1] += term
+            H[j, j] += term
+            H[1, j] += term
+            H[j, 1] += term
+        end
+    end
+
+    return H
+end
+
+
+function zip_loglik_laplace(β, y, X, α_laplace, L)
+    n, p_total = size(X)
+    p = p_total - 1
+    ll = 0.0
+
+    β₀ = β[1]
+    β_mesh = @view β[2:end]
+
+    for i in 1:n
+        j = findfirst(!iszero, @view X[i, 2:end])
+        if j === nothing
+            η_i = β₀
+        else
+            η_i = β₀ + β_mesh[j]
+        end
+        ψ_i = logistic(η_i)
+        μ_i = exp(η_i)
+
+        if y[i] == 0
+            ll += log(ψ_i * exp(-μ_i) + (1 - ψ_i))
+        else
+            ll += log(ψ_i) + y[i] * log(μ_i) - μ_i - lfactorial(y[i])
+        end
+    end
+
+    # Add Laplace smoothing penalty (excluding intercept)
+    ll -= α_laplace * β_mesh' * L * β_mesh
+    return -ll
+end
+
+function zip_grad_laplace!(g, β, y, X, α_laplace, L)
+    n, p_total = size(X)  # p_total = 1 (intercept) + p (mesh elements)
+    p = p_total - 1       # Number of mesh elements (excluding intercept)
+
+    # Initialize gradient
+    fill!(g, 0.0)
+
+    # Extract intercept and mesh coefficients
+    β₀ = β[1]
+    β_mesh = @view β[2:end]
+
+    # Precompute ψ and μ for all observations
+    ψ = zeros(n)
+    μ = zeros(n)
+    for i in 1:n
+        j = findfirst(!iszero, @view X[i, 2:end])
+        if j === nothing
+            η_i = β₀
+        else
+            η_i = β₀ + β_mesh[j]
+        end
+        ψ[i] = logistic(η_i)
+        μ[i] = exp(η_i)
+    end
+
+    # Compute gradient from NEGATIVE log-likelihood (intercept + one-hot)
+    for i in 1:n
+        j = findfirst(!iszero, @view X[i, 2:end])
+        if y[i] == 0
+            A_i = ψ[i] * exp(-μ[i]) + (1 - ψ[i])
+            A_i = max(A_i, 1e-10)  # Clip for numerical stability
+
+            dψ_dη = ψ[i] * (1 - ψ[i])
+            dμ_dη = μ[i]
+
+            # Gradient for η_i
+            dℓ_dη = (dψ_dη * exp(-μ[i]) - ψ[i] * exp(-μ[i]) * dμ_dη - dψ_dη) / A_i
+        else
+            dℓ_dη = (1 - ψ[i]) + (y[i] - μ[i])
+        end
+
+        # Update gradient for β₀
+        g[1] += -dℓ_dη  # Negative log-likelihood gradient
+
+        # Update gradient for β_j (if j exists)
+        if j !== nothing
+            g[j + 1] += -dℓ_dη  # +1 to account for intercept column
+        end
+    end
+
+    # Add gradient of Laplace smoothing penalty (for mesh coefficients only)
+    g_mesh = @view g[2:end]
+    g_mesh .+= 2 * α_laplace * L * β_mesh
+
+    return nothing
+end
+
+function zip_hessian_laplace(β, y, X, α_laplace, L)
+    n, p_total = size(X)  # p_total = 1 (intercept) + p (mesh elements)
+    p = p_total - 1       # Number of mesh elements (excluding intercept)
+    H = zeros(p_total, p_total)
+
+    # Extract intercept and mesh coefficients
+    β₀ = β[1]
+    β_mesh = @view β[2:end]
+
+    # Precompute ψ and μ for all observations
+    ψ = zeros(n)
+    μ = zeros(n)
+    for i in 1:n
+        j = findfirst(!iszero, @view X[i, 2:end])
+        if j === nothing
+            # Handle case where no one-hot is active (shouldn't happen for one-hot)
+            η_i = β₀
+        else
+            η_i = β₀ + β_mesh[j]
+        end
+        ψ[i] = logistic(η_i)
+        μ[i] = exp(η_i)
+    end
+
+    k = true
+    # Compute Hessian from log-likelihood (intercept + one-hot)
+    for i in 1:n
+        j = findfirst(!iszero, @view X[i, 2:end])
+        if j === nothing
+            # Only intercept is active (unlikely for one-hot)
+            η_i = β₀
+            j_mesh = 1  # Dummy index (not used)
+        else
+            η_i = β₀ + β_mesh[j]
+            j_mesh = j + 1  # +1 to account for intercept column in H
+        end
+
+        if y[i] == 0
+            A_i = ψ[i] * exp(-μ[i]) + (1 - ψ[i])
+            B_i = ψ[i] * (1 - ψ[i]) * exp(-μ[i]) - ψ[i] * μ[i] * exp(-μ[i]) - ψ[i] * (1 - ψ[i])
+
+            # First derivatives of A_i and B_i w.r.t. η_i
+            dψ_dη = ψ[i] * (1 - ψ[i])
+            dμ_dη = μ[i]
+            dA_dη = dψ_dη * exp(-μ[i]) - ψ[i] * exp(-μ[i]) * dμ_dη - dψ_dη
+            dB_dη = (
+                ((1 - 2ψ[i]) * ψ[i]^2 + ψ[i]^2 * (1 - ψ[i])) * exp(-μ[i]) -
+                ((1 - ψ[i]) * dμ_dη + ψ[i] * dμ_dη + ψ[i] * μ[i] * dμ_dη) * exp(-μ[i]) -
+                (1 - 2ψ[i]) * ψ[i]^2
+            )
+
+            term = -(A_i * dB_dη - B_i * dA_dη) / (A_i^2 + 1e-10)  # Add epsilon for stability
+
+            if k
+                @show A_i B_i dA_dη dB_dη term ψ[i] μ[i]
+                k = false
+            end
+        else
+            term = (ψ[i] * (1 - ψ[i]) + μ[i])
+        end
+
+        # Update Hessian for β₀ and β_j
+        H[1, 1] += term
+        if j !== nothing
+            H[j_mesh, j_mesh] += term
+            H[1, j_mesh] += term
+            H[j_mesh, 1] += term
+        end
+    end
+
+    # Add Laplace smoothing penalty to the mesh coefficients (excluding intercept)
+    # H[2:end, 2:end] += 2 * α_laplace * L
+    H[2:end, 2:end] .+= 2 * α_laplace * L
+
+    return H
+end
+
 function fit_glm_zip(X::SparseMatrixCSC{T,Int64}, y::AbstractVector{Int64}, Ls::AbstractMatrix{T},α::T;β0=randn(T, size(X,2)),kwargs...) where T <: Number
     # set up functions
     f(β) =  lossfunc_zip(β, X, y, Ls, α)
