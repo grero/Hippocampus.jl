@@ -1684,3 +1684,37 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
         ax
     end
 end
+
+function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVector{T};nruns=1000) where T <: Real
+    idx1 = [1:length(x1);]
+    idx2 = [1:length(x2);]
+    x1s = similar(x1)
+    x2s = similar(x2)
+    q1 = zeros(T,nruns)
+    q2 = zeros(T,nruns)
+    for r in 1:nruns
+        shuffle!(idx2)
+        for j in 1:length(x1)
+            q = rand()
+            if q < 0.5
+                x1s[j] = x1[j]
+            else
+                k = mod(j-1, length(x2))+1
+                x1s[j] = x2[idx2[k]]
+            end
+        end
+        q1[r] = func(x1s)
+        shuffle!(idx1)
+        for j in 1:length(x2)
+            q = rand()
+            if q < 0.5
+                x2s[j] = x2[j]
+            else
+                k = mod(j-1, length(x1))+1
+                x2s[j] = x1[idx1[k]]
+            end
+        end
+        q2[r] = func(x2s)
+    end
+    q1, q2
+end
