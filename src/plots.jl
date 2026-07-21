@@ -909,6 +909,7 @@ function plot_polar_histogram!(ax, r_data::AbstractVector{T}, θ_data::AbstractV
         j = searchsortedfirst(rbins, r)
         Z[i,j] += 1.0
     end
+    plot_polar_histogram!(ax, Z, (θbins, rbins))
 end
 
 function plot_polar_histogram!(ax, Z::Matrix{<:Real}, bins::Tuple{T2, T2}) where T2 <: AbstractVector{T} where T <: Real
