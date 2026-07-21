@@ -781,7 +781,7 @@ struct PlaceAccountingView{T<:Real}
     args::Dict{Symbol,Any}
 end
 
-function process_kwargs(PlaceAccountingView, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
+function process_kwargs(::Type{PlaceAccountingView}, h::UInt32=zero(UInt32);nshuffles=1000, kwargs...)
     h = process_kwargs(JointMap,h;kwargs...)
     h = crc32c(string(:nshuffles=>nshuffles),h)
     h
