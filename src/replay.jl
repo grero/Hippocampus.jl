@@ -3073,13 +3073,14 @@ function compute_skaggs_sic(jm::JointMap)
     compute_skaggs_sic(λ[:], occupancy[:])
 end
 
-function SpatialMapNew(jm::JointMap,mm::SimpleMesh;viewbins::Union{Nothing, Vector{Int64}}=nothing)
+function SpatialMapNew(jm::JointMap,mm::SimpleMesh;viewbins::Union{Nothing, Vector{Int64}}=nothing, trialidx::Union{Nothing,Vector{Int64}}=nothing)
     np = nelements(mm)
     weight = zeros(np) 
     occupancy = zeros(np)
     func(vidx) = (viewbins === nothing || vidx in viewbins)
+    func2(tidx) = (trialidx == nothing || tidx in trialidx)
     for (w,oc,qidx) in zip(jm.weight, jm.occupancy, jm.index)
-        if func(qidx[1])
+        if func(qidx[1]) && func2(qidx[4])
             pidx = getindex(qidx,2) # second index is spatial
             weight[pidx] += w
             occupancy[pidx] += oc

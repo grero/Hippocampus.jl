@@ -1497,6 +1497,118 @@ function fit_glm_zip(X::SparseMatrixCSC{T,Int64}, y::AbstractVector{Int64}, Ls::
     res = optimize(f, g!, h!, β0, Newton(),opt)
 end
 
+function run_glm_zip(pidx::Vector{<:Vector{<:Integer}}, y::Vector{<:Vector{<:Number}}, Ls::AbstractMatrix{T},α::T;train_prop=0.8,nruns=1,do_shuffle=false, kwargs...) where T <: Number
+    nt = length(y) 
+    p = size(Ls,1)
+    ntrain = round(Int64, train_prop*nt)
+    ll = zeros(nruns)
+    ll0 = zeros(nruns)
+    β = zeros(size(Ls,1)+1, nruns)
+    for r in 1:nruns
+        trainidx = sort(shuffle(1:nt)[1:ntrain])
+        testidx = setdiff(1:nt, trainidx)
+        X_train = toindicator(pidx[trainidx], p);
+        idx_train = dropdims(maximum(X_train,dims=1),dims=1) .> 0
+        X_test = toindicator(pidx[testidx], p);
+        idx_test = dropdims(maximum(X_test,dims=1),dims=1) .> 0 
+        #create a sparse one-hot encoding with intercept
+        Xa_train = SparseMatrixCSC(permutedims(cat(fill(1.0, 1,sum(idx_train)),X_train[:,idx_train],dims=1)))
+        Xa_test = SparseMatrixCSC(permutedims(cat(fill(1.0, 1,sum(idx_test)),X_test[:,idx_test],dims=1)))
+        y_train = round.(Int64, reduce(vcat, y[trainidx]))[idx_train]
+        y_test = round.(Int64, reduce(vcat, y[testidx]))[idx_test]
+        if do_shuffle
+            y_test .= shuffle(y_test)
+        end
+
+        # fit full ZIP model
+        res = fit_glm_zip(Xa_train, y_train, Ls, α)
+        β[:,r] = res.minimizer
+        # compute log-likelihood for the test set
+        ll[r]= zip_loglik_laplace(res.minimizer, y_test, Xa_test, 0.0, Ls)
+        # fit null model, i.e. withot influuence on X
+        psi,mu = get_zip_params(y_train)
+        ll0[r] = zip_loglik_laplace(y_test, psi,mu)
+    end
+    ll, ll0, β
+end
+
+
+function run_glm_zip(celldir::String, nrefinements, α::Vector{T};do_save=true, binsize=0.02, train_prop=0.8,nruns=1,do_shuffle=false, kwargs...) where T <: Number
+    fname = "glm_fit_spatial.jld2"
+    fname = joinpath(celldir, fname)
+    do_compute = true
+    aidx = 1:length(α)
+    α_r = α
+    if isfile(fname)
+        ll, ll0, β,_α = JLD2.load(fname, "ll", "ll0","β","α")
+        if _α == α
+            do_compute = false
+        else
+            # figure out which αs are missing
+            α_all = sort(union(α, _α))
+            α_r = setdiff(α_all, _α)
+
+            aidx = [findfirst(α_all.==a) for a in α_r]
+            bidx = [findfirst(α_all.==a) for a in _α]
+            ll_ = zeros(size(ll,1), length(α_all))
+            ll_[:,bidx] .= ll
+            ll0_ = zeros(size(ll0,1), length(α_all))
+            ll0_[:,bidx] .= ll
+            β_ = zeros(size(β,1), size(β,2), length(α_all))
+            β_[:,:,bidx] .= β
+            ll = ll_
+            ll0 = ll0_
+            β = β_
+        end
+    else
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        ll = zeros(nruns, length(α))
+        ll0 = zeros(nruns, length(α))
+        β = zeros(nelements(m_floor)+1, nruns, length(α))
+    end
+    if do_compute
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        Ls = get_normalize_laplacian(m_floor)
+        sessiondir = DPHT.get_level_path("session", celldir);
+        jocc,qdata= cd(sessiondir) do 
+            jocc = JointOccupancy(;redo=fname->false, do_save=true, nrefinements=nrefinements,trial_start=2,min_speed=-1.0)
+            qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
+            # sligh hack; for older data, the fixations wwere not computed correctly 
+            if median(sum.(qdata.fixating)./length(qdata.fixating)) < 0.5
+                # relaod
+                qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->true)
+            end
+            jocc, qdata
+        end
+        mgaze, mpos, bins,bidx,vidx,pidx = get_binned_data(qdata, binsize,jocc)
+        goodidx = findall(i->isassigned(pidx, i), eachindex(pidx))
+        vpvrp = cd(celldir) do
+            Hippocampus.ViewAndPlaceRepresentationNew(;redo=fname->false,do_save=false,trial_start=2)
+        end 
+        spikecounts = Hippocampus.get_binned_data(bidx, vpvrp)
+       
+        for (ii,_α) in zip(aidx, α_r) 
+            ll[:,ii],ll0[:,ii], β[:,:,ii] = Hippocampus.run_glm_zip(pidx[goodidx], spikecounts[goodidx], Ls, _α;nruns=nruns)
+        end
+        # TODO: Probably create a type for this
+        if do_save
+            JLD2.save(fname, Dict("ll"=>ll, "ll0"=>ll0, "β"=>β, "α"=>α, "nruns"=>nruns, "binsize"=>binsize))
+        end
+    end
+    ll, ll0, β
+end
+
+function generate_zip(ψ, μ,n)
+    P = Poisson(μ)
+    y = zeros(Int64,n)
+    for i in eachindex(y)
+        if rand() > 1-ψ
+            y[i] = rand(P)
+        end
+    end
+    y
+end
+
 function toindicator(idx::AbstractVector{<:Integer}, n=maximum(idx))
     X = zeros(n,length(idx))
     for (i,p) in enumerate(idx)
