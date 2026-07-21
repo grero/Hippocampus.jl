@@ -1491,7 +1491,7 @@ function plot_field_traversals(gidx, qdata;_plot_theme=plot_theme, kwargs...)
 end
 
 
-function plot_field_direction_tuning(mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx=1;_plot_theme=plot_theme)
+function plot_field_direction_tuning(mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx=1;_plot_theme=plot_theme, kwargs...)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=3));
     v = mdt.v
     # FIXME: This doesnt work
@@ -1515,21 +1515,22 @@ function plot_field_direction_tuning(mdt::MajorAxisDirectionTuning, rf_spatial::
     λ_reverse = get_rate_map(spml_reverse)
     cr_r = extrema(filter(isfinite, λ_reverse))
     cr = (minimum([cr0[1],cr_f[1], cr_r[1]]), maximum([cr0[2], cr_f[2], cr_r[2]]))
-
+    
+    colormap = get(kwargs, :colormap, :rain)
     with_theme(_plot_theme) do
         fig = Figure(size=(700,250))
         lg1 = GridLayout(fig[1,1])
-        ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=:rain, show_colorbar=false, colorrange=cr)
+        ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=colormap, show_colorbar=false, colorrange=cr)
         ax.title = "All trials"
         lg2 = GridLayout(fig[1,2])
-        ax2 = plot_response_fields!(lg2, rf_spatial,λ_forward, colormap=:rain, show_points=false, show_colorbar=false, colorrange=cr)
+        ax2 = plot_response_fields!(lg2, rf_spatial,λ_forward, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr)
         ax2.title = "Forward"
         arrows2d!(ax2, cm, 2.5*Vec2(v[:,idx]), color=:black)
         lg3 = GridLayout(fig[1,3])
-        ax3 = plot_response_fields!(lg3, rf_spatial,λ_reverse, colormap=:rain, show_points=false, show_colorbar=false, colorrange=cr)
+        ax3 = plot_response_fields!(lg3, rf_spatial,λ_reverse, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr)
         ax3.title = "Reverse"
         arrows2d!(ax3, cm, -2.5*Vec2(v[:,idx]), color=:orange)
-        Colorbar(fig[1,4], colormap=:rain, colorrange=cr, label="Firing rate [Hz]")
+        Colorbar(fig[1,4], colormap=colormap, colorrange=cr, label="Firing rate [Hz]")
         lg4 = GridLayout(fig[1,5])
         ax4 = Axis(lg4[1,1])
         boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray)
