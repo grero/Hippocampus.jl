@@ -579,7 +579,7 @@ function plot_response_fields(rf::SpatialResponseFields,args...;_plot_theme=plot
     end
 end
 
-function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;filter_spurious=true, show_colorbar=true, show_points=true, label="Firing rate [Hz]",colorbar_below=false,  show_boundaries=false, kwargs...)
+function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;filter_spurious=true, show_colorbar=true, show_points=true, label="Firing rate [Hz]",colorbar_below=false,  show_boundaries=false, segmentsize=2.0,showsegments=true, kwargs...)
     mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
     m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
     lscene = LScene(lg[1,1],show_axis=false)
@@ -592,7 +592,8 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     if mazecolor !== nothing
         plotmesh!(lscene, mm;color=mazecolor, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
     end
-    plotmesh!(lscene, mm;color=λ, showsegments=true, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
+    plotmesh!(lscene, mm;color=λ, showsegments=showsegments, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
+    plot_pillars!(lscene;floor_offset=floor_offset)
     clusters = merge_fields(rf)
     if filter_spurious
         nclusters = Hippocampus.get_num_fields(rf)
@@ -606,7 +607,7 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     else
         ccolors = Makie.wong_colors()
     end
-    if show_points
+    if show_points || show_boundaries
         for (cc,cluster) in zip(ccolors[cidx],clusters[cidx])
             pidx = rf.binidx[cluster]
             cpoints = centroid.(mm[pidx])
@@ -614,13 +615,31 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
             ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
             mid_points = setdiff(cpoints, union(floor_points, ceil_points))
             if !isempty(floor_points)
-                viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=pointsize)
+                if show_points
+                    viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=pointsize)
+                else
+                    midx = findall(Meshes.intersects(m_floor), cpoints)
+                    bb = find_boundary(mm[pidx[midx]])
+                    viz!(lscene, Translate(0.0, 0.0, floor_offset)(bb),color=cc, pointsize=pointsize, segmentsize=segmentsize)
+                end
             end
-            if !isempty(ceil_points)
-                viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=pointsize)
+            if !isempty(ceil_points) && !hide_ceiling
+                if show_points
+                    viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=pointsize)
+                else
+                    midx = findall(Meshes.intersects(m_ceil), cpoints)
+                    bb = find_boundary(mm[pidx[midx]])
+                    viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(bb),color=cc, pointsize=pointsize, segmentsize=segmentsize)
+                end
             end
             if !isempty(mid_points)
+                if show_points
                 viz!(lscene, mid_points,color=cc, pointsize=pointsize)
+                else
+                    midx = findall(Meshes.intersects(m_middle), cpoints)
+                    bb = find_boundary(mm[pidx[midx]])
+                    viz!(lscene, bb, color=cc, segmentsize=segmentsize)
+                end
             end
         end
     end
