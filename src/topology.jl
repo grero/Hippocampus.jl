@@ -12,13 +12,13 @@ function pos_fig_obs(ax, x, y)
 	end
 end
 
-function link_cameras_lscene(f; step=0.01)
+function link_cameras_lscene(f::Figure; step=0.01)
     scenes = f.content[findall(x -> typeof(x) == LScene,f.content)]
     link_cameras_lscene(scenes;step=step)
     return f
 end
 
-function link_cameras_lscene(scenes::Vector{LScene}; step=0.01)
+function link_cameras_lscene(scenes::Vector{<:Any}; step=0.01)
     cameras = [x.scene.camera_controls for x in scenes]
     for i in 1:length(cameras)
         on(cameras[i].eyeposition) do x
