@@ -104,7 +104,7 @@ function plot_response_field_with_sic!(lg, celldir::String, ::Type{T}) where T <
     rowsize!(lg12, 1, Relative(0.8))
 end
 
-function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vector{Int64}) where T<:Hippocampus.AbstractResponseFields
+function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vector{Int64};plot_kwargs...) where T<:Hippocampus.AbstractResponseFields
     kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001)
     mm = Hippocampus.get_mesh(T,(p=3,g=2))
     #m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
@@ -124,7 +124,9 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
                 @show jj
             end
             lg12 = GridLayout(lg1[1,1])
-            Hippocampus.plot_response_fields!(lg12, rfs;filter_spurious=true, colorbar_below=true, colormap=:rain)
+            show_points = T <: Hippocampus.GazeResponseFields
+            show_boundaries = !show_points
+            Hippocampus.plot_response_fields!(lg12, rfs;filter_spurious=true, colorbar_below=true, colormap=:jet, show_points=show_points, show_boundaries=show_boundaries, plot_kwargs...)
 
             # show SIC distribution
             #lg2 = GridLayout(fig[1,2])
