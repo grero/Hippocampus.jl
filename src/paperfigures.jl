@@ -159,10 +159,10 @@ end
 """
 View cells
 """
-function figure3(view_cells::Vector{String}, example_idx::Vector{<:Integer})
+function figure3(view_cells::Vector{String}, example_idx::Vector{<:Integer};kwargs...)
     # plot this using GLMakie
     GLMakie.activate!()
-    plot_field_summary(Hippocampus.GazeResponseFields, view_cells, example_idx)
+    plot_field_summary(Hippocampus.GazeResponseFields, view_cells, example_idx;hide_ceiling=true, indicate_north=false,show_points=true, show_boundaries=false, pointsize=2.5, floor_offset=-20.0, kwargs...)
 end
 
 
