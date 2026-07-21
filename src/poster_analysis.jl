@@ -995,7 +995,7 @@ function plot_maze_with_posters!(lg;eyepos::Union{Makie.Vec3f,Nothing}=nothing, 
     end
 end
 
-function plot_flat_maze_with_posters()
+function plot_flat_maze_with_posters_prev()
     with_theme(poster_theme) do
         fig = Figure()
         lg = GridLayout(fig[1,1])
@@ -1004,7 +1004,7 @@ function plot_flat_maze_with_posters()
     end
 end
 
-function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=nothing, end_point::Union{Nothing, Point2f}=nothing)
+function plot_flat_maze_with_posters_prev!(lg;start_point::Union{Nothing, Point2f}=nothing, end_point::Union{Nothing, Point2f}=nothing)
     images = Dict(k=>load(v) for (k,v) in poster_img)
     colors = [HSV(46,70,100), #yellow
               HSV(212,70,100), #blue
