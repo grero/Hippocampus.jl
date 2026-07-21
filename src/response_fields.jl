@@ -473,6 +473,8 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         args = rfs[first(keys(kk))].args 
         JLD2.save(fname, Dict("Z"=>Z, "nfields"=>nfields, "field_size"=>field_size, "args"=>args, "field_boundaries"=>bb,"peak_firing_rate"=>peak_firing_rate))
     end
+    # normalize to density
+    Z ./= sum(filter(isfinite, Z))
     mm = get_mesh(T,args[:nrefinements])
     cc = countmap(values(nfields))
     non_place_cells = collect(keys(filter(k->k[2]==0, nfields)))
@@ -505,18 +507,28 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         yy_np = [Float64(peak_firing_rate[k]) for k in non_place_cells]
         kde_np = betakde(yy_np;lower=0.0, upper=maximum(yy_np))
         xx_pp = range(minimum(yy_pp), stop=1.1*maximum(yy_pp), length=30)
-        xx_np = range(minimum(yy_np), stop=1.1*maximum(yy_np), length=30)
+        Δx = mean(diff(xx_pp))
+        xx_np = range(minimum(yy_np), stop=1.1*maximum(yy_np),step=Δx) 
+
         @show KruskalWallisTest(yy_pp, yy_np)
         @show median(yy_pp), median(yy_np)
         hh_pp = normalize(fit(Histogram, yy_pp, xx_pp),mode=:pdf)
+        hh_np = normalize(fit(Histogram, yy_np, xx_pp);mode=:pdf)
         
+        #TODO: Instead of scatter, use bars, with the gray bars thicker than the black
+        #      Alter draw order to avoid bars blocking
+        hist_bins = [hh_pp.edges[1][1:end-1];hh_np.edges[1][1:end-1]]
+        hist_weight = [hh_pp.weights;hh_np.weights]
+        hist_color = [fill(:gray, length(hh_pp.weights));fill(:black, length(hh_np.weights))]
+        hist_dodge = [fill(1, length(hh_pp.weights));fill(2, length(hh_np.weights))]
+        barplot!(axf, hist_bins, hist_weight, dodge=hist_dodge, color=hist_color, direction=:x)
         #hist!(axf, yy_pp, bins=xx_pp, normalization=:pdf, color=:gray, direction=:x)
-        scatter!(axf, hh_pp.weights, hh_pp.edges[1][1:end-1], color=:gray)
-        lines!(axf, kde_pp.density, kde_pp.x, color=:gray)
+        #scatter!(axf, hh_pp.weights, hh_pp.edges[1][1:end-1], color=:gray)
+        #barplot!(axf, hh_pp.edges[1][1:end-1], hh_pp.weights, color=:gray, direction=:x)
+        #lines!(axf, kde_pp.density, kde_pp.x, color=:gray)
         #hist!(axf, yy_np, bins=xx_np, normalization=:pdf, color=:black, direction=:x)
-        hh_np = normalize(fit(Histogram, yy_np, xx_np);mode=:pdf)
-        scatter!(axf, hh_np.weights, hh_np.edges[1][1:end-1], color=:black)
-        lines!(axf, kde_np.density, kde_np.x, color=:black)
+        #barplot!(axf,hh_np.edges[1][1:end-1], hh_np.weights, color=:black, direction=:x, width=0.7*Δx)
+        #lines!(axf, kde_np.density, kde_np.x, color=:black)
         axf.ylabel = "Peak firing rate [Hz]"
         axf.xticklabelsvisible = false
         axf.xticksvisible = true 
@@ -539,7 +551,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         # indicate where the pillars are
         plot_pillars!(ax3;floor_offset=floor_offset)
         Label(lg2[1,1,TopLeft()], labels[4])
-        Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, label="Count", colormap=colormap)
+        Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, ticklabelsvisible=false, label="Spatial density", colormap=colormap)
         #rowsize!(lg, 1, Relative(0.4))
         colsize!(lg, 1, Relative(0.2))
         colsize!(lg, 2, Relative(0.2))
