@@ -638,9 +638,16 @@ function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
+    do_compute = true 
     if !redo(fname) && isfile(fname)
         obj = load_jld2(MajorAxisDirectionTuning, fname)
-    else
+        if isa(obj, JLD2.ReconstructedMutable)
+            do_compute = true
+        else
+            do_compute= false
+        end
+    end 
+    if do_compute
         sessiondir = DPHT.get_level_path("session")
         qdata, jocc = cd(sessiondir) do
             qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=redo)
