@@ -1742,30 +1742,35 @@ function plot_trajectories(udata::UnityData)
     # hard code 5 rows 6 columns
     _keys = collect(keys(trajectories))
     m_floor = floor_topology3() 
+    axes = [Axis(lg[i,j],aspect=1) for i in 1:5 for j in 1:6]
+    hidedecorations!.(axes)
+    hidespines!.(axes)
+    sort!(_keys)
+    for k in _keys
+        if (0 in k) || (k[1]==k[2])
+            continue
+        end
+        ax = axes[findfirst(ij->ij==k, paridx)]
+        viz!(ax, m_floor, color=:lightgray)
+        for v in trajectories[k]
+            lines!(ax, Point2f.(v),color=:black)
+        end
+        plot_pillars!(ax)
+        scatter!(ax, Point2f.(first(trajectories[k])[[1,end]]), color=[:green,:red])
+    end
+    for i in 1:4
+        rowgap!(lg, i, 5)
+    end
+    for i in 1:5
+        colgap!(lg, i, 5)
+    end
+end
+
+function plot_trajectories(udata::UnityData)
     with_theme(plot_theme) do 
         fig = Figure()
-        axes = [Axis(fig[i,j],aspect=1) for i in 1:5 for j in 1:6]
-        hidedecorations!.(axes)
-        hidespines!.(axes)
-        sort!(_keys)
-        for k in _keys
-            if (0 in k) || (k[1]==k[2])
-                continue
-            end
-            ax = axes[findfirst(ij->ij==k, paridx)]
-            viz!(ax, m_floor, color=:lightgray)
-            for v in trajectories[k]
-                lines!(ax, Point2f.(v),color=:black)
-            end
-            plot_pillars!(ax)
-            scatter!(ax, Point2f.(first(trajectories[k])[[1,end]]), color=[:green,:red])
-        end
-        for i in 1:4
-            rowgap!(fig.layout, i, 5)
-        end
-        for i in 1:5
-            colgap!(fig.layout, i, 5)
-        end
+        lg = GridLayout(fig[1,1])
+        plot_trajectories!(lg, udata)
         fig
     end
 end
