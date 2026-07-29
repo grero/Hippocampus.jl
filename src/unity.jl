@@ -1718,3 +1718,54 @@ function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVec
     end
     q1, q2
 end
+
+function plot_trajectories(udata::UnityData)
+    nt = numtrials(udata)
+    trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
+    prev_posterid = 0
+    for i in 1:nt
+        # make sure the trial was correct
+        if !(30 < udata.triggers[i,3] < 40)
+            posterid = 0
+        else
+            posterid = udata.triggers[i,1] - 10
+            kk = (prev_posterid, posterid)
+            if !(kk in keys(trajectories))
+                trajectories[kk] = Vector{Tuple{Float64, Float64}}[]
+            end
+            tg,posx,posy,hd = get_trial(udata, i;trial_start=2)
+            push!(trajectories[kk], [(px,py) for (px,py) in zip(posx,posy)])
+        end
+        prev_posterid = posterid
+    end
+    paridx = filter(ij->ij[1]!=ij[2], [(i,j) for i in 1:6, j in 1:6])
+    # hard code 5 rows 6 columns
+    _keys = collect(keys(trajectories))
+    m_floor = floor_topology3() 
+    with_theme(plot_theme) do 
+        fig = Figure()
+        axes = [Axis(fig[i,j],aspect=1) for i in 1:5 for j in 1:6]
+        hidedecorations!.(axes)
+        hidespines!.(axes)
+        sort!(_keys)
+        for k in _keys
+            if (0 in k) || (k[1]==k[2])
+                continue
+            end
+            ax = axes[findfirst(ij->ij==k, paridx)]
+            viz!(ax, m_floor, color=:lightgray)
+            for v in trajectories[k]
+                lines!(ax, Point2f.(v),color=:black)
+            end
+            plot_pillars!(ax)
+            scatter!(ax, Point2f.(first(trajectories[k])[[1,end]]), color=[:green,:red])
+        end
+        for i in 1:4
+            rowgap!(fig.layout, i, 5)
+        end
+        for i in 1:5
+            colgap!(fig.layout, i, 5)
+        end
+        fig
+    end
+end
