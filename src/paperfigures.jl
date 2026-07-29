@@ -20,10 +20,17 @@ plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
 Behavioural task and recording sites
 """
 function figure1()
+    udata = cd("/Volumes/Hippocampus/Data/picasso-misc/20181102/session01") do
+        Hippocampus.UnityData()
+    end
     with_theme(plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(768,358))
         lg1 = GridLayout(fig[1,1])
         Hippocampus.plot_flat_maze_with_posters!(lg1)
+        # show trajectories for a sample session
+        lg2 = GridLayout(fig[1,2])
+        Hippocampus.plot_trajectories!(lg2, udata) 
+        colsize!(fig.layout,1, Relative(0.35))
         fig
     end
 end
