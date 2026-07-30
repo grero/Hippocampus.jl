@@ -179,4 +179,58 @@ Mixed selective and conjunction cells
 function figure4()
 end
 
+function get_performance(session::String)
+     udata = cd(session) do
+        Hippocampus.UnityData()
+    end
+    perf = zeros(6)
+    timeouts = zeros(6)
+    for k in 1:6
+        cidx = findall(udata.triggers[:,3].==30+k)
+        # exclude repeat trials
+        # that is trials preceded by an incorrect trial with the same poster
+        cidx = filter(c->c==1 ? true : ((udata.triggers[c-1,3] .< 40)&&(udata.triggers[c-1,1]!=udata.triggers[c,1])), cidx)
+        perf[k] = length(cidx)/sum(udata.triggers[:,1].==10+k)
+        timeouts[k] = sum(udata.triggers[:,3].==40+k)/sum(udata.triggers[:,1].==10+k)
+    end
+    perf, timeouts
+end
+"""
+Plot the performance of the animal
+"""
+function plot_performance()
+    fname = joinpath(@__DIR__,"..", "data","performance.jld2")
+    if isfile(fname)
+        perf,timeouts = JLD2.load(fname, "performance","timeouts")
+    else
+        sessions = get_sessions()
+        # for each session, get he performance
+        # TODO: Filter repeat trials, i.e. trials in which the monkey failed and then repeated the same trial
+        perf = zeros(6, length(sessions))
+        timeouts = zeros(6, length(sessions))
+        for (ii,session) in enumerate(sessions)
+            perf[:,ii], timeouts[:,ii] = get_performance(session)
+        end
+        JLD2.save(fname, Dict("performance"=>perf, "timeouts"=>timeouts, "sessions"=>sessions))
+    end
+    @show mean(perf) std(perf) percentile(perf[:], [25, 50, 75])
+    @show mean(timeouts) std(timeouts) percentile(timeouts[:], [10,50,95]) extrema(timeouts[:])
+    imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    with_theme(plot_theme) do
+        fig = Figure()
+        ax = Axis(fig[1,1])
+        ii = collect(CartesianIndices(size(perf)))
+        boxplot!(ax, getindex.(ii, 1)[:], perf[:];show_outliers=false)
+        ax.xticksvisible = false
+        ax.xticklabelsvisible = false
+        ax.bottomspinevisible = false
+        # TODO: Use the posters as axis tick labels
+        scatter!(ax, [1:6;], fill(0.65, 6), marker=imgs, markersize=70)
+        ylims!(ax, 0.6, 1.0)
+        ax.yticks = [0.7, 0.8, 0.9, 1.0]
+        ax.ytrimspine = true
+        fig
+    end
+end
+
 end #module
