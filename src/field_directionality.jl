@@ -1555,3 +1555,37 @@ function plot_field_direction_tuning(mdt::MajorAxisDirectionTuning, rf_spatial::
         fig
     end
 end
+
+function plot_field_direction_summary!(lg, ::Type{MajorAxisDirectionTuning}, celldirs::Vector{String})
+    v = Vector{Matrix{Float64}}(undef, length(celldirs))
+    cm = Vector{Matrix{Float64}}(undef, length(celldirs))
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3))
+    for (ii,celldir) in enumerate(celldirs)
+        mdt,rf = cd(celldir) do
+            mdt = MajorAxisDirectionTuning(;only_full_traversal=true, nrefinements=(p=3,g=2), min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, pv_threshold=0.001, redo=fname->false)
+            rf = get_response_fields(Hippocampus.SpatialResponseFields, 1000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+            mdt, rf
+        end
+        v[ii], cm[ii]= (mdt.v, mdt.μ)
+    end
+    v, cm
+
+    ax = Axis(lg[1,1], aspect=1)
+    plot_pillars!(ax)
+    viz!(ax, m_floor;color=:lightgray)
+    pp = Point2f.(eachcol(reduce(hcat, cm)))
+    vv = Point2f.(eachcol(reduce(hcat, v)))
+    @show length(pp) length(vv)
+    arrows2d!(ax, pp, vv, color=:black)
+    hidedecorations!(ax)
+    hidespines!(ax)
+end
+
+function plot_field_direction_summary(::Type{MajorAxisDirectionTuning}, celldirs::Vector{String})
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_field_direction_summary!(lg, MajorAxisDirectionTuning, celldirs)
+        fig
+    end
+end
