@@ -15,6 +15,14 @@ plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
                      Lines=(linewidth=3,),
                      fontsize=14)
 
+
+function get_sessions()
+    allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+        readlines(fid)
+    end
+    sessiondirs = unique(Hippocampus.DPHT.get_level_path.("session", allcelldirs))
+end
+
 """
     figure1()
 
