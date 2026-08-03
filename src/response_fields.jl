@@ -411,6 +411,21 @@ function merge_fields(mm::SimpleMesh, idx::Vector{<:Integer})
     connected_components(G)
 end
 
+function merge_fields(xbins::AbstractVector{<:Real}, ybins::AbstractVector{<:Real}, idx::Vector{<:Integer})
+    xy = [xbins ybins]
+    D = pairwise(Euclidean(), permutedims(xy))
+    ss = mean(sqrt.(diff(xbins).^2 + diff(ybins).^2))
+    Aq = D .<= ss 
+    G = SimpleGraph(Aq)
+    connected_components(G)
+end
+
+function merge_fields(A::AbstractMatrix{<:Number}, idx::Vector{<:Integer})
+    Aq = A[idx,idx]
+    G = SimpleGraph(Aq)
+    connected_components(G)
+end
+
 function run_cluster_analysis()
 end
 
