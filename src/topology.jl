@@ -132,8 +132,12 @@ function get_circular_adjancency(n::Integer)
 end
 
 function distancematrix(mm::SimpleMesh;rank=paramdim(mm))
-    nn = nelements(mm)
     A = adjacencymatrix(mm;rank=rank)
+    distancematrix(A)
+end
+
+function distancematrix(A::AbstractMatrix{<:Real})
+    nn = size(A,1)
     if issymmetric(A)
         G = SimpleGraph(A)
     else
@@ -143,6 +147,29 @@ function distancematrix(mm::SimpleMesh;rank=paramdim(mm))
     for ii in 1:nn
         dj = dijkstra_shortest_paths(G, ii;trackvertices=false)
         D[:,ii] = dj.dists 
+    end
+    D
+end
+
+get_unit(x) = Meshes.unit(x)
+get_unit(x::Meshes.Point) = first(Meshes.CoordRefSystems.units(coords(x)))
+
+function distancematrix(A::AbstractMatrix{<:Real}, pos::AbstractVector{T}) where T
+    nn = size(A,1)
+    if issymmetric(A)
+        G = SimpleGraph(A)
+    else
+        G = SimpleDiGraph(A)
+    end
+    D = get_unit(pos[1])*zeros(nn,nn)
+    for ii in 1:nn
+        dj = dijkstra_shortest_paths(G, ii;trackvertices=true)
+        for jj in 1:nn
+            p = get_path(dj,jj)
+            if length(p) > 1
+                D[jj,ii] = sum(norm.(diff(pos[p])))
+            end
+        end
     end
     D
 end
