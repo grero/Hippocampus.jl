@@ -265,4 +265,94 @@ function plot_performance()
     end
 end
 
+function get_trajectory_time(udata::Hippocampus.UnityData)
+    nt = Hippocampus.numtrials(udata)
+    Δt = zeros(6, 6)
+    Δt² = zeros(6, 6)
+    nn = zeros(Int64, 6, 6)
+    for i in 2:nt
+        # make sure both the current and the previous trials were correct
+        if  (30 .< udata.triggers[i,3] .< 40) && (30 .< udata.triggers[i-1,3] .< 40)
+            k1 = udata.triggers[i-1,1] .- 10
+            k2 = udata.triggers[i,1] .- 10
+            _Δt = udata.timestamps[i,3] - udata.timestamps[i,2]
+            Δt[k2,k1] += _Δt
+            Δt²[k2,k1] += _Δt^2
+            nn[k2,k1] += 1
+        end
+    end
+    Δt ./= nn
+    Δt² ./= nn
+    Δt, Δt²
+end
+
+function get_trajectory_time(sessions::Vector{String};redo=false)
+    fname = joinpath(@__DIR__, "..","data","trajectory_time.jld2")
+    if !redo && isfile(fname)
+        Δt,Δt² = JLD2.load(fname, "Δt","Δt²")
+    else
+        nn = length(sessions)
+        Δt = zeros(6,6,nn)
+        Δt² = zeros(6,6,nn)
+        for (ii,session) in enumerate(sessions)
+            udata = cd(session) do
+                Hippocampus.UnityData()
+            end
+            Δt[:,:,ii],Δt²[:,:,ii] = get_trajectory_time(udata)
+        end
+        JLD2.save(fname, Dict("Δt"=>Δt, "Δt²"=>Δt², "sessions"=>sessions))
+    end
+    Δt, Δt²
+end
+
+function plot_trajectory_time!(lg, udata::Hippocampus.UnityData;kwargs...)
+    Δt,Δt² = get_trajectory_time(udata) 
+    plot_trajectory_time!(lg, sqrt(Δt².-Δt^2);kwargs...)
+end
+
+function plot_trajectory_time!(lg, Δt::Array{<:Real, 3};kwargs...)
+    plot_trajectory_time!(lg, dropdims(mean(Δt, dims=3),dims=3);kwargs...)
+end
+
+function plot_trajectory_time!(lg, Δt::Matrix{<:Real};kwargs...)
+    markersize = get(kwargs, :markersize, 45)
+    ax = Axis(lg[1,1])
+    h = heatmap!(ax, Δt)
+    Colorbar(lg[1,2], h, label="CV(traj time)")
+
+    imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    # create dummy axes for the labels
+    axl = Axis(lg[1,0])
+    scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
+    axb = Axis(lg[2,1])
+    scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
+    colsize!(lg, 0, 2*markersize-20)
+    rowsize!(lg, 2, 2*markersize-20)
+    linkxaxes!(axb, ax)
+    linkyaxes!(axl, ax)
+    hidedecorations!(axb)
+    hidespines!(axb)
+    hidedecorations!(axl)
+    hidespines!(axl)
+    ax.xticklabelsvisible = false
+    ax.yticklabelsvisible = false
+    ax.xticks = [1:6;]
+    ax.yticks = [1:6;]
+    axl.xlabel = "From"
+    axl.xlabelvisible = true
+    axb.ylabel = "To"
+    axb.ylabelvisible = true
+    colgap!(lg, 1, 1)
+    rowgap!(lg, 1, 1)
+end
+
+function plot_trajectory_time(args...;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_trajectory_time!(lg, args...;kwargs...)
+        fig
+    end
+end
+
 end #module
