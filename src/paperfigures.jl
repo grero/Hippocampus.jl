@@ -32,14 +32,37 @@ function figure1()
     udata = cd("/Volumes/Hippocampus/Data/picasso-misc/20181102/session01") do
         Hippocampus.UnityData()
     end
+    sessions = get_sessions()
     with_theme(plot_theme) do
-        fig = Figure(size=(768,358))
-        lg1 = GridLayout(fig[1,1])
-        Hippocampus.plot_flat_maze_with_posters!(lg1)
+        fig = Figure(size=(768,768))
+        lg_top = GridLayout(fig[1,1:2])
+        axg = Axis(lg_top[1,1],aspect=DataAspect())
+        Label(lg_top[1,1,TopLeft()], "A")
+        hidedecorations!(axg)
+        hidespines!(axg)
+        img = load(joinpath(@__DIR__, "..","artefacts","monkey_in_chair.png"))
+        image!(axg, rotr90(img))
+        # load chamber rendering
+        img_chamber = load(joinpath(@__DIR__, "..","figures","picasso_chamber_rendering.png"))
+        axc = Axis(lg_top[1,2], aspect=DataAspect())
+        Label(lg_top[1,2,TopLeft()],"E")
+        hidedecorations!(axc)
+        hidespines!(axc)
+        image!(axc, rotr90(img_chamber))
+        lg1 = GridLayout(fig[2,1])
+        lg11 = GridLayout(lg1[1,1])
+        Label(lg1[1,1,TopLeft()],"B")
+        Hippocampus.plot_flat_maze_with_posters!(lg11)
+        lg12 = GridLayout(lg1[2,1])
+        Label(lg1[2,1, TopLeft()], "C", padding=(20,20,0,0))
+        Δt,Δt² = get_trajectory_time(sessions)
+        plot_trajectory_time!(lg12, sqrt.(Δt² .- Δt.^2)./Δt;markersize=20)
         # show trajectories for a sample session
-        lg2 = GridLayout(fig[1,2])
+        lg2 = GridLayout(fig[2,2])
+        Label(lg2[1,1,TopLeft()], "D")
         Hippocampus.plot_trajectories!(lg2, udata) 
-        colsize!(fig.layout,1, Relative(0.35))
+        colsize!(fig.layout,1, Relative(0.3))
+
         fig
     end
 end
