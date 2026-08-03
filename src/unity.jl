@@ -1541,7 +1541,9 @@ function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2,do_compr
         bidx[i] = bin_trajectory(pos, mm)
     end
     if do_compress
-        bidx = compress_trajectory.(bidx)
+        for (ii,_bidx) in enumerate(bidx)
+            bidx[ii],_ = compress_trajectory(_bidx)
+        end
     end
     bidx
 end
