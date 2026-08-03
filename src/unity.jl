@@ -1719,7 +1719,7 @@ function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVec
     q1, q2
 end
 
-function plot_trajectories(udata::UnityData)
+function plot_trajectories!(lg, udata::UnityData)
     nt = numtrials(udata)
     trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
     prev_posterid = 0
