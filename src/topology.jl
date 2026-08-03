@@ -705,6 +705,17 @@ function floor_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax;nrefinement
     mm2
 end
 
+"""
+    repair_mesh(mm)
+
+Remove unnused vertices from `mm`
+"""
+function repair_mesh(mm)
+    mmr = Repair(1)(mm)
+    mm2 = SimpleMesh(mmr.vertices, convert(HalfEdgeTopology, mmr.topology))
+    mm2
+end
+
 function maze_topology3(xmin=-12.5, xmax=12.5, ymin=xmin, ymax=xmax, zmin=0.0, zmax=5.0;n_refinements=3)
     points = [(xmin, ymin, 0.0), (-7.5, ymin,0.0),(-7.5, -7.5,0.0),(xmin, -7.5, 0.0)] 
     cnx = [fix_connection((1,2,3,4),points)]
