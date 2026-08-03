@@ -383,6 +383,71 @@ function distance(p1::Vector{T}, mm::SimpleMesh,trajectories::Matrix{Vector{Int6
     D
 end
 
+function discrete_frechet_distance(
+    trajectory1::Vector{Int},
+    trajectory2::Vector{Int},
+    D::Matrix{Float64}
+)
+    n = length(trajectory1)
+    m = length(trajectory2)
+
+    # Initialize the DP table
+    dp = zeros(Float64, n, m)
+
+    # Base cases
+    dp[1, 1] = D[trajectory1[1], trajectory2[1]]
+
+    # Fill first row
+    for j in 2:m
+        dp[1, j] = max(dp[1, j-1], D[trajectory1[1], trajectory2[j]])
+    end
+
+    # Fill first column
+    for i in 2:n
+        dp[i, 1] = max(dp[i-1, 1], D[trajectory1[i], trajectory2[1]])
+    end
+
+    # Fill the rest of the table
+    for i in 2:n, j in 2:m
+        dp[i, j] = max(
+            min(
+                dp[i-1, j],
+                dp[i-1, j-1],
+                dp[i, j-1]
+            ),
+            D[trajectory1[i], trajectory2[j]]
+        )
+    end
+
+    return dp[n, m]
+end
+
+function hausdorff_distance(
+    trajectory1::Vector{Int},
+    trajectory2::Vector{Int},
+    D::Matrix{Float64}
+)
+    # Compute min distances from trajectory1 to trajectory2
+    min_dist_1_to_2 = [minimum(D[a, b] for b in trajectory2) for a in trajectory1]
+    max_min_dist_1_to_2 = maximum(min_dist_1_to_2)
+
+    # Compute min distances from trajectory2 to trajectory1
+    min_dist_2_to_1 = [minimum(D[b, a] for a in trajectory1) for b in trajectory2]
+    max_min_dist_2_to_1 = maximum(min_dist_2_to_1)
+
+    return max(max_min_dist_1_to_2, max_min_dist_2_to_1)
+end
+
+function get_normalized_laplacian(A::AbstractMatrix{T}) where T <: Real
+    Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
+    Ls = I - Dp*A*Dp
+    Ls
+end
+
+function get_cotangent_laplacian(mm::SimpleMesh)
+
+end
+
 function get_normalize_laplacian(mm::SimpleMesh)
     A = adjacencymatrix(mm)
     Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
