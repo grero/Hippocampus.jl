@@ -2,6 +2,7 @@ module PaperFigures
 using CairoMakie
 using GLMakie
 using Meshes
+using StatsBase
 using Hippocampus
 using JLD2
 
