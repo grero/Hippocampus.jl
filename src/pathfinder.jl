@@ -96,7 +96,7 @@ function integrate!(start::Observable{Point2f}, goal,v::Observable{Vec2f},g::Obs
         # actually, I think it makes sense to separate steering from acceleation here
         # to steer, just apply a torque porportional to the angle
         #τ = -kτ*dg_normal
-        τ = kτ*cross(vn3,dg3)'*up
+        τ = sign(vn3'*dg3)*kτ*cross(vn3,dg3)'*up
         # apply acceleration along the current speed,
         # but proportional to the spring force towards the goal projected onto v
         # should try and counter the ortogonal component, 
@@ -111,7 +111,7 @@ function integrate!(start::Observable{Point2f}, goal,v::Observable{Vec2f},g::Obs
 
         #τ += -k0*norm(gg_normal)* - kω*ω
         #τ += -cross(vn, gg)
-        τ += k0*cross(vq3, gg3)'*up - kω*ω
+        τ += k0*sign(vq3'*gg3)*cross(vq3, gg3)'*up - kω*ω
         #τ = clamp(τ, -1.0, 1.0)
         ω += τ*dt
         #ω = clamp(ω, -2.0, 2.0) 
