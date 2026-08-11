@@ -963,6 +963,17 @@ function mapto(mm::SimpleMesh, x::AbstractVector{T}, y::AbstractVector{T},z::Abs
     idx
 end
 
+function mapto(mm::SimpleMesh, xy::AbstractVector{<:NTuple{2,<:Real}})
+    kn = KNearestSearch(mm, 1)
+    idx = Vector{Int64}(undef, length(xy))
+    for (i,(x,y)) in enumerate(xy)
+        _idx,dd = searchdists(Meshes.Point(x,y), kn)
+        idx[i] = first(_idx)
+    end
+    idx
+end
+
+
 function explore(mm::SimpleMesh;kwargs...)
     fig = Figure()
     lg = GridLayout(fig[1,1])
