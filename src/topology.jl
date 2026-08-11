@@ -501,11 +501,15 @@ function grammatrix(D::AbstractMatrix{<:Real}, cm)
     G .- D.^2
 end
 
-function trajectory(mm::SimpleMesh,p1::Meshes.Point,p2::Meshes.Point;rank=paramdim(mm))
+function trajectory(mm::SimpleMesh,p1::Meshes.Point,p2::Meshes.Point;kwargs...,)
     idx1 = first(search(p1, KNearestSearch(mm,1)))
     idx2 = first(search(p2, KNearestSearch(mm,1)))
+    trajectory(mm, idx1, idx2)
+end
+
+function trajectory(mm::SimpleMesh,idx1::Integer,idx2::Integer;rank=paramdim(mm))
     A = adjacencymatrix(mm;rank=rank)
-    trajectory(A, idx1, idx2)
+    trajectory(A,idx1, idx2)
 end
 
 function trajectory(A,idx1::Integer,idx2::Integer)
@@ -515,7 +519,7 @@ function trajectory(A,idx1::Integer,idx2::Integer)
         G = SimpleDiGraph(A)
     end
     dj = dijkstra_shortest_paths(G, idx1;trackvertices=false)
-    get_path(dj, idx2)
+    get_path(dj, idx2), dj.dists[idx2]
 end
 
 function trajectories(mm::SimpleMesh)
