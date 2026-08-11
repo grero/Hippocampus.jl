@@ -1721,6 +1721,119 @@ function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVec
     q1, q2
 end
 
+function get_trajectories(udata)
+    nt = numtrials(udata)
+    trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
+    prev_posterid = 0
+    for i in 1:nt
+        # make sure the trial was correct
+        if !(30 < udata.triggers[i,3] < 40)
+            posterid = 0
+        else
+            posterid = udata.triggers[i,1] - 10
+            kk = (prev_posterid, posterid)
+            if !(kk in keys(trajectories))
+                trajectories[kk] = Vector{Tuple{Float64, Float64}}[]
+            end
+            tg,posx,posy,hd = get_trial(udata, i;trial_start=2)
+            push!(trajectories[kk], [(px,py) for (px,py) in zip(posx,posy)])
+        end
+        prev_posterid = posterid
+    end
+    pairidx = filter(ij->ij[1]!=ij[2], [(i,j) for i in 1:6, j in 1:6])
+    trajectories, pairidx
+end
+
+function compare_optimal_trajectories(udata;nrefinements=0)
+    lengths = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    compare_optimal_trajectories!(lengths, udata;nrefinements=nrefinements)
+    lengths
+end
+
+function compare_optimal_trajectories!(lengths, udata;nrefinements=0)
+    traj,_ = get_trajectories(udata)
+    # map to floor with resolution given by nrefinements
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements))
+    for (k,v) in traj
+        if !(k in keys(lengths))
+            lengths[k] = Float64[] 
+        end
+        for (jj,tt) in enumerate(v)
+            traj_idx,_ = compress_trajectory(mapto(m_floor, tt))
+            traj_idx_opt,_ = trajectory(m_floor, traj_idx[1], traj_idx[end])
+            length_true = sum(norm.(diff(centroid.(m_floor[traj_idx]))))
+            length_opt = sum(norm.(diff(centroid.(m_floor[traj_idx_opt]))))
+            push!(lengths[k], length_true/length_opt)
+        end
+    end
+    lengths
+end
+
+function compare_optimal_trajectories(sessiondirs::Vector{String};kwargs...)
+    lengths = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    for sessiondir in sessiondirs
+        udata = cd(sessiondir) do
+            UnityData()
+        end
+        compare_optimal_trajectories!(lengths, udata;kwargs...)
+    end
+    lengths
+end
+
+function plot_trajectory_lengths!(lg, udata::UnityData;kwargs...)
+    lengths = compare_optimal_trajectories(udata;kwargs...)
+    plot_trajectory_lengths!(lg, lengths;kwargs...)
+end
+
+function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{Float64}};kwargs...)
+    markersize = get(kwargs, :markersize, 45)
+    nl = length(lengths)
+    Z = fill(NaN, 6,6)
+    for (k,v) in lengths
+        if (0 in k) || (k[1]==k[2])
+            continue
+        end
+        Z[k[1], k[2]] = median(v)
+    end
+    ax = Axis(lg[1,1])
+    h = heatmap!(ax,Z)
+    Colorbar(lg[1,2],h,label="Relative traj length")
+
+    imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    # create dummy axes for the labels
+    axl = Axis(lg[1,0])
+    scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
+    axb = Axis(lg[2,1])
+    scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
+    colsize!(lg, 0, 2*markersize-20)
+    rowsize!(lg, 2, 2*markersize-20)
+    linkxaxes!(axb, ax)
+    linkyaxes!(axl, ax)
+    hidedecorations!(axb)
+    hidespines!(axb)
+    hidedecorations!(axl)
+    hidespines!(axl)
+    ax.xticklabelsvisible = false
+    ax.yticklabelsvisible = false
+    ax.xticks = [1:6;]
+    ax.yticks = [1:6;]
+    axl.xlabel = "From"
+    axl.xlabelvisible = true
+    axb.ylabel = "To"
+    axb.ylabelvisible = true
+    colgap!(lg, 1, 1)
+    rowgap!(lg, 1, 1)
+end
+
+function plot_trajectory_lengths(args...;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1]) 
+        plot_trajectory_lengths!(lg, args...;kwargs...)
+        fig
+    end
+end
+
 function plot_trajectories!(lg, udata::UnityData)
     nt = numtrials(udata)
     trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
