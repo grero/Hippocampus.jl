@@ -1514,11 +1514,16 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     # plot all
     lgs = [GridLayout(lg[i,1]) for i in 1:length(mdt.ms)]
     for (i,_lg) in enumerate(lgs)
-        plot_field_direction_tuning!(_lg, mdt, rf_spatial,jm,i;kwargs...)
+        if i > 1
+            show_titles = false
+        else
+            show_titles = true
+        end
+        plot_field_direction_tuning!(_lg, mdt, rf_spatial,jm,i;show_titles=show_titles, kwargs...)
     end
 end
 
-function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, kwargs...)
+function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, kwargs...)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=3));
     v = mdt.v
     # FIXME: This doesnt work
@@ -1546,14 +1551,16 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     colormap = get(kwargs, :colormap, :rain)
     lg1 = GridLayout(lg[1,1])
     ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=colormap, show_colorbar=false, colorrange=cr)
-    ax.title = "All trials"
     lg2 = GridLayout(lg[1,2])
     ax2 = plot_response_fields!(lg2, rf_spatial,λ_forward, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr)
-    ax2.title = "Forward"
     arrows2d!(ax2, cm, 2.5*Vec2(v[:,idx]), color=:black)
     lg3 = GridLayout(lg[1,3])
     ax3 = plot_response_fields!(lg3, rf_spatial,λ_reverse, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr)
-    ax3.title = "Reverse"
+    if show_titles
+        ax.title = "All trials"
+        ax2.title = "Forward"
+        ax3.title = "Reverse"
+    end
     arrows2d!(ax3, cm, -2.5*Vec2(v[:,idx]), color=:orange)
     Colorbar(lg[1,4], colormap=colormap, colorrange=cr, label="Firing rate [Hz]")
     lg4 = GridLayout(lg[1,5])
