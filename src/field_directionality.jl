@@ -1500,6 +1500,16 @@ function plot_field_traversals(gidx, qdata;_plot_theme=plot_theme, kwargs...)
 end
 
 
+function plot_field_direction_tuning(::Type{MajorAxisDirectionTuning}, celldir::String,idx=1;_plot_theme=plot_theme, kwargs...)
+    mdt,rf,jm = cd(celldir) do
+        mdt = MajorAxisDirectionTuning(;kwargs...)
+        rf = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 1000);kwargs...)
+        jm = JointMap(;kwargs...)
+        mdt, rf, jm
+    end
+    plot_field_direction_tuning(mdt, rf, jm,idx;_plot_theme=_plot_theme,kwargs...)
+end
+
 function plot_field_direction_tuning(mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx=1;_plot_theme=plot_theme, kwargs...)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=3));
     v = mdt.v
