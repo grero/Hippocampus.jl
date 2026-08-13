@@ -1587,7 +1587,7 @@ function plot_field_direction_tuning(args...;_plot_theme=plot_theme, figsize=(70
     with_theme(_plot_theme) do
         fig = Figure(size=figsize)
         lg = GridLayout(fig[1,1])
-        plot_field_direction_tuning!(lg, args...;kwargs...)
+        plot_field_direction_tuning!(lg, args...; kwargs...)
         fig
     end
 end
