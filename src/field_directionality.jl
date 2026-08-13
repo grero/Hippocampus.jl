@@ -1510,20 +1510,24 @@ function plot_field_direction_tuning!(lg, ::Type{MajorAxisDirectionTuning}, cell
     plot_field_direction_tuning!(lg, mdt, rf, jm,idx;_plot_theme=_plot_theme,kwargs...)
 end
 
-function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,::Nothing;kwargs...)
+function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,::Nothing;start_label='A', kwargs...)
     # plot all
     lgs = [GridLayout(lg[i,1]) for i in 1:length(mdt.ms)]
     for (i,_lg) in enumerate(lgs)
+
+        label_range = range(start_label, step=1, length=3)
+        label = string.(label_range[1:2])
+        start_label = last(label_range)
         if i > 1
             show_titles = false
         else
             show_titles = true
         end
-        plot_field_direction_tuning!(_lg, mdt, rf_spatial,jm,i;show_titles=show_titles, kwargs...)
+        plot_field_direction_tuning!(_lg, mdt, rf_spatial,jm,i;label=label, show_titles=show_titles, kwargs...)
     end
 end
 
-function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, kwargs...)
+function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, label=["A","B"], kwargs...)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=3));
     v = mdt.v
     # FIXME: This doesnt work
@@ -1550,6 +1554,7 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     
     colormap = get(kwargs, :colormap, :rain)
     lg1 = GridLayout(lg[1,1])
+    Label(lg[1,1,TopLeft()], label[1])
     ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=colormap, show_colorbar=false, colorrange=cr)
     lg2 = GridLayout(lg[1,2])
     ax2 = plot_response_fields!(lg2, rf_spatial,λ_forward, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr)
@@ -1564,6 +1569,7 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     arrows2d!(ax3, cm, -2.5*Vec2(v[:,idx]), color=:orange)
     Colorbar(lg[1,4], colormap=colormap, colorrange=cr, label="Firing rate [Hz]")
     lg4 = GridLayout(lg[1,5])
+    Label(lg[1,5,TopLeft()], label[2])
     ax4 = Axis(lg4[1,1])
     boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray)
     hlines!(ax4, mean(λf) - mean(λr), color=:black, linestyle=:dot)
