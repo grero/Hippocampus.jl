@@ -2915,9 +2915,23 @@ function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,uni
     JointMap(vpvrp, jocc, joccf.qidx)
 end
 
-function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,jocc_filtered::JointFilteredOccupancy;shuffle_place=false, shuffle_view=false, kwargs...)
+function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,jocc_filtered::JointFilteredOccupancy;shuffle_place=false, shuffle_view=false, use_trials=:all, kwargs...)
     qidx = jocc_filtered.index
     cc = get_num_spikes(vpvrp, jocc,qidx;shuffle_place=shuffle_place, shuffle_view=shuffle_view)
+    # which trials should we use?
+    nt = length(jocc.index)
+    if use_trials == :firstHalf
+        trialidx = 1:div(nt,2)
+    elseif use_trials == :secondHalf
+        trialidx = (div(nt,2)+1):nt
+    elseif isa(use_trials, AbstractVector{Int64})
+        trialidx = use_trials
+    else
+        trialidx = 1:nt
+    end
+    f = in(trialidx)
+    fidx = findall(q->f(q[4]),qidx)
+    qidx = qidx[fidx]
     nspikes = zeros(Int16, length(qidx))
     nincluded = 0
     for (ii,k) in enumerate(qidx)
@@ -2931,7 +2945,7 @@ function JointMap(vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy,joc
     ng = nrefinements.g
     np = nrefinements.p
     nh = 1 
-    JointMap(Float64.(nspikes), jocc_filtered.weight, qidx,[ng,np,nh])
+    JointMap(Float64.(nspikes), jocc_filtered.weight[fidx], qidx,[ng,np,nh])
 end
 
 function DPHT.filename(::Type{JointMap};kwargs...)
