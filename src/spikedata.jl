@@ -70,6 +70,12 @@ struct TrialAlignedSpiketrain
     alignto::Int64
 end
 
+function Base.show(io::IO, x::TrialAlignedSpiketrain)
+    nt = length(x.spiketimes)
+    μ = mean(length.(x.spiketimes))
+    write(io, "Spikes aligned to event $(x.alignto) across $(nt) trials with $μ spikes per trial.")
+end
+
 TrialAlignedSpiketrain(spiketimes, trigger_timestamps) = TrialAlignedSpiketrain(spiketimes, trigger_timestamps,1)
 
 numtrials(sp::TrialAlignedSpiketrain) = length(sp.spiketimes)
