@@ -31,11 +31,21 @@ struct Spiketrain
     components::Int64
 end
 
+tovec(x::Number) = [x]
+tovec(x::AbstractArray{<:Any}) = vec(x)
+
 function Spiketrain(fname::String)
     q = MAT.matread(fname)
     reference = get(q, "reference", "None")
+    if typeof(reference) <: AbstractVector
+        if isempty(reference)
+            reference = ""
+        else
+            reference = first(reference) 
+        end
+    end
     components = get(q, "components", 0)
-    Spiketrain(q["timestamps"][:], reference, components)
+    Spiketrain(tovec(q["timestamps"]), reference, components)
 end
 
 function Spiketrain()
