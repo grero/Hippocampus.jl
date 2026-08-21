@@ -2693,6 +2693,18 @@ struct JointMap{T<:Real} <: AbstractMap
     dims::Vector{Int64}
 end
 
+function Base.merge(jm1::JointMap{T}, jm2::JointMap{T}) where T <: Real
+    @assert jm1.dims == jm2.dims
+    # the last element of each `index` is the trial index
+    nt = maximum(getindex.(jm1.index, 4))
+    # add this number to the last index of `jm2`
+    index2 = [CartesianIndex(i,j,k,nt+l) for (i,j,k,l) in Tuple.(jm2.index)]
+    index = [jm1.index;index2]
+    weight = [jm1.weight;jm2.weight]
+    occupancy = [jm1.occupancy;jm2.occupancy]
+    JointMap{T}(weight, occupancy, index, jm1.dims)
+end
+
 function JointMap(weight::Vector{T}, occupancy::Vector{T}, index) where T <: Real
     ng = maximum(getindex.(index,1))
     np = maximum(getindex.(index,2))
