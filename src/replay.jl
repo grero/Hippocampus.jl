@@ -2250,6 +2250,20 @@ struct ViewAndPlaceRepresentationNew <: AbstractRepresentation{Float32,Float64}
     placeviewidx::Vector{Vector{Int64}}
 end
 
+function Base.merge(vpv1::T, vpv2::T) where T <: ViewAndPlaceRepresentationNew
+    (nt1,nt2) = length.((vpv1.events,vpv2.events))
+    nt = nt1+nt2
+    events = Vector{Vector{Float64}}(undef, nt)
+    placeviewidx = Vector{Vector{Int64}}(undef, nt)
+    events[1:nt1] .= vpv1.events
+    events[nt1+1:nt] .= vpv2.events
+    placeviewidx[1:nt1] .= vpv1.placeviewidx
+    placeviewidx[nt1+1:nt] .= vpv2.placeviewidx
+    T(events, placeviewidx)
+end
+
+numtrials(x::ViewAndPlaceRepresentationNew) = length(x.events)
+
 DPHT.level(::Type{ViewAndPlaceRepresentationNew}) = "cell"
 DPHT.level(::ViewAndPlaceRepresentationNew) = "cell"
 DPHT.filename(::Type{ViewAndPlaceRepresentationNew}) = "view_and_place_representation.jld2"
