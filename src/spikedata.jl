@@ -243,7 +243,10 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, x::TrialAlignedSpiketra
     xx = reduce(vcat, x.spiketimes)
     x_nav_start = x.trigger_timestamps[:,2] - x.trigger_timestamps[:,x.alignto]
     x_trial_end = x.trigger_timestamps[:,3] - x.trigger_timestamps[:,x.alignto]
-    [PlotSpec(Scatter, xx,yy), PlotSpec(Scatter, x_nav_start, 1:length(x_nav_start), marker='|'),
-        PlotSpec(Scatter, x_trial_end, 1:length(x_trial_end), marker='|')]
-
+    # kernel density for PSTH
+    kk = kde(xx;bandwidth=0.1)
+    axes = [S.Axis(plots=[S.Scatter(xx,yy), S.Scatter(x_nav_start, 1:length(x_nav_start), marker='|'),
+                S.Scatter(x_trial_end, 1:length(x_trial_end), marker='|')],ylabel="Trial id"),
+            S.Axis(plots=[S.Lines(kk.x, kk.density)],ylabel="Density",xlabel="Time from event $(x.alignto)")]
+    S.GridLayout(axes)
 end
