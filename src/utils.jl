@@ -20,6 +20,22 @@ function get_allcelldirs()
     allcelldirs
 end
 
+function process_combined_session()
+    if isfile("sessions.txt")
+        # this tells us which sessions were used
+        sessions = readlines(open("sessions.txt"))
+    else
+        # try and figure it out
+        sessions = glob("../session??")
+        # save for later conveniennce
+        session_string = join(sessions, '\n')
+        open("sessions.txt","w") do fid
+            write(fid, session_string)
+        end
+    end
+    return sessions
+end
+
 function kmean_it(X::Matrix{T}, k::Integer,m::Integer;n_iter=1000) where T <: Real
     d,n = size(X)
     # random cluster center initialization
