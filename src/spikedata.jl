@@ -76,6 +76,14 @@ function Base.show(io::IO, x::TrialAlignedSpiketrain)
     write(io, "Spikes aligned to event $(x.alignto) across $(nt) trials with $μ spikes per trial.")
 end
 
+function Base.merge(x1::TrialAlignedSpiketrain, x2::TrialAlignedSpiketrain)
+    # we need the same alignment to for this to make sense
+    @assert x1.alignto == x2.alignto
+    new_spiketimes = [x1.spiketimes;x2.spiketimes]
+    new_trigger_timestamps = cat(x1.trigger_timestamps, x2.trigger_timestamps, dims=1)
+    TrialAlignedSpiketrain(new_spiketimes, new_trigger_timestamps, x1.alignto)
+end
+
 TrialAlignedSpiketrain(spiketimes, trigger_timestamps) = TrialAlignedSpiketrain(spiketimes, trigger_timestamps,1)
 
 numtrials(sp::TrialAlignedSpiketrain) = length(sp.spiketimes)
