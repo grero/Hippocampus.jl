@@ -228,3 +228,16 @@ function RandomlyShiftedSpiketrains(;redo::Function=fname->false, do_save=true, 
     end
     obj
 end
+
+## plots
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::TrialAlignedSpiketrain)
+    nt = length(x.spiketimes)
+    yy = reduce(vcat, [fill(i, length(x.spiketimes[i])) for i in 1:nt])
+    xx = reduce(vcat, x.spiketimes)
+    x_nav_start = x.trigger_timestamps[:,2] - x.trigger_timestamps[:,x.alignto]
+    x_trial_end = x.trigger_timestamps[:,3] - x.trigger_timestamps[:,x.alignto]
+    [PlotSpec(Scatter, xx,yy), PlotSpec(Scatter, x_nav_start, 1:length(x_nav_start), marker='|'),
+        PlotSpec(Scatter, x_trial_end, 1:length(x_trial_end), marker='|')]
+
+end
