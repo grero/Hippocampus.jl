@@ -435,6 +435,11 @@ struct UnityRaytraceData
     fixating::Vector{Vector{Bool}}
     unityfile::String
 end
+
+function Base.show(io::IO, qdata::UnityRaytraceData)
+    nt = numtrials(qdata)
+    write(io, "UnityRaytraceData with $nt trials")
+end
  
 function UnityRaytraceData(analogtime, positions, direction, gaze::Vector{Vector{Matrix{Float64}}}, position, head_direction, timestamps,fixated_object,fixating)
     nt = length(gaze)
