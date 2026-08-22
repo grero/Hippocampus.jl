@@ -2958,6 +2958,55 @@ function DPHT.filename(::Type{JointMap};kwargs...)
     fname
 end
 
+function compute_obj(::Type{T};kwargs...) where T
+    fname = DPHT.filename(T;kwargs...)
+    do_compute = false 
+    redo = get(kwargs, :redo, fname->false)
+    do_save = get(kwargs, :do_save,true)
+    if !redo(fname) && isfile(fname)
+        obj = load_jld2(T, fname)
+        if typeof(obj) <: JLD2.ReconstructedMutable 
+            do_compute = true
+        else
+            do_compute = false
+            return obj
+        end
+    else
+        do_compute = true
+    end
+    if do_compute
+        cwd = pwd()
+        session_path = DPHT.get_level_path("session")
+        # we cheat a bit here
+        parts = splitpath(session_path)
+        is_multisession = false
+        if occursin("combined", parts[end])
+            is_multisession = true
+            sessiondirs = cd(session_path) do
+                # go into each session and load objects
+                sessiondirs = process_combined_session()
+            end
+            nsessions = length(sessiondirs)
+            objs = Vector{T}(undef, nsessions)
+            for (ii,sd) in enumerate(sessiondirs)
+                _sd = last(splitpath(sd))
+                dir_new = replace(cwd, parts[end]=>_sd)
+                # patch in 
+                objs[ii] = cd(dir_new) do
+                   T(;kwargs...) 
+                end
+            end
+            obj = reduce(merge, objs)
+            if do_save
+                save_jld2(obj, fname)
+            end
+        else
+            obj = T(;kwargs...)
+        end
+        return obj
+    end
+end
+
 function JointMap(;redo::Function=fname->false, do_save=true, kwargs...)
     fname = DPHT.filename(JointMap;kwargs...)
     if !redo(fname) && isfile(fname)
