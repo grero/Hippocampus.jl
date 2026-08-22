@@ -70,6 +70,8 @@ struct TrialAlignedSpiketrain
     alignto::Int64
 end
 
+DPHT.filename(::Type{TrialAlignedSpiketrain}) = "aligned_spiketrain.jld2"
+
 function Base.show(io::IO, x::TrialAlignedSpiketrain)
     nt = length(x.spiketimes)
     μ = mean(length.(x.spiketimes))
