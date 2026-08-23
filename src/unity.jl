@@ -283,8 +283,21 @@ function get_poster_index(mazename::AbstractString)
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
-
-    PlotSpec(Lines, Point2f.(eachrow(x.position)))
+    nt = numtrials(x)
+    pos_points = Point2f[]
+    lc = Float64[]
+    for i in 1:nt
+        tu, posx, posy, _ = Hippocampus.get_trial(x, i;trial_start=2);
+        append!(lc, range(0.0, stop=1.0, length=length(tu)))
+        for (px,py) in zip(posx, posy)
+            push!(pos_points, Point2f(px,py))
+        end
+        push!(pos_points, Point2f(NaN))
+        push!(lc, NaN)
+    end
+    ax1 = S.Axis(plots=[S.Lines(pos_points, color=lc)])
+    ax2 = S.Colorbar(colorrange=(0.0, 1.0), label="Trial progression")
+    S.GridLayout([ax1 ax2])
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData, trial::Trial) 
