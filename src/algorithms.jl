@@ -230,7 +230,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;load_only=fname->false
             JointOccupancy(;redo=redo, kwargs...)
         end
         jocc_filtered = JointFilteredOccupancy(jocc, unity_gaze_data;redo=redo,kwargs...)
-        vpvrpb = ViewAndPlaceRepresentationNew(sp,rp,unity_gaze_data;redo=redo,kwargs...)
+        vpvrpb = ViewAndPlaceRepresentationNew(sp,rp,unity_gaze_data,nothing;redo=redo,kwargs...)
         jmb = JointMap(vpvrpb, jocc, jocc_filtered;use_trials=use_trials)
         jmb_fname = DPHT.filename(JointMap;use_trials=use_trials, kwargs...)
         save_jld2(jmb,jmb_fname)
