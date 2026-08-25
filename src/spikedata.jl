@@ -127,6 +127,15 @@ function PopulationTrialAlignedSpiketrain(x::TrialAlignedSpiketrain...,)
     PopulationTrialAlignedSpiketrain(new_spiketimes, x[1].trigger_timestamps, x[1].alignto)
 end
 
+function PopulationTrialAlignedSpiketrain(celldirs::Vector{String})
+    x = map(celldirs) do celldir
+        cd(celldir) do
+            TrialAlignedSpiketrain()
+        end
+    end
+    PopulationTrialAlignedSpiketrain(x...)
+end
+
 TrialAlignedSpiketrain(spiketimes, trigger_timestamps) = TrialAlignedSpiketrain(spiketimes, trigger_timestamps,1)
 
 
