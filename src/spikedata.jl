@@ -300,3 +300,29 @@ function Makie.convert_arguments(::Type{<:AbstractPlot}, x::TrialAlignedSpiketra
             S.Axis(plots=[S.Lines(kk.x, kk.density)],ylabel="Density",xlabel="Time from event $(x.alignto)")]
     S.GridLayout(axes)
 end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::PopulationTrialAlignedSpiketrain)
+    nt = numtrials(x)
+    ncells = numcells(x)
+    yy = reduce(vcat, reduce(vcat, [[fill(i, length(x.spiketimes[i][j])) for j in 1:ncells] for i in 1:nt]))
+    zz = reduce(vcat, reduce(vcat, [[fill(j, length(x.spiketimes[i][j])) for j in 1:ncells] for i in 1:nt]))
+    xx = reduce(vcat, reduce(vcat, x.spiketimes))
+    kk = [kde(xx[zz.==z];bandwidth=0.1) for z in 1:ncells]
+
+    x_nav_start = x.trigger_timestamps[:,2] - x.trigger_timestamps[:,x.alignto]
+    x_trial_end = x.trigger_timestamps[:,3] - x.trigger_timestamps[:,x.alignto]
+
+    scatter_axis = S.Axis(plots=[S.Scatter(xx,yy,color=zz, colorrange=(1,7),colormap=Makie.wong_colors()),
+                                 S.Scatter(x_nav_start, 1:length(x_nav_start), marker='|'),
+                                 S.Scatter(x_trial_end, 1:length(x_trial_end), marker='|')], xlabel="Time", ylabel="Trial id")
+    psth_axis = S.Axis(plots=[S.Lines(_kk.x, _kk.density) for _kk in kk])
+    # TODO: This doesnt' quite seem to work
+    scatter_axis.then() do ax1
+        psth_axis.then() do ax2
+            linkxaxes!(ax1, ax2)
+            return
+        end
+        return
+    end
+    S.GridLayout(scatter_axis, psth_axis)
+end
