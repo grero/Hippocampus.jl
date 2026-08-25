@@ -78,6 +78,8 @@ function Base.show(io::IO, x::TrialAlignedSpiketrain)
     write(io, "Spikes aligned to event $(x.alignto) across $(nt) trials with $μ spikes per trial.")
 end
 
+numtrials(sp::TrialAlignedSpiketrain) = length(sp.spiketimes)
+
 function Base.merge(x1::TrialAlignedSpiketrain, x2::TrialAlignedSpiketrain)
     # we need the same alignment to for this to make sense
     @assert x1.alignto == x2.alignto
@@ -86,9 +88,47 @@ function Base.merge(x1::TrialAlignedSpiketrain, x2::TrialAlignedSpiketrain)
     TrialAlignedSpiketrain(new_spiketimes, new_trigger_timestamps, x1.alignto)
 end
 
+struct PopulationTrialAlignedSpiketrain
+    spiketimes::Vector{Vector{Vector{Float64}}}
+    trigger_timestamps::Matrix{Float64}
+    alignto::Int64
+end
+numtrials(x::PopulationTrialAlignedSpiketrain) = length(x.spiketimes)
+
+function numcells(x::PopulationTrialAlignedSpiketrain)
+    nc = unique(length.(x.spiketimes))
+    if length(nc) > 1
+        error("Inconsistent number of cells")
+    end
+    first(nc)
+end
+
+function Base.show(io::IO, x::PopulationTrialAlignedSpiketrain)
+    nt = numtrials(x)
+    ncells = numcells(x)
+    write(io, "PopluationTrialAlignedSpiketrain with $nt trials and $ncells cells")
+end
+
+function PopulationTrialAlignedSpiketrain(x::TrialAlignedSpiketrain...,)
+    alignto = [_x.alignto for _x in x]
+    # same alignment
+    @assert all(alignto .== alignto[1])
+    nts = numtrials.(x)
+    # same number of trials
+    @assert all(nts.==nts[1])
+    nt = nts[1]
+    new_spiketimes = Vector{Vector{Vector{Float64}}}(undef, nt)
+    for i in 1:nt
+        new_spiketimes[i] = Vector{Float64}[]
+        for _x in x
+            push!(new_spiketimes[i],_x.spiketimes[i])
+        end
+    end
+    PopulationTrialAlignedSpiketrain(new_spiketimes, x[1].trigger_timestamps, x[1].alignto)
+end
+
 TrialAlignedSpiketrain(spiketimes, trigger_timestamps) = TrialAlignedSpiketrain(spiketimes, trigger_timestamps,1)
 
-numtrials(sp::TrialAlignedSpiketrain) = length(sp.spiketimes)
 
 function TrialAlignedSpiketrain(sp::Spiketrain, rp::RippleData;kwargs...)
     sptimes =  sp.timestamps/1000.0 
