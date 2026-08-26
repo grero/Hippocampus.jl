@@ -1307,3 +1307,30 @@ function find_boundary(m::Vector{<:Quadrangle})
     end
     boundary_edges = Meshes.Segment.(keys(filter(k->k[2]==1, edges)))
 end
+
+"""
+    random_neighborhood(A::AbstractMatrix{<:Real}, k::Integer, start_vertex::Integer)
+
+Construct a random neighborhood of size `k` around `start_vertex` subject to the adjacency matrix `A`.
+"""
+function random_neighborhood(A::AbstractMatrix{<:Real}, k::Integer, start_vertex::Integer)
+    nn = Set{Int64}(start_vertex)
+    nn_size = 1
+    current_vertex = start_vertex
+    avail = fill(true, size(A,1))
+    avail[start_vertex] = false
+    while true
+        idx = findall((A[:,current_vertex].>0).&(avail))
+        if isempty(idx)
+            break
+        end
+        current_vertex = rand(idx)
+        avail[current_vertex] = false
+        push!(nn, current_vertex)
+        nn_size += 1
+        if nn_size >= k
+            break
+        end
+    end
+    collect(nn)
+end
