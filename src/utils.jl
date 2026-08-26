@@ -1181,3 +1181,17 @@ function conditional_count(mm1::SimpleMesh, var1::Matrix{<:Real}, mm2::SimpleMes
     end
     Z1
 end
+
+function sample_map(op, λ::Vector{<:Number}, mm::SimpleMesh, k::Integer, nruns::Integer)
+    A = adjacencymatrix(mm)
+    sample_map(op, λ, A, k, nruns)
+end
+
+function sample_map(op, λ::Vector{<:Number}, A::AbstractMatrix{<:Number}, k::Integer, nruns::Integer)
+    X = zeros(Float64, nruns) 
+    for i in 1:nruns
+        nn = random_neighborhood(A, k, rand(1:size(A,1)))
+        X[i] = op(λ[nn])
+    end
+    X
+end
