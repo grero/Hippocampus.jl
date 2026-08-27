@@ -601,8 +601,7 @@ function plot_response_fields(rf::GazeResponseFields,args...;_plot_theme=plot_th
         fig = Figure(size=(579,639))
         lg = GridLayout(fig[1,1])
         lscene = plot_response_fields!(lg, rf, args...;kwargs...)
-        display(fig)
-        fig, lscene
+        fig
     end
 end
 
@@ -611,8 +610,7 @@ function plot_response_fields(rf::SpatialResponseFields,args...;_plot_theme=plot
         fig = Figure(size=(600,500))
         lg = GridLayout(fig[1,1])
         lscene = plot_response_fields!(lg, rf, args...;kwargs...)
-        display(fig)
-        fig, lscene
+        fig
     end
 end
 
