@@ -377,7 +377,7 @@ function sample_map(pvc::Hippocampus.ViewPlaceConjunction, vidx::Integer, pidx::
     idx = Hippocampus.get_num_fields(pvc.view_fields, 0.001)
 
     qidx = pvc.view_fields.binidx[idx[vidx]]
-    μ = mean(pvc.spatial_fields.λ[qidx])
+    μ = mean(pvc.view_fields.λ[qidx])
     μc = mean(filter(isfinite, pvc.λ_infield[qidx,pidx]))
     widx = setdiff(fidx, qidx)
     X = zeros(nruns)
