@@ -131,6 +131,17 @@ struct ViewPlaceConjunction <: AbstractFieldConjunctions
     non_covered_idx::Matrix{Vector{Int64}}
 end
 
+function Base.show(io::IO, pvc::PlaceViewConjunction)
+    nplace, nview = size(pvc.λ_covered)
+    write(io, "Place conditioned on view\n\t$nplace place fields and $nview view fields.")
+end
+
+function Base.show(io::IO, pvc::ViewPlaceConjunction)
+    nplace, nview = size(pvc.λ_covered)
+    write(io, "View conditioned on place\n\t$nplace place fields and $nview view fields.")
+end
+
+
 function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05)
     pv = fill(false, size(pvc.λ_covered)[1:2]...)
     for ii in CartesianIndices(pv) 
