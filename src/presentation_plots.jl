@@ -413,7 +413,7 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
         Label(lg1[1,1,TopLeft()], "A")
         lg1_1 = GridLayout(lg1[1,1])
         # view field
-        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=:rain, hide_ceiling=true, indicate_north=false)
+        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=:rain, hide_ceiling=true, indicate_north=false, floor_offset=0.0)
         # place field
         lg1_2 = GridLayout(lg1[2,1])
         Label(lg1[2,1,TopLeft()],"B")
@@ -424,7 +424,7 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
         lg2_1 = GridLayout(lg2[1,1])
         lscene = LScene(lg2_1[1,1], show_axis=false)
         Hippocampus.plot_pillars!(lscene)
-        Hippocampus.plotmesh!(lscene, mm;color=vpc.λ_infield[:,spatial_field_idx],colormap=:rain, indicate_north=false, hide_ceiling=true, showsegments=true)
+        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,colormap=:rain, indicate_north=false, hide_ceiling=true, showsegments=true,floor_offset=0.0)
         ax1 = Axis(lg2_1[2,1], aspect=1)
         hidedecorations!(ax1)
         Hippocampus.plot_pillars!(ax1)
