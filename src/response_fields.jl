@@ -408,6 +408,12 @@ function get_num_fields(rf::T) where T <: AbstractResponseFields
     nclusters
 end
 
+function get_num_fields(rf::T,α::Real) where T <: AbstractResponseFields
+    nclusters = get_num_fields(rf)
+    clusters = merge_fields(rf)
+    clusters[dropdims(mean(nclusters,dims=2),dims=2) .< α]
+end
+
 function merge_fields(mm::SimpleMesh, idx::Vector{<:Integer})
     # merge fields that are within diagonal distance
     # euclidean distance between centroids
