@@ -12,7 +12,7 @@ end
 
 function get_colors(colormap::Symbol)
     if in([:rain , :navia])(colormap)
-        ccolors = [:red, :yellow, :orangered2, :orange, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
+        ccolors = [:red, :gold, :orangered, :orange, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
     elseif in([:jet])(colormap)
         ccolors = [:antiquewhite2, :wheat, :lightsalmon]
     else
