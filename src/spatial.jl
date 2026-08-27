@@ -8,8 +8,28 @@ using LinearRegressionUtils
 abstract type AbstractMap  end
 abstract type AbstractSpatialMap <: AbstractMap end
 
+abstract type AbstractRateMap end
+
+struct SpatialRateMap{T<:Number} <: AbstractRateMap
+    weight::Vector{T}
+    occupancy::Vector{T}
+end
+
+struct ViewRateMap{T<:Number} <: AbstractRateMap
+    weight::Vector{T}
+    occupancy::Vector{T}
+end
+
 get_weight(mm::AbstractMap) = mm.weight
 get_occupancy(mm::AbstractMap) = mm.occupancy
+
+function laplace_smoothing(am::AbstractRateMap,args...;kwargs...)
+    X = laplace_smoothing(am.weight, args...;kwargs...)
+    Y = laplace_smoothing(am.occupancy, args...;kwargs...)
+    λ=X./Y
+    λ[am.occupancy.==0] .= NaN
+    λ
+end
 
 """
 Contains information about the total time spent in each spatial bin.
