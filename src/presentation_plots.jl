@@ -388,7 +388,7 @@ function sample_map(pvc::Hippocampus.ViewPlaceConjunction, vidx::Integer, pidx::
     X, μ, μc
 end
 
-function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_field_idx::Integer)
+function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme)
     jm,vpc, pvc = cd(celldir) do
         jm = Hippocampus.JointMap(;nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
         vpc = Hippocampus.ViewPlaceConjunction(;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
@@ -406,7 +406,7 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
     X_place_nc, μ_place, μ_place_view = sample_map(pvc, view_field_idx, spatial_field_idx)
     X_view_nc, μ_view, μ_view_place = sample_map(vpc, view_field_idx,spatial_field_idx)
     ccolors = Hippocampus.get_colors(:rain)
-    with_theme(theme_dark()) do
+    with_theme(_plot_theme) do
         fig = Figure(size=(1000,550))
         # show both place and view maps
         lg1 = GridLayout(fig[1,1])
