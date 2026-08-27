@@ -10,6 +10,17 @@ struct SpatialResponseFields <: AbstractResponseFields
     args::Dict{Symbol,Any}
 end
 
+function get_colors(colormap::Symbol)
+    if in([:rain , :navia])(colormap)
+        ccolors = [:red, :yellow, :orangered2, :orange, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
+    elseif in([:jet])(colormap)
+        ccolors = [:antiquewhite2, :wheat, :lightsalmon]
+    else
+        ccolors = Makie.wong_colors()
+    end 
+    return ccolors
+end
+
 DPHT.filename(::Type{SpatialResponseFields}) = "spatial_response_fields.jld2"
 get_mesh(::Type{SpatialResponseFields},nrefinements::NamedTuple) = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
 get_mesh(::Type{SpatialResponseFields},nrefinements::Integer) = Shadow("xy")(floor_topology3(;nrefinements=nrefinements))
@@ -622,15 +633,9 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
         cidx = 1:length(clusters)
     end
 
-    if in([:rain , :navia])(colormap)
-        ccolors = [:red, :yellow, :orangered2, :orange, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
-    elseif in([:jet])(colormap)
-        ccolors = [:antiquewhite2, :wheat, :lightsalmon]
-    else
-        ccolors = Makie.wong_colors()
-    end
+    ccolors = get_colors(colormap)
     if show_points || show_boundaries
-        for (cc,cluster) in zip(ccolors[cidx],clusters[cidx])
+        for (cc,cluster) in zip(ccolors[1:length(cidx)],clusters[cidx])
             pidx = rf.binidx[cluster]
             cpoints = centroid.(mm[pidx])
             floor_points = filter(Meshes.intersects(m_floor), cpoints)
@@ -721,11 +726,7 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ::Ab
     else
         cidx = 1:length(clusters)
     end
-    if colormap == :rain
-        ccolors = [:red, :orange, :yellow, :salmon, :goldenrod1, :firebrick]
-    else
-        ccolors = Makie.wong_colors()
-    end
+    ccolors = get_colors(colormap)
     if show_points
         for (cc,cluster) in zip(ccolors[1:length(cidx)],clusters[cidx])
             pidx = rf.binidx[cluster]
