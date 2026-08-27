@@ -389,12 +389,11 @@ function sample_map(pvc::Hippocampus.ViewPlaceConjunction, vidx::Integer, pidx::
 end
 
 function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_field_idx::Integer)
-     vpc = cd(celldir) do
-        Hippocampus.ViewPlaceConjunction(;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
-    end 
-
-     pvc = cd(celldir) do
-        Hippocampus.PlaceViewConjunction(;nshuffles=1000, nrefinements=(p=3, g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50,  min_view_obs=5, min_place_obs=5, min_view_duration=0.02,  min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+    jm,vpc, pvc = cd(celldir) do
+        jm = Hippocampus.JointMap(;nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
+        vpc = Hippocampus.ViewPlaceConjunction(;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+        pvc = Hippocampus.PlaceViewConjunction(;nshuffles=1000, nrefinements=(p=3, g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50,  min_view_obs=5, min_place_obs=5, min_view_duration=0.02,  min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+        jm, vpc, pvc
      end
 
     pidx = Hippocampus.get_num_fields(vpc.spatial_fields, 0.001)
@@ -402,6 +401,8 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
     vidx = Hippocampus.get_num_fields(vpc.view_fields, 0.001)
     vidx = vpc.view_fields.binidx[vidx[view_field_idx]]
 
+    λ_infield_view = Hippocampus.laplace_smoothing(Hippocampus.get_view_rate_map(jm, pidx, size(vpc.λ_infield,1)), mm, 0.1;niter=50)
+    λ_infield_place = Hippocampus.laplace_smoothing(Hippocampus.get_spatial_rate_map(jm, vidx, size(pvc.λ_infield,1)),m_floor,0.1;niter=50)
     X_place_nc, μ_place, μ_place_view = sample_map(pvc, view_field_idx, spatial_field_idx)
     X_view_nc, μ_view, μ_view_place = sample_map(vpc, view_field_idx,spatial_field_idx)
     ccolors = Hippocampus.get_colors(:rain)
@@ -467,7 +468,11 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
         ax3 = Axis(lg3[2,1], aspect=1)
         viz!(ax3, m_floor;color=:lightgray)
         hidedecorations!(ax3)
-        viz!(ax3, m_floor, color=pvc.λ_infield[:,view_field_idx],colormap=:rain)
+        mcolor = vec(λ_infield_place)
+        malpha = zeros(length(mcolor))
+        malpha[isfinite.(mcolor)] .= 1.0
+        mcolor[isnan.(mcolor)] .= 0.0
+        viz!(ax3, m_floor, color=mcolor,alpha=malpha,colormap=:rain)
         Hippocampus.plot_pillars!(ax3)
 
         ax4 = Axis(lg3[3,1])
@@ -476,9 +481,9 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
         yy = [X_place_nc;pvc.λ_sub[spatial_field_idx,view_field_idx,:]]
         cc = [fill(1, length(X_place_nc));fill(2, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         boxplot!(ax4, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25])
-        scatter!(ax4, [μ_place_view], [1.0],color=:red, label="Inside VF")
+        scatter!(ax4, [μ_place_view], [1.0],color=ccolors[spatial_field_idx], label="Inside VF")
         scatter!(ax4, [μ_place], [1.0],color=:seagreen, label="Original VF")
-        scatter!(ax4, [pvc.λ_covered[1,2]], [2.0], color=:orange, label="VF & PF")
+        scatter!(ax4, [pvc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[view_field_idx], label="VF & PF")
         rowsize!(lg3, 3, 75)
         rowsize!(lg3,1, Relative(0.5))
         ax4.yticklabelsvisible = false
