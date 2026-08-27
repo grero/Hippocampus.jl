@@ -1,5 +1,7 @@
 using CairoMakie
 using Hippocampus
+using Random
+using Makie.Colors
 
 _plot_theme = theme_dark()
 _plot_theme.Axis.xgridvisible = false
@@ -349,3 +351,141 @@ function plot_model_cell_directional_place_field()
         fig
     end
 end
+
+"""
+    sample_map(pvc::Hippocampus.PlaceViewConjunction, vidx::Integer, pidx::Integer;nruns=200)
+
+Sample random points from the view conditioned map in `pvc.λ_infield[:, vidx]`. 
+"""
+function sample_map(pvc::Hippocampus.PlaceViewConjunction, vidx::Integer, pidx::Integer;nruns=200)
+    fidx = findall(isfinite.(pvc.λ_infield[:,vidx]))
+    idx = Hippocampus.get_num_fields(pvc.spatial_fields, 0.001)
+    qidx = pvc.spatial_fields.binidx[idx[pidx]]
+    μ = mean(pvc.spatial_fields.λ[qidx])
+    μc = mean(filter(isfinite, pvc.λ_infield[qidx,vidx]))
+    widx = setdiff(fidx, qidx)
+    X = zeros(nruns)
+    for i in 1:length(X)
+        _idx = shuffle(widx)[1:length(qidx)]
+        X[i] = mean(pvc.λ_infield[_idx,vidx])
+    end
+    X, μ, μc
+end
+
+function sample_map(pvc::Hippocampus.ViewPlaceConjunction, vidx::Integer, pidx::Integer;nruns=200)
+    fidx = findall(isfinite.(pvc.λ_infield[:,pidx]))
+    idx = Hippocampus.get_num_fields(pvc.view_fields, 0.001)
+
+    qidx = pvc.view_fields.binidx[idx[vidx]]
+    μ = mean(pvc.spatial_fields.λ[qidx])
+    μc = mean(filter(isfinite, pvc.λ_infield[qidx,pidx]))
+    widx = setdiff(fidx, qidx)
+    X = zeros(nruns)
+    for i in 1:length(X)
+        _idx = shuffle(widx)[1:length(qidx)]
+        X[i] = mean(pvc.λ_infield[_idx,pidx])
+    end
+    X, μ, μc
+end
+
+function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_field_idx::Integer)
+     vpc = cd(celldir) do
+        Hippocampus.ViewPlaceConjunction(;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+    end 
+
+     pvc = cd(celldir) do
+        Hippocampus.PlaceViewConjunction(;nshuffles=1000, nrefinements=(p=3, g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50,  min_view_obs=5, min_place_obs=5, min_view_duration=0.02,  min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+     end
+
+    pidx = Hippocampus.get_num_fields(vpc.spatial_fields, 0.001)
+    pidx = vpc.spatial_fields.binidx[pidx[spatial_field_idx]]
+    vidx = Hippocampus.get_num_fields(vpc.view_fields, 0.001)
+    vidx = vpc.view_fields.binidx[vidx[view_field_idx]]
+
+    X_place_nc, μ_place, μ_place_view = sample_map(pvc, view_field_idx, spatial_field_idx)
+    X_view_nc, μ_view, μ_view_place = sample_map(vpc, view_field_idx,spatial_field_idx)
+    ccolors = Hippocampus.get_colors(:rain)
+    with_theme(theme_dark()) do
+        fig = Figure(size=(1000,550))
+        # show both place and view maps
+        lg1 = GridLayout(fig[1,1])
+        Label(lg1[1,1,TopLeft()], "A")
+        lg1_1 = GridLayout(lg1[1,1])
+        # view field
+        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=:rain, hide_ceiling=true, indicate_north=false)
+        # place field
+        lg1_2 = GridLayout(lg1[2,1])
+        Label(lg1[2,1,TopLeft()],"B")
+        Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=:rain)
+        # view conditioned on place
+        lg2 = GridLayout(fig[1,2])
+        Label(lg2[1,1,TopLeft()], "C")
+        lg2_1 = GridLayout(lg2[1,1])
+        lscene = LScene(lg2_1[1,1], show_axis=false)
+        Hippocampus.plot_pillars!(lscene)
+        Hippocampus.plotmesh!(lscene, mm;color=vpc.λ_infield[:,spatial_field_idx],colormap=:rain, indicate_north=false, hide_ceiling=true, showsegments=true)
+        ax1 = Axis(lg2_1[2,1], aspect=1)
+        hidedecorations!(ax1)
+        Hippocampus.plot_pillars!(ax1)
+        Z_floor = fill(parse(Colorant, :lightgray), nelements(m_floor))
+        alpha = fill(0.0, nelements(m_floor))
+        Z_floor[pidx] .= parse(Colorant, ccolors[spatial_field_idx])
+        alpha[pidx] .= 1.0
+        Z_floor[vpc.non_covered_idx[spatial_field_idx, view_field_idx]] .= parse(Colorant, :gray25)
+        alpha[vpc.non_covered_idx[spatial_field_idx, view_field_idx]] .= 1.0
+        alpha = fill(1.0, size(Z_floor)...)
+        viz!(ax1, m_floor; color=Z_floor,alpha=alpha)
+        # distribution of conditional and joint firing rate
+        ax2 = Axis(lg2_1[3,1])
+        Label(lg2_1[3,1, TopLeft()], "D")
+        xx = [fill(1.0, length(X_view_nc));fill(2.0, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
+        yy = [X_view_nc;vpc.λ_sub[spatial_field_idx,view_field_idx,:]]
+        cc = [fill(1, length(X_view_nc));fill(2, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
+
+        boxplot!(ax2, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25])
+        scatter!(ax2, [μ_view_place], [1.0],color=ccolors[view_field_idx], label="Inside VF")
+        scatter!(ax2, [μ_view], [1.0],color=:seagreen, label="Original VF")
+        scatter!(ax2, [vpc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[spatial_field_idx], label="VF & PF")
+        rowsize!(lg2_1, 3, 75)
+        rowsize!(lg2_1,1, Relative(0.5))
+        ax2.yticklabelsvisible = false
+        ax2.yticksvisible = false
+        ax2.xlabel = "Firing rate [Hz]"
+
+        # place conditioned on view
+        lg3 = GridLayout(fig[1,3])
+        Label(lg3[1,1,TopLeft()], "E")
+        lscene = LScene(lg3[1,1], show_axis=false)
+        Hippocampus.plot_pillars!(lscene)
+        Z_maze = fill(parse(Colorant, :lightgray), nelements(mm))
+        alpha = fill(0.0, nelements(mm))
+        Z_maze[vidx] .= parse(Colorant, ccolors[view_field_idx])
+        alpha[vidx] .= 1.0
+        Z_maze[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= parse(Colorant, :gray25)
+        alpha[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= 1.0
+        Hippocampus.plotmesh!(lscene, mm, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=true)
+        ax3 = Axis(lg3[2,1], aspect=1)
+        viz!(ax3, m_floor;color=:lightgray)
+        hidedecorations!(ax3)
+        viz!(ax3, m_floor, color=pvc.λ_infield[:,view_field_idx],colormap=:rain)
+        Hippocampus.plot_pillars!(ax3)
+
+        ax4 = Axis(lg3[3,1])
+        Label(lg3[3,1, TopLeft()], "F")
+        xx = [fill(1.0, length(X_place_nc));fill(2.0, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
+        yy = [X_place_nc;pvc.λ_sub[spatial_field_idx,view_field_idx,:]]
+        cc = [fill(1, length(X_place_nc));fill(2, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
+        boxplot!(ax4, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25])
+        scatter!(ax4, [μ_place_view], [1.0],color=:red, label="Inside VF")
+        scatter!(ax4, [μ_place], [1.0],color=:seagreen, label="Original VF")
+        scatter!(ax4, [pvc.λ_covered[1,2]], [2.0], color=:orange, label="VF & PF")
+        rowsize!(lg3, 3, 75)
+        rowsize!(lg3,1, Relative(0.5))
+        ax4.yticklabelsvisible = false
+        ax4.yticksvisible = false
+        ax4.xlabel = "Firing rate [Hz]"
+        Hippocampus.link_cameras_lscene(fig)
+        fig
+    end
+end
+
