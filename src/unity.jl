@@ -1817,9 +1817,9 @@ function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{
     ax.yticklabelsvisible = false
     ax.xticks = [1:6;]
     ax.yticks = [1:6;]
-    axl.xlabel = "From"
+    axl.xlabel = "To"
     axl.xlabelvisible = true
-    axb.ylabel = "To"
+    axb.ylabel = "From"
     axb.ylabelvisible = true
     colgap!(lg, 1, 1)
     rowgap!(lg, 1, 1)
