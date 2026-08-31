@@ -457,6 +457,41 @@ function find_boundaries(rf::T) where T <: AbstractResponseFields
      boundaries
 end
 
+function find_fields(spm::T; peak_threshold=0.5, baseline_percentile_threshold=10, peak_percentile_threshold=95) where T <: AbstractMap
+    mm = spm.mm
+    A = adjacencymatrix(mm)
+    # TODO: Make this a bit more data dependent
+    # Hm, maybe compute SIC after removing peaks and see when the SIC is no longer significant?
+    # what does significance mean? Maybe not feasible to shuffle after every peak?
+    # Maybe just use the stats we computed from the full analysis?
+    # find the larget peak
+    λ = get_rate_map(spm)
+    fidx = findall(isfinite, λ)
+    b0 = percentile(λ[fidx], baseline_percentile_threshold)
+    b1 = percentile(λ[fidx], peak_percentile_threshold)
+    fields = Vector{Int64}[]
+    while true
+        mx,midx = findmax(λ[fidx])
+        if mx < b1
+            break
+        end
+        use_threshold = peak_threshold*(λ[fidx[midx]]-b0)
+        if use_threshold <= 0
+            break
+        end
+        use_threshold += b0
+        g = grow_region(midx, λ[fidx], A[fidx,fidx], use_threshold)  
+        push!(fields, fidx[g])
+        fidx = setdiff(fidx, fields[end])
+        if isempty(fidx)
+            break
+        end
+    end
+    fields
+end
+
+## plots
+
 function plot_n_fields(::Type{T}, celldirs::Vector{String};figsize=(900,500), kwargs...) where T <: AbstractResponseFields
     with_theme(plot_theme) do
         fig = Figure(size=figsize)
