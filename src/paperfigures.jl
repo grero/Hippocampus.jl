@@ -32,6 +32,7 @@ function figure1()
     udata = cd("/Volumes/Hippocampus/Data/picasso-misc/20181102/session01") do
         Hippocampus.UnityData()
     end
+    poster_pos =  Dict(k=>v[[1,3]] for (k,v) in udata.header["PosterLocations"]) 
     sessions = get_sessions()
     with_theme(plot_theme) do
         fig = Figure(size=(768,768))
@@ -52,7 +53,7 @@ function figure1()
         lg1 = GridLayout(fig[2,1])
         lg11 = GridLayout(lg1[1,1])
         Label(lg1[1,1,TopLeft()],"B")
-        Hippocampus.plot_flat_maze_with_posters!(lg11)
+        Hippocampus.plot_flat_maze_with_posters!(lg11;_poster_pos=poster_pos)
         lg12 = GridLayout(lg1[2,1])
         Label(lg1[2,1, TopLeft()], "C", padding=(20,20,0,0))
         trajectory_lengths = JLD2.load(joinpath(@__DIR__, "..", "data","optimal_path_length.jld2"), "lengths")
