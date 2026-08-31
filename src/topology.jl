@@ -1334,3 +1334,32 @@ function random_neighborhood(A::AbstractMatrix{<:Real}, k::Integer, start_vertex
     end
     collect(nn)
 end
+
+"""
+    grow_region(idx0::Integer, F::Vector{<:NUmber}, A::AbstractMatrix{<:Number}, threshold::Number)
+
+Grow a region in `F` from `idx0` while `F[idx] > threshold`
+"""
+function grow_region(idx0::Integer, F::Vector{<:Number}, A::AbstractMatrix{<:Number}, threshold::Number)
+    avail = fill(true, length(F))
+    avail[idx0] = false
+    g = [idx0]
+    queue = [idx0]
+    while !isempty(queue)
+        jj = pop!(queue)
+        nidx = findall(A[:,jj].>0)
+        for ii in nidx
+            if avail[ii]
+                avail[ii] = false
+                if F[ii] >= threshold
+                    push!(g, ii)
+                    push!(queue, ii)
+                end
+            end
+        end
+        if sum(avail) == 0
+            break
+        end
+    end
+    g
+end
