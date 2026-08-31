@@ -497,6 +497,17 @@ function find_fields(spm::T; peak_threshold=0.5, baseline_percentile_threshold=1
     fields
 end
 
+function find_fields(::Type{T}, celldir::String;kwargs...) where T <: AbstractResponseFields
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    mm = get_mesh(T, nrefinements)
+    jm = cd(celldir) do
+        JointMap(;kwargs...)
+    end
+    spm = maptype(T)(jm,mm)
+    method = get(kwargs, :smoothing_method, :laplace)
+    spml = SmoothedMap(spm;method=method, kwargs...) 
+    ff = find_fields(spml;kwargs...)
+end
 ## plots
 
 function plot_n_fields(::Type{T}, celldirs::Vector{String};figsize=(900,500), kwargs...) where T <: AbstractResponseFields
