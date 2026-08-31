@@ -1338,7 +1338,7 @@ end
 """
     grow_region(idx0::Integer, F::Vector{<:NUmber}, A::AbstractMatrix{<:Number}, threshold::Number)
 
-Grow a region in `F` from `idx0` while `F[idx] > threshold`
+Grow a region in `F` from `idx0` while `F[idx] > threshold` subject to the adjacency matrix `A`.
 """
 function grow_region(idx0::Integer, F::Vector{<:Number}, A::AbstractMatrix{<:Number}, threshold::Number)
     avail = fill(true, length(F))
