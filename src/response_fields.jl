@@ -542,7 +542,7 @@ function find_fields(spm::T; peak_threshold=0.5, baseline_percentile_threshold=1
     fields
 end
 
-function find_fields(::Type{T}, celldir::String;redo=fname->false, do_save=true, kwargs...) where T <: AbstractResponseFields
+function get_response_fields(::Type{T},args...;redo=fname->false, do_save=true, kwargs...) where T <: AbstractResponseFieldsSimple
     fname = DPHT.filename(T)
     h = process_kwargs(T;kwargs...)
     if h > 0
@@ -556,9 +556,7 @@ function find_fields(::Type{T}, celldir::String;redo=fname->false, do_save=true,
     if do_compute
         nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
         mm = get_mesh(T, nrefinements)
-        jm = cd(celldir) do
-            JointMap(;kwargs...)
-        end
+        jm = JointMap(;kwargs...)
         spm = maptype(T)(jm,mm)
         method = get(kwargs, :smoothing_method, :laplace)
         spml = SmoothedMap(spm;method=method, kwargs...) 
