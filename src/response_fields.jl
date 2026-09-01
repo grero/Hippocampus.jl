@@ -10,6 +10,51 @@ struct SpatialResponseFields <: AbstractResponseFields
     args::Dict{Symbol,Any}
 end
 
+abstract type AbstractResponseFieldsSimple <: AbstractResponseFields end
+
+struct SpatialResponseFieldsSimple <: AbstractResponseFieldsSimple
+    λ::Vector{Float64}
+    fieldindices::Vector{Vector{Int64}}
+    baseline_percentile_threshold::Float64
+    peak_percentile_threshold::Float64
+    peak_threshold::Float64 
+    args::Dict{Symbol,Any}
+end
+
+DPHT.filename(::Type{SpatialResponseFieldsSimple}) = "spatial_response_fields_simple.jld2"
+
+struct GazeResponseFieldsSimple <: AbstractResponseFieldsSimple
+    λ::Vector{Float64}
+    fieldindices::Vector{Vector{Int64}}
+    baseline_percentile_threshold::Float64
+    peak_percentile_threshold::Float64
+    peak_threshold::Float64 
+    args::Dict{Symbol,Any}
+end
+
+DPHT.filename(::Type{GazeResponseFieldsSimple}) = "gaze_response_fields_simple.jld2"
+
+function process_kwargs(::Type{<:AbstractResponseFieldsSimple},h::UInt32=zero(UInt32);baseline_percentile_threshold=10, peak_percentile_threshold=95, peak_threshold=0.5, kwargs...)
+    h = process_kwargs(JointMap,h;kwargs...)
+    h = CRC32c.crc32c(string(:baseline_percentile_threshold=>baseline_percentile_threshold),h)
+    h = CRC32c.crc32c(string(:peak_percentile_threshold=>peak_percentile_threshold), h)
+    h = CRC32c.crc32c(string(:peak_threshold=>peak_percentile_threshold),h)
+    h
+end
+
+getfields(x::AbstractResponseFieldsSimple;kwargs...) = x.fieldindices
+
+get_mesh(::Type{SpatialResponseFieldsSimple},nrefinements::NamedTuple) = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+maptype(::Type{SpatialResponseFieldsSimple}) = SpatialMapNew
+
+get_mesh(::Type{GazeResponseFieldsSimple},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
+maptype(::Type{GazeResponseFieldsSimple}) = ViewMapNew
+
+function getfields(rf::SpatialResponseFields;cluster_threshold=0.001)
+    clusters = get_num_fields(rf,cluster_threshold)
+    [rf.binidx[c] for c in clusters]
+end
+
 function get_colors(colormap::Symbol)
     if in([:rain , :navia])(colormap)
         ccolors = [:red, :gold, :orangered, :orange, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
@@ -497,16 +542,40 @@ function find_fields(spm::T; peak_threshold=0.5, baseline_percentile_threshold=1
     fields
 end
 
-function find_fields(::Type{T}, celldir::String;kwargs...) where T <: AbstractResponseFields
-    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
-    mm = get_mesh(T, nrefinements)
-    jm = cd(celldir) do
-        JointMap(;kwargs...)
+function find_fields(::Type{T}, celldir::String;redo=fname->false, do_save=true, kwargs...) where T <: AbstractResponseFields
+    fname = DPHT.filename(T)
+    h = process_kwargs(T;kwargs...)
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
-    spm = maptype(T)(jm,mm)
-    method = get(kwargs, :smoothing_method, :laplace)
-    spml = SmoothedMap(spm;method=method, kwargs...) 
-    ff = find_fields(spml;kwargs...)
+    do_compute = false
+    if !isfile(fname) || redo(fname)
+        do_compute=true
+    end
+    if do_compute
+        nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+        mm = get_mesh(T, nrefinements)
+        jm = cd(celldir) do
+            JointMap(;kwargs...)
+        end
+        spm = maptype(T)(jm,mm)
+        method = get(kwargs, :smoothing_method, :laplace)
+        spml = SmoothedMap(spm;method=method, kwargs...) 
+        ff = find_fields(spml;kwargs...)
+        dd = Dict(kwargs)
+        baseline_percentile_threshold = pop!(dd, :baseline_percentile_threshold, 10)
+        peak_percentile_threshold = pop!(dd, :peak_percentile_threshold, 95)
+        peak_threshold = pop!(dd, :peak_threshold, 0.5)
+        obj = T(get_rate_map(spml), ff, baseline_percentile_threshold, peak_percentile_threshold, peak_threshold, kwargs)
+        if do_save
+            save_jld2(obj, fname)
+        end
+    else
+        # load it
+        obj = load_jld2(T, fname)
+    end
+    obj
 end
 ## plots
 
