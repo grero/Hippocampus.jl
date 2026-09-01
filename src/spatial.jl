@@ -8,7 +8,7 @@ using LinearRegressionUtils
 abstract type AbstractMap  end
 abstract type AbstractSpatialMap <: AbstractMap end
 
-abstract type AbstractRateMap end
+abstract type AbstractRateMap <: AbstractMap end
 
 struct SpatialRateMap{T<:Number} <: AbstractRateMap
     weight::Vector{T}
