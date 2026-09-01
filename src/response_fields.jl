@@ -464,7 +464,7 @@ Identify contiguous peaks where the rate exceeds `peak_percentile_threshold` of 
 peaks until the activity reaches `peak_threshold*(λ - b0) + b0` where b0 is `baseline_percentile_threshold` of the overall
 firing rate.
 """
-function find_fields(spm::T; peak_threshold=0.5, baseline_percentile_threshold=10, peak_percentile_threshold=95) where T <: AbstractMap
+function find_fields(spm::T; peak_threshold=0.5, baseline_percentile_threshold=10, peak_percentile_threshold=95,kwargs...) where T <: AbstractMap
     mm = spm.mm
     A = adjacencymatrix(mm)
     # TODO: Make this a bit more data dependent
