@@ -138,7 +138,7 @@ function get_binindex(rf::AbstractResponseFields, pv_threshold)
     binidx
 end
 
-function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, pv_threshold=0.05, use_fitted=false, kwargs...) where T <: AbstractResponseFields
+function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2), trial_start=2, redo=fname->false, do_save=true, smooth=false, prog_offset=0, load_only=false, pv_threshold=0.05, use_fitted=false, kwargs...) where T <: Union{GazeResponseFields, SpatialResponseFields}
     h = process_kwargs(T;nshuffles=nshuffles, nrefinements=nrefinements,trial_start=trial_start,smooth=smooth,pv_threshold=pv_threshold, kwargs...)
     args = Dict(:nshuffles=>nshuffles, :nrefinements=>nrefinements, :trial_start=>trial_start, :smooth=>smooth,:pv_threshold=>pv_threshold,:use_trials=>get(kwargs, :use_trials, :all))
     @assert typeof(args) == fieldtype(T, :args)
