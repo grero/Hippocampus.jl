@@ -388,14 +388,15 @@ function sample_map(pvc::Hippocampus.ViewPlaceConjunction, vidx::Integer, pidx::
     X, μ, μc
 end
 
-function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme)
+function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme, distr_plot=:boxplot, kwargs...)
     jm,vpc, pvc = cd(celldir) do
         jm = Hippocampus.JointMap(;nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
         vpc = Hippocampus.ViewPlaceConjunction(;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
         pvc = Hippocampus.PlaceViewConjunction(;nshuffles=1000, nrefinements=(p=3, g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50,  min_view_obs=5, min_place_obs=5, min_view_duration=0.02,  min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
         jm, vpc, pvc
      end
-
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    m_floor = Hippocampus.repair_mesh(Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3)))
     pidx = Hippocampus.get_num_fields(vpc.spatial_fields, 0.001)
     pidx = vpc.spatial_fields.binidx[pidx[spatial_field_idx]]
     vidx = Hippocampus.get_num_fields(vpc.view_fields, 0.001)
@@ -405,7 +406,8 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
     λ_infield_place = Hippocampus.laplace_smoothing(Hippocampus.get_spatial_rate_map(jm, vidx, size(pvc.λ_infield,1)),m_floor,0.1;niter=50)
     X_place_nc, μ_place, μ_place_view = sample_map(pvc, view_field_idx, spatial_field_idx)
     X_view_nc, μ_view, μ_view_place = sample_map(vpc, view_field_idx,spatial_field_idx)
-    ccolors = Hippocampus.get_colors(:rain)
+    colormap = get(kwargs, :colormap, :rain)
+    ccolors = Hippocampus.get_colors(colormap)
     with_theme(_plot_theme) do
         fig = Figure(size=(1000,550))
         # show both place and view maps
@@ -413,18 +415,18 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
         Label(lg1[1,1,TopLeft()], "A")
         lg1_1 = GridLayout(lg1[1,1])
         # view field
-        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=:rain, hide_ceiling=true, indicate_north=false, floor_offset=0.0)
+        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0)
         # place field
         lg1_2 = GridLayout(lg1[2,1])
         Label(lg1[2,1,TopLeft()],"B")
-        Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=:rain)
+        Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=colormap)
         # view conditioned on place
         lg2 = GridLayout(fig[1,2])
         Label(lg2[1,1,TopLeft()], "C")
         lg2_1 = GridLayout(lg2[1,1])
         lscene = LScene(lg2_1[1,1], show_axis=false)
         Hippocampus.plot_pillars!(lscene)
-        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,colormap=:rain, indicate_north=false, hide_ceiling=true, showsegments=true,floor_offset=0.0)
+        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=true,floor_offset=0.0)
         ax1 = Axis(lg2_1[2,1], aspect=1)
         hidedecorations!(ax1)
         Hippocampus.plot_pillars!(ax1)
@@ -443,7 +445,11 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
         yy = [X_view_nc;vpc.λ_sub[spatial_field_idx,view_field_idx,:]]
         cc = [fill(1, length(X_view_nc));fill(2, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
 
-        boxplot!(ax2, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25])
+        if distr_plot == :boxplot
+            boxplot!(ax2, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25])
+        else
+            violin!(ax2, xx,yy, orientation=:horizontal, color=cc)
+        end
         scatter!(ax2, [μ_view_place], [1.0],color=ccolors[view_field_idx], label="Inside VF")
         scatter!(ax2, [μ_view], [1.0],color=:seagreen, label="Original VF")
         scatter!(ax2, [vpc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[spatial_field_idx], label="VF & PF")
@@ -472,7 +478,7 @@ function plot_conjunctions_new(celldir::String,spatial_field_idx::Integer, view_
         malpha = zeros(length(mcolor))
         malpha[isfinite.(mcolor)] .= 1.0
         mcolor[isnan.(mcolor)] .= 0.0
-        viz!(ax3, m_floor, color=mcolor,alpha=malpha,colormap=:rain)
+        viz!(ax3, m_floor, color=mcolor,alpha=malpha,colormap=colormap)
         Hippocampus.plot_pillars!(ax3)
 
         ax4 = Axis(lg3[3,1])
