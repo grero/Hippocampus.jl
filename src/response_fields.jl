@@ -49,10 +49,6 @@ maptype(::Type{SpatialResponseFieldsSimple}) = SpatialMapNew
 get_mesh(::Type{GazeResponseFieldsSimple},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
 maptype(::Type{GazeResponseFieldsSimple}) = ViewMapNew
 
-function getfields(rf::SpatialResponseFields;cluster_threshold=0.001)
-    clusters = get_num_fields(rf,cluster_threshold)
-    [rf.binidx[c] for c in clusters]
-end
 
 function get_colors(colormap::Symbol)
     if in([:rain , :navia])(colormap)
@@ -116,6 +112,11 @@ function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);
          h = CRC32c.crc32c(string(:use_trials=>use_trials),h)
     end
     h
+end
+
+function getfields(rf::Union{SpatialResponseFields,GazeResponseFields};cluster_threshold=0.001)
+    clusters = get_num_fields(rf,cluster_threshold)
+    [rf.binidx[c] for c in clusters]
 end
 
 function get_binindex(rf::AbstractResponseFields)
