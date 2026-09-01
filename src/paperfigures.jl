@@ -373,4 +373,39 @@ function plot_directional_place_fields()
     end
 end
 
+function plot_simpler_place_cells(;figsize=(600,600),_plot_theme=plot_theme)
+    ff,args = JLD2.load(joinpath(@__DIR__, "..", "data", "simpler_place_field_estimation.jld2"), "field_index","kwargs")
+    nrefinements = args["nrefinements"]
+    n_fields = length.(ff)
+    m_floor = Hippocampus.floor_topology3(;nrefinements=nrefinements.p)
+    # compute coverage
+    Z = zeros(nelements(m_floor))
+    for _ff in ff
+        for __ff in _ff
+            Z[__ff] .+= 1.0
+        end
+    end
+
+    with_theme(_plot_theme) do
+        fig = Figure(size=figsize)
+        ax1 = Axis(fig[1,1])
+
+        hist!(ax1, n_fields, color=:gray45)
+        Label(fig[1,1,TopLeft()], "A")
+        ax1.xticks = n_fields
+        ax1.xlabel = "Number of fields"
+        ax1.ylabel = "Number of cells"
+
+        #coverage
+        ax2 = Axis(fig[1,2], aspect=1)
+        Label(fig[1,2,TopLeft()], "B")
+        hidedecorations!(ax2)
+        viz!(ax2, m_floor;color=:lightgray)
+        viz!(ax2, m_floor;color=Z, colormap=:jet)
+        hidespines!(ax2)
+        Hippocampus.plot_pillars!(ax2)
+        fig
+    end
+end
+
 end #module
