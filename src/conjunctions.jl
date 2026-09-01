@@ -111,9 +111,9 @@ end
 
 abstract type AbstractFieldConjunctions end
 
-struct PlaceViewConjunction <: AbstractFieldConjunctions
-    spatial_fields::SpatialResponseFields
-    view_fields::GazeResponseFields
+struct PlaceViewConjunction{T1<:Union{SpatialResponseFields, SpatialResponseFieldsSimple}, T2<:Union{GazeResponseFields, GazeResponseFieldsSimple}} <: AbstractFieldConjunctions
+    spatial_fields::T1
+    view_fields::T2
     λ_covered::Matrix{Float64}
     λ_sub::Array{Float64,3}
     λ_infield::Matrix{Float64}
@@ -627,16 +627,27 @@ function process_kwargs(::Type{<:AbstractFieldConjunctions},h::UInt32=zero(UInt3
     h
 end
 
-function PlaceViewConjunction(;redo=fname->false, do_save=true, load_only=false, kwargs...)
+function process_kwargs(::Type{PlaceViewConjunction{T1,T2}},h::UInt32=zero(UInt32);kwargs...) where T1 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple} where T2 <: Union{GazeResponseFields, GazeResponseFieldsSimple}
+    h = process_kwargs(JointMap,h;kwargs...)
+    h = process_kwargs(T1,h;kwargs...)
+    h = process_kwargs(T2,h;kwargs...)
+    h
+end
+
+function PlaceViewConjunction(;kwargs...)
+    PlaceViewConjunction(SpatialResponseFields, GazeResponseFields;kwargs...)
+end
+
+function PlaceViewConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=true, load_only=false, kwargs...) where T1 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple} where T2 <: Union{GazeResponseFields, GazeResponseFieldsSimple}
     fname = "place_view_conjunction_new.jld2"
-    h = process_kwargs(PlaceViewConjunction;kwargs...)
+    h = process_kwargs(PlaceViewConjunction{T1,T2};kwargs...)
     if h > 0
         hs = string(h,base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
     do_compute = true 
     if !redo(fname) && isfile(fname)
-        X = load_jld2(PlaceViewConjunction,fname)
+        X = load_jld2(PlaceViewConjunction{T1,T2},fname)
        if isa(X, JLD2.ReconstructedMutable)
             do_compute = true
         else
@@ -650,16 +661,16 @@ function PlaceViewConjunction(;redo=fname->false, do_save=true, load_only=false,
     nshuffles = get(kwargs, :nshuffles, 10_000)
     if do_compute
         jm = JointMap(;kwargs...)
-        rf_spatial = get_response_fields(SpatialResponseFields,nshuffles;kwargs...)
+        rf_spatial = get_response_fields(T1,nshuffles;kwargs...)
         if isa(rf_spatial, JLD2.ReconstructedMutable)
-            rf_spatial = get_response_fields(SpatialResponseFields,nshuffles;redo=fname->true, kwargs...)
+            rf_spatial = get_response_fields(T1,nshuffles;redo=fname->true, kwargs...)
         end
-        rf_gaze = get_response_fields(GazeResponseFields,nshuffles;kwargs...)
+        rf_gaze = get_response_fields(T2,nshuffles;kwargs...)
         if isa(rf_gaze, JLD2.ReconstructedMutable)
-            rf_gaze = get_response_fields(GazeResponseFields,nshuffles;redo=fname->true, kwargs...)
+            rf_gaze = get_response_fields(T2,nshuffles;redo=fname->true, kwargs...)
         end
         λ_covered, λ_sub,λ_infield, λ_outfield,matched_idx = conjunctions2(jm, rf_gaze, rf_spatial, 1)
-        X = PlaceViewConjunction(rf_spatial, rf_gaze, λ_covered, λ_sub,λ_infield, λ_outfield, matched_idx)
+        X = PlaceViewConjunction{T1,T2}(rf_spatial, rf_gaze, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
         if do_save
             save_jld2(X,fname)
         end
