@@ -522,6 +522,10 @@ end
 function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B","C","D"], redo=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;kwargs...)
     h = CRC32c.crc32c(string(celldirs),h)
+    cluster_threshold = get(kwargs, :cluster_threshold, 0.001)
+    if cluster_threshold != 0.01
+        h = CRC32c.crc32c(string(:cluster_threshold => cluster_threshold),h)
+    end
     hs = string(h, base=16)
     fname = joinpath(@__DIR__, "..","data","field_stats_$(hs).jld2")
     if !redo && isfile(fname)
