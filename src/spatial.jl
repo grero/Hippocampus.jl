@@ -22,6 +22,10 @@ end
 
 get_weight(mm::AbstractMap) = mm.weight
 get_occupancy(mm::AbstractMap) = mm.occupancy
+get_rate(mm::AbstractMap) = mm.weight./mm.occupancy
+get_rate(mm::Vector{<:AbstractMap}) = mapreduce(get_rate, hcat, mm)
+# fall back
+get_rate(X::AbstractArray) = X
 
 function laplace_smoothing(am::AbstractRateMap,args...;kwargs...)
     X = laplace_smoothing(am.weight, args...;kwargs...)
