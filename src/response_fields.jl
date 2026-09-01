@@ -2,7 +2,6 @@ using Meshes
 using BetaKDE
 abstract type AbstractResponseFields end
 
-
 struct SpatialResponseFields <: AbstractResponseFields
     λ::Vector{Float64}
     binidx::Vector{Int64}
