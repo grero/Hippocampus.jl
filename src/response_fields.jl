@@ -647,6 +647,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     end
     hs = string(h, base=16)
     fname = joinpath(@__DIR__, "..","data","field_stats_$(hs).jld2")
+    @show fname
     if !redo && isfile(fname)
         Z,nfields,field_size, field_boundaries, peak_firing_rate, args = JLD2.load(fname, "Z", "nfields","field_size", "field_boundaries","peak_firing_rate", "args")
     else
