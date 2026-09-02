@@ -20,6 +20,8 @@ struct SpatialResponseFieldsSimple <: AbstractResponseFieldsSimple
     args::Dict{Symbol,Any}
 end
 
+SpatialResponseFieldsAll = Union{SpatialResponseFields, SpatialResponseFieldsSimple}
+
 DPHT.filename(::Type{SpatialResponseFieldsSimple}) = "spatial_response_fields_simple.jld2"
 
 struct GazeResponseFieldsSimple <: AbstractResponseFieldsSimple
@@ -73,6 +75,8 @@ struct GazeResponseFields <: AbstractResponseFields
     gamma_params::Matrix{Float64} # gaamma parameter fit for the null distribution; two parameters per bin
     args::Dict{Symbol,Any}
 end
+
+GazeResponseFieldsAll = Union{GazeResponseFields, GazeResponseFieldsSimple}
 
 DPHT.filename(::Type{GazeResponseFields}) = "gaze_response_fields.jld2"
 get_mesh(::Type{GazeResponseFields},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
