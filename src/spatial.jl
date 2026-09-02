@@ -23,7 +23,12 @@ end
 get_weight(mm::AbstractMap) = mm.weight
 get_occupancy(mm::AbstractMap) = mm.occupancy
 get_rate(mm::AbstractMap) = mm.weight./mm.occupancy
-get_rate(mm::Vector{<:AbstractMap}) = mapreduce(get_rate, hcat, mm)
+
+function get_rate(mm::Vector{<:AbstractMap})
+     y = mapreduce(get_rate, hcat, mm)
+     reshape(y, size(y,1), size(y,2))
+end
+
 # fall back
 get_rate(X::AbstractArray) = X
 
