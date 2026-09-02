@@ -3089,13 +3089,14 @@ function SpatialMapNew(jm::JointMap,mm::SimpleMesh;viewbins::Union{Nothing, Vect
     SpatialMapNew(mm, weight, occupancy)
 end
 
-function ViewMapNew(jm::JointMap,mm::SimpleMesh;placebins::Union{Nothing, Vector{Int64}}=nothing)
+function ViewMapNew(jm::JointMap,mm::SimpleMesh;placebins::Union{Nothing, Vector{Int64}}=nothing, trialidx::Union{Nothing, Vector{Int64}}=nothing)
     np = nelements(mm)
     weight = zeros(np) 
     occupancy = zeros(np)
     func(pidx) = (placebins === nothing || pidx in placebins)
+    funct(tidx) = (trialidx === nothing || tidx in trialidx) 
     for (w,oc,qidx) in zip(jm.weight, jm.occupancy, jm.index)
-        if func(qidx[2])
+        if func(qidx[2]) && funct(qidx[4])
             pidx = getindex(qidx,1) # first sndex is gaze
             weight[pidx] += w
             occupancy[pidx] += oc
