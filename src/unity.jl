@@ -1549,6 +1549,8 @@ function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2,do_compr
 end
 
 """
+    compress_trajectory(trajectory::Vector{T};ignore_values::Union{Vector{T},Nothing}=nothing) where T
+
 Compress a trajectory by removing contiguos duplicates
 """
 function compress_trajectory(trajectory::Vector{T};ignore_values::Union{Vector{T},Nothing}=nothing) where T
