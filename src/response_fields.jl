@@ -791,8 +791,8 @@ function plot_response_fields(rf::SpatialResponseFields,args...;_plot_theme=plot
     end
 end
 
-function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;filter_spurious=true, show_colorbar=true, show_points=true, label="Firing rate [Hz]",colorbar_below=false,  show_boundaries=false, segmentsize=2.0,showsegments=true, kwargs...)
-    mm = get_mesh(GazeResponseFields, rf.args[:nrefinements])
+function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=true, show_colorbar=true, show_points=true, label="Firing rate [Hz]",colorbar_below=false,  show_boundaries=false, segmentsize=2.0,showsegments=true, kwargs...) where T <: GazeResponseFieldsAll
+    mm = get_mesh(T, get(rf.args,:nrefinements, (p=3,g=2)))
     m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
     lscene = LScene(lg[1,1],show_axis=false)
     floor_offset = get(kwargs, :floor_offset,-10)
@@ -806,18 +806,12 @@ function plot_response_fields!(lg::GridLayout, rf::GazeResponseFields, λ=rf.λ;
     end
     plotmesh!(lscene, mm;color=λ, showsegments=showsegments, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
     plot_pillars!(lscene;floor_offset=floor_offset)
-    clusters = merge_fields(rf)
-    if filter_spurious
-        nclusters = Hippocampus.get_num_fields(rf)
-        cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).<0.001)
-    else
-        cidx = 1:length(clusters)
-    end
+    clusters = getfields(rf;cluster_threshold=0.001)
 
     ccolors = get_colors(colormap)
     if show_points || show_boundaries
-        for (cc,cluster) in zip(ccolors[1:length(cidx)],clusters[cidx])
-            pidx = rf.binidx[cluster]
+        for (cc,cluster) in zip(ccolors[1:length(clusters)],clusters)
+            pidx = cluster
             cpoints = centroid.(mm[pidx])
             floor_points = filter(Meshes.intersects(m_floor), cpoints)
             ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
@@ -888,8 +882,8 @@ function plot_response_fields!(lscene::LScene, rf::GazeResponseFields,idx::Union
     end
 end
 
-function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ::AbstractVector{<:Real}=rf.λ;filter_spurious=true, show_points=true, show_boundaries=false, colorbar_below=false, show_colorbar=true, label="Firing rate [Hz]", kwargs...)
-    mm = Shadow("xy")(floor_topology3(;nrefinements=rf.args[:nrefinements].p))
+function plot_response_fields!(lg::GridLayout, rf::T, λ::AbstractVector{<:Real}=rf.λ;filter_spurious=true, show_points=true, show_boundaries=false, colorbar_below=false, show_colorbar=true, label="Firing rate [Hz]", kwargs...) where T <: SpatialResponseFieldsAll
+    mm = Shadow("xy")(floor_topology3(;nrefinements=get(rf.args,:nrefinements, (p=3,g=2)).p))
     ax = Axis(lg[1,1],aspect=1)
     hidedecorations!(ax)
     ax.bottomspinevisible = false
@@ -900,17 +894,11 @@ function plot_response_fields!(lg::GridLayout, rf::SpatialResponseFields, λ::Ab
     viz!(ax, mm;color=mazecolor)
     viz!(ax, mm;color=λ,colormap=colormap, colorrange=colorrange, showsegments=get(kwargs, :showsegments, false),segmentcolor=get(kwargs, :segmentcolor, :black))
     plot_pillars!(ax)
-    clusters = merge_fields(rf)
-    if filter_spurious
-        nclusters = Hippocampus.get_num_fields(rf)
-        cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).<0.001)
-    else
-        cidx = 1:length(clusters)
-    end
+    clusters = getfields(rf;cluster_threshold=0.001)
     ccolors = get_colors(colormap)
     if show_points
-        for (cc,cluster) in zip(ccolors[1:length(cidx)],clusters[cidx])
-            pidx = rf.binidx[cluster]
+        for (cc,cluster) in zip(ccolors[1:length(clusters)],clusters)
+            pidx = cluster
             cpoints = centroid.(mm[pidx])
             viz!(ax, cpoints, color=cc)
         end
