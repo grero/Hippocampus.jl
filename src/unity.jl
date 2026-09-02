@@ -1726,39 +1726,48 @@ end
 function get_trajectories(udata)
     nt = numtrials(udata)
     trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
-    prev_posterid = 0
-    for i in 1:nt
-        # make sure the trial was correct
-        if !(30 < udata.triggers[i,3] < 40)
-            posterid = 0
+    prev_posterid = udata.triggers[1,1]  - 10
+    # head direction at the start of the trial
+    hd_init = Dict{Tuple{Int64, Int64}, Vector{Float64}}()
+    # skip the first trial because we starting from a random waypoint (typically)
+    for i in 2:nt
+        # make sure both the current and the previous trial trial was correct
+        if !(30 < udata.triggers[i,3] < 40) || !(30 < udata.triggers[i-1,3] < 40)
+            prev_posterid = udata.triggers[i,1] - 10
+            continue # skip these
         else
             posterid = udata.triggers[i,1] - 10
             kk = (prev_posterid, posterid)
             if !(kk in keys(trajectories))
                 trajectories[kk] = Vector{Tuple{Float64, Float64}}[]
+                hd_init[kk] = Float64[]
             end
-            tg,posx,posy,hd = get_trial(udata, i;trial_start=2)
+            _,posx,posy,_ = get_trial(udata, i;trial_start=2)
             push!(trajectories[kk], [(px,py) for (px,py) in zip(posx,posy)])
+            _,_,_,hd = get_trial(udata, i;trial_start=1)
+            push!(hd_init[kk], first(hd)) 
         end
         prev_posterid = posterid
     end
     pairidx = filter(ij->ij[1]!=ij[2], [(i,j) for i in 1:6, j in 1:6])
-    trajectories, pairidx
+    trajectories, pairidx, hd_init
 end
 
-function compare_optimal_trajectories(udata;nrefinements=0)
+function compare_optimal_trajectories(udata;nrefinements=0, kwargs...)
     lengths = Dict{Tuple{Int64, Int64},Vector{Float64}}()
-    compare_optimal_trajectories!(lengths, udata;nrefinements=nrefinements)
-    lengths
+    hd_init = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    compare_optimal_trajectories!(lengths, hd_init, udata;nrefinements=nrefinements, kwargs...)
+    lengths,hd_init 
 end
 
-function compare_optimal_trajectories!(lengths, udata;nrefinements=0)
-    traj,_ = get_trajectories(udata)
+function compare_optimal_trajectories!(lengths, hd_init, udata;nrefinements=0, kwargs...)
+    traj,_,hd = get_trajectories(udata)
     # map to floor with resolution given by nrefinements
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements))
     for (k,v) in traj
         if !(k in keys(lengths))
             lengths[k] = Float64[] 
+            hd_init[k] = Float64[]
         end
         for (jj,tt) in enumerate(v)
             traj_idx,_ = compress_trajectory(mapto(m_floor, tt))
@@ -1767,19 +1776,66 @@ function compare_optimal_trajectories!(lengths, udata;nrefinements=0)
             length_opt = sum(norm.(diff(centroid.(m_floor[traj_idx_opt]))))
             push!(lengths[k], length_true/length_opt)
         end
+        append!(hd_init[k], hd[k])
     end
-    lengths
+    lengths, hd_init
 end
 
 function compare_optimal_trajectories(sessiondirs::Vector{String};kwargs...)
     lengths = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    hd_init = Dict{Tuple{Int64, Int64},Vector{Float64}}()
     for sessiondir in sessiondirs
         udata = cd(sessiondir) do
             UnityData()
         end
-        compare_optimal_trajectories!(lengths, udata;kwargs...)
+        compare_optimal_trajectories!(lengths, hd_init, udata;kwargs...)
     end
-    lengths
+    lengths, hd_init
+end
+
+function analyze_trajectory_length_vs_head_direction(trajectory_length::AbstractVector{<:Number}, head_direction::AbstractVector{<:Number})
+    # find the head direction associated with the shortest (mean) trajectory length
+    # 10 degrees bins
+    hd_bins = range(0.0, stop=2π, step=2π/24)
+    z = fill(NaN, length(hd_bins))
+    θ = 0.0
+    Δθ = 2π/24
+    for i in 1:24
+        jj = (θ .<= head_direction .< θ+Δθ)
+        z[i] = sum(trajectory_length[jj])/sum(jj)
+        θ += Δθ
+    end
+    z, hd_bins
+end
+
+## plots
+
+function poster_image_axes!(lg, ax;kwargs...)
+     markersize = get(kwargs, :markersize, 45)
+    imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    # create dummy axes for the labels
+    axl = Axis(lg[1,0])
+    scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
+    axb = Axis(lg[2,1])
+    scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
+    colsize!(lg, 0, 2*markersize-20)
+    rowsize!(lg, 2, 2*markersize-20)
+    linkxaxes!(axb, ax)
+    linkyaxes!(axl, ax)
+    hidedecorations!(axb)
+    hidespines!(axb)
+    hidedecorations!(axl)
+    hidespines!(axl)
+    ax.xticklabelsvisible = false
+    ax.yticklabelsvisible = false
+    ax.xticks = [1:6;]
+    ax.yticks = [1:6;]
+    axl.xlabel = "To"
+    axl.xlabelvisible = true
+    axb.ylabel = "From"
+    axb.ylabelvisible = true
+    colgap!(lg, 1, 1)
+    rowgap!(lg, 1, 1)
 end
 
 function plot_trajectory_lengths!(lg, udata::UnityData;kwargs...)
