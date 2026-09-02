@@ -561,11 +561,12 @@ function get_response_fields(::Type{T},args...;redo=fname->false, do_save=true, 
         method = get(kwargs, :smoothing_method, :laplace)
         spml = SmoothedMap(spm;method=method, kwargs...) 
         ff = find_fields(spml;kwargs...)
-        dd = Dict(kwargs)
+        dd = Dict{Symbol,Any}(kwargs)
         baseline_percentile_threshold = pop!(dd, :baseline_percentile_threshold, 10)
         peak_percentile_threshold = pop!(dd, :peak_percentile_threshold, 95)
         peak_threshold = pop!(dd, :peak_threshold, 0.5)
-        obj = T(get_rate_map(spml), ff, baseline_percentile_threshold, peak_percentile_threshold, peak_threshold, kwargs)
+        dd[:dir] = pwd()
+        obj = T(get_rate_map(spml), ff, baseline_percentile_threshold, peak_percentile_threshold, peak_threshold,dd)
         if do_save
             save_jld2(obj, fname)
         end
