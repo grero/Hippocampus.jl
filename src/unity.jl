@@ -1947,3 +1947,33 @@ function plot_trajectories(udata::UnityData)
         fig
     end
 end
+
+function plot_trajectory_length_vs_head_direction(args...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_trajectory_length_vs_head_direction!(lg, args...)
+        fig
+    end
+end
+
+function plot_trajectory_length_vs_head_direction!(lg, trajectory_length::Dict, head_direction::Dict)
+    Z = fill(NaN, 6,6)  # assumes 6 posters
+    pv_pos = Point2f[]
+    for (k,v) in trajectory_length
+        # convert from unity left-handed coordinate system to right-handed
+        θ = mod.(-(head_direction[k].*π/180 .- π/2), 2π);
+        aa = LinearRegressionUtils.llsq_stats([cos.(θ) sin.(θ)], v)
+        Z[k[1],k[2]] = aa.r²
+        if aa.pv < 0.01
+            push!(pv_pos, Point2f(k[1], k[2]))
+        end
+    end
+    fidx = findall(isfinite.(Z))
+    @show length(pv_pos)  findmax(Z[fidx])
+    ax = Axis(lg[1,1])
+    h = heatmap!(ax, 1:6, 1:6, Z)
+    Colorbar(lg[1,2], h, label="r²")
+    text!(ax,pv_pos;text=fill("*", length(pv_pos)), color=:red, align=(:center, :center))
+    poster_image_axes!(lg,ax)
+end
