@@ -576,6 +576,57 @@ function get_response_fields(::Type{T},args...;redo=fname->false, do_save=true, 
     end
     obj
 end
+
+function find_view_field_intersections!(qq::Dict{Symbol,Any};kwargs...)
+    nshuffles = get(kwargs, :nshuffles, 10_000)
+    rf_gaze = get_response_fields(GazeResponseFields, nshuffles;kwargs...)
+    find_view_field_intersections!(qq, rf_gaze;kwargs...)
+end
+
+function find_view_field_intersections!(qq::Dict{Symbol,Any}, rf_gaze::GazeResponseFieldsAll;kwargs...)
+    # TODO: This is hardcoded and should be made to dependend on the particular session We
+    #       are looking at
+    poster_pillar_walls = [1, 3, 6,9, 11, 16]
+    nrefinments = get(kwargs, :nrefinements, (p=3,g=2))
+    mm = get_maze_mesh(;nrefinements=nrefinments.g)
+    grouped_bins = group_bins(mm)
+    vidx = reduce(vcat, getfields(rf_gaze;cluster_threshold=0.001))
+    qq_pillars = fill(false, 4)
+    fv = in(vidx)
+    if !(:pillars in keys(qq))
+        qq[:pillars] = fill(0, 4)
+    end
+    for i in 1:4
+        idx0 = (i-1)*4+1
+        idx1 = i*4
+        qq[:pillars][i] += any(fv.(reduce(vcat, grouped_bins.pillar_idx[idx0:idx1])))
+    end
+    for (jj,ii) in enumerate(poster_pillar_walls)
+        kk = Symbol("poster$jj")
+        if !(kk in keys(qq))
+            qq[kk] = 0
+        end
+        qq[kk] += any(fv.(grouped_bins.pillar_idx[ii]))
+    end
+    for (k1,k2) in zip([:west_wall_idx, :east_wall_idx, :north_wall_idx, :south_wall_idx, :ceiling_idx, :floor_idx],[:west_wall, :east_wall, :north_wall, :south_wall, :ceiling, :floor])
+        if !(k2 in keys(qq))
+            qq[k2] = 0
+        end
+        qq[k2] += any(fv.(get(grouped_bins, k1, 0)))
+    end
+    qq
+end
+
+function find_view_field_intersections(celldirs::Vector{String};kwargs...)
+    qq = Dict{Symbol,Any}()
+    for celldir in celldirs
+        cd(celldir) do
+            find_view_field_intersections!(qq;kwargs...)
+        end
+    end
+    qq
+end
+
 ## plots
 
 function plot_n_fields(::Type{T}, celldirs::Vector{String};figsize=(900,500), kwargs...) where T <: AbstractResponseFields
