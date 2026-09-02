@@ -587,6 +587,17 @@ function find_view_field_intersections!(qq::Dict{Symbol,Any};kwargs...)
     find_view_field_intersections!(qq, rf_gaze;kwargs...)
 end
 
+function find_poster_view_intersection(vidx::AbstractVector{<:Integer},mm::SimpleMesh)
+    grouped_bins = group_bins(mm)
+    poster_pillar_walls = [1, 3, 6,9, 11, 16]
+    qq = fill(false, length(poster_pillar_walls))
+    fv = in(vidx)
+    for (jj,ii) in enumerate(poster_pillar_walls)
+        qq[jj] = any(fv.(grouped_bins.pillar_idx[ii]))
+    end
+    qq
+end
+
 function find_view_field_intersections!(qq::Dict{Symbol,Any}, rf_gaze::GazeResponseFieldsAll;kwargs...)
     # TODO: This is hardcoded and should be made to dependend on the particular session We
     #       are looking at
