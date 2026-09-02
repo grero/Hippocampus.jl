@@ -1851,6 +1851,7 @@ function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{
         if (0 in k) || (k[1]==k[2])
             continue
         end
+        # k[1] = from, k[2] = to
         Z[k[1], k[2]] = median(v)
     end
     ax = Axis(lg[1,1])
