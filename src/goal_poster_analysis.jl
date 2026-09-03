@@ -191,7 +191,7 @@ end
 
 ## plots
 
-function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity)
+function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity;label=["A","B"],kwargs...)
     λ_goal = gs.X_goal./gs.w_goal
     fidx_goal = [findall(gs.w_goal[:,i] .> 0.02) for i in 1:size(gs.w_goal,2)]
     μ_goal = [mean(λ_goal[fidx_goal[i],i]) for i in 1:size(gs.w_goal,2)]
@@ -201,7 +201,7 @@ function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity)
 
     Δ, Δs = generate_surrogates(gs)
     ax0 = Axis(lg[1,1])
-    Label(lg[1,1,TopLeft()], "A")
+    Label(lg[1,1,TopLeft()], label[1])
     # For each view view, plot the goal and no-goal firing rate next to each other
     ddp = vec(permutedims([fill(1, length(μ_goal)) fill(2, length(μ_nongoal))]))
     yyp = vec(permutedims([μ_goal μ_nongoal]))
@@ -215,7 +215,7 @@ function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity)
     ax0.yticksvisible = true
 
     ax = Axis(lg[1,2])
-    Label(lg[1,2, TopLeft()], "B")
+    Label(lg[1,2, TopLeft()], label[2])
     yy = vec(Δs[:,isfinite.(μ_goal)])
     xx = reduce(vcat, [fill(i,size(Δs,1)) for i in findall(isfinite.(μ_goal))])
     boxplot!(ax, xx, yy;show_outliers=false, show_notch=true, orientation=:horizontal)
@@ -225,6 +225,8 @@ function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity)
     ax.xlabel = "Rate(goal) - Rate(no-goal)"
     for _ax in [ax,ax0]
         _ax.xticksvisible = true
+        _ax.xticklabelsvisible = get(kwargs, :xticklabelsvisible, true)
+        _ax.xlabelvisible = get(kwargs, :xlabelvisible, true)
     end
     # add an axis showing the poster labels
     ax1 = Axis(lg[1,3])
@@ -238,14 +240,14 @@ function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity)
     colsize!(lg, 3, 50)
 end
 
-function plot_goal_poster_selectivity(gs::GoalPosterSelectivity)
+function plot_goal_poster_selectivity(gs::GoalPosterSelectivity;kwargs...)
     fidx_goal = [findall(gs.w_goal[:,i] .> 0.02) for i in 1:size(gs.w_goal,2)]
     nn = sum(length.(fidx_goal).>0)
     width = 600
     with_theme(theme_minimal()) do
         fig = Figure(size=(width,250))
         lg = GridLayout(fig[1,1])
-        plot_goal_poster_selectivity!(lg, gs)
+        plot_goal_poster_selectivity!(lg, gs;kwargs...)
         fig
     end
 end
