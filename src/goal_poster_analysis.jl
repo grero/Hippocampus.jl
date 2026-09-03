@@ -10,8 +10,11 @@ end
 
 DPHT.filename(::Type{GoalPosterSelectivity}) = "goal_poster_selectivity.jld2"
 
-function process_kwargs(::Type{GoalPosterSelectivity{T}},h::UInt32=zero(UInt32);kwargs...)  where T <: GazeResponseFieldsAll
+function process_kwargs(::Type{GoalPosterSelectivity{T}},h::UInt32=zero(UInt32);exclude_origin_trials=false, kwargs...)  where T <: GazeResponseFieldsAll
     h = process_kwargs(T, h;kwargs...)
+    if exclude_origin_trials
+        h = CRC32c.crc32c(string(:exclude_origin_trials=>exclude_origin_trials),h)
+    end
     h
 end
 
@@ -101,7 +104,7 @@ end
 """
 Look at a cells response when the gaze is in its view field overlapping with a goal poster
 """
-function analyze_goal_poster_selectivity(;kwargs...)
+function analyze_goal_poster_selectivity(;exclude_origin_trials=false, kwargs...)
     nrefinments = get(kwargs, :nrefinements, (p=3,g=2))
     mm = get_maze_mesh(;nrefinements=nrefinments.g)
     rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 1000);kwargs...)
@@ -141,6 +144,14 @@ function analyze_goal_poster_selectivity(;kwargs...)
         end
         # check if this is a correct trial
         if 30 < udata.triggers[tidx,3] < 40
+            if tidx > 1 && exclude_origin_trials
+                # we do not want to include trials for which the previous trial used the
+                # poster_pref as a target, since the subject will always be moving away from the
+                # poster in the current trial and we do not want that to influence the no-goal firing rate
+                if in(poster_pref)(udata.triggers[tidx-1,1] - 10)
+                    continue
+                end
+            end
             posterid = udata.triggers[tidx,1] - 10
             if in(poster_pref)(posterid)
                 X_goal[tidx,kk] += w
