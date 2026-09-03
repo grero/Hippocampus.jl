@@ -408,4 +408,25 @@ function plot_simpler_place_cells(;figsize=(600,600),_plot_theme=plot_theme)
     end
 end
 
+function plot_goal_poster_selectivity_figure()
+    goal_faciliated_cell = "/Volumes/Hippocampus/Data/picasso-misc/20180717/session01/array02/channel042/cell01"
+    goal_inhibited_cell = "/Volumes/Hippocampus/Data/picasso-misc/20180827/session01/array01/channel020/cell02"
+    gsf = cd(goal_faciliated_cell) do
+       Hippocampus.GoalPosterSelectivity(Hippocampus.GazeResponseFields;exclude_origin_trials=true,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, use_trials=:all)
+    end
+    gsi = cd(goal_inhibited_cell) do
+       Hippocampus.GoalPosterSelectivity(Hippocampus.GazeResponseFields;exclude_origin_trials=true,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, use_trials=:all)
+    end
+    h1 = sum(sum(gsf.w_goal .> 0.02,dims=1).>0)
+    h2 = sum(sum(gsi.w_goal .> 0.02,dims=1).>0)
+    with_theme(plot_theme) do
+        fig = Figure(size=(600,400))
+        lg1 = GridLayout(fig[1,1])
+        lg2 = GridLayout(fig[2,1])
+        Hippocampus.plot_goal_poster_selectivity!(lg1, gsf;xlabelvisible=false)
+        Hippocampus.plot_goal_poster_selectivity!(lg2, gsi;label=["C","D"])
+        rowsize!(fig.layout, 1, Relative(h1/(h1+h2)))
+        fig
+    end
+end
 end #module
