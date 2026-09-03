@@ -207,33 +207,43 @@ function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity)
     yyp = vec(permutedims([μ_goal μ_nongoal]))
     xxp = vec(permutedims([1:length(μ_goal) 1:length(μ_nongoal)]))
     xt = vec(permutedims([1 2] .+ 2*([1:length(μ_goal);] .-1)))
-    barplot!(ax0, xt, yyp)
-    ax0.xticks = (xt, repeat(["Goal", "No goal"], length(μ_goal)))
-    ax0.xticklabelrotation = -π/6
-    ax0.xticklabelalign = (:left, :center)
-    ax0.ylabel = "Firing rate [Hz]"
-    ax0.xticksvisible = true
+    barplot!(ax0, xt, yyp, direction=:x)
+    ax0.yticks = (xt, repeat(["Goal", "No goal"], length(μ_goal)))
+    ax0.yticklabelrotation = -π/6
+    ax0.yticklabelalign = (:right, :center)
+    ax0.xlabel = "Firing rate [Hz]"
+    ax0.yticksvisible = true
 
     ax = Axis(lg[1,2])
     Label(lg[1,2, TopLeft()], "B")
     yy = vec(Δs[:,isfinite.(μ_goal)])
     xx = reduce(vcat, [fill(i,size(Δs,1)) for i in findall(isfinite.(μ_goal))])
-    boxplot!(ax, xx, yy;show_outliers=false, show_notch=true)
-    scatter!(ax, [1:sum(isfinite.(μ_goal));], Δ[isfinite.(μ_goal)];color=:orange)
-    ax.xticklabelsvisible = false
-    ax.xticksvisible = false
-    ax.ylabel = "Rate(goal) - Rate(no-goal)"
+    boxplot!(ax, xx, yy;show_outliers=false, show_notch=true, orientation=:horizontal)
+    scatter!(ax, Δ[isfinite.(μ_goal)], [1:sum(isfinite.(μ_goal));] ;color=:orange)
+    ax.yticklabelsvisible = false
+    ax.yticksvisible = false
+    ax.xlabel = "Rate(goal) - Rate(no-goal)"
     for _ax in [ax,ax0]
-        _ax.yticksvisible = true
+        _ax.xticksvisible = true
     end
+    # add an axis showing the poster labels
+    ax1 = Axis(lg[1,3])
+    imgs = [load(poster_img[k]) for k in poster_names]
+    posterpref = findfirst.(eachcol(gs.poster_selectivity))
+    qidx = posterpref.!== nothing
+    scatter!(ax1, fill(1.0,sum(qidx)), findall(qidx), marker=imgs[posterpref[qidx]], markersize=45)
+    linkyaxes!(ax, ax1)
+    hidedecorations!(ax1)
+    hidespines!(ax1)
+    colsize!(lg, 3, 50)
 end
 
 function plot_goal_poster_selectivity(gs::GoalPosterSelectivity)
     fidx_goal = [findall(gs.w_goal[:,i] .> 0.02) for i in 1:size(gs.w_goal,2)]
     nn = sum(length.(fidx_goal).>0)
-    width = 200*nn + 50
+    width = 600
     with_theme(theme_minimal()) do
-        fig = Figure(size=(width,300))
+        fig = Figure(size=(width,250))
         lg = GridLayout(fig[1,1])
         plot_goal_poster_selectivity!(lg, gs)
         fig
