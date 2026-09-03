@@ -251,36 +251,3 @@ function plot_goal_poster_selectivity(gs::GoalPosterSelectivity;kwargs...)
         fig
     end
 end
-
-function plot_goal_vs_non_goal_poster_tuning(X_goal, w_goal, X_nongoal, w_nongoal)
-    λ_goal = X_goal./w_goal
-    fidx_goal = [findall(w_goal[:,i] .> 0.02) for i in 1:size(w_goal,2)]
-    λ_nongoal = X_nongoal./w_nongoal
-    fidx_nongoal = [findall(w_nongoal[:,i] .> 0.02) for i in 1:size(w_nongoal,2)]
-
-    μ_goal = [mean(λ_goal[fidx_goal[i],i]) for i in 1:size(w_goal,2)]
-
-    μ_nongoal = zeros(1000, length(μ_goal))
-    qidx = findall(isfinite,μ_goal)
-
-    statstest = fill(false, length(μ_goal))
-    for i in axes(μ_nongoal,2)
-        μ_nongoal[:,i] = [mean(λ_nongoal[shuffle(fidx_nongoal[i])[1:length(fidx_goal[i])],i]) for _ in 1:1000]
-        if isfinite(μ_goal[i])
-            statstest[i] = μ_goal[i] > percentile(μ_nongoal[:,i], 85)
-        end
-    end
-    @show statstest
-    with_theme(theme_minimal()) do
-        fig = Figure(size=(100,300))
-        ax = Axis(fig[1,1])
-        yy =vec(μ_nongoal[:,qidx])
-        xx = vec([fill(1.0, 1000) fill(2.0, 1000)][:,qidx])
-        boxplot!(ax, xx, yy,show_outliers=false, show_notch=true)
-        scatter!(ax, qidx, μ_goal[qidx], color=:orange)
-        ax.xticksvisible = false
-        ax.xticklabelsvisible = false
-        ax.ylabel = "Firing rate [Hz]"
-        fig
-    end
-end
