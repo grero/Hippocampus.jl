@@ -191,7 +191,7 @@ end
 
 ## plots
 
-function plot_goal_poster_selectivity(gs::GoalPosterSelectivity)
+function plot_goal_poster_selectivity!(lg, gs::GoalPosterSelectivity)
     λ_goal = gs.X_goal./gs.w_goal
     fidx_goal = [findall(gs.w_goal[:,i] .> 0.02) for i in 1:size(gs.w_goal,2)]
     μ_goal = [mean(λ_goal[fidx_goal[i],i]) for i in 1:size(gs.w_goal,2)]
@@ -200,35 +200,42 @@ function plot_goal_poster_selectivity(gs::GoalPosterSelectivity)
     μ_nongoal = [mean(λ_nongoal[fidx_nongoal[i],i]) for i in 1:size(gs.w_goal,2)]
 
     Δ, Δs = generate_surrogates(gs)
-    width = 200*sum(isfinite.(μ_goal)) + 50
+    ax0 = Axis(lg[1,1])
+    Label(lg[1,1,TopLeft()], "A")
+    # For each view view, plot the goal and no-goal firing rate next to each other
+    ddp = vec(permutedims([fill(1, length(μ_goal)) fill(2, length(μ_nongoal))]))
+    yyp = vec(permutedims([μ_goal μ_nongoal]))
+    xxp = vec(permutedims([1:length(μ_goal) 1:length(μ_nongoal)]))
+    xt = vec(permutedims([1 2] .+ 2*([1:length(μ_goal);] .-1)))
+    barplot!(ax0, xt, yyp)
+    ax0.xticks = (xt, repeat(["Goal", "No goal"], length(μ_goal)))
+    ax0.xticklabelrotation = -π/6
+    ax0.xticklabelalign = (:left, :center)
+    ax0.ylabel = "Firing rate [Hz]"
+    ax0.xticksvisible = true
+
+    ax = Axis(lg[1,2])
+    Label(lg[1,2, TopLeft()], "B")
+    yy = vec(Δs[:,isfinite.(μ_goal)])
+    xx = reduce(vcat, [fill(i,size(Δs,1)) for i in findall(isfinite.(μ_goal))])
+    boxplot!(ax, xx, yy;show_outliers=false, show_notch=true)
+    scatter!(ax, [1:sum(isfinite.(μ_goal));], Δ[isfinite.(μ_goal)];color=:orange)
+    ax.xticklabelsvisible = false
+    ax.xticksvisible = false
+    ax.ylabel = "Rate(goal) - Rate(no-goal)"
+    for _ax in [ax,ax0]
+        _ax.yticksvisible = true
+    end
+end
+
+function plot_goal_poster_selectivity(gs::GoalPosterSelectivity)
+    fidx_goal = [findall(gs.w_goal[:,i] .> 0.02) for i in 1:size(gs.w_goal,2)]
+    nn = sum(length.(fidx_goal).>0)
+    width = 200*nn + 50
     with_theme(theme_minimal()) do
         fig = Figure(size=(width,300))
-        ax0 = Axis(fig[1,1])
-        Label(fig[1,1,TopLeft()], "A")
-        # For each view view, plot the goal and no-goal firing rate next to each other
-        ddp = vec(permutedims([fill(1, length(μ_goal)) fill(2, length(μ_nongoal))]))
-        yyp = vec(permutedims([μ_goal μ_nongoal]))
-        xxp = vec(permutedims([1:length(μ_goal) 1:length(μ_nongoal)]))
-        xt = vec(permutedims([1 2] .+ 2*([1:length(μ_goal);] .-1)))
-        barplot!(ax0, xt, yyp)
-        ax0.xticks = (xt, repeat(["Goal", "No goal"], length(μ_goal)))
-        ax0.xticklabelrotation = -π/6
-        ax0.xticklabelalign = (:left, :center)
-        ax0.ylabel = "Firing rate [Hz]"
-        ax0.xticksvisible = true
-
-        ax = Axis(fig[1,2])
-        Label(fig[1,2, TopLeft()], "B")
-        yy = vec(Δs[:,isfinite.(μ_goal)])
-        xx = reduce(vcat, [fill(i,size(Δs,1)) for i in findall(isfinite.(μ_goal))])
-        boxplot!(ax, xx, yy;show_outliers=false, show_notch=true)
-        scatter!(ax, [1:sum(isfinite.(μ_goal));], Δ[isfinite.(μ_goal)];color=:orange)
-        ax.xticklabelsvisible = false
-        ax.xticksvisible = false
-        ax.ylabel = "Rate(goal) - Rate(no-goal)"
-        for _ax in [ax,ax0]
-            _ax.yticksvisible = true
-        end
+        lg = GridLayout(fig[1,1])
+        plot_goal_poster_selectivity!(lg, gs)
         fig
     end
 end
