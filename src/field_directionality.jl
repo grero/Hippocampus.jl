@@ -1553,14 +1553,15 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     cr = (minimum([cr0[1],cr_f[1], cr_r[1]]), maximum([cr0[2], cr_f[2], cr_r[2]]))
     
     colormap = get(kwargs, :colormap, :rain)
+    ccolors = get_colors(colormap)
     lg1 = GridLayout(lg[1,1])
     Label(lg[1,1,TopLeft()], label[1])
-    ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=colormap, show_colorbar=false, colorrange=cr)
+    ax = plot_response_fields!(lg1, rf_spatial;_plot_theme=_plot_theme,colormap=colormap, show_colorbar=false, colorrange=cr, show_points=false, show_boundaries=true)
     lg2 = GridLayout(lg[1,2])
-    ax2 = plot_response_fields!(lg2, rf_spatial,λ_forward, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr)
+    ax2 = plot_response_fields!(lg2, rf_spatial,λ_forward, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr, show_boundaries=true)
     arrows2d!(ax2, cm, 2.5*Vec2(v[:,idx]), color=:black)
     lg3 = GridLayout(lg[1,3])
-    ax3 = plot_response_fields!(lg3, rf_spatial,λ_reverse, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr)
+    ax3 = plot_response_fields!(lg3, rf_spatial,λ_reverse, colormap=colormap, show_points=false, show_colorbar=false, colorrange=cr, show_boundaries=true)
     if show_titles
         ax.title = "All trials"
         ax2.title = "Forward"
@@ -1571,8 +1572,8 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     lg4 = GridLayout(lg[1,5])
     Label(lg[1,5,TopLeft()], label[2])
     ax4 = Axis(lg4[1,1])
-    boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray)
-    hlines!(ax4, mean(λf) - mean(λr), color=:black, linestyle=:dot)
+    boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray, show_outliers=false, show_notch=true)
+    scatter!(ax4, [1.0], [mean(λf) - mean(λr)], color=ccolors[idx])
     ax4.bottomspinevisible = false
     ax4.xticklabelsvisible = false
     ax4.xticksvisible = false
