@@ -450,9 +450,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         cc = [fill(1, length(X_view_nc));fill(2, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
 
         if distr_plot == :boxplot
-            boxplot!(ax2, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25])
+            boxplot!(ax2, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25],show_notch=true)
         else
-            violin!(ax2, xx,yy, orientation=:horizontal, color=cc)
+            violin!(ax2, xx,yy, orientation=:horizontal, show_median=true, color=[:royalblue, :gray25][cc])
         end
         scatter!(ax2, [μ_view_place], [1.0],color=ccolors[view_field_idx], label="Inside VF")
         scatter!(ax2, [μ_view], [1.0],color=:seagreen, label="Original VF")
@@ -490,7 +490,11 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         xx = [fill(1.0, length(X_place_nc));fill(2.0, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         yy = [X_place_nc;pvc.λ_sub[spatial_field_idx,view_field_idx,:]]
         cc = [fill(1, length(X_place_nc));fill(2, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
-        boxplot!(ax4, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25])
+        if distr_plot == :boxplot
+            boxplot!(ax4, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25],show_notch=true)
+        else
+            violin!(ax4, xx,yy, orientation=:horizontal, show_median=true, color=[:royalblue, :gray25][cc])
+        end
         scatter!(ax4, [μ_place_view], [1.0],color=ccolors[spatial_field_idx], label="Inside VF")
         scatter!(ax4, [μ_place], [1.0],color=:seagreen, label="Original VF")
         scatter!(ax4, [pvc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[view_field_idx], label="VF & PF")
