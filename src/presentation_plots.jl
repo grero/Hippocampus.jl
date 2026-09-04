@@ -447,6 +447,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         Label(lg2_1[3,1, TopLeft()], "D")
         xx = [fill(1.0, length(X_view_nc));fill(2.0, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         yy = [X_view_nc;vpc.λ_sub[spatial_field_idx,view_field_idx,:]]
+        ss_vpc = vpc.λ_covered[spatial_field_idx, view_field_idx] > percentile(vpc.λ_sub[spatial_field_idx, view_field_idx,:], 97.5)
+        ss_vp = μ_view_place > percentile(X_view_nc, 97.5)
         cc = [fill(1, length(X_view_nc));fill(2, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
 
         if distr_plot == :boxplot
@@ -454,9 +456,21 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         else
             violin!(ax2, xx,yy, orientation=:horizontal, show_median=true, color=[:royalblue, :gray25][cc])
         end
-        scatter!(ax2, [μ_view_place], [1.0],color=ccolors[view_field_idx], label="Inside VF")
+        if ss_vpc
+            marker_vpc = :star6
+        else
+            marker_vpc = :circle
+        end
+        if ss_vp
+            marker_vp = :start6
+        else
+            marker_vp = :circle
+        end
+        scatter!(ax2, [μ_view_place], [1.0],color=ccolors[view_field_idx], marker=marker_vp, label="Inside VF")
         scatter!(ax2, [μ_view], [1.0],color=:seagreen, label="Original VF")
-        scatter!(ax2, [vpc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[spatial_field_idx], label="VF & PF")
+        scatter!(ax2, [vpc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[spatial_field_idx], marker=marker_vpc, label="VF & PF")
+        if ss_vpc
+        end
         rowsize!(lg2_1, 3, 75)
         rowsize!(lg2_1,1, Relative(0.5))
         ax2.yticklabelsvisible = false
@@ -490,14 +504,26 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         xx = [fill(1.0, length(X_place_nc));fill(2.0, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         yy = [X_place_nc;pvc.λ_sub[spatial_field_idx,view_field_idx,:]]
         cc = [fill(1, length(X_place_nc));fill(2, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
+        ss_pvc =  pvc.λ_covered[spatial_field_idx, view_field_idx] > percentile(pvc.λ_sub[spatial_field_idx, view_field_idx,:], 97.5)
+        ss_pv =  μ_place_view > percentile(X_place_nc, 97.5)
+        if ss_pvc
+            marker_pvc = :star6
+        else
+            marker_pvc = :circle
+        end
+        if ss_pv
+            marker_pv = :star6
+        else
+            marker_pv = :circle
+        end
         if distr_plot == :boxplot
             boxplot!(ax4, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25],show_notch=true)
         else
             violin!(ax4, xx,yy, orientation=:horizontal, show_median=true, color=[:royalblue, :gray25][cc])
         end
-        scatter!(ax4, [μ_place_view], [1.0],color=ccolors[spatial_field_idx], label="Inside VF")
+        scatter!(ax4, [μ_place_view], [1.0],color=ccolors[spatial_field_idx], marker=marker_pv, label="Inside VF")
         scatter!(ax4, [μ_place], [1.0],color=:seagreen, label="Original VF")
-        scatter!(ax4, [pvc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[view_field_idx], label="VF & PF")
+        scatter!(ax4, [pvc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[view_field_idx], marker=marker_pvc,label="VF & PF")
         rowsize!(lg3, 3, 75)
         rowsize!(lg3,1, Relative(0.5))
         ax4.yticklabelsvisible = false
