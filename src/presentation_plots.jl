@@ -401,13 +401,15 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
     m_floor = Hippocampus.repair_mesh(Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3)))
     pidx = Hippocampus.getfields(vpc.spatial_fields;cluster_threshold=0.001)[spatial_field_idx]
     vidx = Hippocampus.getfields(vpc.view_fields;cluster_threshold=0.001)[view_field_idx]
-
-    λ_infield_view = Hippocampus.laplace_smoothing(Hippocampus.get_view_rate_map(jm, pidx, size(vpc.λ_infield,1)), mm, 0.1;niter=50)
-    λ_infield_place = Hippocampus.laplace_smoothing(Hippocampus.get_spatial_rate_map(jm, vidx, size(pvc.λ_infield,1)),m_floor,0.1;niter=50)
+    vm = Hippocampus.get_view_rate_map(jm, pidx, size(vpc.λ_infield,1))
+    λ_infield_view = vec(Hippocampus.laplace_smoothing(vm, mm, 0.1;niter=50))
+    λ_infield_view[vm.occupancy.==0] .= NaN
+    λ_infield_place = vec(Hippocampus.laplace_smoothing(Hippocampus.get_spatial_rate_map(jm, vidx, size(pvc.λ_infield,1)),m_floor,0.1;niter=50))
     X_place_nc, μ_place, μ_place_view = sample_map(pvc, view_field_idx, spatial_field_idx)
     X_view_nc, μ_view, μ_view_place = sample_map(vpc, view_field_idx,spatial_field_idx)
     colormap = get(kwargs, :colormap, :rain)
     ccolors = Hippocampus.get_colors(colormap)
+
     with_theme(_plot_theme) do
         fig = Figure(size=(1000,550))
         # show both place and view maps
@@ -426,7 +428,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         lg2_1 = GridLayout(lg2[1,1])
         lscene = LScene(lg2_1[1,1], show_axis=false)
         Hippocampus.plot_pillars!(lscene)
-        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=true,floor_offset=0.0)
+        α_view = fill(0.0, length(λ_infield_view))
+        α_view[isfinite.(λ_infield_view)] .= 1.0
+        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=true,floor_offset=0.0)
         ax1 = Axis(lg2_1[2,1], aspect=1)
         hidedecorations!(ax1)
         Hippocampus.plot_pillars!(ax1)
