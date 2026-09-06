@@ -429,4 +429,85 @@ function plot_goal_poster_selectivity_figure()
         fig
     end
 end
+
+"""
+Landmark cells are cells which maintain their poster ID selectivity from the cue to the 
+navigation period, i.e. cells which are selective to the poster during the cue period, and with
+view fields that overlap with the same poster during navigation
+"""
+function plot_landmark_cells(;redo=false)
+    fname = joinpath(@__DIR__, "..","data","landmark_cells.jld2")
+    if isfile(fname) && !redo
+        landmark_cells = JLD2.load(fname, "landmark_cells")
+    else
+        view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
+            readlines(fid)
+        end
+        view_poster_pref = map(view_cells) do celldir
+            qq = cd(celldir) do
+            Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.01)
+            end
+            findall(qq)
+        end
+        midx = findall((!isempty).(view_poster_pref))
+        poster_selective_view_cells = view_cells[midx]
+        # the the preferred poster of these cells during the cue period
+        cue_poster_pref = map(poster_selective_view_cells) do celldir
+            vv0, vv, model, preferred = Hippocampus.find_preferred_poster(celldir;nshuffles=10_000)
+            preferred
+        end
+        vv = [[v.I[1] for v in vv] for vv in view_poster_pref]
+        #parse the posterid
+        # find cells which overlapping cue and navigation poster preference
+        lmidx = findall((!isempty).(intersect.(vv[midx], cue_poster_pref)))
+        landmark_cells = poster_selective_view_cells[lmidx]
+        JLD2.save(fname, Dict("landmark_cells"=>landmark_cells, "view_cells"=>view_cells,
+                              "poster_selective_view_cells"=>poster_selective_view_cells,
+                              "view_poster_pref"=>view_poster_pref,
+                              "cue_poster_pref"=>cue_poster_pref,
+                              "landmark_idx"=>lmidx))
+    end
+
+    # show an example cell, with it's firing rate per poster during the cue period, and it's view field
+    # during the navgiation period
+    celldir = first(landmark_cells)
+    nspikes, posterid, outcome = Hippocampus.get_poster_cue_response(celldir)
+    vv0,vv, model, preferred = Hippocampus.find_preferred_poster(celldir;nshuffles=10_000)
+    rf_gaze = cd(celldir) do
+       Hippocampus.get_response_fields(Hippocampus.GazeResponseFields, 1000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+    end
+    qq = cd(celldir) do
+        Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.01)
+    end
+    imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    with_theme(plot_theme) do
+        fig = Figure(size=(975,442))
+        lg1 = GridLayout(fig[1,1])
+        ax1 = Axis(lg1[1,1])
+        boxcolors = fill(parse(Colorant, :lightgray), 6)
+        boxcolors[preferred] .= parse(Colorant, :mediumpurple1)
+        boxplot!(ax1, posterid[outcome.==3], nspikes[outcome.==3], show_outliers=false, show_notch=true, color=posterid[outcome.==3], colormap=boxcolors)
+        ax1.xticklabelsvisible = false
+        ax1.ylabel = "Firing rate [Hz]"
+        ax1.xticks = [1:6;]
+        ax2 = Axis(lg1[2,1])
+        scatter!(ax2, [1:6;], fill(1.0, 6), marker=imgs, markersize=50)
+        hidedecorations!(ax2)
+        hidespines!(ax2)
+        ax2.yticklabelsvisible = false
+        ax2.yticksvisible = false
+        ax2.leftspinevisible = false
+        ax2.xticksvisible = false
+        ax2.xticklabelsvisible = false
+        linkxaxes!(ax1, ax2)
+        rowsize!(lg1, 2, 60)
+        # now show the view fields
+        lg2 = GridLayout(fig[1,2])
+        Hippocampus.plot_response_fields!(lg2, rf_gaze;colormap=:rain, indicate_north=false, hide_ceiling=true, floor_offset=0)
+        Label(fig[1,1, TopLeft()], "A")
+        colsize!(fig.layout, 1, Relative(0.4))
+        Label(fig[1,2, TopLeft()], "B")
+        fig
+    end
+end
 end #module
