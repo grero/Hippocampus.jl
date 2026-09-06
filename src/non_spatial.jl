@@ -72,7 +72,7 @@ function get_spikes(celldirs::Vector{String};kwargs...)
     spikes
 end
 
-function get_poster_cue_response(celldir::String;previous=false, future=0, alignto=2, tmin=0.0)
+function get_poster_cue_response(celldir::String;previous=false, future=0, tmin=0.0,kwargs...)
     # get the spiketrains
     sp, rp, udata = cd(celldir) do
         sp = Spiketrain()
