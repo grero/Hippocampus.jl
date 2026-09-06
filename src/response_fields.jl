@@ -581,6 +581,12 @@ function get_response_fields(::Type{T},args...;redo=fname->false, do_save=true, 
     obj
 end
 
+function find_view_field_intersections(;kwargs...)
+    qq = Dict{Symbol,Any}()
+    find_view_field_intersections!(qq;kwargs...)
+    qq
+end
+
 function find_view_field_intersections!(qq::Dict{Symbol,Any};kwargs...)
     nshuffles = get(kwargs, :nshuffles, 10_000)
     rf_gaze = get_response_fields(GazeResponseFields, nshuffles;kwargs...)
@@ -598,6 +604,68 @@ function find_poster_view_intersection(vidx::AbstractVector{<:Integer},mm::Simpl
     qq
 end
 
+function find_poster_view_intersection(;kwargs...)
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 1000);kwargs...)
+    mm = get_maze_mesh(;nrefinements=nrefinements.g)
+    viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    qq = fill(false, 6, length(viewclusters))
+    if isempty(viewclusters)
+        return qq
+    end
+    for (ii,vidx) in enumerate(viewclusters)
+        qq[:,ii] = find_poster_view_intersection(vidx, mm)
+    end
+    qq
+end
+
+function find_poster_place_intersection(pidx::AbstractVector{<:Integer},m_floor::SimpleMesh;_poster_pos=poster_pos,k=2,kwargs...)
+    kn = KNearestSearch(m_floor,k);
+    qq = fill(false, 6)
+    min_dist = fill(Inf,6)
+    centroids = Tuple.(centroid.(m_floor[pidx]))
+    ms = Meshes.ustrip.(sqrt.(measure.(m_floor[pidx])))
+    for (jj,k) in enumerate(poster_names)
+        pos = _poster_pos[k]
+        # find the neighbors
+        nidx, dd = searchdists(Meshes.Point(pos...), kn)
+        qq[jj] = !isempty(intersect(nidx, pidx))
+        min_dist[jj] = minimum(Meshes.ustrip.(dd))
+        #for (p,m) in zip(centroids, ms)
+        #    d = norm(pos .- p)
+        #    if d < min_dist[jj]
+        #         min_dist[jj] = d
+        #    end
+        #    qq[jj] = qq[jj] || d <= m
+        #qq[jj] = any([norm(pos .- p) <= m for (p,m) in zip(centroids,ms)])
+        #end
+    end
+    qq, min_dist
+end
+
+function find_poster_place_intersection(celldir::String;kwargs...)
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=nrefinements.p))
+    rf_spatial = cd(celldir) do
+        get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 1000);kwargs...)
+    end
+    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    q = fill(false, 6,length(spatial_clusters))
+    min_dist = fill(Inf, 6, length(spatial_clusters))
+    if isempty(spatial_clusters)
+        return q,min_dist
+    end
+    sessiondir = DPHT.get_level_path("session", celldir)
+    udata = cd(sessiondir) do
+        UnityData()
+    end
+    poster_pos =  Dict(k=>v[[1,3]] for (k,v) in udata.header["PosterLocations"])
+    for (ii,pidx) in enumerate(spatial_clusters)
+        q[:,ii],min_dist[:,ii] = find_poster_place_intersection(pidx, m_floor;_poster_pos=poster_pos,kwargs...)
+    end
+    q, min_dist
+end
+
 function find_view_field_intersections!(qq::Dict{Symbol,Any}, rf_gaze::GazeResponseFieldsAll;kwargs...)
     # TODO: This is hardcoded and should be made to dependend on the particular session We
     #       are looking at
@@ -605,7 +673,12 @@ function find_view_field_intersections!(qq::Dict{Symbol,Any}, rf_gaze::GazeRespo
     nrefinments = get(kwargs, :nrefinements, (p=3,g=2))
     mm = get_maze_mesh(;nrefinements=nrefinments.g)
     grouped_bins = group_bins(mm)
-    vidx = reduce(vcat, getfields(rf_gaze;cluster_threshold=0.001))
+    viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if isempty(viewclusters)
+        return qq
+    end
+
+    vidx = reduce(vcat, viewclusters)
     qq_pillars = fill(false, 4)
     fv = in(vidx)
     if !(:pillars in keys(qq))
