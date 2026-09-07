@@ -288,27 +288,26 @@ function get_poster_index(mazename::AbstractString)
     poster_idx = findfirst(k->occursin(lowercase(pp[end]),k),poster_img) 
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
-    nt = numtrials(x)
-    pos_points = Point2f[]
-    lc = Float64[]
-    for i in 1:nt
-        tu, posx, posy, _ = Hippocampus.get_trial(x, i;trial_start=2);
-        append!(lc, range(0.0, stop=1.0, length=length(tu)))
-        for (px,py) in zip(posx, posy)
-            push!(pos_points, Point2f(px,py))
-        end
-        push!(pos_points, Point2f(NaN))
-        push!(lc, NaN)
-    end
-    ax1 = S.Axis(plots=[S.Lines(pos_points, color=lc)])
-    ax2 = S.Colorbar(colorrange=(0.0, 1.0), label="Trial progression")
-    S.GridLayout([ax1 ax2])
+function Makie.convert_arguments(::Type{T}, x::UnityData)  where T <: AbstractPlot
+
+    [convert_arguments(T, Pillars()),PlotSpec(Lines, Point2f.(eachrow(x.position)))]
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData, trial::Trial) 
+function Makie.convert_arguments(::Type{T}, x::UnityData, trial::Trial) where T <: AbstractPlot
     t,posx,posy = get_trial(x, trial.i)
-    PlotSpec(Lines, posx, posy)
+    [convert_arguments(T, Pillars()), PlotSpec(Lines, posx, posy),
+    PlotSpec(Scatter, Point2f.([(posx[1], posy[1]),(posx[end], posy[end])]), color=[:green, :red])]
+end
+
+function Makie.convert_arguments(::Type{T}, x::UnityData, trial::Observable{Trial}) where T <: AbstractPlot
+    start_end = Observable([Point2f(NaN), Point2f(NaN)])
+    points = lift(trial) do trial
+        t,posx,posy = get_trial(x, trial.i)
+        start_end[] = [Point2f(posx[1], posy[1]), Point2f(posx[end], posy[end])]
+        Point2f.(zip(posx, posy))
+    end
+    [convert_arguments(T, Pillars()), PlotSpec(Lines, points),
+    PlotSpec(Scatter, start_end, color=[:green, :red])]
 end
 
 function angle2arrow(a::Float64)
