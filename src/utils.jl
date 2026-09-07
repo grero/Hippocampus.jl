@@ -288,6 +288,10 @@ struct Trial
     i::UInt64
 end
 
+struct Frame
+    i::UInt64
+end
+
 function parse_cellname(cellname::String)
     re = r"(\d{8,8})ch(\d{1,3})c(\d+)"
     m = match(re, cellname)
