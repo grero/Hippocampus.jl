@@ -136,6 +136,26 @@ function process_kwargs(::Type{<:AbstractInformationContent};nshuffles=10_000, n
     if trial_start != 2
         h = CRC32c.crc32c(string(:trial_start=>trial_start),h)
     end
+    min_speed = get(kwargs, :min_speed, 1.0)
+    if min_speed != 1.0
+        h = CRC32c.crc32c(string(:min_speed=>min_speed),h)
+    end
+    min_place_duration = get(kwargs, :min_place_duration, 0.05)
+    if min_place_duration != 0.05
+        h = CRC32c.crc32c(string(:min_place_duration=>min_place_duration),h)
+    end
+    min_place_obs = get(kwargs, :min_place_obs, 5)
+    if min_place_obs != 5
+        h = CRC32c.crc32c(string(:min_place_obs=>min_place_obs),h)
+    end
+    min_view_obs = get(kwargs, :min_view_obs, 5)
+    if min_view_obs != 5
+        h = CRC32c.crc32c(string(:min_view_obs=>min_view_obs),h)
+    end
+    min_view_duration = get(kwargs, :min_view_duration, 0.05)
+    if min_view_duration != 0.02
+        h = CRC32c.crc32c(string(:min_view_duration=>min_view_duration),h)
+    end
     if smooth
         h = CRC32c.crc32c(string(:smoothing_method=>smoothing_method),h)
         if smoothing_method==:gaussian
