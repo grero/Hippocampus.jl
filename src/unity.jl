@@ -90,6 +90,8 @@ pillar_boundaries = Dict(:blue => pillar1_boundary,
                          :green => pillar2_boundary,
                          :red => pillar3_boundary)
 
+struct Pillars
+end
 
 function plot_pillars!(ax::Axis;kwargs...)
     for k in [:red, :yellow, :blue, :green]
@@ -101,6 +103,12 @@ function plot_pillars!(ax::Union{Axis3,LScene};floor_offset=0)
     for k in [:red, :yellow, :blue, :green]
         viz!(ax, Meshes.PolyArea(Translate(0.0, 0.0, floor_offset)(pillar_boundaries[k])), color=maze_colors[k])
     end
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::Pillars) 
+    kk = [:red, :yellow, :blue, :green]
+    PlotSpec(Scatter, Point2f.([pillar_positions[k][:center] for k in kk]), 
+                      marker=Rect, markersize=5, markerspace=:data, color=[maze_colors[k] for k in kk])
 end
 
 # TODO: Use actual values here
