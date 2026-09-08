@@ -423,10 +423,12 @@ function conjunctions2(jm::JointMap, viewidx::AbstractVector{<:Integer}, placeid
     for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
         vidx = getindex(qidx,1)
         pidx = getindex(qidx,2)
-        if ffk(qidx)
+        if ffk(qidx) # are we in the place/view field?
         #if ffp(pidx)
             if ffc(qidx)
                 push!(in_view_idx,vidx)
+                # since we need to be both in the place and view field, this is essentially
+                # λ|(p=p1, v=p2)
                 time_in_field += occ
                 spikes_in_field += w
                 push!(in_field_matched, (vidx, pidx, w, occ))
