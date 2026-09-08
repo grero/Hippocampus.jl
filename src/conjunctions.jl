@@ -695,16 +695,20 @@ function PlaceViewConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=
     X
 end
 
-function ViewPlaceConjunction(;redo=fname->false, do_save=true, load_only=false, kwargs...)
+function ViewPlaceConjunction(;kwargs...)
+    ViewPlaceConjunction(GazeResponseFields, SpatialResponseFields;kwargs...)
+end
+
+function ViewPlaceConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=true, load_only=false, kwargs...) where T1 <: Union{GazeResponseFields, GazeResponseFieldsSimple} where T2 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple}
     fname = "view_place_conjunction.jld2"
-    h = process_kwargs(ViewPlaceConjunction;kwargs...)
+    h = process_kwargs(ViewPlaceConjunction{T1,T2};kwargs...)
     if h > 0
         hs = string(h,base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
     do_compute = true 
     if !redo(fname) && isfile(fname)
-        X = load_jld2(ViewPlaceConjunction,fname)
+        X = load_jld2(ViewPlaceConjunction{T1,T2},fname)
        if isa(X, JLD2.ReconstructedMutable)
             do_compute = true
         else
@@ -717,16 +721,16 @@ function ViewPlaceConjunction(;redo=fname->false, do_save=true, load_only=false,
     end
     if do_compute
         jm = JointMap(;kwargs...)
-        rf_spatial = get_response_fields(SpatialResponseFields,10_000;kwargs...)
+        rf_spatial = get_response_fields(T2,10_000;kwargs...)
         if isa(rf_spatial, JLD2.ReconstructedMutable)
-            rf_spatial = get_response_fields(SpatialResponseFields,10_000;redo=fname->true, kwargs...)
+            rf_spatial = get_response_fields(T2,10_000;redo=fname->true, kwargs...)
         end
-        rf_gaze = get_response_fields(GazeResponseFields,10_000;kwargs...)
+        rf_gaze = get_response_fields(T1,10_000;kwargs...)
         if isa(rf_gaze, JLD2.ReconstructedMutable)
-            rf_gaze = get_response_fields(GazeResponseFields,10_000;redo=fname->true, kwargs...)
+            rf_gaze = get_response_fields(T1,10_000;redo=fname->true, kwargs...)
         end
-        λ_covered, λ_sub,λ_infield, λ_outfield = conjunctions(jm, rf_gaze, rf_spatial)
-        X = ViewPlaceConjunction(rf_gaze, rf_spatial, λ_covered, λ_sub,λ_infield, λ_outfield)
+        λ_covered, λ_sub,λ_infield, λ_outfield, matched_idx = conjunctions2(jm, rf_gaze, rf_spatial,2)
+        X = ViewPlaceConjunction{T1,T2}(rf_gaze, rf_spatial, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
         if do_save
             save_jld2(X,fname)
         end
