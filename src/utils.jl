@@ -1215,3 +1215,16 @@ function sample_map(op, λ::Vector{<:Number}, A::AbstractMatrix{<:Number}, k::In
     end
     X
 end
+
+function benjamini_yekutieli_fdr(pvalues::AbstractVector{T},α::T) where T <: Real 
+    m = length(pvalues)
+    sidx = sortperm(pvalues)
+    #harmonic number
+    cm = sum(1.0./[1:m;])
+    aa = [1:m;].*α./(m*cm)
+    k = findlast(aa.>=pvalues[sidx])
+    if k === nothing
+        return Int64[]
+    end
+    sidx[1:k]
+end
