@@ -644,6 +644,13 @@ function process_kwargs(::Type{PlaceViewConjunction{T1,T2}},h::UInt32=zero(UInt3
     h
 end
 
+function process_kwargs(::Type{ViewPlaceConjunction{T1,T2}},h::UInt32=zero(UInt32);kwargs...) where T2 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple} where T1 <: Union{GazeResponseFields, GazeResponseFieldsSimple}
+    h = process_kwargs(JointMap,h;kwargs...)
+    h = process_kwargs(T1,h;kwargs...)
+    h = process_kwargs(T2,h;kwargs...)
+    h
+end
+
 function PlaceViewConjunction(;kwargs...)
     PlaceViewConjunction(SpatialResponseFields, GazeResponseFields;kwargs...)
 end
