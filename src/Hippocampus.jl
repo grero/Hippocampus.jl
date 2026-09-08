@@ -3,17 +3,36 @@ using Makie
 using Glob
 using DrWatson
 using DataProcessingHierarchyTools
+using RippleTools
+using JLD2
+using ProgressMeter
+using Meshes
+using CRC32c
+
 const DPHT = DataProcessingHierarchyTools
+include("datautils.jl")
+include("topology.jl")
+include("displacement_fields.jl")
 include("utils.jl")
 include("paths.jl")
 include("sprites.jl")
 include("neuropixels.jl")
-include("eyelink.jl")
 include("rawdata.jl")
+include("eyelink.jl")
 include("spikedata.jl")
 include("unity.jl")
 include("spatial.jl")
+include("non_spatial.jl")
 include("replay.jl")
 include("models.jl")
-include("mountainsort.jl")
+include("decoding.jl")
+#include("mountainsort.jl") # until InteractiveViz is compatible with Makie 0.24
+include("glmfits.jl")
+include("algorithms.jl")
+include("response_fields.jl")
+include("field_directionality.jl")
+include("conjunctions.jl")
+include("plots.jl")
+include("poster_analysis.jl")
+include("goal_poster_analysis.jl")
 end

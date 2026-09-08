@@ -49,5 +49,5 @@ end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, sp::Sprite)
     gb_mesh = GeometryBasics.Mesh(sp.points, sp.faces; uv = Vec2f.(sp.uv), normal =sp.normals)
-    PlotSpec(Makie.Mesh, gb_mesh,color=sp.img)
+    PlotSpec(Makie.Mesh, gb_mesh,color=sp.img, shading=false)
 end

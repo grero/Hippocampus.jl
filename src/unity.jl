@@ -7,6 +7,10 @@ using FileIO
 using StatsBase
 using ImageFiltering
 
+struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Vec2,T5<:Vec3}
+    sprite::Vector{Sprite{T, T2, T3, T4, T5}}
+end
+
 # TODO: Unclear if these are the latest values. Perhaps update?
 xBound = [-12.5, 12.5, 12.5, -12.5, -12.5]
 zBound = [12.5, 12.5, -12.5, -12.5, 12.5]
@@ -40,11 +44,72 @@ poster_pos[:donkey] = (5.168, 7.561)
 poster_pos[:croc] = (5.0, 2.433)
 poster_pos[:rabbit] = (7.561, -5.0)
 
+# hard coded new poster locations
+poster_pos_new = Dict{Symbol,NTuple{3,Float64}}()
+poster_pos_new[:camel] = (-5.0, -7.6, 1.4)
+poster_pos_new[:cat] = (7.6, -5.0, 1.4)
+poster_pos_new[:pig] = (2.4, -5.0, 1.4)
+poster_pos_new[:donkey] = (-7.6, 5.0, 1.4)
+poster_pos_new[:croc] = (-2.4, 5.0, 1.4)
+poster_pos_new[:rabbit] = (5.0, 7.6, 1.4)
+
+poster_color = Dict{Symbol, Symbol}()
+poster_color[:camel] = :navajowhite2
+poster_color[:cat] = :orange
+poster_color[:pig] = :salmon
+poster_color[:donkey] = :gray55
+poster_color[:croc] = :seagreen
+poster_color[:rabbit] = :whitesmoke
+poster_names = [:camel, :cat, :croc, :donkey, :pig, :rabbit]
+
+maze_colors = Dict(:yellow => RGB(165/255,140/255,24/255), #yellow
+                :blue => RGB(31/255,70/255,129/255), #blue 
+                :green => RGB(59/255,130/255,37/255), # green
+                :red => RGB(125/255,60/255,55/255), # red
+                :floor => RGB(109/255,109/255,100/255),
+                :wall => RGB(163/255,159/255,142/255),
+                :ceiling => RGB(122/255,112/255,83/255)
+                )
 
 #poster_pos = [[-5, -7.55], [-7.55, 5], [7.55, -5], [5, 7.55], [-5, 2.45], [5, -2.45]]
 # for some reason x and y appear to be flipped
 #poster_pos = reverse.(poster_pos)
 poster_img = Dict(zip([:camel,:cat,:croc, :donkey,:pig,:rabbit], joinpath.(@__DIR__, "..","artefacts",  ["camel 1.png","cat 1.png","crocodile.png","donkey 1.png","pig 1.png","rabbit 1.png"])))
+
+# hard coded outer maze and pillar boundaries
+maze_boundary = Ring(Meshes.Point(-12.5, -12.5,0.0), Meshes.Point(12.5, -12.5, 0.0), Meshes.Point(12.5, 12.5,0.0),
+                     Meshes.Point(-12.5, 12.5,0.0))
+pillar1_boundary = Ring(Meshes.Point(-7.5, -7.5,0.0), Meshes.Point(-2.5, -7.5,0.0), Meshes.Point(-2.5, -2.5,0.0), Meshes.Point(-7.5, -2.5, 0.0))
+pillar2_boundary = Ring(Meshes.Point(2.5, -7.5,0.0), Meshes.Point(7.5, -7.5,0.0), Meshes.Point(7.5, -2.5,0.0), Meshes.Point(2.5, -2.5, 0.0))
+pillar3_boundary = Ring(Meshes.Point(2.5, 2.5, 0.0), Meshes.Point(7.5, 2.5, 0.0), Meshes.Point(7.5, 7.5, 0.0), Meshes.Point(2.5, 7.5, 0.0))
+pillar4_boundary = Ring(Meshes.Point(-7.5, 2.5, 0.0), Meshes.Point(-2.5, 2.5, 0.0), Meshes.Point(-2.5, 7.5, 0.0), Meshes.Point(-7.5, 7.5, 0.0))
+#pillar_boundaries = [pillar1_boundary, pillar2_boundary, pillar3_boundary, pillar4_boundary]
+
+pillar_boundaries = Dict(:blue => pillar1_boundary,
+                         :yellow => pillar4_boundary,
+                         :green => pillar2_boundary,
+                         :red => pillar3_boundary)
+
+struct Pillars
+end
+
+function plot_pillars!(ax::Axis;kwargs...)
+    for k in [:red, :yellow, :blue, :green]
+        viz!(ax, Meshes.PolyArea(Meshes.Shadow("xy")(pillar_boundaries[k])), color=maze_colors[k])
+    end
+end
+
+function plot_pillars!(ax::Union{Axis3,LScene};floor_offset=0)
+    for k in [:red, :yellow, :blue, :green]
+        viz!(ax, Meshes.PolyArea(Translate(0.0, 0.0, floor_offset)(pillar_boundaries[k])), color=maze_colors[k])
+    end
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, x::Pillars) 
+    kk = [:red, :yellow, :blue, :green]
+    PlotSpec(Scatter, Point2f.([pillar_positions[k][:center] for k in kk]), 
+                      marker=Rect, markersize=5, markerspace=:data, color=[maze_colors[k] for k in kk])
+end
 
 # TODO: Use actual values here
 camera_height = 2.5
@@ -96,6 +161,7 @@ function UnityData(data, header)
     # trial end is either 3x, or 4x, where 3 indicates success and 4 indicates time out
     trial_end_idx = findall(30.0 .< data[:,1] .< 50.0)
     length(trial_start_idx) == length(trial_start_nav) == length(trial_end_idx) || error("Inconsitent number of triggers")
+    @debug length.([trial_start_idx, trial_start_nav, trial_end_idx])
     nt = length(trial_start_idx)
     triggers = [data[trial_start_idx,1] data[trial_start_nav,1] data[trial_end_idx,1]]
     timestamps = [_time[trial_start_idx] _time[trial_start_nav] _time[trial_end_idx]]
@@ -137,7 +203,12 @@ numtrials(x::UnityData) = size(x.triggers,1)
 function get_trial(data::UnityData, i;trial_start=1)
     idx0 = searchsortedfirst(data.time, data.timestamps[i,trial_start])
     idx1 = searchsortedfirst(data.time, data.timestamps[i,3])
-    data.time[idx0:idx1], data.position[idx0:idx1, 1], data.position[idx0:idx1, 2], data.head_direction[idx0:idx1]
+    data.time[idx0:idx1] .- data.timestamps[i,trial_start], data.position[idx0:idx1, 1], data.position[idx0:idx1, 2], data.head_direction[idx0:idx1]
+end
+
+function get_velocity(data::UnityData, i;kwargs...)
+    tp,posx,posy,_ = get_trial(data, i;kwargs...)
+    vv = [posx[2:end]-posx[1:end-1] posy[2:end]-posy[1:end-1]]./diff(tp)
 end
 
 """
@@ -187,7 +258,8 @@ function read_unity_file(fname::String)
                 if k == "name" 
                     # grab the next line which shoud be the position
                     k2,v2 = split(lines[i+1], ':')
-                    _header[poster_idx] = parse(NTuple{3,Float64},v2)
+                    # reoarrange to put z last
+                    _header[poster_idx] = parse(NTuple{3,Float64},v2)[[1,3,2]]
                 elseif k == "posterPosition"
                     # do nothing since we've already processed this line above
                 end
@@ -210,6 +282,12 @@ function read_unity_file(fname::String)
         data = data[:,2:end]
     end
     data = convert(Matrix{Float64}, data)
+    # hack
+    header_new = Dict{Symbol, NTuple{3,Float64}}()
+    for (k,v) in header["PosterLocations"]
+        header_new[Symbol(k)] = v
+    end
+    header["PosterLocations"] = header_new
     data, header, column_names
 end
 
@@ -218,13 +296,26 @@ function get_poster_index(mazename::AbstractString)
     poster_idx = findfirst(k->occursin(lowercase(pp[end]),k),poster_img) 
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData) 
-    PlotSpec(Lines, x.position[:,1], x.position[:,2])
+function Makie.convert_arguments(::Type{T}, x::UnityData)  where T <: AbstractPlot
+
+    [convert_arguments(T, Pillars()),PlotSpec(Lines, Point2f.(eachrow(x.position)))]
 end
 
-function Makie.convert_arguments(::Type{<:AbstractPlot}, x::UnityData, trial::Trial) 
+function Makie.convert_arguments(::Type{T}, x::UnityData, trial::Trial) where T <: AbstractPlot
     t,posx,posy = get_trial(x, trial.i)
-    PlotSpec(Lines, posx, posy)
+    [convert_arguments(T, Pillars()), PlotSpec(Lines, posx, posy),
+    PlotSpec(Scatter, Point2f.([(posx[1], posy[1]),(posx[end], posy[end])]), color=[:green, :red])]
+end
+
+function Makie.convert_arguments(::Type{T}, x::UnityData, trial::Observable{Trial}) where T <: AbstractPlot
+    start_end = Observable([Point2f(NaN), Point2f(NaN)])
+    points = lift(trial) do trial
+        t,posx,posy = get_trial(x, trial.i)
+        start_end[] = [Point2f(posx[1], posy[1]), Point2f(posx[end], posy[end])]
+        Point2f.(zip(posx, posy))
+    end
+    [convert_arguments(T, Pillars()), PlotSpec(Lines, points),
+    PlotSpec(Scatter, start_end, color=[:green, :red])]
 end
 
 function angle2arrow(a::Float64)
@@ -279,21 +370,6 @@ function visualize!(lscene, udata::UnityData;trial::Observable{Trial}=Observable
     end
 end
 
-function plot_arena()
-    fig = Figure()
-    ax = Axis(fig[1,1])
-    plot_arena!(ax)
-    fig,ax
-end
-
-function plot_arena!(ax)
-    poly!(ax, Point2f.(zip(zBound, xBound)),color=:grey)
-    poly!(ax, Point2f.(zip(z1Bound, x1Bound)), color=:yellow)
-    poly!(ax, Point2f.(zip(z2Bound, x2Bound)), color=:red)
-    poly!(ax, Point2f.(zip(z3Bound, x3Bound)), color=:blue)
-    poly!(ax, Point2f.(zip(z4Bound, x4Bound)), color=:green)
-end
-
 """
     soft_range(start::T, stop::T,step::T) where T <: Real
 
@@ -332,6 +408,17 @@ end
 OrientedMesh(bins, normal::AbstractVector{T}) where T <: Real = OrientedMesh(bins, Vec3f(normal))
 
 Base.length(om::OrientedMesh) = 1
+
+function impacts(pos,mm::OrientedMesh)
+    a = true 
+    for (i,b) in enumerate(mm.bins)
+        if !(first(b) <= pos[i] <= last(b))
+            a = false
+            break
+        end
+    end
+    return a
+end
 
 """
 Get a rectangle encompassing the inner face of the mesh
@@ -388,6 +475,204 @@ struct MazeModel{T<:AbstractVector{<: Real}}
     pillars::Vector{Vector{OrientedMesh{T}}}
     floor::Vector{OrientedMesh{T}}
     ceiling::OrientedMesh{T}
+end
+
+struct MazeModelNew{T<:AbstractMesh{<:Any, <:Any}}
+    walls::Vector{T}
+    pillars::Vector{Vector{T}}
+    floor::T
+    ceiling::T
+end
+
+function MazeModelNew()
+    fname = joinpath(@__DIR__, "..","artefacts","DTLarge.obj")
+    MazeModelNew(fname)
+end
+
+function MazeModelNew(fname::String)
+    mm = load(fname)
+    mm_b = GeometryBasics.Mesh(mm)
+    #pillars 
+    pillars = [[findfirst([occursin("m_wall_$(j)_$(i)_", g) for g in mm.meta[:groups]]) for i in 1:4] for j in 1:4]
+    pillar_mesh = [split_mesh(mm_b, mm.views[pillar]) for pillar in pillars]
+
+    walls = findall([occursin(r"wall_[0-9]{2,2}", g) for g in mm.meta[:groups]])
+    wall_mesh = split_mesh(mm_b, mm.views[walls]) 
+
+    ceiling = findall([occursin("Ceiling", g) for g in mm.meta[:groups]])
+    ceiling_mesh = split_mesh(mm_b, mm.views[ceiling])
+
+    ground = findall([occursin("Ground", g) for g in mm.meta[:groups]])
+    ground_mesh = split_mesh(mm_b, mm.views[ground])
+
+    MazeModelNew(wall_mesh, pillar_mesh, first(ground_mesh), first(ceiling_mesh))
+end
+
+function get_pillar_colors(mm::MazeModelNew)
+     # the pillars are number counter-clockwise.
+    pillar_colors = HSV.(parse.(Colorant,circshift([:green, :blue, :yellow, :red],-1)))
+    #change saturation
+    pillar_colors = [HSV(hsv.h, 0.6*hsv.s, hsv.v) for hsv in pillar_colors]
+    pillar_colors
+end
+
+function Makie.convert_arguments(::Type{<:AbstractPlot}, mm::MazeModelNew)
+    # TODO: Add textures
+    hsv = HSV(RGB(0.498, 0.263,0.025))
+    x = range(-12.5f0, stop=12.5f0, length=200)
+    dd = x .- permutedims(x)
+    Q = exp.(-dd.^2/0.75f0)
+    Qs = sqrt(Q)
+    X = Qs'*randn(Float32, 200,200)*Qs
+    X .= 0.2f0 .+ 0.8f0*(X .- minimum(X))./(maximum(X) - minimum(X))
+    _color = HSV.(hsv.h, hsv.s, X)
+    plots = [S.Mesh(mm.floor, color=_color,shininess=16, specular=0.1)]
+    #push!(plots, S.Mesh(mm.ceiling, color=:gray))
+    for mw in mm.walls
+        rr = Rect(mw)
+        w = sort(rr.widths)
+        _color,_uv = generate_tile(RGB(0.3, 0.3, 0.3), w[1],w[2];nn=60,period=10, buffer=3)
+        push!(plots, S.Mesh(mw, color=_color,specular=0.1, shininess=16))
+    end
+
+    # TODO: Match this
+    #pillar_colors = fill(parse(Colorant, :red), 4)
+    #for (ii,pillar) in enumerate(mm.pillars)
+    #    μ = zeros(Float32, 3)
+    #    for mp in pillar
+    #        μ .+= mean(mp.position)
+    #    end
+    #    μ ./= 4
+    #    if μ[1] > 0 && μ[2] < 0
+    #        pillar_colors[ii] = parse(Colorant, :blue)
+    #    elseif μ[1] > 0 && μ[2] > 0
+    #        pillar_colors[ii] = parse(Colorant,:yellow)
+    #    elseif μ[1] < 0 && μ[2] < 0
+    #        pillar_colors[ii] = parse(Colorant, :green)
+    #    else
+    #        pillar_colors[ii] = parse(Colorant,:red)
+    #    end
+    #end
+    pillar_colors = get_pillar_colors(mm)
+
+    for (pillar,color) in zip(mm.pillars, pillar_colors)
+        nn = get_normal(pillar)
+        for (ii,mp) in enumerate(pillar)
+            μ = mean(mp.position)
+            # this is hackish
+            rr = Rect(mp)
+            w = sort(rr.widths)
+            _color,_uv = generate_tile(color, w[1],w[2];nn=60,period=20, buffer=3)
+            push!(plots, S.Mesh(mp,color=_color))
+            #push!(plots, S.Arrows3D(μ, nn[ii],color=:black))
+        end
+    end
+    plots
+end
+
+function Makie.convert_arguments(::Type{<:Wireframe}, mm::MazeModelNew, hide_ceiling=false)
+    plots = [S.Wireframe(mm.floor, color=(:black, 0.2),transparency=true)]
+    if !hide_ceiling
+        push!(plots, S.Wireframe(mm.ceiling, color=(:black, 0.2), transparency=true))
+    end
+    for mw in mm.walls
+        push!(plots, S.Wireframe(mw,color=(:black, 0.2), transparency=true))
+    end
+
+    pillar_colors = get_pillar_colors(mm)
+    for (pillar,_color) in zip(mm.pillars,pillar_colors)
+        for (ii,mp) in enumerate(pillar)
+            push!(plots, S.Wireframe(mp, color=(_color, 0.2),transparency=true))
+        end
+    end
+    plots
+end
+
+function Makie.convert_arguments(T::Type{<:AbstractPlot}, mm::MazeModelNew, posters::Posters)
+    plots = convert_arguments(T, mm)
+    append!(plots, convert_arguments(T, posters))
+    plots
+end
+
+function impacts(pos, mm::MazeModelNew)
+    a = false
+    for wall in mm.walls
+        r = Rect(wall)
+        if in(r)(pos)
+            a = true
+            break
+        end
+    end
+    if !a
+        a = a || (in(Rect(mm.ceiling))(pos) || in(Rect(mm.floor))(pos))
+    end
+    if !a 
+        for pillar in mm.pillars
+            for mp in pillar 
+                a = a || in(Rect(mp))(pos)
+                if a
+                    break
+                end
+            end
+            if a
+                break
+            end
+        end
+    end
+    return a
+end
+
+function impacts(pos, mm::MazeModel)
+    a = false
+    for w in mm.walls
+        a = impacts(pos, w) 
+        if a
+            return a
+        end
+    end
+
+    for pillar in mm.pillars
+        for pw in pillar
+            a = impacts(pos,pw)
+            if a
+                return a
+            end
+        end
+    end
+
+    for f in mm.floor
+        a = impacts(pos, f)
+        if a
+            return a
+        end
+    end
+    a = impacts(pos,mm.ceiling)
+    return a
+end
+
+
+"""
+Return the 3D bounding box of each of the maze's pillars
+"""
+function get_pillar_rects(mm::MazeModel)
+    footprints = Vector{Rect3f}()
+    for pillar in mm.pillars
+        footprint = reduce(union,get_rect.(pillar))
+        push!(footprints, footprint)
+    end
+    footprints
+end
+
+function filter_pillars(mm::MazeModel, X::Matrix{T},xbins=1:size(X,1), ybins=1:size(X,2)) where T <: Real
+    Z = fill!(similar(X), zero(T))
+    Z .= X
+    rects = get_pillar_rects(mm)
+    for r in rects 
+        idx1 = searchsortedfirst(xbins, r.origin[1]):searchsortedlast(xbins, r.origin[1]+r.widths[1])
+        idx2 = searchsortedfirst(ybins, r.origin[2]):searchsortedlast(ybins, r.origin[2]+r.widths[2])
+        Z[idx1,idx2] .= NaN
+    end
+    Z
 end
 
 function get_surface_points(mm::MazeModel{T2};exclude_element::Vector{Symbol}=Symbol[]) where T2 <: AbstractVector{T} where T <: Real
@@ -491,6 +776,12 @@ function ParametrizedManifold(mm::MazeModel{T};include_pillars=true) where T <: 
     end
 
     ParametrizedManifold(normals, ff, μ, bb, points,label)
+end
+
+function smooth(counts::Dict{Symbol, Vector{T}},mm::MazeModel{T3};kwargs...) where T <: Array{T2,3} where T3 <: AbstractVector{T2} where T2 <: Real
+    D, points, pidx,ll = compute_distance_matrix(mm)
+    Z = smooth(counts,D, pidx;kwargs...) 
+    Z, D, points, pidx, ll
 end
 
 """
@@ -605,6 +896,9 @@ function MazeModel(;kvs...)
     MazeModel(bins,normals)
 end
 
+function random_path(mm::MazeModel)
+end
+
 """
 Return a dictionary containg the 3D bins for each element of the maze `mm`.
 """
@@ -705,11 +999,11 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
     end
 end
 
-struct Posters{T<:RGB,T2<:Integer,T3<:Point3, T4<:Vec2,T5<:Vec3}
-    sprite::Vector{Sprite{T, T2, T3, T4, T5}}
+function Posters(mm::MazeModel,udata::UnityData;kvs...)
+    Posters(mm, udata.header["PosterLocations"];kvs...)
 end
 
-function Posters(mm::MazeModel,udata::UnityData;kvs...)
+function Posters(mm::MazeModelNew,udata::UnityData;kvs...)
     Posters(mm, udata.header["PosterLocations"];kvs...)
 end
 
@@ -744,17 +1038,158 @@ function Posters(mm::MazeModel,_poster_pos=poster_pos;z=2.5)
     Posters(sprites)
 end
 
-function show_posters(args...;kwargs...)
-    fig = Figure()
-    lscene = LScene(fig[1,1])
-    show_posters!(lscene, args...;kwargs...)
-    fig
+function Posters(mm::MazeModelNew,_poster_pos=poster_pos_new;z=1.5)
+    __poster_pos = Dict(k=>(p[1],p[2],z) for (k,p) in _poster_pos)
+    wall_pillar_idx = assign_posters(mm,__poster_pos)
+    wall_idx = wall_pillar_idx.pillar_wall_idx
+    pillar_idx = wall_pillar_idx.pillar_idx
+    rot = LinearMap(RotX(3π/2))
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    # hack just to figure out the type
+    sp = sprite(first(images)[2], Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    nn = Dict(k=>get_normal(mm.pillars[pillar_idx[k]]) for k in keys(pillar_idx))
+    for (ii,pk) in enumerate(keys(__poster_pos))
+        pp = _poster_pos[pk]
+        img = images[pk]
+        sp = sprite(img, Rect2(-1.25, -2.5/1.2/2, 2.5, 2.5/1.2))
+        sp2 = rot(sp)
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
+        #nn = get_normal(mm.pillars[pillar_idx[pk]][wall_idx[pk]])
+        _nn = nn[pk][wall_idx[pk]]
+        θ = acos(sp2.normals[1]'*_nn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        sprites[ii] = sp3
+    end
+    Posters(sprites)
 end
+
+function Posters(mm::SimpleMesh,_poster_pos=poster_pos_new;z=1.5,rotate_flat=false)
+    __poster_pos = Dict(k=>(p[1],p[2],z) for (k,p) in _poster_pos)
+    rot = LinearMap(RotX(3π/2))
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    # hack just to figure out the type
+    w = 2.23
+    h = 1.4
+    sp = sprite(first(images)[2], Rect2(-w/2, -h/2, w, h))
+    sprites = Vector{typeof(sp)}(undef, length(_poster_pos))
+    kn = KNearestSearch(mm, 1)
+    for (ii,pk) in enumerate(keys(__poster_pos))
+        pp = _poster_pos[pk]
+        img = images[pk]
+        sp = sprite(img, Rect2(-w/2, -h/2, w, h))
+        sp2 = rot(sp)
+        μ = mean(sp2.points) 
+        # trans is relative
+        trans = LinearMap(Translation(pp[1]-μ[1],pp[2]-μ[2], z))
+        # find the normal vector
+        # first find the closest element
+        mp = Meshes.Point(pp[1],pp[2],z)
+        _idx, dd = searchdists(mp,kn)
+        _mm = mm[first(_idx)]
+        v = mp - centroid(_mm)
+        v = v./norm(v)
+        v1 = _mm.vertices[1] - _mm.vertices[2]
+        v1 = v1./norm(v1)
+        v2 = _mm.vertices[1] - _mm.vertices[4]
+        v2 = v2./norm(v2)
+        # normal to the surface
+        vn = cross(v1,v2) 
+        if vn'*v < 0
+            vn = -1.0*vn
+        end
+
+        θ = acos(sp2.normals[1]'*vn)
+        rot2 = LinearMap(RotZ(θ))
+        sp3 = trans(rot2(sp2))
+        if rotate_flat
+            # rotate so that the poster can been seen from above
+            # we want to rotate around whichever of v1 or v2 is orthogonal to the z-axis 
+            
+            if v1[3] == 0
+                _vv = v1 
+                _vu = v2
+            else
+                _vv = v2
+                _vu = v1
+            end
+            # make sure to normalize
+            # TODO: rotate so that up is up
+            #true up is now along y, i.e. (0.0, 1.0, 0.0)
+            _vv = _vv./norm(_vv)
+            _vu = _vu./norm(_vu)
+            vq = π/2*(_vv)
+            _rot = RotationVec(vq...)
+            _vu = LinearMap(_rot)(_vu)
+            if _vu[2] < 0 
+                ϕ = π
+            elseif _vu[2] == 0
+                if _vu[1] < 0
+                    ϕ = π/2
+                else
+                    ϕ = -π/2
+                end
+            else
+                ϕ = 0.0
+            end
+
+            vϕ = ϕ*([0.0, 0.0, 1.0])
+            _rotϕ = LinearMap(RotationVec(vϕ...))
+            _trans = LinearMap(Translation(0.0, 0.0, -z))
+            sp3 =_rotϕ(_trans(LinearMap(_rot)(sp3)))
+        end
+        sprites[ii] = sp3
+    end
+    Posters(sprites)
+end
+
+function get_normal(m::Vector{T}) where T <: OrientedMesh
+    [_m.normal for _m in m]
+end
+
+function get_normal(pillar::Vector{T}) where T <: GeometryBasics.AbstractMesh
+    # we need to figure out which normal points outwards
+    # maybe just find the normal that points away from the center
+    pos = Point3f[]
+    for p in pillar
+        append!(pos, p.position)
+    end
+    μ = mean(pos)
+    nn = Vector{Vec3f}(undef, length(pillar))
+    for (j,p) in enumerate(pillar)
+        μp = mean(p.position)
+        v = μp - μ
+        v = normalize(v)
+        q = 0.0f0
+        jj = 0
+        for n in p.normals.data
+            _d = v'*n
+            if _d > q
+                nn[j] = n
+                q = _d
+            end
+        end 
+    end
+    nn
+end
+
+
 
 function visualize!(lscene, posters::Posters;kwargs...)
     for sp3 in posters.sprite
         plot!(lscene, sp3)
     end
+end
+
+function Makie.convert_arguments(T::Type{<: AbstractPlot}, posters::Posters)
+    plots = [convert_arguments(T, posters.sprite[1])]
+    for sp in posters.sprite[2:end]
+        push!(plots, convert_arguments(T, sp))
+    end
+    plots
 end
 
 
@@ -976,24 +1411,47 @@ function assign_posters(mm::MazeModel, _poster_pos::Dict{Symbol,NTuple{2,Float64
     (pillar_idx=pillar_idx, pillar_wall_idx=wall_idx)
 end
 
+function assign_posters(mm::MazeModelNew, _poster_pos::Dict{Symbol,NTuple{3,Float64}}=poster_pos)
+    pillar_idx = Dict{Symbol,Int64}()
+    wall_idx = Dict{Symbol,Int64}()
+    for (kp,ppl) in _poster_pos
+        pp = Point3f(ppl)
+        d = Inf
+        for (k,pillar) in enumerate(mm.pillars)
+            for (j,_wall) in enumerate(pillar)
+                pq = mean(_wall.position)
+                _d = (pp[1] - pq[1])^2 + (pp[2] - pq[2])^2
+                if _d < d
+                    d = _d
+                    pillar_idx[kp] = k
+                    wall_idx[kp] = j
+                end
+            end
+        end
+    end
+    (pillar_idx=pillar_idx, pillar_wall_idx=wall_idx)
+end
+
 # TODO: The Unity raytracer uses 40x40 bins on the floor as the baseline
 """
 Compute a histogram of `pos` projected onto the plane at `z0`
 """
 function compute_histogram(pos::Matrix{Float64}, xbins,ybins,z0=0.0;Δz=0.1)
     counts = fill(0.0, length(xbins), length(ybins))
+    bidx = fill((0,0),size(pos,2))
     nn = 0.0
-    for (x,y,z) in eachcol(pos)
+    for (ii,(x,y,z)) in enumerate(eachcol(pos))
         idx_x = searchsortedlast(xbins, x)
         idx_y = searchsortedlast(ybins, y)
         if idx_x > 0 && idx_y > 0
             if z0 - Δz <= z <= z0 + Δz
                 counts[idx_x, idx_y] += 1.0
                 nn += 1.0
+                bidx[ii] = (idx_x,idx_y)
             end
         end
     end
-    counts
+    counts, bidx
 end
 
 
@@ -1001,7 +1459,7 @@ function compute_histogram(pos::Matrix{Float64},bins)
     counts = [fill(0.0, length.(bin)) for bin in bins]
     compute_histogram!(counts, pos,bins)
 end
-
+ 
 function compute_histogram(pos::Vector{Matrix{Float64}}, bins::Dict{Symbol, Vector{NTuple{3, Vector{Float64}}}}, weight::Union{Nothing, Vector{Vector{Float64}}}=nothing)
     counts = Dict{Symbol,Vector{Array{Float64,3}}}()
     idx = Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}(undef, length(pos))
@@ -1010,6 +1468,7 @@ function compute_histogram(pos::Vector{Matrix{Float64}}, bins::Dict{Symbol, Vect
         idx[ii] = fill((0,0,0,:unknown), size(pos[ii],2))
     end
     for k in keys(bins)
+        @show k
         counts[k] = compute_histogram!(idx, pos,bins[k],weight,k)
     end
     counts, idx
@@ -1026,7 +1485,13 @@ function compute_histogram!(idx::Vector{Vector{Tuple{Int64,Int64,Int64,Symbol}}}
     if weight === nothing
         weight = [fill(1.0, size(_pos,2)) for _pos in pos]
     end
+
+    @show "k2" k length(pos)
     for (ii,_pos) in enumerate(pos)
+        if isempty(_pos)
+            @show ii
+            continue
+        end
         compute_histogram!(counts,idx[ii], _pos, bins;weight=weight[ii],kname=k)
     end
     counts
@@ -1063,9 +1528,473 @@ function compute_histogram(pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: 
 end
 
 function compute_histogram!(counts::Array{Float64,3}, pos::Matrix{Float64}, bins::NTuple{N, T}) where T <: AbstractVector{T2} where T2 <: Real where N
-    qpos = eachcol(pos)
+    @show size(pos)
+    qpos = eachrow(pos)
     Δs = [step(b) for b in bins]
     h = fit(Histogram, qpos, ([[b;b[end]+Δ] for (b,Δ) in zip(bin,Δs)]...,))
     count .+= h.weights
+    idx = [StatsBase.binindex(h, p) for p in qpos]
 end
 
+"""
+Bin the trajectory using `mm`
+"""
+function bin_trajectory(pos::Matrix{<:Real},mm::SimpleMesh)
+    d,n = size(pos)
+    dp = size(pos,1)
+    d = min(d,dp)
+    kn = KNearestSearch(mm,1)
+    bidx = fill(0, n)
+    for (i,_pos) in enumerate(eachcol(pos))
+        j = search(Meshes.Point(_pos[1:d]...,), kn)
+        bidx[i] = first(j)
+    end
+    bidx
+end
+
+function bin_trajectory(udata::UnityData, mm::SimpleMesh; trial_start=2,do_compress=false)
+    nt = numtrials(udata)
+    bidx = Vector{Vector{Int64}}(undef, nt)
+    for i in 1:nt
+        tu, posx, posy, _ = get_trial(udata, i;trial_start=trial_start)
+        pos = permutedims([posx posy])
+        bidx[i] = bin_trajectory(pos, mm)
+    end
+    if do_compress
+        for (ii,_bidx) in enumerate(bidx)
+            bidx[ii],_ = compress_trajectory(_bidx)
+        end
+    end
+    bidx
+end
+
+"""
+    compress_trajectory(trajectory::Vector{T};ignore_values::Union{Vector{T},Nothing}=nothing) where T
+
+Compress a trajectory by removing contiguos duplicates
+"""
+function compress_trajectory(trajectory::Vector{T};ignore_values::Union{Vector{T},Nothing}=nothing) where T
+    nn = length(trajectory)
+    unique_bins = unique(trajectory)
+    sort!(unique_bins)
+    function func(x)
+        if isnothing(ignore_values)
+            return false
+        end
+        in(ignore_values)(x)
+    end
+    k = 1
+    while k <= nn && func(trajectory[k])
+        k += 1
+    end
+    if k > nn
+        return Int64[], Vector{Int64}[]
+    end
+    traj = trajectory[k:k]
+    idx = [[k]]
+
+    for i in k+1:length(trajectory)
+        traj_i = trajectory[i]
+        if func(traj_i)
+            continue
+        end
+        if traj_i != traj[end]
+            push!(traj, traj_i)
+            push!(idx, [i])
+        else
+            push!(idx[end], i)
+        end
+    end
+    traj, idx
+end
+
+function analyse_trajectories(celldirs::Vector{String}, m_floor::SimpleMesh)
+    allsessiondirs = DPHT.get_level_path.("session", celldirs)
+    sessiondirs = unique(allsessiondirs)
+    num_obs = Dict{Vector{Int64},Int64}()
+    num_cells = Dict{Vector{Int64},Int64}()
+    for sessiondir in sessiondirs
+        ncells = sum(allsessiondirs.==sessiondir)
+        udata = cd(sessiondir) do
+            Hippocampus.UnityData()
+        end
+        binned_trajectory = Hippocampus.bin_trajectory(udata, m_floor)
+        bts = compress_trajectory.(binned_trajectory)
+        for bt in bts
+            if !(bt in keys(num_obs))
+                num_obs[bt] = 1
+                num_cells[bt] = 0
+            else
+                ek = num_obs[bt]
+                num_obs[bt] = ek + 1
+            end
+
+        end
+        for bt in unique(bts)
+            ek = num_cells[bt]
+            num_cells[bt] = ek+ncells
+        end
+    end
+    num_obs, num_cells
+end
+
+function get_poster_combinations(udata::UnityData)
+    get_poster_combinations(udata.triggers)
+end
+
+function get_poster_combinations(triggers::Matrix{<:Integer})
+    nt = size(triggers,1)
+    combos = Vector{Tuple{Int64, Int64}}(undef, nt)
+    correct = fill(false, nt)
+    previous_poster = 0
+    for i in 1:nt
+        current_poster = triggers[i,1]
+        current_poster -= 10
+        combos[i] = (previous_poster, current_poster)
+        correct[i] = (triggers[i,3] - current_poster) == 30
+        if correct[i]
+            # only update previous poster if the trial is correct
+            previous_poster = current_poster
+        end
+    end
+    combos, correct 
+end
+
+function get_poster_position(pos::NTuple{N,T}, mm::SimpleMesh) where T <: Real where N
+    kn = KNearestSearch(mm, 1)
+    midx = search(Meshes.Point(pos...), kn)
+    first(midx)
+end
+
+## plots
+function plot_flat_maze_with_posters(;figsize=(350,350),kwargs...)
+    with_theme(poster_theme) do
+        fig = Figure(size=figsize)
+        lg = GridLayout(fig[1,1])
+        plot_flat_maze_with_posters!(lg;kwargs...)
+        fig
+    end
+end
+
+function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=nothing, end_point::Union{Nothing, Point2f}=nothing, indicate_north=true,_poster_pos=poster_pos)
+    images = Dict(k=>load(v) for (k,v) in poster_img)
+    colors = [maze_colors[:yellow], #yellow
+              maze_colors[:blue], #blue
+              maze_colors[:red], #red
+              maze_colors[:green] #geen
+            ] 
+
+    with_theme(poster_theme) do
+        ax = Axis(lg[1,1],backgroundcolor=maze_colors[:floor],aspect=1.0)
+        ax.xticksvisible = false
+        ax.xticklabelsvisible = false
+        ax.yticksvisible = false
+        ax.yticklabelsvisible = false
+        ax.topspinevisible = true
+        ax.rightspinevisible = true
+
+        limits!(ax, -12.5, 12.5, -12.5, 12.5)
+        scatter!(ax, [Point2f(-5,5), Point2f(-5,-5), Point2f(5,5), Point2f(5,-5)], marker=Rect, markerspace=:data,color=colors, markersize=5)
+        scatter!([Point2f(v[1:2]...) for (k,v) in _poster_pos],  marker=[images[k] for (k,v) in _poster_pos], markersize=4, markerspace=:data)
+        if start_point !== nothing
+            scatter!(ax, start_point, marker=teardrop_shape(), markersize=20px, color=:red)
+        end
+        if end_point !== nothing
+            scatter!(ax, end_point, marker=teardrop_shape(), markersize=20px, color=:orange)
+        end
+        if indicate_north
+            arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
+        end
+        ax
+    end
+end
+
+function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVector{T};nruns=1000) where T <: Real
+    idx1 = [1:length(x1);]
+    idx2 = [1:length(x2);]
+    x1s = similar(x1)
+    x2s = similar(x2)
+    q1 = zeros(T,nruns)
+    q2 = zeros(T,nruns)
+    for r in 1:nruns
+        shuffle!(idx2)
+        for j in 1:length(x1)
+            q = rand()
+            if q < 0.5
+                x1s[j] = x1[j]
+            else
+                k = mod(j-1, length(x2))+1
+                x1s[j] = x2[idx2[k]]
+            end
+        end
+        q1[r] = func(x1s)
+        shuffle!(idx1)
+        for j in 1:length(x2)
+            q = rand()
+            if q < 0.5
+                x2s[j] = x2[j]
+            else
+                k = mod(j-1, length(x1))+1
+                x2s[j] = x1[idx1[k]]
+            end
+        end
+        q2[r] = func(x2s)
+    end
+    q1, q2
+end
+
+function get_trajectories(udata)
+    nt = numtrials(udata)
+    trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
+    prev_posterid = udata.triggers[1,1]  - 10
+    # head direction at the start of the trial
+    hd_init = Dict{Tuple{Int64, Int64}, Vector{Float64}}()
+    # skip the first trial because we starting from a random waypoint (typically)
+    for i in 2:nt
+        # make sure both the current and the previous trial trial was correct
+        if !(30 < udata.triggers[i,3] < 40) || !(30 < udata.triggers[i-1,3] < 40)
+            prev_posterid = udata.triggers[i,1] - 10
+            continue # skip these
+        else
+            posterid = udata.triggers[i,1] - 10
+            kk = (prev_posterid, posterid)
+            if !(kk in keys(trajectories))
+                trajectories[kk] = Vector{Tuple{Float64, Float64}}[]
+                hd_init[kk] = Float64[]
+            end
+            _,posx,posy,_ = get_trial(udata, i;trial_start=2)
+            push!(trajectories[kk], [(px,py) for (px,py) in zip(posx,posy)])
+            _,_,_,hd = get_trial(udata, i;trial_start=1)
+            push!(hd_init[kk], first(hd)) 
+        end
+        prev_posterid = posterid
+    end
+    pairidx = filter(ij->ij[1]!=ij[2], [(i,j) for i in 1:6, j in 1:6])
+    trajectories, pairidx, hd_init
+end
+
+function compare_optimal_trajectories(udata;nrefinements=0, kwargs...)
+    lengths = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    hd_init = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    compare_optimal_trajectories!(lengths, hd_init, udata;nrefinements=nrefinements, kwargs...)
+    lengths,hd_init 
+end
+
+function compare_optimal_trajectories!(lengths, hd_init, udata;nrefinements=0, kwargs...)
+    traj,_,hd = get_trajectories(udata)
+    # map to floor with resolution given by nrefinements
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements))
+    for (k,v) in traj
+        if !(k in keys(lengths))
+            lengths[k] = Float64[] 
+            hd_init[k] = Float64[]
+        end
+        for (jj,tt) in enumerate(v)
+            traj_idx,_ = compress_trajectory(mapto(m_floor, tt))
+            traj_idx_opt,_ = trajectory(m_floor, traj_idx[1], traj_idx[end])
+            length_true = sum(norm.(diff(centroid.(m_floor[traj_idx]))))
+            length_opt = sum(norm.(diff(centroid.(m_floor[traj_idx_opt]))))
+            push!(lengths[k], length_true/length_opt)
+        end
+        append!(hd_init[k], hd[k])
+    end
+    lengths, hd_init
+end
+
+function compare_optimal_trajectories(sessiondirs::Vector{String};kwargs...)
+    lengths = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    hd_init = Dict{Tuple{Int64, Int64},Vector{Float64}}()
+    for sessiondir in sessiondirs
+        udata = cd(sessiondir) do
+            UnityData()
+        end
+        compare_optimal_trajectories!(lengths, hd_init, udata;kwargs...)
+    end
+    lengths, hd_init
+end
+
+function analyze_trajectory_length_vs_head_direction(trajectory_length::AbstractVector{<:Number}, head_direction::AbstractVector{<:Number})
+    # find the head direction associated with the shortest (mean) trajectory length
+    # 10 degrees bins
+    hd_bins = range(0.0, stop=2π, step=2π/24)
+    z = fill(NaN, length(hd_bins))
+    θ = 0.0
+    Δθ = 2π/24
+    for i in 1:24
+        jj = (θ .<= head_direction .< θ+Δθ)
+        z[i] = sum(trajectory_length[jj])/sum(jj)
+        θ += Δθ
+    end
+    z, hd_bins
+end
+
+## plots
+
+function poster_image_axes!(lg, ax;kwargs...)
+     markersize = get(kwargs, :markersize, 45)
+    imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    # create dummy axes for the labels
+    axl = Axis(lg[1,0])
+    scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
+    axb = Axis(lg[2,1])
+    scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
+    colsize!(lg, 0, 2*markersize-20)
+    rowsize!(lg, 2, 2*markersize-20)
+    linkxaxes!(axb, ax)
+    linkyaxes!(axl, ax)
+    hidedecorations!(axb)
+    hidespines!(axb)
+    hidedecorations!(axl)
+    hidespines!(axl)
+    ax.xticklabelsvisible = false
+    ax.yticklabelsvisible = false
+    ax.xticks = [1:6;]
+    ax.yticks = [1:6;]
+    axl.xlabel = "To"
+    axl.xlabelvisible = true
+    axb.ylabel = "From"
+    axb.ylabelvisible = true
+    colgap!(lg, 1, 1)
+    rowgap!(lg, 1, 1)
+end
+
+function plot_trajectory_lengths!(lg, udata::UnityData;kwargs...)
+    lengths = compare_optimal_trajectories(udata;kwargs...)
+    plot_trajectory_lengths!(lg, lengths;kwargs...)
+end
+
+function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{Float64}};kwargs...)
+    markersize = get(kwargs, :markersize, 45)
+    nl = length(lengths)
+    Z = fill(NaN, 6,6)
+    for (k,v) in lengths
+        if (0 in k) || (k[1]==k[2])
+            continue
+        end
+        # k[1] = from, k[2] = to
+        Z[k[1], k[2]] = median(v)
+    end
+    ax = Axis(lg[1,1])
+    h = heatmap!(ax,Z)
+    Colorbar(lg[1,2],h,label="Relative traj length")
+
+    imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    # create dummy axes for the labels
+    axl = Axis(lg[1,0])
+    scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
+    axb = Axis(lg[2,1])
+    scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
+    colsize!(lg, 0, 2*markersize-20)
+    rowsize!(lg, 2, 2*markersize-20)
+    linkxaxes!(axb, ax)
+    linkyaxes!(axl, ax)
+    hidedecorations!(axb)
+    hidespines!(axb)
+    hidedecorations!(axl)
+    hidespines!(axl)
+    ax.xticklabelsvisible = false
+    ax.yticklabelsvisible = false
+    ax.xticks = [1:6;]
+    ax.yticks = [1:6;]
+    axl.xlabel = "To"
+    axl.xlabelvisible = true
+    axb.ylabel = "From"
+    axb.ylabelvisible = true
+    colgap!(lg, 1, 1)
+    rowgap!(lg, 1, 1)
+end
+
+function plot_trajectory_lengths(args...;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1]) 
+        plot_trajectory_lengths!(lg, args...;kwargs...)
+        fig
+    end
+end
+
+function plot_trajectories!(lg, udata::UnityData)
+    nt = numtrials(udata)
+    trajectories = Dict{Tuple{Int64, Int64}, Vector{Vector{Tuple{Float64,Float64}}}}()
+    prev_posterid = 0
+    for i in 1:nt
+        # make sure the trial was correct
+        if !(30 < udata.triggers[i,3] < 40)
+            posterid = 0
+        else
+            posterid = udata.triggers[i,1] - 10
+            kk = (prev_posterid, posterid)
+            if !(kk in keys(trajectories))
+                trajectories[kk] = Vector{Tuple{Float64, Float64}}[]
+            end
+            tg,posx,posy,hd = get_trial(udata, i;trial_start=2)
+            push!(trajectories[kk], [(px,py) for (px,py) in zip(posx,posy)])
+        end
+        prev_posterid = posterid
+    end
+    paridx = filter(ij->ij[1]!=ij[2], [(i,j) for i in 1:6, j in 1:6])
+    # hard code 5 rows 6 columns
+    _keys = collect(keys(trajectories))
+    m_floor = floor_topology3() 
+    axes = [Axis(lg[i,j],aspect=1) for i in 1:5 for j in 1:6]
+    hidedecorations!.(axes)
+    hidespines!.(axes)
+    sort!(_keys)
+    for k in _keys
+        if (0 in k) || (k[1]==k[2])
+            continue
+        end
+        ax = axes[findfirst(ij->ij==k, paridx)]
+        viz!(ax, m_floor, color=:lightgray)
+        for v in trajectories[k]
+            lines!(ax, Point2f.(v),color=:black)
+        end
+        plot_pillars!(ax)
+        scatter!(ax, Point2f.(first(trajectories[k])[[1,end]]), color=[:green,:red])
+    end
+    for i in 1:4
+        rowgap!(lg, i, 5)
+    end
+    for i in 1:5
+        colgap!(lg, i, 5)
+    end
+end
+
+function plot_trajectories(udata::UnityData)
+    with_theme(plot_theme) do 
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_trajectories!(lg, udata)
+        fig
+    end
+end
+
+function plot_trajectory_length_vs_head_direction(args...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_trajectory_length_vs_head_direction!(lg, args...)
+        fig
+    end
+end
+
+function plot_trajectory_length_vs_head_direction!(lg, trajectory_length::Dict, head_direction::Dict)
+    Z = fill(NaN, 6,6)  # assumes 6 posters
+    pv_pos = Point2f[]
+    for (k,v) in trajectory_length
+        # convert from unity left-handed coordinate system to right-handed
+        θ = mod.(-(head_direction[k].*π/180 .- π/2), 2π);
+        aa = LinearRegressionUtils.llsq_stats([cos.(θ) sin.(θ)], v)
+        Z[k[1],k[2]] = aa.r²
+        if aa.pv < 0.01
+            push!(pv_pos, Point2f(k[1], k[2]))
+        end
+    end
+    fidx = findall(isfinite.(Z))
+    @show length(pv_pos)  findmax(Z[fidx])
+    ax = Axis(lg[1,1])
+    h = heatmap!(ax, 1:6, 1:6, Z)
+    Colorbar(lg[1,2], h, label="r²")
+    text!(ax,pv_pos;text=fill("*", length(pv_pos)), color=:red, align=(:center, :center))
+    poster_image_axes!(lg,ax)
+end

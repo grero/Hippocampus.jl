@@ -3,7 +3,73 @@ using GeometryBasics
 using GeometryBasics: Point, Rect, Vec, faces,Mat
 using LinearAlgebra
 
-function reshape_triggers(markers, timestamps)
+function get_allcelldirs()
+    if ispath("/Volumes/Hippocampus")
+        allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+            readlines(fid)
+        end
+    elseif ispath("shared_data")
+        allcelldirs = open("shared_data/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
+            readlines(fid)
+        end
+        # because we originally used absolute path names
+        allcelldirs = [joinpath("shared_data", splitpath(c)[4:end]...) for c in allcelldirs]        
+    else
+        error("Unable to find cell directories")
+    end
+    allcelldirs
+end
+
+function process_combined_session()
+    if isfile("sessions.txt")
+        # this tells us which sessions were used
+        sessions = readlines(open("sessions.txt"))
+    else
+        # try and figure it out
+        sessions = glob("../session??")
+        # save for later conveniennce
+        session_string = join(sessions, '\n')
+        open("sessions.txt","w") do fid
+            write(fid, session_string)
+        end
+    end
+    return sessions
+end
+
+function kmean_it(X::Matrix{T}, k::Integer,m::Integer;n_iter=1000) where T <: Real
+    d,n = size(X)
+    # random cluster center initialization
+    cidx = shuffle(1:n)[1:k]
+    μ = X[:,cidx]
+    Xm = zeros(T, d, m)
+    nc = fill(0, k)
+    qi = [1:n;]
+    midx= [1:m;]
+    for i in 1:n_iter
+        shuffle!(qi)
+        copy!(midx, view(qi, 1:m))
+        sort!(midx)
+        copy!(Xm, view(X, :, midx))
+        # compute distances
+        for xm in eachcol(Xm)
+            d = Inf
+            ki = 0
+            for (j,xc) in enumerate(eachcol(μ))
+                _d = sum(abs2, xm .- xc)
+                if _d < d
+                    d = _d
+                    ki = j
+                end
+            end
+            nc[ki] += 1
+            γ = 1/nc[ki]
+            μ[:,ki] .+= γ*(xm - μ[:,ki])
+        end
+    end
+    μ 
+end
+
+function reshape_triggers(markers::AbstractVector{T1}, timestamps::AbstractVector{T2},session_start::Vector{UInt64}=UInt64[];perform_fix=false) where T1 <: Real where T2 <: Real
     # the first marker is a session start; the remaining come in trios
     nn = length(markers)
     if markers[1] == 84
@@ -14,27 +80,215 @@ function reshape_triggers(markers, timestamps)
         _markers = markers
         _timestamps = timestamps
     end
-    rem(nn,3) == 0 || error("Inconsistent number of markers")
-    nt = div(nn,3)
-    trial_markers = permutedims(reshape(_markers, 3, nt))
-    trial_timestamps = permutedims(reshape(_timestamps,3,nt))
+    p1 = 0
+    p2 = 0
+    nt = 1
+    if rem(nn,3) == 0
+        nt = div(nn,3)
+        trial_markers = permutedims(reshape(_markers, 3, nt))
+        trial_timestamps = permutedims(reshape(_timestamps,3,nt))
 
-    # sanity check; make sure that the last number digit is the same for each trial
-    # and that the succession is 1,2,3 or 1,2,4.
-    main_marker = floor.(trial_markers/10.0)
-    p1 =sum(sum(main_marker .≈ [1.0 2.0 3.0],dims=2).==3)
-    p2 =sum(sum(main_marker .≈ [1.0 2.0 4.0],dims=2).==3)
+        # sanity check; make sure that the last number digit is the same for each trial
+        # and that the succession is 1,2,3 or 1,2,4.
+        main_marker = floor.(trial_markers/10.0)
+        p1 =sum(sum(main_marker .≈ [1.0 2.0 3.0],dims=2).==3)
+        p2 =sum(sum(main_marker .≈ [1.0 2.0 4.0],dims=2).==3)
+    else
+        if perform_fix
+            main_marker = round.(Int64, floor.(_markers/10.0))
+        else
+            error("Inconsistent number of markers. Total number of markers: $nn. First marker: $(markers[1])")
+        end
+    end
+    @debug p1 p2 p1+p2 nt
+    if p1+p2 != nt 
+        if perform_fix
+            # try to recover by removing trials that break the pattern
+            rmarkers = fix_markers(round.(Int64, permutedims(main_marker)[:]))
+            rmarkers = reshape(rmarkers, 3, div(length(rmarkers),3))
+            midx = ((!ismissing)).(rmarkers)
 
-    p1+p2 == nt || error("Inconsistent main markers")
+            trial_markers_r = Matrix{Union{Missing, T1}}(undef, size(rmarkers)...)
+            trial_markers_r[midx] .= _markers 
+            trial_timestamps_r = Matrix{Union{Missing, T2}}(undef, size(rmarkers)...)
+            trial_timestamps_r[midx] .= _timestamps
 
+            trial_markers = permutedims(trial_markers_r)
+            trial_timestamps = permutedims(trial_timestamps_r)
+            main_marker = floor.(trial_markers/10.0)
+        else
+            error("Inconsistent main markers")
+        end
+    end
+    nt = size(trial_markers,1)
     # check the the minor markers are the same
     minor_marker = trial_markers - 10.0*main_marker
-    p3 = sum(sum(minor_marker .== minor_marker[:,1:1],dims=2).==3)
+    p3 = 0
+    for x in eachrow(minor_marker)
+        q = filter(!ismissing, x)
+        p3 += all(q.==q[1])
+    end
     p3 == nt || error("Inconsistent cue markers")
     trial_markers, trial_timestamps
 end
 
+function fix_markers(markers)
+    recovered_markers = Union{Missing, eltype(markers)}[]
+    i = 1
+    valid_marker = [2,(3,4),1,1]
+    while i <= length(markers)
+        # skip markers that do not follow the valid progression
+        if i > 1 && !(markers[i] in valid_marker[markers[i-1]])
+            push!(recovered_markers, missing)
+        end
+        push!(recovered_markers, markers[i])
+        i += 1
+    end 
+    # we should end on a 3 or 4
+    if !(recovered_markers[end] in [3,4])
+        push!(recovered_markers, missing)
+    end
+    recovered_markers
+end
+
+"""
+    get_peaks(f::AbstractArray{T,N},domain=f;t=2) where T <: Real where N
+
+Extract contiguous patches of activity from `f` where the activity exceeds μ+t σ
+where μ is the overall mean and σ is the overall standard deviation.
+"""
+function get_peaks(f::AbstractArray{T,N},domain=f;t=2,dmax=1,max_only=false) where T <: Real where N
+    fidx = findall(isfinite, f)
+    σ = std(f[fidx])
+    μ = mean(f[fidx])
+    fm,fi = findmax(f[fidx])
+    avail = fill(true, length(fidx))
+    patches = [[fidx[fi]]]
+    avail[fi] = false
+    pidx = 1
+    skip = false
+    D = distancematrix(domain)
+    while (sum(avail)>0) && (fm > μ+t*σ)
+        skip = false
+        # fill until we find it drops
+        # grab the nearest point
+        _fidx = fidx[avail]
+        qq = sortperm(fm .- f[_fidx])
+        did_change = false
+        qidx = findall(avail)
+        for _qq in qq
+            _dd = minimum(D[_fidx[_qq], patches[pidx]])
+            if _dd > dmax 
+                continue
+            end
+            did_change = true
+            if f[_fidx[_qq]]>= μ+t*σ
+            #if (fm - f[_fidx[_qq]])<= 0.5*(fm-μ)
+                push!(patches[pidx],_fidx[_qq])
+            end
+            avail[qidx[_qq]] = false
+        end
+        if !did_change 
+            if max_only
+                break
+            end
+            _fidx = fidx[avail]
+            qidx = findall(avail)
+            fm,fi = findmax(f[_fidx])
+            if fm > μ+t*σ
+                push!(patches, [_fidx[fi]])
+                pidx += 1
+            end
+            avail[qidx[fi]] = false
+        end
+    end
+    patches
+end
+
+function set_peaks(patches::Vector{Vector{Int64}}, mm::SimpleMesh,k::Real)
+    Z = zeros(nelements(mm))
+    alpha = zeros(nelements(mm))
+    set_peaks!(Z, alpha, patches, k)
+end
+
+function set_peaks!(Z::Vector{T},alpha::Vector{T}, patches::Vector{Vector{Int64}}, k::Real) where T <: Real
+    for (i,patch) in enumerate(patches)
+        Z[patch] .= k
+        alpha[patch] .= 1.0
+    end
+    Z, alpha
+end
+
+function get_outline(patch::Vector{CartesianIndex{2}}, xbins,ybins=xbins)
+    points = [Meshes.Point(xbins[ci.I[1]], ybins[ci.I[2]]) for ci in  patch]
+    chull = hull(points, GrahamScan())
+end
+
+function get_outline(patch::Vector{Int64}, mm::SimpleMesh)
+    # identity the border pixels as those with less than 4 neighbours
+    A = adjacencymatrix(mm)
+    D = distancematrix(mm)
+    nn = dropdims(sum(A[patch,patch],dims=1),dims=1)
+    border_elements = patch[findall(nn.<4)]
+    @debug length(border_elements) length(patch)
+    # find the next connected
+    avail = fill(true, length(border_elements))
+    avail[1] = false
+    idx = 1
+    path = [border_elements[idx]]
+    # TODO: What if we have a "skinny" region, i.e. with no interior
+    while sum(avail) > 0
+        aidx = findall(avail)
+        idx = findall(D[path[end],border_elements[avail]] .<=2)
+        if length(idx) > 1
+            # prefer continuing in the same direction
+            vp =centroid(mm[path[end]]) .- centroid.(mm[border_elements[avail][idx]])
+            _idx = 1
+            if length(path) > 1
+                v = path[end] - path[end-1]
+
+                #first sort by distance, then by alignment
+                dn = [(v'*_v)/sqrt(norm(v)*norm(_v)) for _v in vp]
+                d = norm.(vp)
+                jidx = sortperm(collect(zip(1.0./d,dn)),rev=true)
+                @show dn[jidx[1]] d[jidx[1]]
+                _idx = idx[jidx[1]]
+            end
+            # use Euclidean distance to disambiguate; probably not perfect
+            #d = norm.(centroid(mm[path[end]]) .- centroid.(mm[border_elements[avail][idx]]))
+            #_idx = idx[argmin(d)]
+        else
+            if isempty(idx)
+                @show D[path[end], border_elements[avail]]
+                @show path
+            end
+            _idx = first(idx)
+        end
+        p1 = border_elements[aidx[_idx]] 
+        avail[aidx[_idx]] = false
+        push!(path, p1)
+    end
+    # append the remaining point
+    coords.(centroid.(mm[path]))
+end
+
+function get_outline(patches::Vector{Vector{Vector{CartesianIndex{2}}}}, xbins,ybins=xbins)
+    chulls = Any[]
+    for pp in patches
+        for p in pp
+            if length(p) > 1
+                push!(chulls, get_outline(p, xbins, ybins))
+            end
+        end
+    end
+    chulls
+end
+
 struct Trial
+    i::UInt64
+end
+
+struct Frame
     i::UInt64
 end
 
@@ -118,9 +372,11 @@ function smooth(counts::Dict{Symbol,Vector{T}}, D::Matrix{T2}, pidx::Vector{Tupl
             # find the points in the distance matrix
             idx = findall(x->(x[1]==k)&(x[2]==qidx[1])&(x[3]==qidx[2]), pidx)
             if length(idx) != length(X)
-                @show qidx k
+                @debug qidx k
             end
-            Z .+= exp.(-D[:,idx].^2/(2*σ^2))*X[:]
+            # filter out nan's
+            fidx = findall(isfinite, X[:])
+            Z .+= (exp.(-D[:,idx[fidx]].^2/(2*σ^2))*X[fidx])./(2π*σ)
         end
     end
     Z
@@ -178,7 +434,7 @@ function visualize!(lscene, pm::ParametrizedManifold{N,N2,T3,T, T2,T4},color::Ab
         #arrows!(lscene, Point3f.([pm.μ[ii], pm.μ[ii]]),Point3f.(eachcol(pm.base[ii])),color=:white)
         # indicate the uv points
         #scatter!(lscene, points[[idx1,idx2,idx3,idx4]],color=Makie.wong_colors()[1:4])
-        mesh!(lscene, gb_mesh, color=fq,colorrange=cl)
+        mesh!(lscene, gb_mesh, color=fq,colorrange=cl,colormap=:Blues)
     end
 end
 
@@ -212,17 +468,18 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
     ff = pm.faces
     μ = pm.μ
     bb = pm.base
-    sidx = assign_to_surface(p0, nn, ff, bb, μ, pm.points;visited=visited)
+    sidx = assign_to_surface(p0, nn, μ;visited=visited)
     visited[sidx] = true
+    bb2 = bb[sidx]*bb[sidx]'
     # project onto the surface
-    p0p = Point{N,T}(bb[sidx]*bb[sidx]'*p0) + (μ[sidx]'*nn[sidx]).*nn[sidx]
+    p0p = Point{N,T}(bb2*p0) + (μ[sidx]'*nn[sidx]).*nn[sidx]
 
     # now do the actual projection
     d = p1 - p0p
 
     # create a a boundingbox
     rf = Rect([pm.points[ff[sidx]].points...])
-    dp = bb[sidx]*(bb[sidx]'*d)
+    dp = bb2'*d
     @debug "Some" p0 p0p d p0 + dp
     if p0p + dp ≈ p1
         #return norm(dp),[p1]
@@ -232,7 +489,7 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
     # that means that we need to travel to the end of the manifold
     @debug "norm" norm(dp) sidx
 
-    p1p = Point{N,T}(bb[sidx]*bb[sidx]'*p1) + (μ[sidx]'*nn[sidx]).*nn[sidx]
+    p1p = Point{N,T}(bb2'*p1) + (μ[sidx]'*nn[sidx]).*nn[sidx]
 
     dx = displacement_to_edge(rf, p1p)
     p0n,dp = move_to_edge(rf, p0p, dx)
@@ -250,10 +507,8 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
 
 end
 
-function assign_to_surface(p0::Point{N,T}, normals, _faces, bases, μ,points;visited=fill(false, length(normals))) where T <: Real where N
+function assign_to_surface(p0::Point{N,T}, normals, μ;visited=fill(false, length(normals))) where T <: Real where N
     nn = normals
-    bb = bases
-    ff = _faces
     i0 = 0 
     d0 = typemax(T)
     for (ii,_nn) in enumerate(nn)
@@ -515,4 +770,461 @@ function distance(p0::Point{N,T}, p1::Point{N,T}, m::T2;visited=fill(false, leng
     # we need another condition here; this will repeat as long as pp[1] is inside the current rectangle
     @debug "Show" p0 #rf#dpn #visited #sidx[1] Δp rf bb[sidx[1]] fm dq nn[sidx[1]] dpn
     return Δp + distance(p0, p1, m;visited=visited)
+end
+
+"""
+Return a discrete disc of radius `r` centered on `i`
+"""
+function disc(p0::CartesianIndex{2}, r::Int64,n1::Int64, n2::Int64)
+    idx = Vector{CartesianIndex{2}}()
+    # first make a square
+    idx1 = max(1, p0.I[1]-r):min(p0.I[1]+r, n1)
+    idx2 = max(1, p0.I[2]-r):min(p0.I[2]+r, n2)
+    for i in idx1
+        for j in idx2
+            if (i-p0.I[1])^2 + (j-p0.I[2])^2 <= r^2
+                push!(idx, CartesianIndex(i,j))
+            end
+        end
+    end
+    idx
+end
+
+function adaptive_smoothing(X::Matrix{T}, Y::Matrix{T}, α::T;stop_at_nan=true) where T <: Real
+    n1,n2 = size(X)
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
+    for ii in CartesianIndices(size(X))
+        nsp = X[ii]
+        nocc = Y[ii]
+        r = 1
+        while nsp < α/(nocc^2*r^2) 
+            idx = disc(ii, r, n1, n2)
+            # stop expanding the kernel if we hit boundary
+            if stop_at_nan && any(isnan.(Y[idx]))
+                break
+            end
+            nsp = sum(X[idx])
+            nocc = sum(Y[idx])
+            r += 1
+        end
+        Xs[ii] = nsp
+        Ys[ii] = nocc
+    end
+    Xs./Ys, Xs, Ys
+end
+
+function disc_area(r)
+    n = 0
+    for i in -r:r
+        for j in -r:r
+            if i^2+j^2 <= r^2
+                n += 1
+            end
+        end
+    end
+    n
+end
+
+function gaussian_area(r,σ::T) where T <: Real
+    aa = zero(T) 
+    for i in -r:r
+        for j in -r:r
+            d2 = abs(i-j) 
+            if d2 <= r
+                aa += exp(-d2^2/(2*σ^2))
+            end
+        end
+    end
+    aa
+end
+
+function fill_in_neighbours2(X::Matrix{T}, mm1::SimpleMesh, mm2::SimpleMesh, r::Integer,σ::T) where T <: Real
+    D1 = distancematrix(mm1)
+    D2 = distancematrix(mm2)
+    Z = fill_in_neighbours2(permutedims(X), D1, r, σ)
+    Z = fill_in_neighbours2(permutedims(Z), D2, r, σ)
+    Z
+end
+
+function fill_in_neighbours2(X::Vector{T}, mm::SimpleMesh, r::Integer,σ::T) where T <: Real
+    D = distancematrix(mm)
+    fill_in_neighbours2(X, D, r, σ)
+end
+
+
+function fill_in_neighbours3(X::Vector{T}, mm::SimpleMesh, r::Integer,σ::T) where T <: Real
+    D = distancematrix(mm)
+    fill_in_neighbours3(X, D, r, σ)
+end
+
+function fill_in_neighbours(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
+    Y = zeros(T, size(X,1))
+    for i in axes(D,2)
+        Y[i] = fill_in_neighbours(X, D[:,i], r, σ)
+    end
+    Y
+end
+
+function fill_in_neighbours(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::T) where T <: Real
+    sidx = sortperm(d)
+    ds = d[sidx]
+    y = zero(T) 
+    aa = zero(T) 
+    n = 0
+    j = 1
+    for k in 0:r
+        pq = exp(-k^2/(2*σ^2))
+        n = disc_area(k)-n
+        ns = 0
+        μ = zero(T) 
+        while ds[j] == k
+            ns += 1
+            μ += X[sidx[j]]
+            y += pq*X[sidx[j]]
+            j += 1
+        end
+        # idea: Change the kernel size based on the number of actual neighbours
+        μ /= ns
+        if ns < n
+            # TODO: Maybe just doing the average within the ring is not the best
+            # try reflecting?
+            y +=(n-ns)*pq*μ
+            # can we identify where the boundary is from this?
+            # ns being less than n just means that we are near a boundary
+
+        end
+        aa += n*pq
+    end
+    y/aa
+end
+
+function fill_in_neighbours2(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::Real) where T <: Real
+    n = disc_area(r)
+    sidx = sortperm(d)
+    ds = d[sidx]
+    idx = 1:findlast(ds.<=r)
+    ns = length(idx)
+    σs = σ*ns/n
+    #aa = gaussian_area(r, σs)
+    y = zero(T)
+    aa = zero(T)
+    for j in idx
+        pq = exp(-ds[j]^2/(2*σs^2))
+        y += pq*X[sidx[j]]
+        aa += pq
+    end
+    y/aa
+end
+
+function fill_in_neighbours3(X::Vector{T}, d::Vector{<:Real}, r::Integer,σ::T) where T <: Real
+    n = disc_area(r)
+    sidx = sortperm(d)
+    ds = d[sidx]
+    idx = 1:findlast(ds.<=r)
+    ns = length(idx)
+    # find the local density
+    am = sum(X[idx].>0)
+    # we decrease the kernel if we are close to a border
+    # where ns < n, but increase it if the number of zero values
+    σs = min(σ*(ns/n)*(ns/am), 0.25*r)
+    #aa = gaussian_area(r, σs)
+    y = zero(T)
+    aa = zero(T)
+    for j in idx
+        pq = exp(-ds[j]^2/(2*σs^2))
+        y += pq*X[sidx[j]]
+        aa += pq
+    end
+    y/aa
+end
+
+function fill_in_neighbours2(X::Matrix{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
+    n = disc_area(r)
+    Y = fill!(similar(X), zero(T))
+    for (i,d) in enumerate(eachcol(D))
+        sidx = sortperm(d)
+        ds = d[sidx]
+        idx = 1:findlast(ds.<=r)
+        ns = length(idx)
+        σs = σ*ns/n
+        aa = gaussian_area(r, σs)
+        for j in idx
+            pq = exp(-ds[j]^2/(2*σs^2))
+            Y[:,i] .+= pq*X[:,sidx[j]]
+        end
+        Y[:,i] ./= aa
+    end
+    Y
+end
+
+
+function fill_in_neighbours2(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
+    Y = zeros(T, size(X,1))
+    for i in axes(D,2)
+        Y[i] = fill_in_neighbours2(X, D[:,i], r, σ)
+    end
+    Y
+end
+
+function fill_in_neighbours3(X::Vector{T}, D::Matrix{<:Real}, r::Integer,σ::T) where T <: Real
+    Y = zeros(T, size(X,1))
+    for i in axes(D,2)
+        Y[i] = fill_in_neighbours3(X, D[:,i], r, σ)
+    end
+    Y
+end
+
+# TODO: There appears to be some weird artifacts when smoothing large surfaces
+function adaptive_smoothing(X::Vector{T}, Y::Vector{T}, mm::SimpleMesh, α::Real;stop_at_nan=true,rmax=100,skip_empty=false,Δt=1.0) where T <: Real
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
+    func = ballsearch(mm)
+    @showprogress "Adaptively smoothing bins..." for ii in 1:length(X)
+        nsp = X[ii]
+        nocc = Y[ii]
+        if skip_empty && nocc == 0
+            continue
+        end
+        #TODO: Should we skip points for which nocc =0?
+        r = 1
+        while nsp < α/((nocc/Δt)^2*r^2) 
+            idx = func(ii, r)
+            # stop expanding the kernel if we hit boundary
+            if (stop_at_nan && any(isnan.(Y[idx]))) || (r >= rmax)
+                break
+            end
+            nsp = sum(X[idx])
+            nocc = sum(Y[idx])
+            r += 1
+        end
+        Xs[ii] = nsp
+        Ys[ii] = nocc 
+    end
+    Xs./Ys, Xs, Ys
+end
+
+function gaussian_smoothing(X::AbstractVector{T}, mm::SimpleMesh,σ=4;kwargs...) where T <: Real
+    Y = ones(T,length(X))
+    gaussian_smoothing(X,Y,mm,σ;kwargs...)
+end
+
+function gaussian_smoothing(X::AbstractVector{T}, Y::AbstractVector{T}, mm::SimpleMesh,σ=4;m=5,dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,edge_correct=false, kwargs...) where T <: Real
+    # TODO: Deal with edge effects
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
+    if dmatrix === nothing
+        D = distancematrix(mm)
+    else
+        D = dmatrix
+    end
+    # find the are of the gaussian
+    da = disc_area(m*σ)
+    for ii in 1:length(X)
+        # find all points within the radius
+        # TODO: Handle border effects
+        # An edge pixel is one with less than 4 neighbours
+        idx = findall(D[ii,:] .<= m*σ)
+
+        dd = D[ii,idx].^2
+        ddm = dd./(2*σ^2)
+        ddm .= exp.(-ddm) 
+        ddm ./= sum(ddm) 
+        Xs[ii] += ddm'*X[idx]
+        Ys[ii] += ddm'*Y[idx]
+    end
+    if edge_correct
+        # correct for the fact that the number of points within a disc is not the same everywhere
+        nn = dropdims(sum(D .<= m*σ,dims=1),dims=1)
+        Xs .*= nn./maximum(nn)
+    end
+    Xs./Ys, Xs, Ys
+end
+
+function gaussian_smoothing(X::Matrix{T}, Y::Matrix{T}, mm::SimpleMesh,σ=4;dmatrix::Union{Matrix{T}, Nothing}=nothing, stop_at_nan=true,dim=1,kwargs...) where T <: Real
+    if dmatrix === nothing
+        D = distancematrix(mm)
+    else
+        D = dmatrix
+    end
+    Xs = fill!(similar(X), zero(T))
+    Ys = fill!(similar(X), zero(T))
+    Zs = fill!(similar(X), zero(T))
+    @showprogress "Smoothing columns..." for (ii, (_X, _Y)) in enumerate(zip(eachcol(X), eachcol(Y)))
+        if sum(X) > 0
+            Zs[:,ii], Xs[:,ii], Ys[:,ii] = gaussian_smoothing(_X, _Y, mm, σ;dmatrix=D)
+        end
+    end
+    Zs,Xs,Zs
+end
+
+"""
+    laplacace_smoothing(X::Vector{T}, mm::SimpleMesh, α::T;niter=1000)
+
+Smoothg the columns of  `X` on the mesh `mm` using iterative laplacian smoothing
+"""
+function laplace_smoothing(X::Matrix{T}, mm::SimpleMesh, α::Real;niter=1000) where T <: Real
+    A = adjacencymatrix(mm)
+    Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
+    # normalized laplacian
+    Ls = I - Dp*A*Dp
+    laplace_smoothing(X, Ls, α;niter=niter)
+end
+
+function laplace_smoothing(X::Matrix{T}, Ls::AbstractMatrix{T}, α::Real;niter=1000) where T <: Real
+    G = I - α*Ls
+    Xs = copy(X)
+    # temporary storage
+    Xs2 = copy(X)
+    t0 = time()
+    for _ in 1:niter
+        # make sure we multiple with the columns of G since that is faster
+        mul!(Xs2, Xs, G)
+        Xs .= Xs2
+    end
+    t1 = time() - t0
+    Xs
+end
+
+function laplace_smoothing(X::Vector{<:Real},args...;kwargs...)
+    laplace_smoothing(reshape(X,1,length(X)), args...;kwargs...)
+end
+
+function laplace_smoothing(X::Array{<:Real,3}, args...;kwargs...)
+    # reshape, combining the first 2 dimensions
+    X2 = permutedims(reshape(X, size(X,1), size(X,2)*size(X,3)))
+    Xs = laplace_smoothing(X2, args...;kwargs...)
+    reshape(permutedims(Xs), size(X,1), size(X,2), size(X,3))
+end
+
+"""
+Generate a simple tiled texture with the specified base color and period `period`.
+"""
+function generate_tile(base_color, width, height;nn=20, buffer=4, period=nn)
+    hsv = HSV(parse(Colorant, base_color))
+    b = buffer
+    points = [Point3f(x,y,0.0) for x in range(0.0, stop=width, length=nn), y in range(0.0, stop=height, length=nn)]
+    ni,nj= size(points)
+    _faces = decompose(Makie.QuadFace{Makie.GLIndex}, Makie.Tessellation(Rect(0, 0, 1, 1), size(points)))
+    uv = [Vec2f(x/width,y/height) for x in range(0.0, stop=width, length=nn), y in range(0.0, stop=height, length=nn)]
+    # random normals
+    # try someting a bit more systematic. Simulate a bowl
+    color = Matrix{HSV}(undef, size(points)...)
+    for j in axes(points,2)
+        jp = round(Int64, floor(j/period))
+        jl = j - jp*period 
+        for i in axes(points,1)
+            #p = points[i,j]
+            #q = exp(-(p[1]-2.5)^2/5.0 - (p[2]-2.5)^2/5)
+            # bevel
+            ip = round(Int64, floor(i/period))
+            il = i - ip*period
+            if il <= b 
+                qi = (il-1)/b
+            elseif ip*period-b+1 <= il <= period 
+                qi = 1.0 - (il-(period-b))/b
+            else
+                qi = 1.0
+            end
+            if jl <= b 
+                qj = (jl-1)/b
+            elseif jp*period-b+1 <= jl <= period 
+                qj = 1.0 - (jl-(period-b))/b
+            else
+                qj = 1.0
+            end
+            q = 0.4f0 .+ 0.6f0*min(qi,qj)
+            color[i,j] = HSV(hsv.h, hsv.s, Float32(q)*hsv.v)
+        end
+    end
+    color, uv
+end
+
+
+function test_smoothing()
+    m_floor = floor_topology3();
+    mm = Shadow("xy")(m_floor)
+    kn = KNearestSearch(mm,1)
+    nn = nelements(mm)
+    μ1 = (0.0,0.0)
+    idx1 = first(search(Meshes.Point(μ1...), kn))
+    μ2 = (-8.5, 9.0)
+    idx2 = first(search(Meshes.Point(μ2...), kn))
+    μ3 = (8.6, -9.0)
+    idx3 = first(search(Meshes.Point(μ3...), kn))
+    σ = 5.0
+    X = zeros(nn)
+    D = distancematrix(m_floor)
+    X .+= exp.(-(D[idx1,:].^2)./(2*σ^2))
+    X .+= exp.(-(D[idx2,:].^2)./(2*σ^2))
+    X .+= exp.(-(D[idx3,:].^2)./(2*σ^2))
+
+    #sampler = WeightedSampling(100, X, replace=true)
+    sampler = HomogeneousSampling(100,X)
+    points = collect(sample(mm, sampler))
+
+    fig = Figure(size=(800,1200))
+    ax1 = Axis(fig[1,1])
+    viz!(ax1, mm;color=X, showsegments=true)
+    Colorbar(fig[1,2], colorrange=(extrema(X)))
+    #blocks  = sample(mm, sampler)
+    Y = count_on_manifold(mm, points)
+    viz!(ax1, points;color=:white)
+    ax2 = Axis(fig[2,1])
+    viz!(ax2, mm;color=Y, showsegments=true)
+    Colorbar(fig[2,2], colorrange=extrema(Y), label="Counts")
+
+    Zs,Xs,Ys = gaussian_smoothing(X,mm,5)
+    ax3 = Axis(fig[3,1])
+    viz!(ax3, mm;color=Zs, showsegments=true)
+    Colorbar(fig[3,2], colorrange=extrema(Xs), label="Smoothed counts")
+    fig
+end
+
+"""
+Count the members of var1 on mm1 conditioned on var2 being in `patch` on `mm2`
+"""
+function conditional_count(mm1::SimpleMesh, var1::Matrix{<:Real}, mm2::SimpleMesh, var2::Matrix{<:Real}, patch2)
+    kn1 = KNearestSearch(mm1,1)
+    kn2 = KNearestSearch(mm2,2)
+    n1 = nelements(mm1)
+    Z1 = zeros(n1)
+    func = in(patch2)
+    for (v1,v2) in zip(eachcol(var1),eachcol(var2))
+        p2 = Meshes.Point(v2...)
+        idx2 = search(p2, kn2)
+        if all(func.(idx2))
+            p1 = Meshes.Point(v1...)
+            idx1 = search(p1,kn1)
+            Z1[idx1] .+= 1.0
+        end
+    end
+    Z1
+end
+
+function sample_map(op, λ::Vector{<:Number}, mm::SimpleMesh, k::Integer, nruns::Integer)
+    A = adjacencymatrix(mm)
+    sample_map(op, λ, A, k, nruns)
+end
+
+function sample_map(op, λ::Vector{<:Number}, A::AbstractMatrix{<:Number}, k::Integer, nruns::Integer)
+    X = zeros(Float64, nruns) 
+    for i in 1:nruns
+        nn = random_neighborhood(A, k, rand(1:size(A,1)))
+        X[i] = op(λ[nn])
+    end
+    X
+end
+
+function benjamini_yekutieli_fdr(pvalues::AbstractVector{T},α::T) where T <: Real 
+    m = length(pvalues)
+    sidx = sortperm(pvalues)
+    #harmonic number
+    cm = sum(1.0./[1:m;])
+    aa = [1:m;].*α./(m*cm)
+    k = findlast(aa.>=pvalues[sidx])
+    if k === nothing
+        return Int64[]
+    end
+    sidx[1:k]
 end
