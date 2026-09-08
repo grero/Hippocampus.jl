@@ -534,3 +534,42 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
     end
 end
 
+function plot_egocentric(;plot_theme=_plot_theme)
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    # one specific cell for which there appears to be some symmetry
+    celldir = "/Volumes/Hippocampus/Data/picasso-misc/20180823/session01/array02/channel045/cell01"
+    jm,vpc, pvc, mdt = cd(celldir) do
+       jm = Hippocampus.JointMap(;nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
+       vpc = Hippocampus.ViewPlaceConjunction(;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+       pvc = Hippocampus.PlaceViewConjunction(;nshuffles=1000, nrefinements=(p=3, g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50,  min_view_obs=5, min_place_obs=5, min_view_duration=0.02,  min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+       mdt = Hippocampus.MajorAxisDirectionTuning(;only_full_traversal=true, nshuffles=1000, nrefinements=(p=3,g=2), min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, pv_threshold=0.001, redo=fname->false)
+       jm, vpc, pvc, mdt
+    end
+    # look at rate map conditioned on traversing the second (large) place field
+    pidx = Hippocampus.get_num_fields(vpc.spatial_fields, 0.001)
+    pidx = vpc.spatial_fields.binidx[pidx[2]]
+
+    # grab the forward and reverse trials from mdt
+    λ_view_forward = Hippocampus.laplace_smoothing(Hippocampus.get_view_rate_map(jm, pidx, nelements(mm), mdt.trialidx_forward[2]), mm, 0.5;niter=50) 
+    λ_view_reverse = Hippocampus.laplace_smoothing(Hippocampus.get_view_rate_map(jm, pidx, nelements(mm), mdt.trialidx_reverse[2]), mm, 0.5;niter=50)
+
+    with_theme(plot_theme) do
+        fig = Figure()
+        lscene0 = LScene(fig[1,1],show_axis=false)
+        lscene1 = LScene(fig[1,2],show_axis=false)
+        lscene2 = LScene(fig[1,3], show_axis=false)
+
+        Hippocampus.plotmesh!(lscene0, mm,color=vpc.view_fields.λ, showsegments=true, hide_ceiling=true, indicate_north=false)
+        Hippocampus.plot_pillars!(lscene0)
+        Hippocampus.plotmesh!(lscene1, mm,color=λ_view_forward[:], showsegments=true, hide_ceiling=true, indicate_north=false)
+        Hippocampus.plot_pillars!(lscene1)
+        Hippocampus.plotmesh!(lscene2, mm,color=λ_view_reverse[:], showsegments=true, hide_ceiling=true, indicate_north=false)
+        Hippocampus.plot_pillars!(lscene2)
+        Hippocampus.link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_goal_poster_selective_cell(celldir::String)
+end
+
