@@ -987,20 +987,20 @@ end
 """
 Plot view conditioned on place
 """
-function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:lightgray,non_covered_idx::Union{Vector{Vector{Int64}}, Nothing}=nothing, figsize=(992,500), boxplot_width=75, boxplot_extra=25, kwargs...)
+function plot_conjunction(pvc::PlaceViewConjunction,vidx=1, pidx::Union{Nothing, AbstractVector{<:Integer}}=nothing;smooth=true,smoothing_method=:laplace, α=0.1, niter=100,floor_offset=-20,colormap=:rain,_plot_theme=plot_theme, mazecolor=:lightgray,non_covered_idx::Union{Vector{Vector{Int64}}, Nothing}=nothing, figsize=(992,500), boxplot_width=75, boxplot_extra=25, show_non_sig=true, kwargs...)
+    if isnothing(pidx)
+        pidx = 1:size(pvc.λ_covered,1)
+    end
+    nrefinements = get(pvc.view_fields.args,:nrefinements,(p=3,g=2))
     # find the significant clusters
-    view_clusters = merge_fields(pvc.view_fields)
-    nclusters1 = get_num_fields(pvc.view_fields)
-    view_clusters = view_clusters[dropdims(mean(nclusters1,dims=2),dims=2) .< 0.001]
-    spatial_clusters = merge_fields(pvc.spatial_fields)
-    nclusters2 = get_num_fields(pvc.spatial_fields)
-    spatial_clusters = spatial_clusters[dropdims(mean(nclusters2,dims=2),dims=2) .< 0.001]
-    mm2 = get_mesh(GazeResponseFields, pvc.view_fields.args[:nrefinements])
-    bbc = find_boundary(mm2, pvc.view_fields.binidx[view_clusters[idx]])
-    ppc = pvc.view_fields.binidx[view_clusters[idx]]
+    view_clusters = getfields(pvc.view_fields)
+    spatial_clusters = getfields(pvc.spatial_fields)
+    mm2 = get_mesh(GazeResponseFields, nrefinements)
+    bbc = find_boundary(mm2, view_clusters[vidx])
+    ppc = view_clusters[vidx]
     # get all points not part of a view field
     if non_covered_idx === nothing
-        _nppc = reduce(vcat, [pvc.view_fields.binidx[view_clusters[c]] for c in 1:length(view_clusters)])
+        _nppc = reduce(vcat, [view_clusters[c] for c in 1:length(view_clusters)])
         _nppc = setdiff(1:nelements(mm2), _nppc)
         nppc = Vector{Vector{Int64}}(undef, size(pvc.λ_covered,1))
         for i in 1:length(nppc)
@@ -1009,8 +1009,8 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
     else
         nppc = non_covered_idx
     end
-    nppc = pvc.non_covered_idx[:,idx]
-    mm = floor_topology3(;nrefinements=pvc.spatial_fields.args[:nrefinements].p)
+    nppc = pvc.non_covered_idx[:,vidx]
+    mm = floor_topology3(;nrefinements=nrefinements.p)
     # translate down
     mm = Translate(0.0, 0.0, 3*floor_offset)(mm)
     if smooth
@@ -1024,7 +1024,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         jml = JointSmoothedMap(jm;method=:laplace, α=0.1, niter=100)
         ps = dropdims(sum(jml.occupancy,dims=2),dims=2)
         px = dropdims(sum(jml.weight,dims=2),dims=2)
-        ccidx = pvc.view_fields.binidx[view_clusters[idx]] 
+        ccidx = view_clusters[vidx]
         #X = dropdims(mean(jml.weight[ccidx,:],dims=1),dims=1)
         X = jml.weight[ccidx,:]'*px[ccidx]
         Y = jml.occupancy[ccidx,:]'*ps[ccidx]
@@ -1036,7 +1036,7 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         λ_infield[occ.==0] .= NaN
         #Xuc = vec(laplace_smoothing(res.not_covered.x, Ls, α;niter=niter))
         #Yuc = vec(laplace_smoothing(res.not_covered.w, Ls, α;niter=niter))
-        uccidx = setdiff(1:nelements(mm2), pvc.view_fields.binidx)
+        uccidx = setdiff(1:nelements(mm2), reduce(vcat, view_clusters))
         #X = dropdims(mean(jml.weight[uccidx,:],dims=1),dims=1)
         #Y = dropdims(mean(jml.occupancy[uccidx,:],dims=1),dims=1)
         X = jml.weight[uccidx,:]'*px[uccidx]
@@ -1045,14 +1045,14 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         λ_outfield = X./Y
         λ_outfield[occ.==0] .= NaN
     else
-        λ_infield = pvc.λ_infield[:,idx]
+        λ_infield = pvc.λ_infield[:,vidx]
         λ_outfield = pvc.λ_outfield
     end
-    A = issignificant(pvc, pv_threshold=get(kwargs, :pv_threshold, 0.01))[:,idx]
-    pidx = findall(A)
+    A = issignificant(pvc, pv_threshold=get(kwargs, :pv_threshold, 0.01))[:,vidx]
+    sidx = findall(A)
     scolor = fill(:black, length(A))
     qcolor = [:salmon, :firebrick, :goldenrod2, :orange]
-    scolor[pidx] .= qcolor[1:length(pidx)]
+    scolor[sidx] .= qcolor[1:length(sidx)]
     scolorp = parse.(Colorant, scolor)
     cr = extrema([filter(isfinite, λ_infield);filter(isfinite, λ_outfield)])
     with_theme(_plot_theme) do
@@ -1077,12 +1077,18 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         alpha_outfield = fill(1.0, nelements(mm2))
         # TODO: Mix colors for those elements that overlap?
         nn_outfield = fill(0, nelements(mm2), length(nppc))
-        for (jj,vv) in enumerate(nppc)
-            zvv = Z_outfield[vv]
-            fidx = isfinite.(zvv)
-            Z_outfield[vv][fidx] .+= jj
-            Z_outfield[vv][(~).(fidx)] .= jj 
-            nn_outfield[vv,jj] .+= 1
+        if show_non_sig
+            for (jj,vv) in enumerate(nppc[pidx])
+                zvv = Z_outfield[vv]
+                fidx = isfinite.(zvv)
+                Z_outfield[vv][fidx] .+= jj
+                Z_outfield[vv][(~).(fidx)] .= jj 
+                nn_outfield[vv,jj] .+= 1
+            end
+        else
+            # since we are just sh
+            # we could still have more than one signifcant field
+            # just show the non-view field bins associated with one particular place field
         end
         # decide colors
         overlap = Vector{Vector{Int64}}(undef, nelements(mm2))
@@ -1090,7 +1096,10 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
             _idx = findall(nn_outfield[jj,:] .> 0)
             overlap[jj] = _idx
             if length(_idx)==1
+                # might want to use a different color here; we are conditioning on "not the view field"
+                # so maybe just gray?
                 C_outfield[jj] = scolorp[first(_idx)]
+                C_outfield[jj] = parse(Colorant, :gray45)
             elseif length(_idx) > 1
                 C_outfield[jj] = sum(nn_outfield[jj,_idx].*scolorp[_idx])/sum(nn_outfield[jj,_idx])
             else
@@ -1099,9 +1108,11 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
             end
         end
         for lscene in [lscene1, lscene2]
-            for (kk,bc) in enumerate(spatial_clusters)
-                bb = find_boundary(mm, pvc.spatial_fields.binidx[bc])
-                viz!(lscene, bb;color=scolor[kk], segmentsize=3.0)
+            for (kk,bc) in enumerate(spatial_clusters[pidx])
+                if show_non_sig || A[pidx[kk]]
+                    bb = find_boundary(mm, bc)
+                    viz!(lscene, bb;color=scolor[kk], segmentsize=3.0)
+                end
             end
         end
         hide_ceiling = get(kwargs, :hide_ceiling, false)
@@ -1123,27 +1134,32 @@ function plot_conjunction(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_
         link_cameras_lscene(fig)
         # separate axis to show distribution of firing rate within each field
         lg3 = GridLayout(fig[2,3])
-        axes3 = [Axis(lg3[1,ii]) for ii in 1:length(A)]
-        boxplot_width = boxplot_width*length(A) + boxplot_extra 
-        for (ii,_ax) in enumerate(axes3)
-            _yy = filter(isfinite, pvc.λ_sub[ii,idx,:])
+        if show_non_sig
+            #aaidx = [1:length(A);]
+            aaidx = pidx
+        else
+            aaidx = sidx
+        end
+        axes3 = [Axis(lg3[1,ii],xgridvisible=false, ygridvisible=false) for ii in 1:length(aaidx)]
+        boxplot_width = boxplot_width*length(aaidx) + boxplot_extra 
+        for (ii,_ax) in zip(aaidx,axes3)
+            _yy = filter(isfinite, pvc.λ_sub[ii,vidx,:])
             _xx = fill(1.0, length(_yy))
-            boxplot!(_ax, _xx, _yy, color=scolorp[ii],show_outliers=false)
+            boxplot!(_ax, _xx, _yy, color=:gray45,show_outliers=false)
             if A[ii]
                 marker = :star5
             else
                 marker = :circle
             end
-            scatter!(_ax, [1.0], [pvc.λ_covered[ii,idx]], color=scolor[ii], marker=marker)
+            scatter!(_ax, [1.0], [pvc.λ_covered[ii,vidx]], color=:goldenrod1, marker=marker)
             #append!(yy, _yy)
             #append!(xx, fill(ii, length(_yy)))
             _ax.yaxisposition = :right
             if ii < length(A)
                 _ax.yticklabelsvisible = true 
                 _ax.yticksvisible = true 
-            else
-                _ax.ylabel = "Firing rate within place field [Hz]"
             end
+            _ax.ylabel = "Firing rate within place field [Hz]"
             _ax.rightspinevisible = true 
             _ax.leftspinevisible = false
             _ax.xticksvisible = false
