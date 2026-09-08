@@ -5,6 +5,7 @@ using Meshes
 using StatsBase
 using Hippocampus
 using JLD2
+using Makie.Colors
 
 plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
                            xticklabelsize=14, yticklabelsize=14,
