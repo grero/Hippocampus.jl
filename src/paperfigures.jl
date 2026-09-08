@@ -438,7 +438,7 @@ view fields that overlap with the same poster during navigation
 function plot_landmark_cells(;redo=false)
     fname = joinpath(@__DIR__, "..","data","landmark_cells.jld2")
     if isfile(fname) && !redo
-        landmark_cells = JLD2.load(fname, "landmark_cells")
+        landmark_cells, poster_selective_view_cells,view_cells = JLD2.load(fname, "landmark_cells","poster_selective_view_cells", "view_cells")
     else
         view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
             readlines(fid)
@@ -491,7 +491,7 @@ function plot_landmark_cells(;redo=false)
         ax1.ylabel = "Firing rate [Hz]"
         ax1.xticks = [1:6;]
         ax2 = Axis(lg1[2,1])
-        scatter!(ax2, [1:6;], fill(1.0, 6), marker=imgs, markersize=50)
+        scatter!(ax2, [1:6;], fill(1.0, 6), marker=imgs, markersize=40)
         hidedecorations!(ax2)
         hidespines!(ax2)
         ax2.yticklabelsvisible = false
@@ -500,10 +500,19 @@ function plot_landmark_cells(;redo=false)
         ax2.xticksvisible = false
         ax2.xticklabelsvisible = false
         linkxaxes!(ax1, ax2)
-        rowsize!(lg1, 2, 60)
+        rowgap!(lg1, 1, 0)
+        rowsize!(lg1, 2, 50)
+
+        # summary plot
+        ax3 = Axis(lg1[3,1])
+        barplot!(ax3, 1:3, length.([view_cells,poster_selective_view_cells, landmark_cells]),color=:lightgray, direction=:x)
+        ax3.yticks = ([1:3;], ["View field","Poster view", "Landmark"])
+        ax3.xlabel = "Number of cells"
+        Label(lg1[3,1,TopLeft()], "C")
+        rowsize!(lg1, 3, Relative(0.25))
         # now show the view fields
         lg2 = GridLayout(fig[1,2])
-        Hippocampus.plot_response_fields!(lg2, rf_gaze;colormap=:rain, indicate_north=false, hide_ceiling=true, floor_offset=0)
+        Hippocampus.plot_response_fields!(lg2, rf_gaze;colormap=:jet, indicate_north=false, hide_ceiling=true, floor_offset=0)
         Label(fig[1,1, TopLeft()], "A")
         colsize!(fig.layout, 1, Relative(0.4))
         Label(fig[1,2, TopLeft()], "B")
