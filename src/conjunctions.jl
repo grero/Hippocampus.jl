@@ -484,18 +484,20 @@ function get_spatial_rate_map(jm::JointMap, view_idx::AbstractVector{<:Integer},
     SpatialRateMap(xx,yy)
 end
 
-function get_view_rate_map(jm::JointMap, spatial_idx::AbstractVector{<:Integer},N::Integer)
+function get_view_rate_map(jm::JointMap, spatial_idx::AbstractVector{<:Integer},N::Integer, trial_idx::AbstractVector{<:Integer}=Int64[])
     xx = zeros(N)
     yy = zeros(N)
+    valid_trial = isempty(trial_idx) ? tidx->true : in(trial_idx)
     for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
         vidx = getindex(qidx,1)
         pidx = getindex(qidx, 2)
-        if pidx in spatial_idx
+        tidx = getindex(qidx,4)
+        if (pidx in spatial_idx) && valid_trial(tidx)
             xx[vidx] += w
             yy[vidx] += occ
         end
     end
-    xx./yy
+    ViewRateMap(xx,yy)
 end
 
 function conjunctions2(jm::JointMap, rf_gaze::GazeResponseFields, rf_spatial::SpatialResponseFields, condition_on::Integer)
