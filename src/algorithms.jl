@@ -91,10 +91,10 @@ function compute_skaggs_sic(jm::JointMap, nrefinements::@NamedTuple{p::Int64, g:
             A_mm = adjacencymatrix(mm)
             Dp_mm = Diagonal(vec(1.0./sqrt.(sum(A_mm,dims=2))))
             Ls_mm = I - Dp_mm*A_mm*Dp_mm
-            X = laplace_smoothing(permutedims(X), Ls_floor, α;niter=niter)
+            X = laplace_smoothing(X, Ls_floor, α;niter=niter)
             X = laplace_smoothing(permutedims(X), Ls_mm, α;niter=niter)
 
-            Y = laplace_smoothing(permutedims(Y), Ls_floor, α;niter=niter)
+            Y = laplace_smoothing(Y, Ls_floor, α;niter=niter)
             Y = laplace_smoothing(permutedims(Y), Ls_mm, α;niter=niter)
         end
     end
