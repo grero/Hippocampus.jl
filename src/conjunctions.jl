@@ -121,9 +121,9 @@ struct PlaceViewConjunction{T1<:Union{SpatialResponseFields, SpatialResponseFiel
     non_covered_idx::Matrix{Vector{Int64}}
 end
 
-struct ViewPlaceConjunction <: AbstractFieldConjunctions
-    view_fields::GazeResponseFields
-    spatial_fields::SpatialResponseFields
+struct ViewPlaceConjunction{T1<:Union{GazeResponseFields, GazeResponseFieldsSimple},T2<:Union{SpatialResponseFields, SpatialResponseFieldsSimple}} <: AbstractFieldConjunctions
+    view_fields::T1
+    spatial_fields::T2
     λ_covered::Matrix{Float64}
     λ_sub::Array{Float64,3}
     λ_infield::Matrix{Float64}
