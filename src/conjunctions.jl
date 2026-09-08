@@ -468,13 +468,15 @@ function conjunctions2(jm::JointMap, viewidx::AbstractVector{<:Integer}, placeid
     λ_covered, λ_sub, matched_idx
 end
 
-function get_spatial_rate_map(jm::JointMap, view_idx::AbstractVector{<:Integer},N::Integer)
+function get_spatial_rate_map(jm::JointMap, view_idx::AbstractVector{<:Integer},N::Integer,trial_idx::AbstractVector{<:Integer}=Int64[])
     xx = zeros(N)
     yy = zeros(N)
+    valid_trial = isempty(trial_idx) ? tidx->true : in(trial_idx)
     for (w,occ,qidx) in zip(jm.weight, jm.occupancy, jm.index)
         vidx = getindex(qidx,1)
         pidx = getindex(qidx, 2)
-        if vidx in view_idx
+        tidx = getindex(qidx, 4)
+        if (vidx in view_idx) && valid_trial(tidx)
             xx[pidx] += w
             yy[pidx] += occ
         end
