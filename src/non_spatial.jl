@@ -144,11 +144,12 @@ end
 function find_preferred_poster(model, nspikes::Vector{Int64}, posterid::Vector{Int64};k=1,nshuffles=1000)
     preferred = sortperm(model.pp.beta0,rev=true)[1:k]
     qlabel = fill(0, length(nspikes))
-    tidx = findall(in(preferred).(posterid))
+    tidx = findall(in(preferred[k]).(posterid))
     qlabel[tidx] .= 1
-    aidx = setdiff(1:length(nspikes), tidx)
+    # exlucde the 1:(k-1) preferred posters from further comparison
+    aidx = findall((!in(preferred)).(posterid))
     qlabel[aidx] .= 2
-    ww0,ww, model2 = compute_poster_selectivity(nspikes, qlabel;nshuffles=nshuffles)
+    ww0,ww, model2 = compute_poster_selectivity(nspikes[qlabel.>0], qlabel[qlabel.>0];nshuffles=nshuffles)
     return ww0,ww, preferred, model2
 end
 
@@ -157,13 +158,16 @@ function find_preferred_poster(celldir::String;kwargs...)
     nspikes, posterid, outcome = get_poster_cue_response(celldir)
     cidx = outcome.==3
     vv0,vv,model = compute_poster_selectivity(nspikes[cidx], posterid[cidx];nshuffles=get(kwargs, :nshuffles, 1000))
+    preferred = Int64[]
     if vv0 < percentile(vv, 100*pv_threshold)
-        # significant; find the preferred groupind
-        # maybe  run this until we no longer get significance? 
         for k in 1:6
-            ww0,ww,preferred, m2 = find_preferred_poster(model, nspikes[cidx], posterid[cidx];k=k)
-            if ww0 < percentile(ww, 100*pv_threshold)
+            ww0,ww,_preferred, m2 = find_preferred_poster(model, nspikes[cidx], posterid[cidx];k=k)
+            if !(ww0 < percentile(ww, 100*pv_threshold))
+                # return the previous result
                 return vv0,vv,model, preferred
+            else
+                # update
+                preferred = _preferred
             end
         end
     end
