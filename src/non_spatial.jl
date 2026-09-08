@@ -175,9 +175,8 @@ function find_preferred_poster(celldir::String;kwargs...)
 end
 
 function is_poster_selective(celldir::String;prctile=1, kwargs...)
-    nspikes, posterid = get_poster_cue_response(celldir;kwargs...)
-    vv0,vv = compute_poster_selectivity(nspikes, posterid;nshuffles=1000)
-    vv0 < percentile(vv, prctile)
+    vv0,vv,model = compute_poster_selectivity(celldir;kwargs...)
+    vv0 < percentile(vv, prctile), model
 end
 
 function is_poster_selective!(X::Vector{Bool}, celldirs::Vector{String};kwargs...)
