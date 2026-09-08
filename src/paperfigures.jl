@@ -356,19 +356,40 @@ function plot_trajectory_time(args...;kwargs...)
     end
 end
 
-function plot_directional_place_fields()     
+function plot_directional_place_fields(;use_pie_chart=false)     
+    place_cells = readlines(open(joinpath(@__DIR__, "..", "data","place_cells.txt")));
     place_cells_width_directed_fields = readlines(open(joinpath(@__DIR__, "..","data/place_cells_with_oriented_fields.txt")))
     # place_cells_width_directed_fields[13]
     kwargs = (only_full_traversal=true, nshuffles=1000, nrefinements=(p=3,g=2), min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, pv_threshold=0.001, redo=fname->false,colormap=:jet)
     celldir = "/Volumes/Hippocampus/Data/picasso-misc/20180727/session01/array03/channel086/cell01"
     with_theme(plot_theme) do
-        fig = Figure(size=(700,550))
+        fig = Figure(size=(700,700))
         lg1 = GridLayout(fig[1,1])
         lg2 = GridLayout(fig[2,1])
-        rowsize!(fig.layout, 1, Relative(0.6))
+        lg22 = GridLayout(lg2[1,2])
+        rowsize!(fig.layout, 1, Relative(0.5))
         Hippocampus.plot_field_direction_tuning!(lg1, Hippocampus.MajorAxisDirectionTuning, celldir, nothing;start_label='A', kwargs...)
-        Hippocampus.plot_field_direction_summary!(lg2, Hippocampus.MajorAxisDirectionTuning, place_cells_width_directed_fields) 
-        Label(lg2[1,1, TopLeft()], "E")
+        Hippocampus.plot_field_direction_summary!(lg22, Hippocampus.MajorAxisDirectionTuning, place_cells_width_directed_fields) 
+        Label(lg22[1,1, TopLeft()], "F")
+        lg21 = GridLayout(lg2[1,1])
+        if use_pie_chart
+            axp = Axis(lg21[1,1], aspect=1)
+            pie!(axp, [length(setdiff(place_cells, place_cells_width_directed_fields)), length(place_cells_width_directed_fields)],
+                        color=[:lightgray, :darkorchid],offset_radius=0.05
+                        )
+            hidedecorations!(axp)
+            hidespines!(axp)
+        else
+            # normal bar plot
+            axp = Axis(lg21[1,1], alignmode=Outside())
+            @show length.([place_cells, place_cells_width_directed_fields])
+            barplot!(axp, [1:2;], length.([place_cells, place_cells_width_directed_fields]), color=[:lightgray, :darkorchid])
+            axp.xticks = ([1,2], ["All place", "Directional"])
+            axp.xticklabelrotation = -π/6
+            axp.ylabel = "Number of cells"
+        end
+        Label(lg21[1,1,TopLeft()], "E")
+        colsize!(lg2, 1, Relative(0.35))
         fig
     end
 end
