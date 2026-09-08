@@ -8,23 +8,30 @@ using LinearRegressionUtils
 abstract type AbstractMap  end
 abstract type AbstractSpatialMap <: AbstractMap end
 
-abstract type AbstractRateMap <: AbstractMap end
+abstract type AbstractRateMap{T<:Number} <: AbstractMap end
 
-struct SpatialRateMap{T<:Number} <: AbstractRateMap
+struct SpatialRateMap{T<:Number} <: AbstractRateMap{T}
     weight::Vector{T}
     occupancy::Vector{T}
 end
 
-struct ViewRateMap{T<:Number} <: AbstractRateMap
+Base.zeros(::Type{T}, dim::Integer) where T <: SpatialRateMap{T2} where T2 <: Number = SpatialRateMap{T2}(zeros(T2,dim), zeros(T2,dim))
+
+struct ViewRateMap{T<:Number} <: AbstractRateMap{T}
     weight::Vector{T}
     occupancy::Vector{T}
 end
+
+Base.zeros(::Type{T}, dim::Integer) where T <: ViewRateMap{T2} where T2 <: Number = ViewRateMap{T2}(zeros(T2,dim), zeros(T2,dim))
 
 get_weight(mm::AbstractMap) = mm.weight
 get_occupancy(mm::AbstractMap) = mm.occupancy
 get_rate(mm::AbstractMap) = mm.weight./mm.occupancy
 
-function get_rate(mm::Vector{<:AbstractMap})
+function get_rate(mm::AbstractVector{T}) where T <: AbstractRateMap{T2} where T2 <: Number
+    if isempty(mm)
+        return Matrix{T2}(undef, 0,0)
+    end
      y = mapreduce(get_rate, hcat, mm)
      reshape(y, size(y,1), size(y,2))
 end
