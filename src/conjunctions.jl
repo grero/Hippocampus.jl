@@ -883,6 +883,18 @@ end
 struct ViewAccountingSpace
 end
 
+function isconjunctive(::Type{T1}, ::Type{T2};kwargs...) where T1 <: SpatialResponseFieldsAll where T2 <: GazeResponseFieldsAll
+    pvc = PlaceViewConjunction(T1,T2;kwargs...)
+    vpc = ViewPlaceConjunction(T2,T1;kwargs...)
+    if isempty(pvc.spatial_fields.binidx) || isempty(pvc.view_fields.binidx)
+        return false
+    end
+    pv_threshold = get(kwargs, :pv_threshold, 0.01)
+    A1 = issignificant(pvc;pv_threshold=pv_threshold)
+    A2 = issignificant(vpc;pv_threshold=pv_threshold)
+    return any(A1) || any(A2)
+end
+
 ## plots
 function plot_conjunction_old(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
 
