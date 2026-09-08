@@ -500,32 +500,36 @@ function get_view_rate_map(jm::JointMap, spatial_idx::AbstractVector{<:Integer},
     ViewRateMap(xx,yy)
 end
 
-function conjunctions2(jm::JointMap, rf_gaze::GazeResponseFields, rf_spatial::SpatialResponseFields, condition_on::Integer)
-    view_clusters = Hippocampus.merge_fields(rf_gaze)
-    nclusters = Hippocampus.get_num_fields(rf_gaze)
-    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).< 0.001)
-    view_clusters = view_clusters[cidx]
-    spatial_clusters = Hippocampus.merge_fields(rf_spatial)
-    nclusters = Hippocampus.get_num_fields(rf_spatial)
-    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2).< 0.001)
-    spatial_clusters = spatial_clusters[cidx]
+function conjunctions2(jm::JointMap, rf_gaze::Union{GazeResponseFields,GazeResponseFieldsSimple}, rf_spatial::Union{SpatialResponseFields, SpatialResponseFieldsSimple}, condition_on::Integer)
+    view_clusters = getfields(rf_gaze;cluster_threshold=0.001)
+    spatial_clusters = getfields(rf_spatial;cluster_threshold=0.001)
+    if isempty(view_clusters) || isempty(spatial_clusters)
+        if condition_on == 1
+            λ_infield = SpatialRateMap{Float64}[]
+            λ_outfield = zeros(SpatialRateMap{Float64},0)
+        else
+            λ_infield = ViewRateMap{Float64}[]
+            λ_outfield = zeros(ViewRateMap{Float64},0)
+        end
+        return zeros(0,0), zeros(0,0, 1000), λ_infield, λ_outfield, Matrix{Vector{Int64}}(undef, 0, 0)
+    end
     # compute infield/outfield
     if condition_on == 1
         # compute spatial fields conditioned on each of the view clusters
         N = length(rf_spatial.λ)
-        all_outfield = setdiff(1:N, rf_spatial.binidx)
+        all_outfield = setdiff(1:N, reduce(vcat, spatial_clusters))
         λ_outfield = get_spatial_rate_map(jm, all_outfield,N)
-        λ_infield = zeros(N, length(view_clusters))
+        λ_infield = Vector{SpatialRateMap{Float64}}(undef, length(view_clusters))
         for (ii,vc) in enumerate(view_clusters)
-            λ_infield[:,ii] = get_spatial_rate_map(jm, rf_gaze.binidx[vc],N)
+            λ_infield[ii] = get_spatial_rate_map(jm, vc,N)
         end
     else   
         N = length(rf_gaze.λ)
-        all_outfield = setdiff(1:N, rf_gaze.binidx)
+        all_outfield = setdiff(1:N, reduce(vcat, view_clusters))
         λ_outfield = get_view_rate_map(jm, all_outfield,N)
-        λ_infield = zeros(N, length(spatial_clusters))
+        λ_infield = Vector{ViewRateMap{Float64}}(undef, length(spatial_clusters))
         for (ii,sc) in enumerate(spatial_clusters)
-            λ_infield[:,ii] = get_view_rate_map(jm, rf_spatial.binidx[sc],N)
+            λ_infield[ii] = get_view_rate_map(jm, sc,N)
         end
     end
     λ_covered = zeros(length(spatial_clusters), length(view_clusters))
@@ -533,7 +537,7 @@ function conjunctions2(jm::JointMap, rf_gaze::GazeResponseFields, rf_spatial::Sp
     matched_idx = Matrix{Vector{Int64}}(undef, size(λ_covered)...)
     for (j,vc) in enumerate(view_clusters)
         for (i,sc) in enumerate(spatial_clusters)
-            λ_covered[i,j],λ_sub[i,j,:],midx =Hippocampus.conjunctions2(jm, rf_gaze.binidx[vc], rf_spatial.binidx[sc],condition_on);
+            λ_covered[i,j],λ_sub[i,j,:],midx =Hippocampus.conjunctions2(jm, vc, sc,condition_on);
             matched_idx[i,j] = unique(midx[:])
         end
     end
