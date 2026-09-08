@@ -481,7 +481,7 @@ function get_spatial_rate_map(jm::JointMap, view_idx::AbstractVector{<:Integer},
             yy[pidx] += occ
         end
     end
-    xx./yy
+    SpatialRateMap(xx,yy)
 end
 
 function get_view_rate_map(jm::JointMap, spatial_idx::AbstractVector{<:Integer},N::Integer)
