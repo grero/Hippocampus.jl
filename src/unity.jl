@@ -60,7 +60,7 @@ poster_color[:pig] = :salmon
 poster_color[:donkey] = :gray55
 poster_color[:croc] = :seagreen
 poster_color[:rabbit] = :whitesmoke
-poster_names = [:camel, :cat, :croc, :donkey, :pig, :rabbit]
+poster_names = [:cat, :camel, :rabbit, :donkey, :croc, :pig]
 
 maze_colors = Dict(:yellow => RGB(165/255,140/255,24/255), #yellow
                 :blue => RGB(31/255,70/255,129/255), #blue 
