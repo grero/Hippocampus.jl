@@ -485,14 +485,18 @@ function plot_landmark_cells(view_cells::Vector{String};redo=false)
         #parse the posterid
         # find cells which overlapping cue and navigation poster preference
         lmidx = findall((!isempty).(intersect.(vv[midx], cue_poster_pref)))
+        # find cells which have identical cue and view poster preference
+        lmoidx = findall((Set.(vv[midx]).==Set.(cue_poster_pref)))
         landmark_cells = poster_selective_view_cells[lmidx]
         JLD2.save(fname, Dict("landmark_cells"=>landmark_cells, "view_cells"=>view_cells,
                               "poster_selective_view_cells"=>poster_selective_view_cells,
                               "view_poster_pref"=>view_poster_pref,
                               "cue_poster_pref"=>cue_poster_pref,
-                              "landmark_idx"=>lmidx))
+                              "landmark_idx"=>lmidx,
+                              "landmark_pure_idx"=>lmoidx))
+        landmark_only_idx = lmoidx
     end
-
+    @show landmark_only_idx
     # show an example cell, with it's firing rate per poster during the cue period, and it's view field
     # during the navgiation period
     celldir = first(landmark_cells)
@@ -530,7 +534,9 @@ function plot_landmark_cells(view_cells::Vector{String};redo=false)
 
         # summary plot
         ax3 = Axis(lg1[3,1])
-        barplot!(ax3, 1:3, length.([view_cells,poster_selective_view_cells, landmark_cells]),color=:lightgray, direction=:x)
+        colors = fill(:lightgray, 4)
+        colors[end] = :cornflowerblue
+        barplot!(ax3, [1:3;3], length.([view_cells,poster_selective_view_cells, landmark_cells, landmark_only_idx]),color=colors, direction=:x)
         ax3.yticks = ([1:3;], ["View field","Poster view", "Landmark"])
         ax3.xlabel = "Number of cells"
         Label(lg1[3,1,TopLeft()], "C")
