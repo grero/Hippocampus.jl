@@ -62,6 +62,11 @@ function process_kwargs(::Type{<:AbstractResponseFields},h::UInt32=zero(UInt32);
     h
 end
 
+function getfields(rf::Union{SpatialResponseFields,GazeResponseFields};cluster_threshold=0.001)
+    clusters = get_num_fields(rf,cluster_threshold)
+    [rf.binidx[c] for c in clusters]
+end
+
 function get_binindex(rf::AbstractResponseFields)
     rf.binidx
 end
@@ -389,6 +394,12 @@ function get_num_fields(rf::T) where T <: AbstractResponseFields
         end
     end
     nclusters
+end
+
+function get_num_fields(rf::T,α::Real) where T <: AbstractResponseFields
+    nclusters = get_num_fields(rf)
+    clusters = merge_fields(rf)
+    clusters[dropdims(mean(nclusters,dims=2),dims=2) .< α]
 end
 
 function merge_fields(mm::SimpleMesh, idx::Vector{<:Integer})
