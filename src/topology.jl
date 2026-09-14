@@ -1363,3 +1363,14 @@ function grow_region(idx0::Integer, F::Vector{<:Number}, A::AbstractMatrix{<:Num
     end
     g
 end
+
+function grow_region(F::Vector{<:Number}, A::AbstractMatrix{<:Number}, threshold::Number)
+    idx = argmax(F)
+    grow_region(idx, F, A, threshold)
+end
+
+function grow_region(F::Matrix{<:Number}, threshold::Number)
+    g = Meshes.CartesianGrid(size(F)...)
+    A = adjacencymatrix(g)
+    grow_region(F[:],A,threshold)
+end
