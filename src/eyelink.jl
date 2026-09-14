@@ -1,4 +1,5 @@
 using Eyelink
+using CSV
 using Makie
 
 function zerounless(::Type{Eyelink.Event};kwargs...)
@@ -25,8 +26,9 @@ function zerounless(::Type{Eyelink.Event};kwargs...)
 end
 
 struct EyelinkData
-    triggers::Matrix{Int64}
-    timestamps::Matrix{UInt64}
+    triggers::Matrix{Union{Missing, Int64}}
+    session_start::Vector{UInt64}
+    timestamps::Matrix{Union{UInt64, Missing}}
     analogtime::Vector{UInt64}
     gazex::Matrix{Float32}
     gazey::Matrix{Float32}
@@ -67,26 +69,57 @@ end
 
 function EyelinkData(qdata::Dict)
     args = Any[]
+    midx = Int64[]
     for k in fieldnames(EyelinkData)
-        push!(args, qdata[string(k)])
+        tt = fieldtype(EyelinkData, k)
+        qv = qdata[string(k)]
+        if k == :session_start
+            qv = get(qdata,string(k),UInt64[])
+        else
+            qv = qdata[string(k)]
+        end
+        if typeof(qv) == eltype(tt)
+            qt = [qv]
+        else
+            qt = tt(qv)
+        end
+        push!(args, qt)
     end
-    EyelinkData(args...)
+    ee = EyelinkData(args...)
+    if "missing_idx" in keys(qdata)
+        midx = qdata["missing_idx"]
+        ee.triggers[midx[:,1], midx[:,2]] .= missing
+        ee.timestamps[midx[:,1], midx[:,2]] .= missing
+    end
+    ee
 end
 
-function EyelinkData(;do_save=true,redo=false)
+function EyelinkData(;do_save=true,redo=false,kwargs...)
     outfile = DPHT.filename(EyelinkData)
-    if !redo && isfile(outfile)
-        return DPHT.load(EyelinkData, outfile)
-    end
+   
+    # TODO: Check whether we are in a session direction
+    if DPHT.level() == "session"
+        #figure out which session we are in
+        sn = DPHT.get_level_name("session")
+        sidx = parse(Int64,filter(isdigit, sn))
+        edata = cd("..") do
+            EyelinkData(;kwargs...)
+        end
+        edata = get_session(edata, sidx;kwargs...)
+    else
+         if !redo && isfile(outfile)
+            return DPHT.load(EyelinkData, outfile)
+        end
 
-    # create the object
-    edffiles = glob("*.edf")
-    if isempty(edffiles)
-        error("No EDF files found")
-    end
-    edata = EyelinkData(first(edffiles))
-    if do_save
-        DPHT.save(edata)
+        # create the object
+        edffiles = glob("*.edf")
+        if isempty(edffiles)
+            error("No EDF files found")
+        end
+        edata = EyelinkData(first(edffiles);kwargs...)
+        if do_save
+            DPHT.save(edata)
+        end
     end
     edata
 end
@@ -96,9 +129,10 @@ end
 
 Extract trial markers from Eyelink message events.
 """
-function get_markers(messages::Vector{Eyelink.Event})
+function get_markers(messages::Vector{Eyelink.Event};extras=nothing)
     triggers = Int64[]
     timestamps = UInt64[]
+    session_start = UInt64[]
     for msg in messages
         if startswith(msg.message, "Start Trial") ||
         startswith(msg.message, "End Trial") ||
@@ -107,13 +141,33 @@ function get_markers(messages::Vector{Eyelink.Event})
                 trigger = parse(Int64, split(msg.message)[end])
                 push!(triggers, trigger)
                 push!(timestamps, msg.sttime)
+        elseif startswith(msg.message, "Trigger")
+            push!(session_start, msg.sttime)
         end
     end
-    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps)
+    if extras !== nothing
+        # try and slot in the markers here
+        _timestamps = extras.Timestamps
+        _messages = extras.Messages
+        for (_t,_msg) in zip(_timestamps, _messages)
+            trigger = parse(Int64, split(_msg)[end])    
+            push!(triggers, trigger)
+            push!(timestamps, _t)
+        end
+    end
+    sidx = sortperm(timestamps)
+    triggers[sidx], timestamps[sidx], session_start
 end
 
-function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
+function EyelinkData(fname::String;do_save=true, redo=false, process_extras=false, kvs...)
     eyelinkdata = Eyelink.load(fname)
+    missing_data_file = "missingData_$(fname).csv"
+    if process_extras && isfile(missing_data_file)
+        ff = CSV.File(missing_data_file)
+        @show ff
+    else
+        ff = nothing
+    end
     header = Dict()
     #get gaze coordinates
     for ee in eyelinkdata.events
@@ -163,9 +217,13 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     # get the messages
     messages = filter(ee->ee.eventtype==:messageevent, eyelinkdata.events)
 
-    trial_markers, trial_timestamps = get_markers(messages)
+    triggers, timestamps,session_start = get_markers(messages;extras=ff)
+    if length(session_start) > 1
+        # multi-session; extract each sesssion to a different file
+    end
+    trial_markers, trial_timestamps = reshape_triggers(triggers, timestamps;kvs...)
     qdata = Dict{String,Any}()
-    merge!(qdata, Dict("triggers"=>trial_markers, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
+    merge!(qdata, Dict("triggers"=>trial_markers, "session_start"=>session_start, "timestamps"=>trial_timestamps, "analogtime"=>eyelinkdata.samples.time,
             "gazex"=>eyelinkdata.samples.gx,"gazey"=>screen_height .- eyelinkdata.samples.gy, "fixation_start"=>fixation_start,
             "fixation_end"=>fixation_end, "saccade_start_time"=>saccade_start_time,
             "saccade_end_time"=>saccade_end_time, "saccade_start_pos"=>saccade_start_pos, "saccade_end_pos"=>saccade_end_pos))
@@ -173,10 +231,51 @@ function EyelinkData(fname::String;do_save=true, redo=false, kvs...)
     EyelinkData(qdata)
 end
 
+"""
+    get_session_data(edata::EyelinkData, idx::Integer)
+
+Extract single session data
+"""
+function get_session(edata::EyelinkData, idx::Integer;kwargs...)
+    session_start = edata.session_start[idx]
+    if idx < length(edata.session_start)
+        session_end = edata.session_start[idx+1]
+    else
+        session_end = typemax(UInt64)
+    end
+    analogidx = session_start .<= edata.analogtime .< session_end
+    analogtime = edata.analogtime[analogidx]
+    gazex = edata.gazex[:,analogidx]
+    gazey = edata.gazey[:,analogidx]
+    trialidx = session_start .<= edata.timestamps[:,1] .< session_end
+    timestamps = edata.timestamps[trialidx,:]
+    triggers = edata.triggers[trialidx,:]
+    saccade_idx = session_start .<= edata.saccade_start_time .< session_end
+    saccade_start_time = edata.saccade_start_time[saccade_idx]
+    saccade_end_time = edata.saccade_end_time[saccade_idx]
+    saccade_start_pos = edata.saccade_start_pos[:,saccade_idx]
+    saccade_end_pos = edata.saccade_end_pos[:,saccade_idx]
+    fixation_idx = session_start .<= edata.fixation_start .< session_end
+    fixation_start = edata.fixation_start[fixation_idx]
+    fixation_end = edata.fixation_end[fixation_idx]
+    EyelinkData(triggers, [session_start], timestamps, analogtime, gazex, gazey,fixation_start, fixation_end,
+                saccade_start_time, saccade_end_time, saccade_start_pos, saccade_end_pos, edata.header)
+end
+
 function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
     qdata = Dict{String,Any}()
-    qdata["triggers"] = edata.triggers
-    qdata["timestamps"] = edata.timestamps
+    # take care of the missing values
+    midx = (!ismissing).(edata.triggers)
+    triggers = zeros(Int64, size(edata.triggers)...)
+    triggers[midx] = edata.triggers[midx]
+    timestamps = zeros(UInt64, size(edata.timestamps)...)
+    timestamps[midx] = edata.timestamps[midx]
+    qdata["triggers"] = triggers
+    qdata["session_start"] = edata.session_start
+    qdata["timestamps"] = timestamps
+    _midx = findall((!).(midx))
+    qdata["missing_idx"] = [[_ii.I[1] for _ii in _midx] [_ii.I[2] for _ii in _midx]]
+    @show qdata["missing_idx"]
     qdata["analogtime"] = edata.analogtime
     qdata["gazex"] = edata.gazex
     qdata["gazey"] = edata.gazey
@@ -193,7 +292,10 @@ function Base.convert(::Type{Dict{String, Any}}, edata::EyelinkData)
     qdata
 end
 
-function get_trial(edata::EyelinkData, i;trial_start=1)
+function get_trial(edata::EyelinkData, i;trial_start=1,flip_y=false)
+    if ismissing(edata.timestamps[i,trial_start]) || ismissing(edata.timestamps[i,3])
+        error("Trial $i contains missing data")
+    end
     idx0 = searchsortedfirst(edata.analogtime, edata.timestamps[i,trial_start])
     idx1 = searchsortedfirst(edata.analogtime, edata.timestamps[i,3])
     trial_time = edata.analogtime[idx0:idx1]
@@ -215,8 +317,10 @@ function get_trial(edata::EyelinkData, i;trial_start=1)
     gx[gx.==1.0f8] .= NaN32
     gy = edata.gazey[er,idx0:idx1]
     gy[gy.==1.0f8] .= NaN32
-
-    trial_time, gx, gy,fixation_mask
+    if flip_y
+        gy = edata.header["gaze_coords"][end] .- gy
+    end
+    (trial_time .- edata.timestamps[i,trial_start])/1000.0, gx, gy,fixation_mask
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, x::EyelinkData)
@@ -251,7 +355,7 @@ function visualize!(lscene, edata::EyelinkData;trial::Observable{Trial}=Observab
     #ylims!(ax, y0,y1)
     #ax.xgridvisible = false
     #ax.ygridvisible = false
-    gaze_pos = Observable([Point2f(NaN)])
+    gaze_pos = Observable([Point3f(NaN)])
     current_j = 1
     onany(edata_trial, current_time, cam.projectionview) do _edt, ct, proj
         te = _edt[1]
@@ -264,15 +368,11 @@ function visualize!(lscene, edata::EyelinkData;trial::Observable{Trial}=Observab
             # project to the cameras near clip, i.e. z=0.0
             gaze = permutedims([_edt[2][:]./Δx _edt[3][:]./Δy fill(0.0, length(_edt[2]))])
             gaze_pos[] = map(eachcol(gaze[:,j0:j1])) do gg
-                p = inv_pv*to_ndim(Point4f, gg, 1.0)
+                p = inv_pv*to_ndim(Point4f, Point3f(gg), 1.0)
                 Point3f(p[Makie.Vec(1,2,3)]/p[4])
             end
             current_j = j
         end
     end
-    if isa(ax, Axis)
-        scatter!(ax, gaze_pos;color=:red)
-    else
-        # plot into the near plane
-    end
+    scatter!(lscene, gaze_pos;color=:red)
 end

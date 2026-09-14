@@ -9,7 +9,7 @@ jobs:
       - name: Set up Julia 1.10.0
         uses: julia-actions/setup-julia@v1
         with:
-          version: "1.10.0"
+          version: "1.11.0"
       - run: julia -e 'using Pkg; Pkg.Registry.add(RegistrySpec(url = "https://github.com/grero/NeuralCodingRegistry.jl.git"))'
         shell: bash
       - uses: julia-actions/julia-buildpkg@v1

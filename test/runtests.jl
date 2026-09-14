@@ -4,6 +4,14 @@ using GeometryBasics
 using StatsBase
 using StableRNGs
 
+@testset "Topology" begin
+    A = Hippocampus.get_circular_adjancency(5)
+    @test A == [1.0 1.0 0.0 0.0 1.0;
+                1.0 1.0 1.0 0.0 0.0;
+                0.0 1.0 1.0 1.0 0.0;
+                0.0 0.0 1.0 1.0 1.0;
+                1.0 0.0 0.0 1.0 1.0]
+end
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
     timestamps = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
@@ -21,9 +29,52 @@ using StableRNGs
     markers = [84, 11, 21, 31, 12, 22, 42, 23, 23, 33]
     @test_throws "Inconsistent main markers" Hippocampus.reshape_triggers(markers, timestamps)
 
+    # test fix markers
+    fmarkers = Hippocampus.fix_markers([1,2,3,1,2,1,2,3])
+    @test length(fmarkers) == 9
+    @test ismissing(fmarkers[6])
+
+    # test repairing markers
+    markers = [11, 21, 31, 12, 22, 42, 23, 33]
+    timestamps = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+    trial_markers, trial_timestamps = Hippocampus.reshape_triggers(markers, timestamps;perform_fix=true)
+    @test size(trial_markers) == size(trial_timestamps) == (3,3)
+    @test ismissing(trial_markers[3,1])
+    @test ismissing(trial_timestamps[3,1])
+
+
     # test disk
     f = Hippocampus.disk(1)
     @test f ==  [0.0 0.2 0.0; 0.2 0.2 0.2; 0.0 0.2 0.0]
+
+    # test alternative disk
+    d2idx = Hippocampus.disc(CartesianIndex(3,3), 2, 5, 5)
+    @test d2idx == CartesianIndex{2}[CartesianIndex(1, 3), CartesianIndex(2, 2), CartesianIndex(2, 3), CartesianIndex(2, 4), CartesianIndex(3, 1), CartesianIndex(3, 2), CartesianIndex(3, 3), CartesianIndex(3, 4), CartesianIndex(3, 5), CartesianIndex(4, 2), CartesianIndex(4, 3), CartesianIndex(4, 4), CartesianIndex(5, 3)]
+
+    # test segmentation
+    μ1 = [5,5]
+    μ2 = [-5,-5]
+    xbins = range(-12.5f0, stop=12.5f0, length=40);
+    ybins = range(-12.5f0, stop=12.5f0, length=40);
+    D1 = [(x-μ1[1])^2 + (y-μ1[2])^2 for x in xbins, y in ybins]
+    D2 = [(x-μ2[1])^2 + (y-μ2[2])^2 for x in xbins, y in ybins]
+    F = exp.(-D1./(2*2.5^2)) .+ exp.(-D2./(2*3.5^2))
+    patches = Hippocampus.field_outline(F)
+    @test length(patches) == 2
+    length.(patches) == [81,41]
+end
+
+@testset "Spiketrain" begin
+    # make sure that basic shifting works properly
+    spr2 = Hippocampus.shift_spiketimes([0.1, 0.31, 0.5], 0.2;tmin=0.0) 
+    @test spr2 ≈ [0.01, 0.19999999999999996, 0.30000000000000004]
+    # the first point is shifted 0.2, which makes it 0.3, the second point is shifted to 0.51, which makes it 0.1, and the last point is shifted to 0.7, which because 0.2
+
+    # another shift, setting tmin to 0.05
+    spr2 = Hippocampus.shift_spiketimes([0.1, 0.31, 0.5], 0.2;tmin=0.05) 
+    @test spr2 ≈ [0.06, 0.25, 0.3]
+
+
 end
 
 @testset "Paths" begin
@@ -69,7 +120,7 @@ end
     tt,pp1,pp2, hh = Hippocampus.get_trial(udata, 1)
     ll = length(tt)
     @test ll == 207
-    @test tt[[1,ll]] ≈ [0.04301112, 8.226267400000001]
+    @test tt[[1,ll]] ≈ [0.0, 8.183256280000002]
     @test pp2[[1,ll]] ≈ [-10.0, -1.5189]
     @test pp1[[1,ll]] ≈ [0.0, -6.0951]
     @test hh[[1,ll]] ≈ [0.0, 171.2082]
@@ -122,6 +173,14 @@ end
     @test typeof(fig.content[1]) <: Hippocampus.Makie.Label
     @test typeof(fig.content[2]) <: Hippocampus.Makie.LScene
     @test length(fig.content[2].scene.plots) == 51 
+
+    # trajectory
+    traj,idx = Hippocampus.compress_trajectory([0,1,1,1,2,2,3,4,5,5,6];ignore_values=[0])
+    @test traj == [1,2,3,4,5,6]
+    @test idx == [[2,3,4],[5,6],[7],[8],[9,10],[11]]
+    traj,idx = Hippocampus.compress_trajectory([0];ignore_values=[0])
+    @test traj == Int64[]
+    @test idx == Vector{Int64}[]
 end
 
 @testset "Ripple markers" begin
@@ -180,6 +239,13 @@ end
     sic = Hippocampus.compute_sic(spm)
     # TODO: Is this value actually accurate?
     @test sic ≈ 2.103883351775456
+end
+
+@testset "JointMap" begin
+    fname = Hippocampus.DPTH.filename(Hippocampus.JointMap)
+    @test fname == "joint_map.jld2"
+    fname = Hippocampus.DPTH.filename(Hippocampus.JointMap;min_place_obs=6)
+    @test fname == "joint_map_8fce4519.jld2"
 end
 
 @testset "Raytrace" begin
@@ -244,4 +310,145 @@ end
     r1 = Rect3f(0.0, 0.0, 0.0,1.0, 1.0, 1.0)
     d = Hippocampus.distance(Point3f(0.5, 0.0, 0.5), Point3f(0.5, 1.0, 0.5), r1)
     @test d ≈ 2.0f0
+end
+
+@testset "Path on maze" begin
+    mm = Hippocampus.MazeModel()
+    pm = Hippocampus.ParametrizedManifold(mm;include_pillars=true)
+
+    pillar_points_1,ll1 = Hippocampus.get_surface_points(mm.pillars[1][1])
+    @test ll1 == (8,1,5)
+    pillar_points_2,ll2 = Hippocampus.get_surface_points(mm.pillars[1][2])
+    @test ll2 == (8,1,5)
+
+    point1 = pillar_points_1[25]
+    @test point1 == Point{3,Float64}(-7.5, 2.45, 2.345)
+    sidx1 = Hippocampus.assign_to_surface(point1, pm.normals, pm.μ)
+    # first wall of the first pillar
+    @test sidx1 == 15
+
+    point2 = pillar_points_2[10]
+    @test point2 == Point{3,Float64}(-6.785714285714286, 7.55, 0.815)
+    sidx2 = Hippocampus.assign_to_surface(point2, pm.normals, pm.μ)
+    # second wall of the first pillar
+    @test sidx2 == 16
+
+    d,pth = Hippocampus.distance(point1, point2, pm)
+    @test d ≈ [5.764285714285714, 1.5300000000000002]
+    
+    @test pth ≈ Point{3, Float64}[[-7.5, 2.45, 2.345], [-7.5, 2.45, 2.345], [-7.55, 7.45, 2.345], [-7.55, 7.449999999999999, 2.345], [-6.785714285714286, 7.55, 0.815]]
+end
+
+@testset "Clustering" begin
+    let
+        n1 = 7 
+        n2 = 19 
+        nt = 103
+        assignments = [zeros(Int64, nt) for _ in 1:2]
+        centers = [randn(3, n1), randn(2, n2)]
+        X = zeros(11,nt)
+        Y = zeros(5,nt)
+        q,r = qr(randn(11,11))
+        w = q[:,1:5]
+        for i in 1:nt
+            c1 = rand(1:n1)
+            c2 = rand(1:n2)
+            assignments[1][i] = c1
+            assignments[2][i] = c2
+            Y[1:3,i] = centers[1][:,c1]
+            Y[4:5,i] = centers[2][:,c2]
+            X[:,i]  = w*Y[:,i]
+        end
+        km_result1 = Clustering.KmeansResult(centers[1], assignments[1], rand(n1), rand(1:10, n1), rand(1:10,n1), 0.0, 100, true)
+        km_result2 = Clustering.KmeansResult(centers[2], assignments[2], rand(n2), rand(1:10,n2), rand(1:10, n2), 0.0, 100, true)
+        X2,Y2 = Hippocampus.merge_responses(X, [km_result1, km_result2])
+        @test size(X2,1) == 11 
+        @test size(Y2,1) == 5
+        # can we recover the original matrix?
+        Wp = X2'\Y2'
+        @test norm(Wp - w) < 1e-15
+    end
+
+end
+
+@testset "Response fields" begin
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
+    binidx = [97, 98, 99, 100, 101, 104, 107, 108, 109, 110, 111, 112, 115, 116, 117, 118, 119, 120, 123, 124, 125, 126, 423, 425, 427, 428, 929, 930, 931, 933, 934, 935, 936, 937, 938, 940, 942, 944, 949, 1027, 1028, 1032, 1037, 1038, 1039, 1040, 1073, 1074, 1091, 1092, 1101, 1102, 1103, 1104]
+    clusters = Hipppocampus.merge_fields(m_floor, binidx)
+    @test length(clusters) == 3
+    @test length.(clusters) == [22,10,22]
+end
+
+@testset "Conjunections" begin
+    # simple test
+    rng = StableRNG()
+    spatial_field = [1,2,3,4]
+    view_field = [1,2,3,4,5]
+    idx = [CartesianIndex{4}(rand(rng, 1:10),rand(rng, 1:10),1,1) for _ in 1:100]
+    weight = zeros(100)
+    occupancy = fill(1.0, 100)
+    fidx = findall(k->in(view_field)(k[1])&&in(spatial_field)(k[2]),idx)
+    weight[fidx] .= 5.0
+    jm_test = Hippocampus.JointMap(weight, occupancy, idx, [3,2,1])
+    # test we get the same result whether we look space conditioned on view
+    λ_covered,λ_sub =Hippocampus.conjunctions2(jm_test, view_field, spatial_field, 1)
+    @test λ_covered ≈ 5.0
+    @test maximum(λ_sub) ≈ 0.0
+    # ... or view conditioned on space
+    λ_covered,λ_sub =Hippocampus.conjunctions2(jm_test, view_field, spatial_field, 2)
+    @test λ_covered ≈ 5.0
+    @test maximum(λ_sub) ≈ 0.0
+
+    # .. some residual spatial preference
+    fidx2 = findall(k->in(spatial_field)(k[2]),idx)
+    weight[fidx2] = max.(weight[fidx2], 2.5)
+    jm_test = Hippocampus.JointMap(weight, occupancy, idx, [3,2,1])
+    λ_covered,λ_sub =Hippocampus.conjunctions2(jm_test, view_field, spatial_field, 1)
+    # in this case, λ_sub should all contain of 2.5, since we are matching spatial locations
+    # from the spatial field, but view locations outside the view field
+    @test extrema(λ_sub) ≈ (2.5, 2.5)
+
+
+    rng = StableRNG()
+    testdata_dir = joinpath(@__DIR__, "data","ModelSubject","20260422")
+    test_sessiondir = joinpath(testdata_dir, "session01")
+    testcell = joinpath(test_sessiondir, "array01/channel001/cell20")
+    jm = cd(testcell) do
+       Hippocampus.JointMap(;redo=fname->Hippocampus.isolderthan(fname, now(UTC)-Day(6)), do_save=true, nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
+    end;
+    valid_idx = Hippocampus.get_conditional_indices(jm.index,  rf_gaze.binidx[view_clusters[2]], p_idx)
+
+    #create a view neighborhood
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    D = Hippocampus.distancematrix(mm;between_centroids=false)
+    # create a view field
+    vidx = 34
+    view_cluster = sortperm(D[:,vidx] )[1:20]
+
+    # create a spatial field in view 
+    m_floor = Hippocampus.floor_topology3(;nrefinements=3)
+    spatial_idx = Int64[]
+    for l in 1:nelements(m_floor)
+        does_intersect = false
+        for v in view_cluster
+            ss = Segment(centroid(mm[v]), centroid(m_floor[l]))
+            # make sure we do not intersect the maze 
+            for l2 in 1:nelements(mm)
+                # this will always intersect, so skip it
+                if l2 == v 
+                    continue
+                end
+                ii = intersects(ss, mm[l2])
+                if ii
+                    does_intersect = true
+                    break
+                end
+            end
+        end
+        if does_intersect == false
+            push!(spatial_idc, l)
+        end
+    end
+    # we want to create a distribution of cluster that do not include points from view_cluster
+
 end
