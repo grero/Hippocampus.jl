@@ -2277,12 +2277,39 @@ end
 
 function ViewAndPlaceRepresentationNew(spikes::Spiketrain, rp::RippleData, gdata::UnityRaytraceData;kwargs...)
     sp = spikes.timestamps/1000.0 
-    ViewAndPlaceRepresentationNew(sp, rp,gdata;kwargs...)
+    ViewAndPlaceRepresentationNew(sp, rp,gdata,edata;kwargs...)
 end
 
-function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gdata::UnityRaytraceData;fixation_only=false,trial_start=2,kwargs...) where T <: Real
+function matchtrials(rpdata::RippleData, edata::EyelinkData)
+    ntp = numtrials(rpdata)
+    nte = numtrials(edata)
+    idx = fill(0, nte)
+    for i in 1:nte 
+        j = i
+        if any(ismissing.(edata.triggers[i,:]))
+            continue
+        end
+        while (j < ntp) && (edata.triggers[i,:] != rpdata.triggers[j,:])
+            j += 1
+        end
+        idx[i] = j
+    end
+    idx
+end
+
+function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gdata::UnityRaytraceData,edata::Union{EyelinkData,Nothing}=nothing;fixation_only=false,trial_start=2,kwargs...) where T <: Real
     # TODO: Implement Spiketrain shuffling
     nt = numtrials(gdata)
+    if nt < size(rp.timestamps,1) 
+        if edata !== nothing
+            tidx = matchtrials(rp, edata)
+        else
+            @show pwd()
+            error("Number of trial in `rp` and `qdata` does not match")
+        end
+    else
+        tidx = 1:nt
+    end
     events = Vector{Vector{Float64}}(undef, nt)
     placeviewidx = Vector{Vector{Int64}}(undef, nt)
     for i in 1:nt
@@ -2293,7 +2320,7 @@ function ViewAndPlaceRepresentationNew(sp::AbstractVector{T}, rp::RippleData, gd
             continue
         end
         tg .-= tg[1]
-        timestamps = rp.timestamps[i,:]
+        timestamps = rp.timestamps[tidx[i],:]
         
         # find the index of of each spike in this trial
         idx0 = searchsortedfirst(sp, timestamps[trial_start])
