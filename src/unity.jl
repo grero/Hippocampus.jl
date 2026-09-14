@@ -1998,3 +1998,9 @@ function plot_trajectory_length_vs_head_direction!(lg, trajectory_length::Dict, 
     text!(ax,pv_pos;text=fill("*", length(pv_pos)), color=:red, align=(:center, :center))
     poster_image_axes!(lg,ax)
 end
+
+function plot_trajectory_length_vs_head_direction!(lg, sessions::Vector{String};kwargs...)
+    nrefinements = get(kwargs, :nrefinements, 2)
+    lengths,hd_init = Hippocampus.compare_optimal_trajectories(sessions;nrefinements=nrefinements);
+    plot_trajectory_length_vs_head_direction!(lg, lengths, hd_init)
+end
