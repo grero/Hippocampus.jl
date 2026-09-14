@@ -457,14 +457,17 @@ Landmark cells are cells which maintain their poster ID selectivity from the cue
 navigation period, i.e. cells which are selective to the poster during the cue period, and with
 view fields that overlap with the same poster during navigation
 """
-function plot_landmark_cells(;redo=false)
-    fname = joinpath(@__DIR__, "..","data","landmark_cells.jld2")
+function plot_landmark_cells(view_cells::Vector{String};redo=false)
+    # TODO: Separate into pure goal cells, i.e where the all view fields overlap with preferred posters
+    h = zero(UInt32)
+    for vc in view_cells
+        h = CRC32c.crc32c(vc,h)
+    end
+    hs = string(h, base=16)
+    fname = joinpath(@__DIR__, "..","data","landmark_cells_$(hs).jld2")
     if isfile(fname) && !redo
         landmark_cells, poster_selective_view_cells,view_cells = JLD2.load(fname, "landmark_cells","poster_selective_view_cells", "view_cells")
     else
-        view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
-            readlines(fid)
-        end
         view_poster_pref = map(view_cells) do celldir
             qq = cd(celldir) do
             Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.01)
@@ -540,5 +543,12 @@ function plot_landmark_cells(;redo=false)
         Label(fig[1,2, TopLeft()], "B")
         fig
     end
+end
+
+function plot_landmark_cells(;kwargs...)
+    view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
+            readlines(fid)
+    end
+    plot_landmark_cells(view_cells;kwargs...)
 end
 end #module
