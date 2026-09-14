@@ -6,7 +6,6 @@ version = "0.5.0"
 [deps]
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
-AverageShiftedHistograms = "77b51b56-6f8f-5c3a-9cb4-d71f9594ea6e"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 BetaKDE = "510de360-7fee-4af5-ad83-2adfbc793e05"
 CRC32c = "8bf52ea8-c179-5cab-976a-9e18b702a9bc"
@@ -82,7 +81,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
-VennDiagrams = "647dde67-db76-47ab-8b79-9a723f7fdd84"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
@@ -95,7 +93,6 @@ GLMFitsLux = ["RecurrentNetworkModels"]
 [compat]
 ADTypes = "1.20.0"
 Arpack = "0.5.4"
-AverageShiftedHistograms = "0.8.9"
 BenchmarkTools = "1.6.3"
 BetaKDE = "0.1.0"
 CRC32c = "1.10.0 - 1.11.0"
