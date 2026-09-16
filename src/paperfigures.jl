@@ -557,4 +557,114 @@ function plot_landmark_cells(;kwargs...)
     end
     plot_landmark_cells(view_cells;kwargs...)
 end
+
+function plot_summary_figure(;)
+    place_selective_cells = readlines(open(joinpath(@__DIR__,"..","data/place_selective_cells.txt")))
+    view_selective_cells = readlines(open(joinpath(@__DIR__,"..","data/view_selective_cells.txt")))
+    place_cells = readlines(open(joinpath(@__DIR__, "..", "data","place_cells.txt")));
+    view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
+            readlines(fid)
+    end
+    place_and_view_cells = intersect(place_cells, view_cells)
+    place_view_conjunctions = get_conjunctive_cells(place_cells, view_cells)
+    directed_place_cells= readlines(open(joinpath(@__DIR__, "..", "data/place_cells_with_oriented_fields.txt")))
+    goal_cells = JLD2.load(joinpath(@__DIR__, "..", "data/landmark_cells.jld2"), "landmark_cells")
+
+    sets = Dict(:view_cells => view_cells,
+                :place_cells=>place_cells,
+                :place_view_conjunctions=>place_view_conjunctions,
+                :directed_place_cells => directed_place_cells,
+                :goal_cells => goal_cells)
+    labels = Dict(:view_cells => "View cells",
+                  :place_cells => "Place cells",
+                  :directed_place_cells=>"Directional place cells",
+                  :place_view_conjunctions=>"PV conjunction",
+                  :goal_cells=>"Posster ID cells")
+
+    colors = [:steelblue1, :mediumpurple, :tan1, :palegreen3, :gold, :tomato]
+    node_colors = Dict(k=>v for (k,v) in zip(keys(sets), colors))
+    node_colors = Dict(:place_cells => :palegreen3,
+                        :place_selective_cells => :aquamarine3,
+                        :view_cells => :gold,
+                        :view_selective_cells => :gold3,
+                        :place_and_view_cells => :steelblue3,
+                        :place_view_conjunctions => :steelblue1,
+                        :directed_place_cells => :darkseagreen,
+                        :goal_cells => :mediumpurple)
+
+    with_theme(plot_theme) do 
+        fig = Figure(size=(700,400))
+        lg1 = GridLayout(fig[1,1])
+        ax1 = Axis(lg1[1,1], alignmode=Outside())
+        barplot!(ax1, [1:8;], length.([place_selective_cells, place_cells, view_selective_cells, view_cells,place_and_view_cells, place_view_conjunctions, directed_place_cells,goal_cells ]),
+                              color=[node_colors[k] for k in [:place_selective_cells, :place_cells, :view_selective_cells, :view_cells, :place_and_view_cells, :place_view_conjunctions, :directed_place_cells, :goal_cells]])
+        ax1.xticks = ([1:8;], ["Place selective", "Place", "View selective", "View", "Place and view", "Place and view conj","Directed place field","Poster ID"])
+        ax1.xticklabelrotation = -π/6
+        ax1.ylabel = "Number or cells"
+        lg2 = GridLayout(fig[1,2])
+        plot_graph!(lg2, sets;labels=labels,node_colors=node_colors)
+        #colsize!(lg2, 1, Aspect(1,1))
+        colsize!(fig.layout, 1, 250)
+        fig
+    end
+end
+
+function plot_graph!(lg, sets::Dict{Symbol, <:AbstractVector{<:Any}};labels::Dict{Symbol, String}=Dict(k=>String(k) for (k,v) in sets), node_colors::Union{Nothing, Dict{Symbol, Symbol}}=nothing)
+    vertex_dict = Dict(k=>i for (i,k) in enumerate(keys(sets)))
+    vertex_dict_inv = Dict(v=>k for (k,v)  in vertex_dict)
+    if node_colors === nothing
+        colors = [:steelblue1, :mediumpurple, :tan1, :palegreen3, :gold, :tomato]
+        node_colors = Dict(k=>v for (k,v) in zip(keys(sets), colors))
+    end
+    g = SimpleGraph(length(sets))
+    edge_width = Int64[]
+    for k1 in keys(vertex_dict)
+        for k2 in keys(vertex_dict)
+            if k1 == k2
+                continue
+            end
+            ss = length(intersect(sets[k1], sets[k2]))
+            if ss > 0
+                add_edge!(g, vertex_dict[k1], vertex_dict[k2])
+                #push!(edge_width, ss)
+            end
+        end
+    end
+
+    edge_width = [length(intersect(sets[vertex_dict_inv[e.src]], sets[vertex_dict_inv[e.dst]])) for e in edges(g)]
+
+    layout(g) = Shell(;)(g)*3.0
+    #layout = SFDP(Ptype=Float32, tol=0.01, C=0.2, K=1)
+    ax = Axis(lg[1,1], aspect=1)
+    distances = collect(0.05:0.05:ne(g)*0.05)
+    gg = graphplot!(ax, g;layout=layout, edge_width=2*sqrt.(edge_width)/π,
+                          node_size=[length(sets[vertex_dict_inv[k]]) for k in Graphs.vertices(g)],
+                          #nlabels = [replace(String(vertex_dict_inv[k]), "_"=>"\n") for k in Graphs.vertices(g)],
+                          curve_distance=distances, curve_distance_usage=true, 
+                          node_shape=:circle,
+                          node_color=[node_colors[vertex_dict_inv[k]] for k in Graphs.vertices(g)],
+                          elabels = ["$ew" for ew in edge_width],
+                          ilabels = ["$(length(sets[vertex_dict_inv[g]]))" for g in Graphs.vertices(g)])
+    offsets = 0.15 * gg[:node_pos][] #.- gg[:node_pos][][1])
+    #offsets[1] = Point2f(0.1, 0.3)
+    gg.nlabels_offset[] = offsets
+    circlepoints = decompose(Point2f, Makie.Circle(Point2f(0.0), 1.0f0))
+    #lines!(ax, circlepoints, color=:black)
+    # tweak the limilts
+    # TODO: This should be made more generic
+    limits!(ax, -4.5, 4.2, -4.0, 3.7)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    #Legend(lg[1,2], [MarkerElement(marker=:circle, color=node_colors[vertex_dict_inv[k]]) for k in Graphs.vertices(g)],[labels[vertex_dict_inv[k]] for k in Graphs.vertices(g)])
+    #hidedecorations!(ax)
+    lg,ax,gg
+end
+
+function plot_graph(sets;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_graph!(lg, sets;kwargs...)
+    end
+end
 end #module
