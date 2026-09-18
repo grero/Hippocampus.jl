@@ -667,4 +667,44 @@ function plot_graph(sets;kwargs...)
         plot_graph!(lg, sets;kwargs...)
     end
 end
+
+function plot_place_cell_poster_proximity!(lg;kwargs...)
+    place_cells = readlines(open(joinpath(@__DIR__, "..", "data","place_cells.txt")));
+    directed_place_cells= readlines(open(joinpath(@__DIR__, "..", "data/place_cells_with_oriented_fields.txt")))
+
+    poster_dist = Hippocampus.get_minimum_poster_distance(place_cells;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+    # the minimum across fields for each cell
+    poster_dist_min = minimum.(poster_dist)
+    qidx = findall(in(directed_place_cells), place_cells)
+    pidx = setdiff(1:length(place_cells), qidx)
+
+    # plot the distributions, then use permutation test to test whether they are different
+    pv = pvalue(MannWhitneyUTest(poster_dist_min[pidx], poster_dist_min[qidx]))
+    marker = "ns"
+     if pv < 0.01
+        marker = "**"
+    elseif pv < 0.05
+        marker = "*" 
+    end
+    ax = Axis(lg[1,1])
+    xx = [fill(1, length(pidx));fill(2, length(qidx))]
+    yy = [poster_dist_min[pidx];poster_dist_min[qidx]]
+    use_colors = get(kwargs, :color, [:gray for _ in 1:2])
+    violin!(ax, xx,yy;show_median=true,color=use_colors[xx])
+    ym = maximum(poster_dist_min) + 0.25*(maximum(poster_dist_min) - minimum(poster_dist_min))
+    bracket!(ax, 1, ym, 2, ym;text=marker,style=:square)
+    ax.xticks = ([1,2], ["Non-directional","Directional"])
+    ax.xticklabelrotation = -π/6
+    ax.ylabel = "Minimum Euclidean Distance"
+end
+
+function plot_place_cell_poster_proximity(;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure(size=(300,400))
+        lg = GridLayout(fig[1,1])
+        plot_place_cell_poster_proximity!(lg;kwargs...)
+        fig
+    end
+end
+
 end #module
