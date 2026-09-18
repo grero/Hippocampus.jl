@@ -700,7 +700,7 @@ function plot_place_cell_poster_proximity!(lg;kwargs...)
     bracket!(ax, 1, ym, 2, ym;text=marker,style=:square)
     ax.xticks = ([1,2], ["Non-directional","Directional"])
     ax.xticklabelrotation = -π/6
-    ax.ylabel = "Minimum Euclidean Distance"
+    ax.ylabel = "Poster distance"
 end
 
 function plot_place_cell_poster_proximity(;kwargs...)
