@@ -696,8 +696,10 @@ function plot_place_cell_poster_proximity!(lg;kwargs...)
     yy = [poster_dist_min[pidx];poster_dist_min[qidx]]
     use_colors = get(kwargs, :color, [:gray for _ in 1:2])
     violin!(ax, xx,yy;show_median=true,color=use_colors[xx])
-    ym = maximum(poster_dist_min) + 0.25*(maximum(poster_dist_min) - minimum(poster_dist_min))
-    bracket!(ax, 1, ym, 2, ym;text=marker,style=:square)
+    ym = maximum(poster_dist_min) + 0.225*(maximum(poster_dist_min) - minimum(poster_dist_min))
+    bracket!(ax, 1, ym, 2, ym;text=marker,style=:square, width=7, textoffset=4)
+    ym = maximum(poster_dist_min) + 0.5*(maximum(poster_dist_min) - minimum(poster_dist_min))
+    ylims!(ax, -0.5, ym)
     ax.xticks = ([1,2], ["Non-directional","Directional"])
     ax.xticklabelrotation = -π/6
     ax.ylabel = "Poster distance"
