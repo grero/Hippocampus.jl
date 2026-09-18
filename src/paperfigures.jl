@@ -367,31 +367,35 @@ function plot_directional_place_fields(;use_pie_chart=false)
         fig = Figure(size=(700,600))
         lg1 = GridLayout(fig[1,1])
         lg2 = GridLayout(fig[2,1])
-        lg22 = GridLayout(lg2[1,2])
+        lg22 = GridLayout(lg2[1,1])
         rowsize!(fig.layout, 1, Relative(0.6))
         Hippocampus.plot_field_direction_tuning!(lg1, Hippocampus.MajorAxisDirectionTuning, celldir, nothing;start_label='A', kwargs...)
         Hippocampus.plot_field_direction_summary!(lg22, Hippocampus.MajorAxisDirectionTuning, place_cells_width_directed_fields) 
         colsize!(lg22, 1, Aspect(1,1))
-        Label(lg22[1,1, TopLeft()], "F")
-        lg21 = GridLayout(lg2[1,1])
+        Label(lg22[1,1, TopLeft()], "E")
+        lg21 = GridLayout(lg2[1,2], alignmode=Outside())
         if use_pie_chart
             axp = Axis(lg21[1,1], aspect=1)
             pie!(axp, [length(setdiff(place_cells, place_cells_width_directed_fields)), length(place_cells_width_directed_fields)],
-                        color=[:lightgray, :darkorchid],offset_radius=0.05
+                        color=[:lightgray, :mediumpurple],offset_radius=0.05
                         )
             hidedecorations!(axp)
             hidespines!(axp)
         else
             # normal bar plot
-            axp = Axis(lg21[1,1], alignmode=Outside())
+            axp = Axis(lg21[1,1], alignmode=Inside())
             @show length.([place_cells, place_cells_width_directed_fields])
             barplot!(axp, [1:2;], length.([place_cells, place_cells_width_directed_fields]), color=[:lightgray, :darkorchid])
             axp.xticks = ([1,2], ["All place", "Directional"])
             axp.xticklabelrotation = -π/6
             axp.ylabel = "Number of cells"
         end
-        Label(lg21[1,1,TopLeft()], "E")
-        colsize!(lg2, 1, 125)
+        Label(lg21[1,1,TopLeft()], "F", padding=(0,20,0,0))
+        lgv = GridLayout(lg21[1,2],alignmode=Inside())
+        Label(lg21[1,2,TopLeft()], "G",padding=(0,20,0,0))
+        plot_place_cell_poster_proximity!(lgv,;color=[:lightgray, :mediumpurple])
+        colsize!(lg21, 2, Relative(0.6))
+        colsize!(lg2, 2, 250)
         fig
     end
 end
