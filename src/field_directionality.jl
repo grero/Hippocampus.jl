@@ -1165,6 +1165,44 @@ function get_non_directional_view(celldirs)
        end
 end
 
+function get_distance_from_posters(rf::SpatialResponseFields;_poster_pos::Dict{Symbol, Tuple{Float64, Float64}}=poster_pos, kwargs...)
+    spatial_fields = getfields(rf;cluster_threshold=0.001)
+    nrefinements = rf.args[:nrefinements]
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+    dd = zeros(6, length(spatial_fields))
+    for (ii,sf) in enumerate(spatial_fields)
+        μ = mean(Point2f.(Tuple.(centroid.(m_floor[sf]))))
+        for (jj,k) in enumerate(poster_names)
+            ppos = _poster_pos[k]
+            dd[jj,ii] = norm(μ .- ppos) 
+        end
+    end
+    dd
+end
+
+get_minimum_poster_distance(rf::SpatialResponseFields;kwargs...) = dropdims(minimum(get_distance_from_posters(rf;kwargs...),dims=1),dims=1)
+
+
+function get_minimum_poster_distance(celldirs::Vector{String}; kwargs...)
+    h = process_kwargs(SpatialResponseFields;kwargs...)
+    for celldir in celldirs
+        h = CRC32c.crc32c(celldir,h)
+    end
+    hs = string(h,base=16)
+    fname = joinpath(@__DIR__, "..","data","minimum_distance_to_poster._$(hs).jld2")
+    if isfile(fname)
+        dd = JLD2.load(fname, "minimum_distance_per_field")
+    else
+        dd = @showprogress map(celldirs) do celldir
+            rf = cd(celldir) do
+                get_response_fields(SpatialResponseFields, 1000;prog_offset=1,kwargs...)
+            end
+            get_minimum_poster_distance(rf)
+        end
+        JLD2.save(fname, Dict("minimum_distance_per_field"=>dd, "celldirs"=>celldirs, "args"=>kwargs))
+    end
+    dd
+end
 
 ## plots
 
