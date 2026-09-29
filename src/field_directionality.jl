@@ -681,6 +681,40 @@ function issignificant(madt::MajorAxisDirectionTuning;pv_threshold=0.05)
     res
 end
 
+function get_pvalue(::Type{MajorAxisDirectionTuning}, celldir::String;kwargs...)
+    mdt = cd(celldir) do
+        MajorAxisDirectionTuning(;kwargs...)
+    end
+    get_pvalue(mdt)
+end
+
+function get_pvalue(madt::MajorAxisDirectionTuning)
+    res = fill(NaN, length(madt.spike_count_forward))
+    for i in 1:length(res)
+        λ1 = madt.spike_count_forward[i]./madt.occupancy_forward[i]
+        λ2 = madt.spike_count_reverse[i]./madt.occupancy_reverse[i]
+        μ = mean(λ1) - mean(λ2)
+        if all(length.((λ1, λ2)).>=5)
+            q1,q2 = permutation_test(mean, λ1,λ2) 
+            rr = searchsortedfirst(sort(q1-q2), μ)
+            if rr == 1 
+                rr = 0
+            end
+            res[i] = rr/length(q1)
+
+            #res[i] = μ > percentile(q1-q2, 100*(1-pv_threshold)) || μ < percentile(q1-q2, 100*pv_threshold)
+        end
+    end
+    res
+end
+
+
+function issignificant(madt::MajorAxisDirectionTuning;pv_threshold=0.05)
+    pv = get_pvalue(madt)
+    (pv .> 100*(1-pv_threshold)) .| (pv .< pv_threshold)
+end
+
+
 function aggregate(spike_count::Vector{T}, occupancy::Vector{T}, sindex::Vector{CartesianIndex{5}};window=0.05) where T <: Real
     tidx,vidx = (getindex(sindex[1],5), getindex(sindex[1], 4))
     midx = findall(q->(q[4]==vidx)&(q[5]==tidx), sindex)
