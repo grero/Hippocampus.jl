@@ -47,6 +47,19 @@ struct UnfoldedMaze
     parts::Dict{Any, Meshes.SubMesh}
 end
 
+function findin(pidx::Int, mm::UnfoldedMaze)
+    idx = nothing
+    k0 = :nothing
+    for (k,v) in mm.parts
+        idx = findfirst(v.inds.==pidx)
+        if idx !== nothing
+            k0 = k
+            break
+        end
+    end
+    k0, idx
+end
+
 function unfold_maze(mm::SimpleMesh)
     walls = Dict{Symbol, Meshes.SubMesh}()
     wallidx = Int64[]
