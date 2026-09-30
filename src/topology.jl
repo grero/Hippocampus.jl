@@ -1074,17 +1074,17 @@ end
 """
 For use with MakiePan to get the layout
 """
-function plotmesh(lg;kwargs...)
+function plotmesh(lg::GridLayout;kwargs...)
     lscene = LScene(lg[1,1];kwargs...)
     cb = Colorbar(lg[1,2];kwargs...)
     lscene,cb
 end
 
-function plotmesh(mm::SimpleMesh;kwargs...)
+function plotmesh(args...;kwargs...)
     with_theme(plot_theme) do
         fig = Figure()
-        lscene = LScene(fig[1,1])
-        plotmesh!(lscene, mm;kwargs...)
+        lscene = LScene(fig[1,1], show_axis=get(kwargs, :show_axis, false))
+        plotmesh!(lscene, args...;kwargs...)
         display(fig)
         fig,lscene
     end
