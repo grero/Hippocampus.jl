@@ -15,7 +15,7 @@ function getwall(mm::SimpleMesh, wallidx::AbstractVector{<:Int})
     ww
 end
 
-function unfold_walls(mm::SimpleMesh, wall::Symbol)
+function unfold_wall(mm::SimpleMesh, wall::Symbol)
     rot_vector = Dict(:west => Meshes.Vec(-1.0, 0.0,0.0),
                       :north => Meshes.Vec(0.0, 1.0, 0.0),
                       :east => Meshes.Vec(1.0, 0.0, 0.0), 
@@ -32,6 +32,39 @@ function unfold_walls(mm::SimpleMesh, wall::Symbol)
     tr = Meshes.Translate(trans_vector[wall]...)
     rr = Meshes.Rotate(rot_vector[wall], Meshes.Vec(0, 0, 1))
     qq = tr(rr(ww))
+    qq
+end
+
+function get_ceiling(mm::SimpleMesh)
+    grouped_bins = Hippocampus.group_bins(mm)
+    ppred(i,j) = all(in(grouped_bins.ceiling_idx).([i,j]))
+    parts = Meshes.partition(mm, IndexPredicatePartition(ppred))
+    ii = argmax(length.(parts))
+    parts[ii]
+end
+
+struct UnfoldedMaze
+    parts::Dict{Any, Meshes.SubMesh}
+end
+
+function unfold_maze(mm::SimpleMesh)
+    walls = Dict{Symbol, Meshes.SubMesh}()
+    wallidx = Int64[]
+    for w in [:east, :north, :west, :south]
+        ww  = unfold_wall(mm, w)
+        append!(wallidx, ww.inds)
+        walls[w] = ww
+    end
+    # separate out the rest
+    ceiling = get_ceiling(mm) 
+    walls[:ceiling] = ceiling
+    idx_rest = setdiff(1:nelements(mm), [wallidx;ceiling.inds])
+    # TODO: Separate out ceiling if we want to hide it
+    ppred(i,j) = all(in(idx_rest).([i,j]))
+    parts = Meshes.partition(mm, IndexPredicatePartition(ppred))
+    ii = argmax(length.(parts))
+    walls[:rest] = parts[ii]
+    UnfoldedMaze(walls)
 end
 
 function get_normal(geom)
