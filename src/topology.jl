@@ -6,6 +6,53 @@ using Unitful
 
 using GeometryBasics
 
+function getwall(mm::SimpleMesh, wallidx::AbstractVector{<:Int})
+    # west wall
+    ppred(i,j) = all(in(wallidx).([i,j]))
+    parts = Meshes.partition(mm, IndexPredicatePartition(ppred))
+    ii = argmax(length.(parts))
+    ww = parts[ii]
+    ww
+end
+
+function unfold_walls(mm::SimpleMesh, wall::Symbol)
+    rot_vector = Dict(:west => Meshes.Vec(-1.0, 0.0,0.0),
+                      :north => Meshes.Vec(0.0, 1.0, 0.0),
+                      :east => Meshes.Vec(1.0, 0.0, 0.0), 
+                      :south => Meshes.Vec(0.0, -1.0, 0.0))
+    trans_vector = Dict(:west => (-12.5-5, 0.0, -12.5),
+                        :north => (0.0, 12.5+5.0, -12.5),
+                        :east => (12.5+5.0, 0.0, -12.5),
+                        :south => (0.0, -12.5-5.0, -12.5))
+
+    grouped_bins = Hippocampus.group_bins(mm)
+    wallname = Symbol("$(wall)_wall_idx")
+    wallidx = getfield(grouped_bins, wallname)
+    ww = getwall(mm, wallidx)
+    tr = Meshes.Translate(trans_vector[wall]...)
+    rr = Meshes.Rotate(rot_vector[wall], Meshes.Vec(0, 0, 1))
+    qq = tr(rr(ww))
+end
+
+function get_normal(geom)
+    nd = embeddim(geom)
+    oo = orientation.(geom)
+    rr = rings.(geom)
+    nn = zeros(nd, length(rr))
+    for (ii,(_oo,_rr)) in enumerate(zip(oo,rr))
+        css = collect(segments.(first(_rr)))
+        v1 = first(diff(css[1].vertices))
+        v2 = first(diff(css[2].vertices))
+        _nn = Meshes.ustrip(cross(v1,v2))
+        _nn = _nn./norm(_nn)
+        if _oo == Meshes.CW
+            _nn *= -1
+        end
+        nn[:,ii] = _nn
+    end
+    nn
+end
+
 function pos_fig_obs(ax, x, y)
 	lift(ax.scene.viewport, ax.finallimits) do vp, lims
 		Makie.project(ax.scene, Point2f(x, y)) + vp.origin
