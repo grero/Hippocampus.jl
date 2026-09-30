@@ -711,7 +711,7 @@ end
 
 function issignificant(madt::MajorAxisDirectionTuning;pv_threshold=0.05)
     pv = get_pvalue(madt)
-    (pv .> 100*(1-pv_threshold)) .| (pv .< pv_threshold)
+    (pv .> (1-pv_threshold)) .| (pv .< pv_threshold)
 end
 
 
