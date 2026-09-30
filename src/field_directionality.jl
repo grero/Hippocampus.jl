@@ -330,6 +330,7 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
         
             if idx1 >= idx0 > 0
                 v = qdata.position[i][1:2,idx1] - qdata.position[i][1:2,idx0]
+                # get direction of travel
                 θ = atan(v[2],v[1])
                 l = searchsortedfirst(θbins, θ)
                 # get the mesh bin indices
