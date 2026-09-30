@@ -1094,7 +1094,87 @@ function plotmesh(lg, ii::Observable{Int64}, mm::SimpleMesh, color::Matrix{T};kw
 
 end
 
-function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, hide_floor=false, indicate_north=true, arrow_color=:black, kwargs...)
+function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs...)
+    tqcolor = get(kwargs, :color,:lightgray) 
+    if !isa(tqcolor,Observable)
+        tcolor = Observable(tqcolor)
+    else
+        tcolor =tqcolor
+    end
+    use_color = Dict{Symbol,Observable{Any}}()
+    for k in keys(unfolded_maze.parts)
+        use_color[k] = Observable(:lightgray)
+    end
+    cr = Observable{Union{Nothing, Symbol, Tuple{Float64, Float64}}}(nothing)
+    nanidx = nothing
+    on(tcolor) do _tcolor
+        if isa(_tcolor, AbstractArray{<:Any})
+            # first filter out nans
+            # need to separate into floor, middle, and ceiling
+            nanidx = isnan.(_tcolor)
+            qcolor = zero(_tcolor)
+            qcolor .= _tcolor
+            qcolor[nanidx] .= zero(eltype(qcolor))
+            if eltype(_tcolor) <: Real
+                cr[] = extrema(qcolor[nanidx.==false])
+            else
+                cr[] = (1.0, 1.0) 
+            end
+            for (k,v) in unfolded_maze.parts
+                use_color[k][] = qcolor[v.inds]
+            end
+        else
+            nanidx = nothing
+            for (k,v) in unfolded_maze.parts
+                use_color[k][] = _tcolor
+            end
+            cr[] = _tcolor 
+        end
+    end
+    kwargs = filter(k->k[1]!=:color, kwargs)
+    notify(tcolor)
+    #talpha = get(kwargs, :alpha, fill(1.0, length(tcolor[])))
+    talpha = get(kwargs, :alpha, nothing)
+    if talpha === nothing
+        if isa(tcolor[], AbstractVector{<:Real})
+            talpha = fill(1.0, length(tcolor[]))
+        end
+    end
+    kwargs = filter(k->k[1]!=:alpha, kwargs)
+    use_alpha = Dict{Symbol,Any}()
+    if isa(talpha, AbstractVector{<:Real})
+        if nanidx !== nothing
+            qalpha = fill!(similar(talpha), one(eltype(talpha)))
+            qalpha .= talpha
+            qalpha[nanidx] .= zero(eltype(qalpha)) 
+        else
+            qalpha = talpha
+        end
+        for (k,v) in unfolded_maze.parts
+            use_alpha[k] = qalpha[v.inds]
+        end
+    else
+        if talpha === nothing
+            talpha = 1.0
+        end
+        for (k,v) in unfolded_maze.parts
+            use_alpha[k] = talpha
+        end
+    end
+    @debug begin
+        for k in keys(use_alpha)
+            @show length(use_alpha[k]) length(use_color[k][]) nelements(unfolded_maze.parts[k])
+        end
+    end
+    for (k,v) in unfolded_maze.parts
+        if k == :ceiling && hide_ceiling
+            continue
+        end
+        viz!(lscene, v;color=use_color[k],alpha=use_alpha[k], colorrange=cr, kwargs...)
+    end
+end
+
+function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, hide_floor=false, indicate_north=true, arrow_color=:black, unfold_walls=false, kwargs...)
     if (floor_offset != 0 || ceiling_offset != 0 || hide_ceiling)
         m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
          if floor_offset != 0
