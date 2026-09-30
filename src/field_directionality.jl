@@ -1700,3 +1700,53 @@ function plot_field_direction_summary(::Type{MajorAxisDirectionTuning}, celldirs
         fig
     end
 end
+
+"""
+Illustrate 
+"""
+function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap;kwargs...)
+    # We need two view maps; one for each direction
+    # TODO: Make this more flexible
+    nrefinements = rf_gaze.args[:nrefinements]
+    mm = get_maze_mesh(;nrefinements=nrefinements.g);
+    hd_bins = range(0.0, stop=2π, length=24) 
+    idx = findfirst(issignificant(mdt))
+    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    # get the distribution of head direction for the relevant trials
+    spatial_cluster = spatial_clusters[idx]
+
+    # get all time points
+    qidx = filter(k->(k[2] in spatial_clusters[idx])&&(k[4] in mdt.trialidx_reverse[idx]), jm.index) 
+    # get distribution over 
+    for (ii,trialidx) in enumerate([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]])
+        # get all time points
+        qidx = filter(k->(k[2] in spatial_clusters[idx])&&(k[4] in trialidx), jm.index) 
+        cc = countmap(getindex.(qidx, 3))
+        # create a view map 
+        vm = ViewMapNew(jm, mm;trialidx=trialidx, placebins=spatial_cluster)
+        # smooth?
+        lgv = GridLayout(lg[ii,1])
+        plot_response_fields!(lgv, rf_gaze, get_rate_map(vm);floor_offset=0, hide_ceiling=true, indicate_north=true, show_points=true, colormap=:rain, ceiling_offset=0)
+        if ii == 2 # reverse
+            v = -mdt.v[:,idx]
+        else
+            v = mdt.v[:,idx]
+        end
+        arrows3d!(Point3f(mdt.μ[:,idx]..., 1.5), Vec3f(v..., 0.0))
+        ax = PolarAxis(lg[ii,2])
+        kk = sort(collect(keys(cc)))
+        barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
+    end
+    Label(lg[1,2,Top()], "Head direction")
+    colsize!(lg, 2, Aspect(1,1))
+end
+
+function plot_directional_view(args...;kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_directional_view!(lg, args...;kwargs...)
+        link_cameras_lscene(fig)
+        fig
+    end
+end
