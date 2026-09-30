@@ -1601,7 +1601,8 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
 end
 
 function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, label=["A","B"], kwargs...)
-    m_floor = Shadow("xy")(floor_topology3(;nrefinements=3));
+    nrefinements = rf_spatial.args[:nrefinements] 
+    m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p));
     v = mdt.v
     # FIXME: This doesnt work
     clusters = merge_fields(rf_spatial)
