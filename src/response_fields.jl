@@ -411,16 +411,14 @@ function merge_fields(rf::T) where T <: SpatialResponseFields
     merge_fields(mm, rf.binidx)
 end
 
-function get_major_axis(rf::SpatialResponseFields)
+function get_major_axis(rf::SpatialResponseFields;cluster_threshold=0.001)
     mm = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=rf.args[:nrefinements].p))
-    clusters = merge_fields(rf)
-    nclusters = get_num_fields(rf)
-    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2) .< 0.001)
-    v = Matrix{Float64}(undef, 2, length(cidx))
-    μ = Matrix{Float64}(undef, 2, length(cidx))
-    ms = zeros(length(cidx)) # field size
-    for (i,c) in enumerate(cidx)
-        mq = centroid.(mm[rf.binidx[clusters[c]]])
+    spatial_clusters = getfields(rf;cluster_threshold)
+    v = Matrix{Float64}(undef, 2, length(spatial_clusters))
+    μ = Matrix{Float64}(undef, 2, length(spatial_clusters))
+    ms = zeros(size(v,2)) # field size
+    for (i,c) in enumerate(spatial_clusters)
+        mq = centroid.(mm[c])
         points = Tuple.(mq)
         XX = cat([[x,y] for (x,y) in points]...,dims=2)
         ss = svd(XX .- mean(XX, dims=2))
@@ -428,7 +426,7 @@ function get_major_axis(rf::SpatialResponseFields)
         # major axis
         v[:,i] = ss.U[:,1]
         μ[:,i] = mean(Point2f.(Tuple.(mq)))
-        ms[i] = ustrip(sum(measure.(mm[rf.binidx[clusters[c]]])))
+        ms[i] = ustrip(sum(measure.(mm[c])))
     end
     v,μ,ms
 end
