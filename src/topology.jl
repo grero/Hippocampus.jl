@@ -1174,7 +1174,7 @@ function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs
     end
 end
 
-function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, hide_floor=false, indicate_north=true, arrow_color=:black, unfold_walls=false, kwargs...)
+function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, hide_floor=false, indicate_north=true, arrow_color=:black, kwargs...)
     if (floor_offset != 0 || ceiling_offset != 0 || hide_ceiling)
         m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
          if floor_offset != 0
