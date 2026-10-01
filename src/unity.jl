@@ -1710,6 +1710,9 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
 end
 
 function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVector{T};nruns=1000) where T <: Real
+    if isempty(x1) || isempty(x2)
+        return T[], T[]
+    end
     idx1 = [1:length(x1);]
     idx2 = [1:length(x2);]
     x1s = similar(x1)
