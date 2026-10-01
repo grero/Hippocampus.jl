@@ -1704,36 +1704,64 @@ end
 """
 Illustrate 
 """
-function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap;kwargs...)
+function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap;do_unfold_maze=false, kwargs...)
     # We need two view maps; one for each direction
     # TODO: Make this more flexible
     nrefinements = rf_gaze.args[:nrefinements]
     mm = get_maze_mesh(;nrefinements=nrefinements.g);
+    m_floor = repair_mesh(Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p)))
+    bb = find_boundary(m_floor)
+    if do_unfold_maze
+        use_maze = unfold_maze(mm)
+    else
+        use_maze = mm
+    end
     hd_bins = range(0.0, stop=2π, length=24) 
     idx = findfirst(issignificant(mdt))
     spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
     # get the distribution of head direction for the relevant trials
     spatial_cluster = spatial_clusters[idx]
+    bb_spatial = find_boundary(m_floor, spatial_cluster)
+    viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
 
-    # get all time points
-    qidx = filter(k->(k[2] in spatial_clusters[idx])&&(k[4] in mdt.trialidx_reverse[idx]), jm.index) 
     # get distribution over 
+    ccolor = get_colors(get(kwargs, :colormap, :viridis))
     for (ii,trialidx) in enumerate([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]])
         # get all time points
-        qidx = filter(k->(k[2] in spatial_clusters[idx])&&(k[4] in trialidx), jm.index) 
-        cc = countmap(getindex.(qidx, 3))
+        qidx = filter(k->(k[2] in spatial_cluster)&&(k[4] in trialidx), jm.index) 
         # create a view map 
         vm = ViewMapNew(jm, mm;trialidx=trialidx, placebins=spatial_cluster)
+        vml = SmoothedMap(vm;method=:laplace, α=0.1, niter=50)
         # smooth?
         lgv = GridLayout(lg[ii,1])
-        plot_response_fields!(lgv, rf_gaze, get_rate_map(vm);floor_offset=0, hide_ceiling=true, indicate_north=true, show_points=true, colormap=:rain, ceiling_offset=0)
-        if ii == 2 # reverse
-            v = -mdt.v[:,idx]
-        else
-            v = mdt.v[:,idx]
+        #plot_response_fields!(lgv, rf_gaze, get_rate_map(vm);floor_offset=0, hide_ceiling=true, indicate_north=true, show_points=true, colormap=:rain, ceiling_offset=0)
+        lscene = LScene(lgv[1,1], show_axis=false)
+        λ = get_rate_map(vml)
+        plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false)
+        plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true)
+        viz!(lscene, bb;color=:black, segmentsize=3.0)
+        plot_pillars!(lscene)
+        Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), label="Firing rate [Hz]")
+        # show the fields
+        # do this a bit more cleverly
+        #
+        for (pq,cq) in zip(viewclusters,ccolor)
+            plotpoints!(lscene,pq,use_maze;pointsize=10, color=cq)
         end
-        arrows3d!(Point3f(mdt.μ[:,idx]..., 1.5), Vec3f(v..., 0.0))
+        if ii == 2 # reverse
+            v = -5*mdt.v[:,idx]
+        else
+            v = 5*mdt.v[:,idx]
+        end
+        arrows3d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v..., 0.0))
+        viz!(lscene, bb_spatial, segmentsize=3, color=:black)
         ax = PolarAxis(lg[ii,2])
+        ax.rticksvisible = false 
+        ax.thetaticksvisible = true
+        ax.rgridvisible = true
+        ax.thetagridvisible = true
+        # the the head direction
+        cc = countmap(getindex.(qidx, 3))
         kk = sort(collect(keys(cc)))
         barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
     end
