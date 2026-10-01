@@ -1277,6 +1277,7 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
     # the view field occurs within a 60 degree cone around the preferred direction of a place
     # field
     res = issignificant(mdt)
+    @assert length(res) == length(spatial_clusters)
     can_be_seen = trues(length(view_clusters), length(spatial_clusters))
     occlusions = zeros(length(view_clusters), length(spatial_clusters))
     for (jj,sp) in enumerate(spatial_clusters)
