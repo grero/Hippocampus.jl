@@ -1881,6 +1881,17 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     colsize!(lg, 2, Aspect(1,1))
 end
 
+function plot_directional_view!(lg, celldir::String;kwargs...)
+    mdt, rf_spatial, rf_gaze, jm = cd(celldir) do
+        mdt = MajorAxisDirectionTuning(;kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
+        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
+        jm = JointMap(;kwargs...)
+        mdt, rf_spatial, rf_gaze, jm
+    end
+    plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm;kwargs...)
+end
+
 function plot_directional_view(args...;kwargs...)
     with_theme(plot_theme) do
         fig = Figure()
