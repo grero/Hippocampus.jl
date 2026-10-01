@@ -1218,25 +1218,48 @@ end
 get_minimum_poster_distance(rf::SpatialResponseFields;kwargs...) = dropdims(minimum(get_distance_from_posters(rf;kwargs...),dims=1),dims=1)
 
 
-function get_minimum_poster_distance(celldirs::Vector{String}; kwargs...)
+function get_minimum_poster_distance(celldirs::Vector{String}; compute_directionality::Bool=false, kwargs...)
     h = process_kwargs(SpatialResponseFields;kwargs...)
     for celldir in celldirs
         h = CRC32c.crc32c(celldir,h)
     end
+    if compute_directionality
+        h = CRC32c.crc32c(string(:compute_directionality=>compute_directionality), h)
+    end
+
     hs = string(h,base=16)
     fname = joinpath(@__DIR__, "..","data","minimum_distance_to_poster._$(hs).jld2")
     if isfile(fname)
-        dd = JLD2.load(fname, "minimum_distance_per_field")
+        qdata = JLD2.load(fname)
+        dd = qdata["minimum_distance_per_field"]
+        if "pvalue" in keys(qdata)
+            pv = qdata["pvalue"]
+        else
+            pv = Vector{Vector{Float64}}(undef, length(dd))
+            for ii in 1:length(dd)
+                pv[ii] = fill(NaN, length(dd[ii]))
+            end
+        end
     else
-        dd = @showprogress map(celldirs) do celldir
+        dd = Vector{Vector{Float64}}(undef, length(celldirs))
+        pv = Vector{Vector{Float64}}(undef, length(celldirs))
+        @showprogress for (ii,celldir) in enumerate(celldirs)
             rf = cd(celldir) do
                 get_response_fields(SpatialResponseFields, 1000;prog_offset=1,kwargs...)
             end
-            get_minimum_poster_distance(rf)
+            dd[ii] = get_minimum_poster_distance(rf)
+            if compute_directionality
+                mdt = cd(celldir) do
+                    Hippocampus.MajorAxisDirectionTuning(;kwargs...)
+                end
+                pv[ii] = get_pvalue(mdt)
+            else
+                pv[ii] = fill(NaN, length(dd[ii]))
+            end
         end
-        JLD2.save(fname, Dict("minimum_distance_per_field"=>dd, "celldirs"=>celldirs, "args"=>kwargs))
+        JLD2.save(fname, Dict("minimum_distance_per_field"=>dd, "celldirs"=>celldirs, "pvalue"=>pv, "args"=>kwargs))
     end
-    dd
+    dd, pv
 end
 
 ## plots
