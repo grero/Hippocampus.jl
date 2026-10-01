@@ -668,7 +668,7 @@ function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
     return obj
 end
 
-function issignificant(madt::MajorAxisDirectionTuning;pv_threshold=0.05)
+function issignificant_old(madt::MajorAxisDirectionTuning;pv_threshold=0.05)
     res = fill(false, length(madt.spike_count_forward))
     for i in 1:length(res)
         λ1 = madt.spike_count_forward[i]./madt.occupancy_forward[i]
