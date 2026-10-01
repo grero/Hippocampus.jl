@@ -128,7 +128,7 @@ end
 
 DPHT.level(::Type{UnityData}) = "session"
 
-function UnityData()
+function UnityData(;_poster_names=poster_names)
     # attempt to find data file
     # assume we are at the sesison level
     _datadir = glob("RawData[_-]T*")
@@ -137,15 +137,15 @@ function UnityData()
         if isdir(datadir)
             ff = glob("session_*.txt", datadir)
             if !isempty(ff)
-                return UnityData(first(ff))
+                return UnityData(first(ff);_poster_names=_poster_names)
             end
         end
     end
     error("No unity data found")
 end
 
-function UnityData(fname::String)
-    data, header, column_names = read_unity_file(fname)
+function UnityData(fname::String;_poster_names=poster_names)
+    data, header, column_names = read_unity_file(fname;_poster_names=_poster_names)
     UnityData(data, header)
 end
 
@@ -215,7 +215,7 @@ end
 Read the file `fname`, assuming each column is separated by a single space, and
 the first 14 rows contain header information
 """
-function read_unity_file(fname::String)
+function read_unity_file(fname::String;_poster_names=poster_names)
     # TODO: Return the config as well
     column_names = ["marker","Δt","xpos","ypos","direction"]
     # check if first column should be skipped
@@ -251,7 +251,7 @@ function read_unity_file(fname::String)
                     # older format
                     header["PosterLocations"] = Dict()
                     loc_strings = split(v)
-                    _keys = sort(collect(keys(poster_img)),by=k->string(k))
+                    _keys = _poster_names
                     header["PosterLocations"] = Dict(_keys[ll[1]]=>ll[2] for ll in parse_poster_location.(loc_strings))
                 end
             elseif k == "name" || k == "posterPosition"
@@ -1676,7 +1676,7 @@ function plot_flat_maze_with_posters(;figsize=(350,350),kwargs...)
     end
 end
 
-function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=nothing, end_point::Union{Nothing, Point2f}=nothing, indicate_north=true,_poster_pos=poster_pos)
+function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=nothing, end_point::Union{Nothing, Point2f}=nothing, indicate_north=true,_poster_pos=poster_pos, _poster_names=poster_names)
     images = Dict(k=>load(v) for (k,v) in poster_img)
     colors = [maze_colors[:yellow], #yellow
               maze_colors[:blue], #blue
@@ -1695,7 +1695,7 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
 
         limits!(ax, -12.5, 12.5, -12.5, 12.5)
         scatter!(ax, [Point2f(-5,5), Point2f(-5,-5), Point2f(5,5), Point2f(5,-5)], marker=Rect, markerspace=:data,color=colors, markersize=5)
-        scatter!([Point2f(v[1:2]...) for (k,v) in _poster_pos],  marker=[images[k] for (k,v) in _poster_pos], markersize=4, markerspace=:data)
+        scatter!([Point2f(_poster_pos[k][1:2]...) for k in _poster_names],  marker=[images[k] for k in _poster_names], markersize=4, markerspace=:data)
         if start_point !== nothing
             scatter!(ax, start_point, marker=teardrop_shape(), markersize=20px, color=:red)
         end
