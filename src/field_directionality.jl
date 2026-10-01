@@ -1265,7 +1265,7 @@ end
 """
 Find the view fields in `rf_gaze` that are compatible with the directional spatial responses represented by `rf_spatial` and `mdt`
 """
-function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial::T1, rf_gaze::T2, jm::JointMap;kwargs...) where T1 <: SpatialResponseFieldsAll where T2 <: GazeResponseFieldsAll
+function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial::T1, rf_gaze::T2;kwargs...) where T1 <: SpatialResponseFieldsAll where T2 <: GazeResponseFieldsAll
     nrefinements = rf_gaze.args[:nrefinements]
     m_floor = repair_mesh(Hippocampus.floor_topology3(;nrefinements=nrefinements.p))
     mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements.g)
@@ -1341,14 +1341,13 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
 end
 
 function compute_place_direction_view(celldir::String;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
-     mdt, rf_spatial, rf_gaze, jm = cd(celldir) do
-        mdt = MajorAxisDirectionTuning(;kwargs...)
+     mdt, rf_spatial, rf_gaze = cd(celldir) do
+        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, kwargs...)
         rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial, kwargs...) 
         rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
-        jm = JointMap(;kwargs...)
-        mdt, rf_spatial, rf_gaze, jm
+        mdt, rf_spatial, rf_gaze
     end
-    compute_place_direction_view(mdt, rf_spatial, rf_gaze, jm)
+    compute_place_direction_view(mdt, rf_spatial, rf_gaze)
 end
 
 ## plots
