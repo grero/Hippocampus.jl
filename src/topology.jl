@@ -1107,6 +1107,16 @@ function plotmesh(lg, ii::Observable{Int64}, mm::SimpleMesh, color::Matrix{T};kw
 
 end
 
+function plotpoints!(lscene, pidx::AbstractVector{<:Integer}, mm::SimpleMesh;kwargs...)
+    viz!(lscene, centroid.(mm[pidx]);kwargs...)
+end
+
+function plotpoints!(lscene, pidx::AbstractVector{<:Integer}, mm::UnfoldedMaze;kwargs...)
+    idx = findin.(pidx, Ref(mm));
+    μ = [centroid(mm.parts[k][v]) for (k,v) in idx]
+    viz!(lscene, μ;kwargs...)
+end
+
 function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs...)
     tqcolor = get(kwargs, :color,:lightgray) 
     if !isa(tqcolor,Observable)
