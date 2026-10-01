@@ -1262,6 +1262,95 @@ function get_minimum_poster_distance(celldirs::Vector{String}; compute_direction
     dd, pv
 end
 
+"""
+Find the view fields in `rf_gaze` that are compatible with the directional spatial responses represented by `rf_spatial` and `mdt`
+"""
+function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial::T1, rf_gaze::T2, jm::JointMap;kwargs...) where T1 <: SpatialResponseFieldsAll where T2 <: GazeResponseFieldsAll
+    nrefinements = rf_gaze.args[:nrefinements]
+    m_floor = repair_mesh(Hippocampus.floor_topology3(;nrefinements=nrefinements.p))
+    mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements.g)
+    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    # get the distribution of head direction for the relevant trials
+    view_clusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+
+    # for each combinatino of spatial_cluster[i] and view_cluster[j], check whether
+    # the view field occurs within a 60 degree cone around the preferred direction of a place
+    # field
+    res = issignificant(mdt)
+    can_be_seen = trues(length(view_clusters), length(spatial_clusters))
+    occlusions = zeros(length(view_clusters), length(spatial_clusters))
+    for (jj,sp) in enumerate(spatial_clusters)
+        if !res[jj]
+            # since this field does not show any directionalty, just mark it as occluded
+            occlusions[:,jj] .= 1
+            continue
+        end
+        λ_forward = filter(isfinite, mdt.spike_count_forward[jj]./mdt.occupancy_forward[jj])
+        λ_reverse = filter(isfinite, mdt.spike_count_reverse[jj]./mdt.occupancy_reverse[jj])
+        λf = isempty(λ_forward) ? 0.0 : median(λ_forward)
+        λr = isempty(λ_reverse) ? 0.0 : median(λ_reverse)
+        if λf > λr 
+            v = mdt.v[:,jj]
+            @show "Prefers forward"
+        else
+            v = -mdt.v[:,jj]
+            @show "Perfers reverse"
+        end
+        θv = atan(v[2],v[1])
+        # find the preferred by just computing the maximum rate (since we know this field has siginificant
+        # selectivity)
+        for (ii,vc) in enumerate(view_clusters)
+            # does a ray originating from any of the point in the place field, along the direction
+            # v intersect with the view field?
+            for p in sp
+                for v in vc
+                    l = Meshes.Line(centroid(m_floor[p]) + Meshes.Vec(0,0,1.5), centroid(mm[v]))
+                    vl = l.b - l.a
+                    θ = atan(last(vl),first(vl))
+                    # is θ with 60 degrees, i.e. π/3 of v
+                    # if we are not within the cone, add one occl
+                    if cos(θ-θv) < cos(π/3)
+                        occlusions[ii,jj] += 1
+                        continue
+                    end
+                    for _mm in mm
+                        qq = intersection(l, _mm)
+                        if qq.type !== NotIntersecting
+                            if !(qq.geom ≈ l.b)
+                                # we intersected something else
+                                # is just one violation enough?
+                                can_be_seen[ii,jj] = false
+                                occlusions[ii,jj] += 1
+                                break
+                            end
+                        end
+                    end
+                    if !can_be_seen[ii,jj]
+                        #break
+                    end
+
+                end
+                if !can_be_seen[ii,jj]
+                    #break
+                end
+            end
+            occlusions[ii,jj] /= length(sp)*length(vc)
+        end
+    end
+    occlusions
+end
+
+function compute_place_direction_view(celldir::String;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
+     mdt, rf_spatial, rf_gaze, jm = cd(celldir) do
+        mdt = MajorAxisDirectionTuning(;kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial, kwargs...) 
+        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
+        jm = JointMap(;kwargs...)
+        mdt, rf_spatial, rf_gaze, jm
+    end
+    compute_place_direction_view(mdt, rf_spatial, rf_gaze, jm)
+end
+
 ## plots
 
 function plot_directional_summary(qq) 
