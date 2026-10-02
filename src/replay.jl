@@ -1782,6 +1782,7 @@ DPHT.level(::Type{ViewAndPlaceOccupancy{T}})  where T <: Real = "session"
 struct JointOccupancy{T<:Real}
     weight::Dict{CartesianIndex{4},T}
     index::Vector{Vector{CartesianIndex{3}}} # view × place × hd
+    binsize::Vector{Vector{Float64}}
 end
 
 DPHT.filename(::Type{JointOccupancy}) = "joint_occupancy.jld2"
@@ -2072,10 +2073,12 @@ function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1
     kn = KNearestSearch(mm,1)
     weight = Dict{CartesianIndex{4},Float64}()
     aindex = Vector{Vector{CartesianIndex{3}}}(undef, nt)
+    binsize = Vector{Vector{Float64}}(undef, nt)
     for i in 1:nt
         tt, gaze,pos,fixmask,fo,hd = get_trial(gdata,i;trial_start=trial_start)
         if isempty(tt)
             aindex[i] = CartesianIndex{3}[]
+            binsize[i] = Float64[]
             continue
         end
         # identify anmolous time steps; these would be where the tracker couldn't track the eye, for instance
@@ -2089,6 +2092,7 @@ function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1
         # compute speed from tu
         v = sqrt.(diff(posx).^2 + diff(posy).^2)./diff(tu)
         aindex[i] = [CartesianIndex(0,0,0) for _ in 1:length(tt)-1]
+        binsize[i] = fill(NaN, length(tt)-1)
         for j in 2:size(pos,2)
             # FIXME: We sometimes have big gaps here; we need to deal with those
             Δt = tt[j] - tt[j-1]
@@ -2141,9 +2145,10 @@ function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1
             qq = CartesianIndex(_idxv, _pidx, hidx, i)
             weight[qq] = get(weight, qq, 0.0) + Δt
             aindex[i][j-1] = CartesianIndex(_idxv, _pidx, hidx)
+            binsize[i][j-1] = Δt
         end
     end
-    JointOccupancy(weight,aindex)
+    JointOccupancy(weight,aindex,binsize)
 end
 
 function JointOccupancy(;redo=fname->false, do_save=true,kwargs...)
