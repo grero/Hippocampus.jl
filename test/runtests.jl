@@ -70,7 +70,7 @@ end
     D1 = [(x-μ1[1])^2 + (y-μ1[2])^2 for x in xbins, y in ybins]
     D2 = [(x-μ2[1])^2 + (y-μ2[2])^2 for x in xbins, y in ybins]
     F = exp.(-D1./(2*2.5^2)) .+ exp.(-D2./(2*3.5^2))
-    patches = Hippocampus.field_outline(F)
+    patches = Hippocampus.grow_region(F, 0.5*(maximum(F) - minimum(F)))
     @test length(patches) == 2
     length.(patches) == [81,41]
 end
