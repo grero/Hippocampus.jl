@@ -248,9 +248,9 @@ end
 end
 
 @testset "JointMap" begin
-    fname = Hippocampus.DPTH.filename(Hippocampus.JointMap)
+    fname = Hippocampus.DPHT.filename(Hippocampus.JointMap)
     @test fname == "joint_map.jld2"
-    fname = Hippocampus.DPTH.filename(Hippocampus.JointMap;min_place_obs=6)
+    fname = Hippocampus.DPHT.filename(Hippocampus.JointMap;min_place_obs=6)
     @test fname == "joint_map_8fce4519.jld2"
 end
 
