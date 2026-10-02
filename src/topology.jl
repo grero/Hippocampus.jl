@@ -1466,7 +1466,7 @@ function find_boundary(mm::SimpleMesh, idx::Vector{<:Integer})
     find_boundary(mm[idx])
 end
 
-function find_boundary(m::Vector{<:Quadrangle})
+function find_boundary(m::Union{Vector{<:Quadrangle},SimpleMesh})
     edges = Dict{NTuple{2,Meshes.Point},Int64}()
     for q in m
         b = boundary(q)
