@@ -1265,7 +1265,7 @@ end
 """
 Find the view fields in `rf_gaze` that are compatible with the directional spatial responses represented by `rf_spatial` and `mdt`
 """
-function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial::T1, rf_gaze::T2;kwargs...) where T1 <: SpatialResponseFieldsAll where T2 <: GazeResponseFieldsAll
+function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial::T1, rf_gaze::T2;half_beam_width=π/3, kwargs...) where T1 <: SpatialResponseFieldsAll where T2 <: GazeResponseFieldsAll
     nrefinements = rf_gaze.args[:nrefinements]
     m_floor = repair_mesh(Hippocampus.floor_topology3(;nrefinements=nrefinements.p))
     mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements.g)
@@ -1310,7 +1310,7 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                     θ = atan(last(vl),first(vl))
                     # is θ with 60 degrees, i.e. π/3 of v
                     # if we are not within the cone, add one occl
-                    if cos(θ-θv) < cos(π/3)
+                    if cos(θ-θv) < cos(half_beam_width)
                         occlusions[ii,jj] += 1
                         continue
                     end
