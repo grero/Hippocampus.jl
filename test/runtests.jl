@@ -328,13 +328,13 @@ end
     @test ll2 == (8,1,5)
 
     point1 = pillar_points_1[25]
-    @test point1 == Point{3,Float64}(-7.5, 2.45, 2.345)
+    @test point1 == Makie.Point{3,Float64}(-7.5, 2.45, 2.345)
     sidx1 = Hippocampus.assign_to_surface(point1, pm.normals, pm.μ)
     # first wall of the first pillar
     @test sidx1 == 15
 
     point2 = pillar_points_2[10]
-    @test point2 == Point{3,Float64}(-6.785714285714286, 7.55, 0.815)
+    @test point2 == Makie.Point{3,Float64}(-6.785714285714286, 7.55, 0.815)
     sidx2 = Hippocampus.assign_to_surface(point2, pm.normals, pm.μ)
     # second wall of the first pillar
     @test sidx2 == 16
@@ -342,7 +342,7 @@ end
     d,pth = Hippocampus.distance(point1, point2, pm)
     @test d ≈ [5.764285714285714, 1.5300000000000002]
     
-    @test pth ≈ Point{3, Float64}[[-7.5, 2.45, 2.345], [-7.5, 2.45, 2.345], [-7.55, 7.45, 2.345], [-7.55, 7.449999999999999, 2.345], [-6.785714285714286, 7.55, 0.815]]
+    @test pth ≈ Makie.Point{3, Float64}[[-7.5, 2.45, 2.345], [-7.5, 2.45, 2.345], [-7.55, 7.45, 2.345], [-7.55, 7.449999999999999, 2.345], [-6.785714285714286, 7.55, 0.815]]
 end
 
 @testset "Clustering" begin
