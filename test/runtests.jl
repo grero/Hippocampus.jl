@@ -381,7 +381,7 @@ end
 @testset "Response fields" begin
     m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3));
     binidx = [97, 98, 99, 100, 101, 104, 107, 108, 109, 110, 111, 112, 115, 116, 117, 118, 119, 120, 123, 124, 125, 126, 423, 425, 427, 428, 929, 930, 931, 933, 934, 935, 936, 937, 938, 940, 942, 944, 949, 1027, 1028, 1032, 1037, 1038, 1039, 1040, 1073, 1074, 1091, 1092, 1101, 1102, 1103, 1104]
-    clusters = Hipppocampus.merge_fields(m_floor, binidx)
+    clusters = Hippocampus.merge_fields(m_floor, binidx)
     @test length(clusters) == 3
     @test length.(clusters) == [22,10,22]
 end
