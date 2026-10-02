@@ -82,21 +82,17 @@ end
 
 function get_normal(geom)
     nd = embeddim(geom)
-    oo = orientation.(geom)
+    oo = orientation(geom)
     rr = rings.(geom)
-    nn = zeros(nd, length(rr))
-    for (ii,(_oo,_rr)) in enumerate(zip(oo,rr))
-        css = collect(segments.(first(_rr)))
-        v1 = first(diff(css[1].vertices))
-        v2 = first(diff(css[2].vertices))
-        _nn = Meshes.ustrip(cross(v1,v2))
-        _nn = _nn./norm(_nn)
-        if _oo == Meshes.CW
-            _nn *= -1
-        end
-        nn[:,ii] = _nn
+    css = collect(segments.(first(rr)))
+    v1 = first(diff(css[1].vertices))
+    v2 = first(diff(css[2].vertices))
+    _nn = cross(v1,v2)
+    _nn = _nn./norm(_nn)
+    if oo == Meshes.CW
+        _nn *= -1
     end
-    nn
+    _nn
 end
 
 function pos_fig_obs(ax, x, y)
