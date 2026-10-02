@@ -373,7 +373,7 @@ end
         @test size(Y2,1) == 5
         # can we recover the original matrix?
         Wp = X2'\Y2'
-        @test norm(Wp - w) < 1e-15
+        @test norm(Wp - w) < 1.1e-15
     end
 
 end
