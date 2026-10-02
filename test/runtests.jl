@@ -11,6 +11,12 @@ using StableRNGs
                 0.0 1.0 1.0 1.0 0.0;
                 0.0 0.0 1.0 1.0 1.0;
                 1.0 0.0 0.0 1.0 1.0]
+    
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    # normals
+    nn = Hippocampus.get_normal(mm[1])
+    @test size(nn) == (3,1)
+    @test nn[:,1] ≈ [0.0, 0.0, 1.0]
 end
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
