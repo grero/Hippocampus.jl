@@ -20,9 +20,30 @@ using Dates
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
     # normals
     nn = Hippocampus.get_normal(mm[1])
-    @test size(nn) == (3,1)
-    @test nn[:,1] ≈ [0.0, 0.0, 1.0]
+    @test length(nn) == 3
+    @test nn ≈ [0.0, 0.0, 1.0]
+
+    # unfolding
+    unfolded_maze = Hippocampus.unfold_maze(mm)
+    @test collect(keys(unfolded_maze.parts)) == [:east, :ceiling, :south, :west, :rest, :north]
+    @test nelements(unfolded_maze.parts[:east]) == 80
+    @test nelements(unfolded_maze.parts[:west]) == 80
+    @test nelements(unfolded_maze.parts[:north]) == 80
+    @test nelements(unfolded_maze.parts[:south]) == 80
+    @test nelements(unfolded_maze.parts[:ceiling]) == 400
+    @test nelements(unfolded_maze.parts[:ceiling]) == 400
+    @test nelements(unfolded_maze.parts[:rest]) == 592
+    @test sum([nelements(v) for v in values(unfolded_maze.parts)]) == nelements(mm)
+    ## test we are actually unfolding; each of the walls should have z equal 0
+    qt = true
+    for k in [:east, :west, :north, :south]
+        p1,p2 = extrema(unfolded_maze.parts[k])
+        # z-coordinate should be constant 
+        qt = qt && (p1.coords.z ≈ p2.coords.z)
+    end
+    @test qt 
 end
+
 @testset "Utils" begin
     markers = [84, 11, 21, 31, 12, 22, 42, 13, 23, 33]
     timestamps = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
