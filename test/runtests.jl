@@ -1,8 +1,13 @@
 using Test
 using Hippocampus
+using Hippocampus.Meshes
+using Hippocampus.Makie
+using Hippocampus.LinearAlgebra
+using Hippocampus.Clustering
 using GeometryBasics
 using StatsBase
 using StableRNGs
+using Dates
 
 @testset "Topology" begin
     A = Hippocampus.get_circular_adjancency(5)
@@ -219,9 +224,9 @@ end
     xbins = range(-12.5, stop=12.5, length=40);
     ybins = xbins
     spoc = Hippocampus.SpatialOccupancy(udata, xbins, ybins)
-    @test size(spoc.weight) == (39,39)
+    @test size(spoc.weight) == (39,39,63)
     ee = Hippocampus.compute_entropy(spoc)
-    @test ee ≈ 8.336202756717388
+    @test ee ≈ 11.201900211945677
 
     # test consistency
     @test Hippocampus.numtrials(rpdata) == Hippocampus.numtrials(udata) == 63
@@ -236,15 +241,15 @@ end
     sptrain = Hippocampus.Spiketrain(1000.0*spikes, "",0)
     spr = Hippocampus.SpatialRepresentation(sptrain, rpdata, udata)
     # test some random position
-    @test spr.position[5][1] ≈ [2.0808, -0.5886]
+    @test spr.position[5][1] ≈ [2.0666, -0.7494]
 
     # create a spatial map
-    spm = Hippocampus.SpatialMap(spr, xbins,ybins, spoc)
+    spm = Hippocampus.SpatialMap(spr, spoc)
     ee = Hippocampus.compute_entropy(spm)
-    @test ee ≈ 6.361282290710195
+    @test ee ≈ 5.613018263715509 
     sic = Hippocampus.compute_sic(spm)
     # TODO: Is this value actually accurate?
-    @test sic ≈ 2.103883351775456
+    @test sic ≈ 1.969705092156228 
 end
 
 @testset "JointMap" begin
@@ -388,7 +393,7 @@ end
 
 @testset "Conjunections" begin
     # simple test
-    rng = StableRNG()
+    rng = StableRNG(1234)
     spatial_field = [1,2,3,4]
     view_field = [1,2,3,4,5]
     idx = [CartesianIndex{4}(rand(rng, 1:10),rand(rng, 1:10),1,1) for _ in 1:100]
