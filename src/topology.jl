@@ -1548,8 +1548,15 @@ function grow_region(idx0::Integer, F::Vector{<:Number}, A::AbstractMatrix{<:Num
 end
 
 function grow_region(F::Vector{<:Number}, A::AbstractMatrix{<:Number}, threshold::Number)
-    idx = argmax(F)
-    grow_region(idx, F, A, threshold)
+    Fm = copy(F)
+    peak,idx = findmax(F)
+    regions = Vector{Int64}[]
+    while peak > threshold
+        push!(regions, grow_region(idx, Fm, A, threshold))
+        Fm[regions[end]] .= minimum(F)
+        peak,idx = findmax(Fm)
+    end
+    regions
 end
 
 function grow_region(F::Matrix{<:Number}, threshold::Number)
