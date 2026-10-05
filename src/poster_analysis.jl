@@ -3,7 +3,7 @@ poster_theme = Theme(Axis=(xlabelsize=36, ylabelsize=36,
                            topspinevisible=false, rightspinevisible=false,
                            xgridvisible=false, ygridvisible=false,ylabelvisible=true,
                            xticklabelsvisible=true, xlabelvisible=true),
-                     Scatter=(markersize=10px,),
+                     Scatter=(markersize=10,),
                      Lines=(linewidth=3,),
                      fontsize=36)
 
@@ -989,7 +989,7 @@ function plot_flat_maze_with_posters_prev!(lg;start_point::Union{Nothing, Point2
         if end_point !== nothing
             scatter!(ax, end_point, marker=teardrop_shape(), markersize=20px, color=:orange)
         end
-        arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
+        arrows2d!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
     end
 end
 
