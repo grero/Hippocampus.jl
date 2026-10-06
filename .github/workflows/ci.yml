@@ -12,7 +12,7 @@ jobs:
           version: "1.11.7"
       - run: julia -e 'using Pkg; Pkg.Registry.add(RegistrySpec(url="https://github.com/JuliaRegistries/General.git"))'
       - run: julia -e 'using Pkg; Pkg.Registry.add(RegistrySpec(url = "https://github.com/grero/NeuralCodingRegistry.jl.git"))'
-      - run: julia -e 'using Pkg; Pkg.develop(url = "https://github.com/christiangnrd/ManifoldLearning.jl.git",rev="patch-1");Pkg.instantiate()'
+      - run: julia -e 'using Pkg; Pkg.add(url = "https://github.com/christiangnrd/ManifoldLearning.jl.git",rev="patch-1");Pkg.pin("ManifoldLearning")'
         shell: bash
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
