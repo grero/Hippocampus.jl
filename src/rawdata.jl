@@ -71,9 +71,16 @@ function RippleData(;do_save=true, redo=false, kvs...)
     if isfile(outfile) && !redo
         qdata = MAT.matread(outfile)
         # hack
-        if "df" in keys(qdata)
-            trial_markers = round.(Int64, qdata["df"]["data"]["markers"])
-            trial_timestamps = qdata["df"]["data"]["timeStamps"]
+        if "df"  in keys(qdata)
+            kk = "df"
+        elseif "rp" in keys(qdata)
+            kk = "rp"
+        else
+            kk = nothing
+        end
+        if kk !== nothing
+            trial_markers = round.(Int64, qdata[kk]["data"]["markers"])
+            trial_timestamps = qdata[kk]["data"]["timeStamps"]
             header = Dict()
         else
             trial_markers, trial_timestamps, header = (qdata["triggers"], qdata["timestamps"], get(qdata, "header", Dict()))
