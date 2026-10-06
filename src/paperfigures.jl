@@ -756,4 +756,66 @@ function plot_place_cell_poster_proximity(;kwargs...)
     end
 end
 
+function plot_venn_diagram_summary()
+    place_cells = readlines(open(joinpath(@__DIR__, "..", "data","place_cells.txt")));
+    place_cells_width_directed_fields = readlines(open(joinpath(@__DIR__, "..","data/place_cells_with_oriented_fields.txt")))
+    view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
+            readlines(fid)
+    end
+    place_and_view_cells = intersect(place_cells, view_cells)
+    place_and_view_conjunctive_cells = PaperFigures.get_conjunctive_cells(place_cells, view_cells)
+    poster_selective_cells = get_poster_selective_cells(view_cells)
+
+    # with these we want to try drawing a venn diagram where the main interesction is between
+    # place and view cells
+    # of the cells that both place and view, a subset are also conjunctive. 
+    # another subset has directed place fields
+    # another subset is goal cells
+end
+
+function plot_venn_diagram_summary(place_cells, view_cells, place_cells_width_directed_fields,
+                                   place_and_view_conjunctive_cells, landmark_cells)
+    place_and_view_cells = intersect(place_cells, view_cells)
+    directional_place_and_view_cells = intersect(view_cells, place_cells_width_directed_fields)
+    landmark_place_cells = intersect(place_cells, landmark_cells)
+    rp = sqrt(length(place_cells)/π) 
+    rv = sqrt(length(view_cells)/π)
+    rcj = sqrt(length(place_and_view_conjunctive_cells)/π)
+    rdpv = sqrt(length(directional_place_and_view_cells)/π)
+    rpp = sqrt(length(landmark_place_cells)/π)
+    # radii for the blobs
+    rdpv_rem = sqrt(length(setdiff(place_cells_width_directed_fields, view_cells))/π)
+    rpp_rem = sqrt(length(setdiff(landmark_cells, place_cells))/π)
+    # slight tweak to make the circle fit
+    rpp *= 0.95
+    d = VennDiagrams.find_d(rp,rv, length(place_and_view_cells))
+    # find the center of the intersection area
+    xc = rp - (rp + rv -d)/2
+    pv_intersection = VennDiagrams.intersection_path(rp,rv,d)
+    dpd = VennDiagrams.find_d(rpp, rdpv, length(intersect(landmark_place_cells, directional_place_and_view_cells)))
+    lpd_intersection = VennDiagrams.intersection_path(rdpv, rpp, dpd;x0=d-rv+rdpv)
+    with_theme(plot_theme) do
+        fig = Figure()
+        ax = Axis(fig[1,1],aspect=DataAspect())
+        hidedecorations!(ax)
+        hidespines!(ax)
+        poly!(ax, Makie.Circle(Point2f(0.0), rp), label="Place ($(length(place_cells)))")
+        poly!(ax, Makie.Circle(Point2f(d, 0.0), rv), label="View ($(length(view_cells)))")
+        poly!(ax, pv_intersection, label="Place and view ($(length(place_and_view_cells)))")
+        # conjunctive
+        poly!(ax, Makie.Circle(Point2f(xc, 0), rcj), label="Conjunctive ($(length(place_and_view_conjunctive_cells)))")
+        # directed place fields
+        poly!(ax, Makie.Circle(Point2f(d-rv+rdpv, 0), rdpv), color=:red, label="Directional place ($(length(setdiff(place_cells_width_directed_fields, view_cells))) | $(length(intersect(place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
+        poly!(ax, Makie.Circle(Point2f(d-rv+rdpv+dpd, 0), rpp), label="Poster ID ($(length(intersect(landmark_cells, place_and_view_conjunctive_cells))) | $(length(setdiff(landmark_cells, place_cells))))")
+        poly!(ax, lpd_intersection, label="Conjunctive & Directional\n& Poster ID ($(length(intersect(landmark_cells, place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
+        # draw the blobs
+        poly!(ax, Makie.Circle(Point2f(d-rv-rdpv_rem, 0), rdpv_rem), color=:red)
+        poly!(ax, Makie.Circle(Point2f(rp+rpp_rem, 0.0), rpp_rem), color=Cycled(5))
+        # legend
+        Legend(fig[1,2], ax)
+        fig
+    end
+end
+
+
 end #module
