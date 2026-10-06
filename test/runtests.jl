@@ -441,3 +441,30 @@ end
     # from the spatial field, but view locations outside the view field
     @test extrema(λ_sub) == (2.5, 2.5)
 end
+
+@testset "Poster selectivity" begin
+    # create some synthetic data
+    rng = StableRNG(1234)
+    # simulate a "cell" that prefers poster 1 and 3
+    nt = 400
+    nspikes = zeros(Int64, nt)
+    posterid = zeros(Int64, nt)
+    λ = fill(0.5, 6)
+    λ[1] = 5.0
+    λ[3] = 4.0
+    for i in 1:nt
+        pidx = rand(rng, 1:6)
+        posterid[i] = pidx
+        if pidx == 1 
+            nspikes[i] = rand(rng, 4:7)
+        elseif pidx == 3
+            nspikes[i] = rand(rng, 3:5)
+        else
+            nspikes[i] = rand(rng, 0:2)
+        end
+    end
+    vv0, vv, model = Hippocampus.compute_poster_selectivity(nspikes, posterid)
+    @test vv0  < percentile(vv, 0.01)
+    _, _,_, poster_pref = Hippocampus.find_preferred_poster(nspikes,posterid)
+    @test poster_pref == [1,3]
+end

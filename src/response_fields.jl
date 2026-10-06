@@ -724,6 +724,58 @@ function plot_n_fields(::Type{T}, celldirs::Vector{String};figsize=(900,500), kw
     end
 end
 
+function get_n_fields(::Type{T}, celldirs::Vector{String}; redo=false, load_only=true, kwargs...) where T <: AbstractResponseFields
+    h = process_kwargs(T;kwargs...)
+    h = CRC32c.crc32c(string(celldirs),h)
+    cluster_threshold = get(kwargs, :cluster_threshold, 0.001)
+    if cluster_threshold != 0.01
+        h = CRC32c.crc32c(string(:cluster_threshold => cluster_threshold),h)
+    end
+    t_name = last(split(string(T), ','))
+    hs = string(h, base=16)
+    fname = joinpath(@__DIR__, "..","data","$(t_name)_stats_$(hs).jld2")
+    @show fname
+    if !redo && isfile(fname)
+        qdata = JLD2.load(fname)
+    else
+        rfs = process_dirs(celldirs) do
+            get_response_fields(T, get(kwargs, :nshuffles, 10_000);load_only=load_only, kwargs...)
+        end
+        kk = filter(k->k[2]!==nothing, rfs)
+        mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
+        nfields = Dict()
+        field_size = Dict()
+        # histogram of field sizes
+        Z = zeros(nelements(mm))
+        bb = Any[]
+        peak_firing_rate = Dict()
+        for (k,v) in rfs
+            if v !== nothing
+                peak_firing_rate[k] = maximum(filter(isfinite, v.λ))
+                clusters = getfields(v;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+                if length(clusters) > 0
+                    nclusters = length(clusters)
+                    nfields[k] = nclusters
+                    field_size[k] = fill(0.0, nclusters)
+                    for (jj,ii) in enumerate(clusters)
+                        cluster = clusters[ii]
+                        push!(bb, find_boundary(mm, cluster))
+                        field_size[k][jj] = ustrip(sum(measure.(mm[cluster])))
+                        Z[v.binidx[cluster]] .+= 1.0
+                    end
+                else
+                    nfields[k] = 0
+                end
+            end
+        end
+        Z[Z.==0.0] .= NaN
+        args = rfs[first(keys(kk))].args 
+        qdata = Dict("Z"=>Z, "nfields"=>nfields, "field_size"=>field_size, "args"=>args, "field_boundaries"=>bb,"peak_firing_rate"=>peak_firing_rate)
+        JLD2.save(fname, qdata)
+    end
+    qdata
+end
+
 function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B","C","D"], redo=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;kwargs...)
     h = CRC32c.crc32c(string(celldirs),h)
