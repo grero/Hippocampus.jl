@@ -478,7 +478,7 @@ function distance(p0::T4, p1::T4, pm::T5;visited=fill(false, length(pm.faces))) 
     d = p1 - p0p
 
     # create a a boundingbox
-    rf = Rect([pm.points[ff[sidx]].points...])
+    rf = Rect([pm.points[ff[sidx]]...])
     dp = bb2'*d
     @debug "Some" p0 p0p d p0 + dp
     if p0p + dp ≈ p1
