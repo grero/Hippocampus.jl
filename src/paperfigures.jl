@@ -462,6 +462,48 @@ Landmark cells are cells which maintain their poster ID selectivity from the cue
 navigation period, i.e. cells which are selective to the poster during the cue period, and with
 view fields that overlap with the same poster during navigation
 """
+function get_landmark_cells(view_cells::Vector{String};redo=false)
+    h = zero(UInt32)
+    for vc in view_cells
+        h = CRC32c.crc32c(vc,h)
+    end
+    hs = string(h, base=16)
+    fname = joinpath(@__DIR__, "..","data","landmark_cells_$(hs).jld2")
+    if isfile(fname) && !redo
+        qdata = JLD2.load(fname)
+    else
+        view_poster_pref = map(view_cells) do celldir
+            qq = cd(celldir) do
+            Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.01)
+            end
+            findall(qq)
+        end
+        midx = findall((!isempty).(view_poster_pref))
+        poster_selective_view_cells = view_cells[midx]
+        # the the preferred poster of these cells during the cue period
+        cue_poster_pref = map(poster_selective_view_cells) do celldir
+            vv0, vv, model, preferred = Hippocampus.find_preferred_poster(celldir;nshuffles=10_000)
+            preferred
+        end
+        vv = [[v.I[1] for v in vv] for vv in view_poster_pref]
+        #parse the posterid
+        # find cells which overlapping cue and navigation poster preference
+        lmidx = findall((!isempty).(intersect.(vv[midx], cue_poster_pref)))
+        # find cells which have identical cue and view poster preference
+        lmoidx = findall((Set.(vv[midx]).==Set.(cue_poster_pref)))
+        landmark_cells = poster_selective_view_cells[lmidx]
+        qdata = Dict("landmark_cells"=>landmark_cells, "view_cells"=>view_cells,
+                              "poster_selective_view_cells"=>poster_selective_view_cells,
+                              "view_poster_pref"=>view_poster_pref,
+                              "cue_poster_pref"=>cue_poster_pref,
+                              "landmark_idx"=>lmidx,
+                              "landmark_pure_idx"=>lmoidx)
+        JLD2.save(fname, qdata)
+        landmark_only_idx = lmoidx
+    end
+    qdata
+end
+
 function plot_landmark_cells(view_cells::Vector{String};redo=false)
     # TODO: Separate into pure goal cells, i.e where the all view fields overlap with preferred posters
     h = zero(UInt32)
