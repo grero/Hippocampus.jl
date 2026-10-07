@@ -817,5 +817,33 @@ function plot_venn_diagram_summary(place_cells, view_cells, place_cells_width_di
     end
 end
 
+function plot_place_and_view_fields(place_cells::Vector{String}, view_cells::Vector{String})
+    kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001, nrefinements=(p=3,g=2),
+              α=0.1, smooth=true, smoothing_method=:laplace, nshuffles=1000)
+    place_and_view_cells = intersect(place_cells, view_cells)
+    @show length(place_and_view_cells)
+    qdata_place = Hippocampus.get_n_fields(Hippocampus.SpatialResponseFields, place_and_view_cells;redo=false, load_only=false, niter=50, kwargs...)
+    qdata_view = Hippocampus.get_n_fields(Hippocampus.GazeResponseFields, place_and_view_cells;redo=false, load_only=false, niter=50, kwargs...)
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2);
+    mm_unfolded = Hippocampus.unfold_maze(mm)
+    m_floor = Hippocampus.repair_mesh(Hippocampus.floor_topology3(;nrefinements=3))
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg1 = GridLayout(fig[1,1])
+        lscene = LScene(lg1[1,1], show_axis=false)
+        Hippocampus.plotmesh!(lscene, mm_unfolded;color=:lightgray, showsegments=true, hide_ceiling=true)
+        Hippocampus.plotmesh!(lscene, mm_unfolded;color=qdata_view["Z"], hide_ceiling=true)
+        Hippocampus.plot_pillars!(lscene)
+        lg2 = GridLayout(fig[1,2],)
+        ax = Axis(lg2[1,1])
+        viz!(ax, m_floor;color=qdata_place["Z"])
+        Hippocampus.plot_pillars!(ax)
+        hidedecorations!(ax)
+        colsize!(lg2, 1, Aspect(1,1))
+        fig
+    end
+
+end
+
 
 end #module
