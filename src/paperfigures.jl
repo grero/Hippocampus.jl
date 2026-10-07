@@ -12,7 +12,7 @@ plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
                            topspinevisible=false, rightspinevisible=false,
                            xgridvisible=false, ygridvisible=false,ylabelvisible=true,
                            xticklabelsvisible=true, xlabelvisible=true),
-                     Scatter=(markersize=10px,),
+                     Scatter=(markersize=10,),
                      Lines=(linewidth=3,),
                      fontsize=14)
 
