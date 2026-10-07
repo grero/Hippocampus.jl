@@ -1,12 +1,21 @@
 module PaperFigures
 using CairoMakie
 using GLMakie
+using Makie: GeometryBasics
 using Meshes
 using StatsBase
 using Hippocampus
 using JLD2
+using CRC32c
 using Makie.Colors
+using GraphMakie
+using Graphs
+using SimpleWeightedGraphs
+using NetworkLayout
+using HypothesisTests
+using VennDiagrams
 
+# TODO: Distribution of place field distance from poster locations for directional and non-directional posters
 plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
                            xticklabelsize=14, yticklabelsize=14,
                            topspinevisible=false, rightspinevisible=false,
