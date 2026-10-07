@@ -732,7 +732,11 @@ function plot_place_cell_poster_proximity!(lg;kwargs...)
     pidx = setdiff(1:length(place_cells), qidx)
 
     # plot the distributions, then use permutation test to test whether they are different
+    # TODO: Stricly speaking, MannWhitney assumes independent samples
+    #       but since pidx and qidx are partitions of the same data, they are not independent
+    #       to be safe, use permutation test instead
     pv = pvalue(MannWhitneyUTest(poster_dist_min[pidx], poster_dist_min[qidx]))
+    @show pv
     marker = "ns"
      if pv < 0.01
         marker = "**"
