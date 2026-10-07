@@ -513,7 +513,7 @@ function plot_landmark_cells(view_cells::Vector{String};redo=false)
     hs = string(h, base=16)
     fname = joinpath(@__DIR__, "..","data","landmark_cells_$(hs).jld2")
     if isfile(fname) && !redo
-        landmark_cells, poster_selective_view_cells,view_cells,landmark_only_idx = JLD2.load(fname, "landmark_cells","poster_selective_view_cells", "view_cells","landmark_pure_idx")
+        landmark_cells, poster_selective_view_cells,view_cells,landmark_only_idx = JLD2.load(fname, "landmark_cells","poster_selective_view_cells", "view_cells","landmark_pure_idx", "view_poster_pref", "cue_poster_pref")
     else
         view_poster_pref = map(view_cells) do celldir
             qq = cd(celldir) do
