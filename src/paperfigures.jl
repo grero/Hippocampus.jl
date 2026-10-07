@@ -773,7 +773,7 @@ function plot_venn_diagram_summary()
     # another subset is goal cells
 end
 
-function plot_venn_diagram_summary(place_cells, view_cells, place_cells_width_directed_fields,
+function plot_venn_diagram_summary!(lg, place_cells, view_cells, place_cells_width_directed_fields,
                                    place_and_view_conjunctive_cells, landmark_cells)
     place_and_view_cells = intersect(place_cells, view_cells)
     directional_place_and_view_cells = intersect(view_cells, place_cells_width_directed_fields)
@@ -794,25 +794,30 @@ function plot_venn_diagram_summary(place_cells, view_cells, place_cells_width_di
     pv_intersection = VennDiagrams.intersection_path(rp,rv,d)
     dpd = VennDiagrams.find_d(rpp, rdpv, length(intersect(landmark_place_cells, directional_place_and_view_cells)))
     lpd_intersection = VennDiagrams.intersection_path(rdpv, rpp, dpd;x0=d-rv+rdpv)
+    ax = Axis(lg[1,1],aspect=DataAspect())
+    hidedecorations!(ax)
+    hidespines!(ax)
+    poly!(ax, Makie.Circle(Point2f(0.0), rp), label="Place ($(length(place_cells)))")
+    poly!(ax, Makie.Circle(Point2f(d, 0.0), rv), label="View ($(length(view_cells)))")
+    poly!(ax, pv_intersection, label="Place and view ($(length(place_and_view_cells)))")
+    # conjunctive
+    poly!(ax, Makie.Circle(Point2f(xc, 0), rcj), label="Conjunctive ($(length(place_and_view_conjunctive_cells)))")
+    # directed place fields
+    poly!(ax, Makie.Circle(Point2f(d-rv+rdpv, 0), rdpv), color=:red, label="Directional place ($(length(setdiff(place_cells_width_directed_fields, view_cells))) | $(length(intersect(place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
+    poly!(ax, Makie.Circle(Point2f(d-rv+rdpv+dpd, 0), rpp), label="Poster ID ($(length(intersect(landmark_cells, place_and_view_conjunctive_cells))) | $(length(setdiff(landmark_cells, place_cells))))")
+    poly!(ax, lpd_intersection, label="Conjunctive & Directional\n& Poster ID ($(length(intersect(landmark_cells, place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
+    # draw the blobs
+    poly!(ax, Makie.Circle(Point2f(d-rv-rdpv_rem, 0), rdpv_rem), color=:red)
+    poly!(ax, Makie.Circle(Point2f(rp+rpp_rem, 0.0), rpp_rem), color=Cycled(5))
+    # legend
+    Legend(lg[1,2], ax)
+end
+
+function plot_venn_diagram_summary(args...)
     with_theme(plot_theme) do
         fig = Figure()
-        ax = Axis(fig[1,1],aspect=DataAspect())
-        hidedecorations!(ax)
-        hidespines!(ax)
-        poly!(ax, Makie.Circle(Point2f(0.0), rp), label="Place ($(length(place_cells)))")
-        poly!(ax, Makie.Circle(Point2f(d, 0.0), rv), label="View ($(length(view_cells)))")
-        poly!(ax, pv_intersection, label="Place and view ($(length(place_and_view_cells)))")
-        # conjunctive
-        poly!(ax, Makie.Circle(Point2f(xc, 0), rcj), label="Conjunctive ($(length(place_and_view_conjunctive_cells)))")
-        # directed place fields
-        poly!(ax, Makie.Circle(Point2f(d-rv+rdpv, 0), rdpv), color=:red, label="Directional place ($(length(setdiff(place_cells_width_directed_fields, view_cells))) | $(length(intersect(place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
-        poly!(ax, Makie.Circle(Point2f(d-rv+rdpv+dpd, 0), rpp), label="Poster ID ($(length(intersect(landmark_cells, place_and_view_conjunctive_cells))) | $(length(setdiff(landmark_cells, place_cells))))")
-        poly!(ax, lpd_intersection, label="Conjunctive & Directional\n& Poster ID ($(length(intersect(landmark_cells, place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
-        # draw the blobs
-        poly!(ax, Makie.Circle(Point2f(d-rv-rdpv_rem, 0), rdpv_rem), color=:red)
-        poly!(ax, Makie.Circle(Point2f(rp+rpp_rem, 0.0), rpp_rem), color=Cycled(5))
-        # legend
-        Legend(fig[1,2], ax)
+        lg = GridLayout(fig[1,1])
+        plot_venn_diagram_summary!(lg, args...)
         fig
     end
 end
