@@ -1120,3 +1120,74 @@ function plot_response_fields!(lg, rf_place::SpatialResponseFields, rf_gaze::Gaz
     lgg = GridLayout(lg[1,2])
     plot_response_fields!(lgg, rf_gaze;kwargs...)
 end
+
+function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{String}, cells2::Vector{String};do_unfold_maze=true, kwargs...) where T <: AbstractResponseFields
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    zdata = compute_view_field_distribution(T, cells1, cells2;kwargs...)
+    mm = get_mesh(T,nrefinements)
+    if do_unfold_maze && T <: GazeResponseFieldsAll
+        mm2 = unfold_maze(mm)
+    else
+        mm2 = mm
+    end
+    cr1 = extrema(zdata["Z"][:,1])
+    cr2 = extrema(zdata["Z"][:,2])
+    cr = (min(cr1[1], cr2[1]), max(cr1[2], cr2[2]))
+    axtype,axargs = get_axis_type(T)
+    @show axtype, axargs
+    for i in 1:2
+        lscene = axtype(lg[1,i];axargs...) 
+        if T <: SpatialResponseFieldsAll
+            viz!(lscene, mm2;color=zdata["Z"][:,i], colorrange=cr)
+        else
+            plotmesh!(lscene, mm2;color=zdata["Z"][:,i],hide_ceiling=true, colorrange=cr, showsegments=true)
+        end
+        plot_pillars!(lscene)
+    end
+  
+    Colorbar(lg[1,3], colorrange=cr, label="Density",ticksvisible=true)
+    ax = Axis(lg[1,4])
+    violin!(ax, fill(1.0, length(zdata["kl-divergence_null"])), zdata["kl-divergence_null"], color=:lightgray, show_median=true)
+    scatter!(ax, [1.0], [zdata["kl-divergence"]])
+    ax.xticksvisible = false
+    ax.xticklabelsvisible = false
+    ax.bottomspinevisible = false
+    ax.yaxisposition = :right
+    ax.leftspinevisible = false
+    ax.rightspinevisible = true
+
+    ax.ylabel = "KL-divergence"
+    colsize!(lg, 4, 75)
+    #  if T <: SpatialResponseFieldsAll
+    #    colsize!(lg,1, Aspect(1,1))
+    #    colsize!(lg, 2, Aspect(1,1))
+    #end
+end
+
+function plot_response_field_density_comparison(::Type{T}, args...;kwargs...) where T <: AbstractResponseFields
+    with_theme(plot_theme) do
+        fig = Figure(size=(898, 348))
+        lg = GridLayout(fig[1,1])
+        plot_response_field_density_comparison!(lg, T, args...;kwargs...)
+        link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_response_field_density_comparison(place_cells::Vector{String}, view_cells::Vector{String};group_labels::Union{Nothing, Vector{String}}=nothing, kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure(size=(894, 590))
+        lg1 = GridLayout(fig[1,1])
+        plot_response_field_density_comparison!(lg1, SpatialResponseFields, setdiff(place_cells, view_cells),intersect(place_cells, view_cells);kwargs...)
+        lg2 = GridLayout(fig[2,1])
+        plot_response_field_density_comparison!(lg2, GazeResponseFields, setdiff(view_cells, place_cells),intersect(place_cells, view_cells);kwargs...)
+        link_cameras_lscene(fig)
+
+        Label(lg1[1,1, Top()], "Only place")
+        Label(lg1[1,2, Top()], "Both")
+        Label(lg2[1,1, Top()], "Only view")
+        Label(lg2[1,2, Top()], "Both")
+        #rowsize!(fig.layout, 1, Relative(0.25))
+        fig
+    end
+end
