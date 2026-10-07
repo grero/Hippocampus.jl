@@ -24,6 +24,40 @@ function get_sessions()
     sessiondirs = unique(Hippocampus.DPHT.get_level_path.("session", allcelldirs))
 end
 
+function get_conjunctive_cells(place_cells::Vector{String}, view_cells::Vector{String})
+    place_and_view_cells = intersect(place_cells, view_cells)
+    h = zero(UInt32)
+    for celldir in place_and_view_cells
+        h = CRC32c.crc32c(celldir, h)
+    end
+    hs = string(h, base=16)
+    fname = joinpath(@__DIR__, "..", "data", "place_view_conjunctive_cells_$(hs).txt")
+    if isfile(fname)
+        celldirs = readlines(open(fname))
+    else
+        res_pvc = map(place_and_view_cells) do celldir
+        cd(celldir) do
+                Hippocampus.isconjunctive(Hippocampus.SpatialResponseFields, Hippocampus.GazeResponseFields;nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_view_duration=0.02, min_place_obs=5, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001, trial_start=2, nshuffles=1_000)
+            end
+        end
+        celldirs = place_and_view_cells[res_pvc]
+        open(fname, "w") do fid
+            write(fid, join(celldirs, "\n"))
+        end
+    end
+    celldirs
+end
+
+function get_poster_selective_cells(view_cells::Vector{String})
+    res_poster_view = map(view_cells) do celldir
+        qq = cd(celldir) do
+            Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+        end
+        any(qq)
+    end
+    view_cells[res_poster_view]
+end
+
 """
     figure1()
 
