@@ -713,6 +713,49 @@ function find_view_field_intersections(celldirs::Vector{String};kwargs...)
     qq
 end
 
+function compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cells2::Vector{String};load_only=false, kwargs...) where T <: AbstractResponseFields
+    h = process_kwargs(T;kwargs...)
+    h = CRC32c.crc32c(string(:cells1=>cells1),h)
+    h = CRC32c.crc32c(string(:cells2=>cells2),h)
+    hs = string(h, base=16)
+    fname = "$(last(split(string(T), '.')))_view_field_comparison_($hs).jld2"
+    fname = joinpath(@__DIR__, "..", "data", fname)
+    if isfile(fname)
+        Z = JLD2.load(fname, "Z")
+    else
+        celldirs = union(cells1, cells2)
+        (n1,n2) = length.((cells1, cells2))
+        rfs = process_dirs(celldirs) do
+            get_response_fields(T, get(kwargs, :nshuffles, 1000);load_only=load_only, kwargs...)
+        end
+        # smoothing parameters to smooth the distributions
+        α = 0.1
+        niter = 25
+        kk = filter(k->k[2]!==nothing, rfs)
+        mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
+        # histogram of field sizes
+        Z = zeros(nelements(mm), 2)
+        bb = Any[]
+        for (k,v) in rfs
+            if k in cells1
+                jj = 1
+            else
+                jj = 2
+            end
+            if v !== nothing
+                clusters = getfields(v;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+                if length(clusters) > 0
+                    for cluster in clusters
+                        Z[cluster,jj] .+= 1.0
+                    end
+                end
+            end
+        end
+        JLD2.save(fname, Dict("cells1"=>cells1, "cells2"=>cells2, "Z"=>Z, "args"=>Dict(kwargs)))
+    end
+    Z
+end
+
 ## plots
 
 function plot_n_fields(::Type{T}, celldirs::Vector{String};figsize=(900,500), kwargs...) where T <: AbstractResponseFields
