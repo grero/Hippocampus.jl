@@ -631,12 +631,12 @@ function plot_summary_figure(;)
     colors = [:steelblue1, :mediumpurple, :tan1, :palegreen3, :gold, :tomato]
     node_colors = Dict(k=>v for (k,v) in zip(keys(sets), colors))
     node_colors = Dict(:place_cells => :palegreen3,
-                        :place_selective_cells => :aquamarine3,
+                        :place_selective_cells => :darkgreen,
                         :view_cells => :gold,
                         :view_selective_cells => :gold3,
                         :place_and_view_cells => :steelblue3,
                         :place_view_conjunctions => :steelblue1,
-                        :directed_place_cells => :darkseagreen,
+                        :directed_place_cells => :salmon,
                         :goal_cells => :mediumpurple)
 
     with_theme(plot_theme) do 
@@ -649,7 +649,13 @@ function plot_summary_figure(;)
         ax1.xticklabelrotation = -π/6
         ax1.ylabel = "Number or cells"
         lg2 = GridLayout(fig[1,2])
-        plot_graph!(lg2, sets;labels=labels,node_colors=node_colors)
+        #plot_graph!(lg2, sets;labels=labels,node_colors=node_colors)
+        plot_venn_diagram_summary!(lg2, place_cells, view_cells, directed_place_cells, place_view_conjunctions, goal_cells;place_color=node_colors[:place_cells],
+                                                                                                                           view_color=node_colors[:view_cells],
+                                                                                                                           place_view_color=node_colors[:place_and_view_cells],
+                                                                                                                           place_view_conj_color=node_colors[:place_view_conjunctions],
+                                                                                                                           place_with_directed_fields_color=node_colors[:directed_place_cells],
+                                                                                                                           landmark_color=node_colors[:goal_cells])
         #colsize!(lg2, 1, Aspect(1,1))
         colsize!(fig.layout, 1, 250)
         fig
