@@ -385,7 +385,7 @@ function plot_directional_place_fields(;use_pie_chart=false)
             # normal bar plot
             axp = Axis(lg21[1,1], alignmode=Inside())
             @show length.([place_cells, place_cells_width_directed_fields])
-            barplot!(axp, [1:2;], length.([place_cells, place_cells_width_directed_fields]), color=[:lightgray, :darkorchid])
+            barplot!(axp, [1:2;], length.([place_cells, place_cells_width_directed_fields]), color=[:lightgray, :mediumpurple])
             axp.xticks = ([1,2], ["All place", "Directional"])
             axp.xticklabelrotation = -π/6
             axp.ylabel = "Number of cells"
