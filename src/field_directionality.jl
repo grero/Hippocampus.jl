@@ -1313,8 +1313,8 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
         for (ii,vc) in enumerate(view_clusters)
             # does a ray originating from any of the point in the place field, along the direction
             # v intersect with the view field?
-            for p in sp
-                for v in vc
+            for v in vc
+                for p in sp
                     l = Meshes.Line(centroid(m_floor[p]) + Meshes.Vec(0,0,1.5), centroid(mm[v]))
                     vl = l.b - l.a
                     θ = atan(last(vl),first(vl))
