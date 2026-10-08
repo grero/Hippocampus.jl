@@ -554,6 +554,12 @@ struct MajorAxisDirectionTuning{T<:Real}
     occupancy_reverse::Vector{Vector{T}}
     trialidx_forward::Vector{Vector{Int64}}
     trialidx_reverse::Vector{Vector{Int64}}
+    spatial_clusters::Union{Nothing, Vector{Vector{Int64}}}
+    args::Dict{Symbol,Any}
+end
+
+function MajorAxisDirectionTuning(v,μ,ms, spf, spr, of, or, tf, tr)
+    MajorAxisDirectionTuning(v,μ,ms,spf,spr,of,or,tf,tr,nothing, Dict{Symbol,Any}())
 end
 
 function process_kwargs(::Type{MajorAxisDirectionTuning},h::UInt32=zero(UInt32);kwargs...)
