@@ -1838,7 +1838,7 @@ end
 """
 Illustrate 
 """
-function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap;do_unfold_maze=false, kwargs...)
+function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap,idx::Union{Int64, Nothing}=nothing;do_unfold_maze=false, kwargs...)
     # We need two view maps; one for each direction
     # TODO: Make this more flexible
     nrefinements = rf_gaze.args[:nrefinements]
@@ -1851,8 +1851,16 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         use_maze = mm
     end
     hd_bins = range(0.0, stop=2π, length=24) 
-    idx = findfirst(issignificant(mdt))
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    res = issignificant(mdt)
+    if idx === nothing
+        idx = findfirst(res)
+    end
+    if mdt.spatial_clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        spatial_clusters = mdt.spatial_clusters
+    end
+    length(res) == length(spatial_clusters) || error("We have $(length(spatial_clusters)) spatial clusters and $(length(res)) significance results.")
     # get the distribution of head direction for the relevant trials
     spatial_cluster = spatial_clusters[idx]
     bb_spatial = find_boundary(m_floor, spatial_cluster)
