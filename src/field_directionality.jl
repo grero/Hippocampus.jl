@@ -1343,6 +1343,10 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                             end
                         end
                     end
+                    if occlusions[ii,jj] > 0
+                        #we want to compute fraction of view field covered
+                        break 
+                    end
                     if !can_be_seen[ii,jj]
                         #break
                     end
