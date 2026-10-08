@@ -390,7 +390,7 @@ function plot_conjunctions_new(celldir::String,args...;kwargs...)
     plot_conjunctions_new(Hippocampus.SpatialResponseFields, Hippocampus.GazeResponseFields, celldir, args...;kwargs...)
 end
 
-function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme, distr_plot=:boxplot, kwargs...) where T1 <: Hippocampus.SpatialResponseFieldsAll where T2 <: Hippocampus.GazeResponseFieldsAll
+function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme, distr_plot=:boxplot, figsize=(595.28, 500), kwargs...) where T1 <: Hippocampus.SpatialResponseFieldsAll where T2 <: Hippocampus.GazeResponseFieldsAll
     jm,vpc, pvc = cd(celldir) do
         jm = Hippocampus.JointMap(;nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
         vpc = Hippocampus.ViewPlaceConjunction(T2,T1;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
@@ -411,7 +411,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
     ccolors = Hippocampus.get_colors(colormap)
 
     with_theme(_plot_theme) do
-        fig = Figure(size=(1000,550))
+        #fig = Figure(size=(1000,550))
+        fig = Figure(size=figsize)
         # show both place and view maps
         lg1 = GridLayout(fig[1,1])
         Label(lg1[1,1,TopLeft()], "A")
@@ -462,7 +463,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
             marker_vpc = :circle
         end
         if ss_vp
-            marker_vp = :start6
+            marker_vp = :star6
         else
             marker_vp = :circle
         end
@@ -471,8 +472,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         scatter!(ax2, [vpc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[spatial_field_idx], marker=marker_vpc, label="VF & PF")
         if ss_vpc
         end
-        rowsize!(lg2_1, 3, 75)
-        rowsize!(lg2_1,1, Relative(0.5))
+        rowsize!(lg2_1, 3, 50)
+        rowsize!(lg2_1,1, Relative(0.6))
         ax2.yticklabelsvisible = false
         ax2.yticksvisible = false
         ax2.xlabel = "Firing rate [Hz]"
@@ -524,8 +525,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         scatter!(ax4, [μ_place_view], [1.0],color=ccolors[spatial_field_idx], marker=marker_pv, label="Inside VF")
         scatter!(ax4, [μ_place], [1.0],color=:seagreen, label="Original VF")
         scatter!(ax4, [pvc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[view_field_idx], marker=marker_pvc,label="VF & PF")
-        rowsize!(lg3, 3, 75)
-        rowsize!(lg3,1, Relative(0.5))
+        rowsize!(lg3, 3, 50)
+        rowsize!(lg3,1, Relative(0.6))
+        colsize!(fig.layout, 1, Relative(0.4))
         ax4.yticklabelsvisible = false
         ax4.yticksvisible = false
         ax4.xlabel = "Firing rate [Hz]"
