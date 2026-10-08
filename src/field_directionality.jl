@@ -1285,6 +1285,7 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
     @assert length(res) == length(spatial_clusters)
     can_be_seen = trues(length(view_clusters), length(spatial_clusters))
     occlusions = zeros(length(view_clusters), length(spatial_clusters))
+    direction_preference = Vector{Union{Nothing, Symbol}}(undef, length(res))
     for (jj,sp) in enumerate(spatial_clusters)
         if !res[jj]
             # since this field does not show any directionalty, just mark it as occluded
@@ -1297,10 +1298,10 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
         λr = isempty(λ_reverse) ? 0.0 : median(λ_reverse)
         if λf > λr 
             v = mdt.v[:,jj]
-            @show "Prefers forward"
+            direction_preference[jj] = :forward
         else
             v = -mdt.v[:,jj]
-            @show "Perfers reverse"
+            direction_preference[jj] = :reverse
         end
         θv = atan(v[2],v[1])
         # find the preferred by just computing the maximum rate (since we know this field has siginificant
@@ -1343,7 +1344,7 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
             occlusions[ii,jj] /= length(sp)*length(vc)
         end
     end
-    occlusions
+    occlusions, direction_preference
 end
 
 function compute_place_direction_view(celldir::String;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
