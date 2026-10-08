@@ -569,7 +569,7 @@ function process_kwargs(::Type{MajorAxisDirectionTuning},h::UInt32=zero(UInt32);
 end
 
 function get_major_axis_direction_tuning(gidx::DirectionFiltered,rf::SpatialResponseFields,jocc::JointOccupancy, vpvrp::ViewAndPlaceRepresentationNew,qdata::UnityRaytraceData;do_shuffle=false,trial_start=2)
-    v,μ,ms = get_major_axis(rf)
+    v,μ,ms, spatial_clusters = get_major_axis(rf)
     spike_count = Float64[]
     spike_count_1 = Vector{Vector{Float64}}(undef, size(v,2))
     spike_count_2 = Vector{Vector{Float64}}(undef, size(v,2))
@@ -635,7 +635,7 @@ function get_major_axis_direction_tuning(gidx::DirectionFiltered,rf::SpatialResp
     end
     # TODO: Aggregate over windows
     #spike_count, occupancy, sindex, 
-    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2), (trialidx_forward, trialidx_reverse)
+    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2), (trialidx_forward, trialidx_reverse), (v,μ,ms,spatial_clusters)
 end
 
 function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
@@ -662,11 +662,10 @@ function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
             qdata, jocc
         end
         rf_spatial =  get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);redo=redo,kwargs...)
-        v,μ,ms = get_major_axis(rf_spatial)
         gidx = DirectionFiltered(;redo=redo,kwargs...)
         vpvrp = ViewAndPlaceRepresentationNew(;redo=redo,kwargs...)
-        (spike_count_1, occupancy_1), (spike_count_2, occupancy_2),(trialidx_forward, trialidx_reverse) = get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata;trial_start=get(kwargs, :trial_start,2))
-        obj = MajorAxisDirectionTuning(v, μ, ms, spike_count_1, spike_count_2,occupancy_1, occupancy_2, trialidx_forward, trialidx_reverse)
+        (spike_count_1, occupancy_1), (spike_count_2, occupancy_2),(trialidx_forward, trialidx_reverse),(v,μ,ms,spatial_clusters) = get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata;trial_start=get(kwargs, :trial_start,2))
+        obj = MajorAxisDirectionTuning(v, μ, ms, spike_count_1, spike_count_2,occupancy_1, occupancy_2, trialidx_forward, trialidx_reverse, spatial_clusters, Dict(kwargs))
         if do_save
             save_jld2(obj, fname)
         end

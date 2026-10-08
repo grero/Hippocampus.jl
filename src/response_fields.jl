@@ -428,7 +428,7 @@ function get_major_axis(rf::SpatialResponseFields;cluster_threshold=0.001)
         μ[:,i] = mean(Point2f.(Tuple.(mq)))
         ms[i] = ustrip(sum(measure.(mm[c])))
     end
-    v,μ,ms
+    v,μ,ms, spatial_clusters
 end
 
 """
