@@ -1322,7 +1322,7 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                     # if we are not within the cone, add one occl
                     if cos(θ-θv) < cos(half_beam_width)
                         occlusions[ii,jj] += 1
-                        continue
+                        break
                     end
                     for _mm in mm
                         qq = intersection(l, _mm)
