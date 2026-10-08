@@ -1274,7 +1274,11 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
     nrefinements = rf_gaze.args[:nrefinements]
     m_floor = repair_mesh(Hippocampus.floor_topology3(;nrefinements=nrefinements.p))
     mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements.g)
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if mdt.spatial_clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        spatial_clusters = mdt.spatial_clusters
+    end
     # get the distribution of head direction for the relevant trials
     view_clusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
 
@@ -1282,7 +1286,7 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
     # the view field occurs within a 60 degree cone around the preferred direction of a place
     # field
     res = issignificant(mdt)
-    @assert length(res) == length(spatial_clusters)
+    length(res) == length(spatial_clusters) || error("We have $(length(spatial_clusters)) spatial clusters and $(length(res)) significance results.")
     can_be_seen = trues(length(view_clusters), length(spatial_clusters))
     occlusions = zeros(length(view_clusters), length(spatial_clusters))
     direction_preference = Vector{Union{Nothing, Symbol}}(undef, length(res))
