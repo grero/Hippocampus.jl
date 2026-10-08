@@ -1356,7 +1356,8 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                     #break
                 end
             end
-            occlusions[ii,jj] /= length(sp)*length(vc)
+            #normalize to total number of points in this view field
+            occlusions[ii,jj] /= length(vc)
         end
     end
     occlusions, direction_preference
