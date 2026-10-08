@@ -1365,7 +1365,7 @@ end
 
 function compute_place_direction_view(celldir::String;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
      mdt, rf_spatial, rf_gaze = cd(celldir) do
-        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, kwargs...)
+        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, only_full_traversal=get(kwargs, :only_full_traversal, true), kwargs...)
         rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial, kwargs...) 
         rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
         mdt, rf_spatial, rf_gaze
