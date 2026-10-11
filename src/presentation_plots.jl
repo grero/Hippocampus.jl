@@ -409,7 +409,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
     X_view_nc, μ_view, μ_view_place = sample_map(vpc, view_field_idx,spatial_field_idx)
     colormap = get(kwargs, :colormap, :rain)
     ccolors = Hippocampus.get_colors(colormap)
-
+    showsegments = get(kwargs, :showsegments, true)
+    mazecolor = get(kwargs, :mazecolor, :lightgray)
+    segmentcolor = get(kwargs, :segmentcolor, :gray55)
     with_theme(_plot_theme) do
         #fig = Figure(size=(1000,550))
         fig = Figure(size=figsize)
@@ -418,7 +420,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         Label(lg1[1,1,TopLeft()], "A")
         lg1_1 = GridLayout(lg1[1,1])
         # view field
-        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0)
+        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0, showsegments=showsegments, segmentcolor=segmentcolor)
         # place field
         lg1_2 = GridLayout(lg1[2,1])
         Label(lg1[2,1,TopLeft()],"B")
@@ -431,7 +433,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         Hippocampus.plot_pillars!(lscene)
         α_view = fill(0.0, length(λ_infield_view))
         α_view[isfinite.(λ_infield_view)] .= 1.0
-        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=true,floor_offset=0.0)
+        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=showsegments,floor_offset=0.0,segmentcolor=segmentcolor)
         ax1 = Axis(lg2_1[2,1], aspect=1)
         hidedecorations!(ax1)
         Hippocampus.plot_pillars!(ax1)
@@ -489,7 +491,10 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         alpha[vidx] .= 1.0
         Z_maze[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= parse(Colorant, :gray25)
         alpha[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= 1.0
-        Hippocampus.plotmesh!(lscene, mm, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=true)
+        if showsegments == false
+            Hippocampus.plotmesh!(lscene, mm, color=mazecolor,indicate_north=false,hide_ceiling=true, showsegments=false)
+        end
+        Hippocampus.plotmesh!(lscene, mm, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=showsegments, segmentcolor=segmentcolor)
         ax3 = Axis(lg3[2,1], aspect=1)
         viz!(ax3, m_floor;color=:lightgray)
         hidedecorations!(ax3)
