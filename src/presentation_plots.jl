@@ -421,6 +421,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         lg1_1 = GridLayout(lg1[1,1])
         # view field
         Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0, showsegments=showsegments, segmentcolor=segmentcolor, show_colorbar=false)
+        λmin, λmax =  extrema(filter(isfinite, pvc.view_fields.λ))
+        Label(lg1[1,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
         # place field
         lg1_2 = GridLayout(lg1[2,1])
         #Label(lg1[2,1,TopLeft()],"B")
