@@ -425,7 +425,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         lg1_2 = GridLayout(lg1[2,1])
         #Label(lg1[2,1,TopLeft()],"B")
         Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=colormap, show_colorbar=false)
-        #colsize!(lg1, 1, Aspect(1,1))
+        λmin,λmax =  extrema(filter(isfinite, pvc.spatial_fields.λ))
+        Label(lg1[2,1,Left()], "peak: $(round(λmax, digits=1)) Hz", rotation=π/2)
+        #rowsize!(lg1, 2, Aspect(1,1))
         rowsize!(lg1, 2, Relative(0.4))
 
         # view conditioned on place
@@ -436,6 +438,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         α_view = fill(0.0, length(λ_infield_view))
         α_view[isfinite.(λ_infield_view)] .= 1.0
         Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=showsegments,floor_offset=0.0,segmentcolor=segmentcolor)
+        λmin,λmax =  extrema(filter(isfinite, λ_infield_view))
+        Label(lg2[1,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
         ax1 = Axis(lg2[2,1], aspect=1)
         hidedecorations!(ax1)
         hidespines!(ax1)
@@ -509,6 +513,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         malpha[isfinite.(mcolor)] .= 1.0
         mcolor[isnan.(mcolor)] .= 0.0
         viz!(ax3, m_floor, color=mcolor,alpha=malpha,colormap=colormap)
+        λmin,λmax =  extrema(filter(isfinite, mcolor))
+        Label(lg3[2,1,Left()], "peak: $(round(λmax, digits=1)) Hz", rotation=π/2)
         Hippocampus.plot_pillars!(ax3)
         rowsize!(lg3, 2, Relative(0.4))
         ax4 = Axis(lg_stats[1,2])
@@ -543,7 +549,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         ax4.yticklabelsvisible = false
         ax4.yticksvisible = false
         ax4.xlabel = "Firing rate [Hz]"
-        cb =Colorbar(fig[2,1], colormap=:rain, colorrange=(0,1), label="Activity",
+        cb =Colorbar(fig[2,1], colormap=:rain, colorrange=(0,1), label="Firing rate",
                             ticks=([0,1], ["min", "max"]), tellwidth=false, width=10)
         cb.flipaxis = false
         #cb.alignmode = Outside()
