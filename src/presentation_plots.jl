@@ -430,7 +430,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
 
         # view conditioned on place
         lg2 = GridLayout(fig[1,2])
-        Label(lg2[1,1,TopLeft()], "C")
+        Label(lg2[1,1,TopLeft()], "B")
         lscene = LScene(lg2[1,1], show_axis=false)
         Hippocampus.plot_pillars!(lscene)
         α_view = fill(0.0, length(λ_infield_view))
@@ -450,9 +450,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         viz!(ax1, m_floor; color=Z_floor,alpha=alpha)
         # distribution of conditional and joint firing rate
         rowsize!(lg2,2,Relative(0.4))
-        lg_stats = GridLayout(fig[1,4])
+        lg_stats = GridLayout(fig[2,2:3])
         ax2 = Axis(lg_stats[1,1])
-        Label(fig[1,4, TopLeft()], "D")
+        Label(lg_stats[1,1,TopLeft()], "C", padding=(0.0, 0.0, 10.0, 0.0))
         xx = [fill(1.0, length(X_view_nc));fill(2.0, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         yy = [X_view_nc;vpc.λ_sub[spatial_field_idx,view_field_idx,:]]
         ss_vpc = vpc.λ_covered[spatial_field_idx, view_field_idx] > percentile(vpc.λ_sub[spatial_field_idx, view_field_idx,:], 97.5)
@@ -460,9 +460,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         cc = [fill(1, length(X_view_nc));fill(2, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
 
         if distr_plot == :boxplot
-            boxplot!(ax2, xx,yy, show_outliers=false,orientation=:vertical, color=cc, colormap=[:royalblue, :gray25],show_notch=true)
+            boxplot!(ax2, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25],show_notch=true)
         else
-            violin!(ax2, xx,yy, orientation=:vertical, show_median=true, color=[:royalblue, :gray25][cc])
+            violin!(ax2, xx,yy, orientation=:horizontal, show_median=true, color=[:royalblue, :gray25][cc])
         end
         if ss_vpc
             marker_vpc = :star6
@@ -474,20 +474,20 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         else
             marker_vp = :circle
         end
-        scatter!(ax2, [1.0], [μ_view_place],color=ccolors[view_field_idx], marker=marker_vp, label="Inside VF")
-        scatter!(ax2, [1.0], [μ_view],color=:seagreen, label="Original VF")
-        scatter!(ax2, [2.0], [vpc.λ_covered[spatial_field_idx,view_field_idx]], color=ccolors[spatial_field_idx], marker=marker_vpc, label="VF & PF")
+        scatter!(ax2, [μ_view_place],[1.0], color=ccolors[view_field_idx], marker=marker_vp, label="Inside VF")
+        scatter!(ax2, [μ_view],[1.0], color=:seagreen, label="Original VF")
+        scatter!(ax2, [vpc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[spatial_field_idx], marker=marker_vpc, label="VF & PF")
         if ss_vpc
         end
         #rowsize!(lg2_1, 3, 50)
         #rowsize!(lg2_1,1, Relative(0.6))
-        ax2.xticklabelsvisible = false
-        ax2.xticksvisible = false
-        ax2.ylabel = "Firing rate [Hz]"
+        ax2.yticklabelsvisible = false
+        ax2.yticksvisible = false
+        ax2.xlabel = "Firing rate [Hz]"
 
         # place conditioned on view
         lg3 = GridLayout(fig[1,3])
-        Label(lg3[1,1,TopLeft()], "E")
+        Label(lg3[1,1,TopLeft()], "D")
         lscene = LScene(lg3[1,1], show_axis=false)
         Hippocampus.plot_pillars!(lscene)
         Z_maze = fill(parse(Colorant, :lightgray), nelements(mm))
@@ -511,8 +511,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         viz!(ax3, m_floor, color=mcolor,alpha=malpha,colormap=colormap)
         Hippocampus.plot_pillars!(ax3)
         rowsize!(lg3, 2, Relative(0.4))
-        ax4 = Axis(lg_stats[2,1])
-        Label(lg_stats[2,1, TopLeft()], "F")
+        ax4 = Axis(lg_stats[1,2])
+        Label(lg_stats[1,2, TopLeft()], "E", padding=(0.0, 0, 10.0, 0.0))
         xx = [fill(1.0, length(X_place_nc));fill(2.0, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         yy = [X_place_nc;pvc.λ_sub[spatial_field_idx,view_field_idx,:]]
         cc = [fill(1, length(X_place_nc));fill(2, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
@@ -529,20 +529,20 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
             marker_pv = :circle
         end
         if distr_plot == :boxplot
-            boxplot!(ax4, xx,yy, show_outliers=false,orientation=:vertical, color=cc, colormap=[:royalblue, :gray25],show_notch=true)
+            boxplot!(ax4, xx,yy, show_outliers=false,orientation=:horizontal, color=cc, colormap=[:royalblue, :gray25],show_notch=true)
         else
-            violin!(ax4, xx,yy, orientation=:vertical, show_median=true, color=[:royalblue, :gray25][cc])
+            violin!(ax4, xx,yy, orientation=:horizontal, show_median=true, color=[:royalblue, :gray25][cc])
         end
-        scatter!(ax4, [1.0], [μ_place_view], color=ccolors[spatial_field_idx], marker=marker_pv, label="Inside VF")
-        scatter!(ax4, [1.0], [μ_place],color=:seagreen, label="Original VF")
-        scatter!(ax4, [2.0], [pvc.λ_covered[spatial_field_idx,view_field_idx]], color=ccolors[view_field_idx], marker=marker_pvc,label="VF & PF")
+        scatter!(ax4, [μ_place_view], [1.0], color=ccolors[spatial_field_idx], marker=marker_pv, label="Inside VF")
+        scatter!(ax4, [μ_place],[1.0], color=:seagreen, label="Original VF")
+        scatter!(ax4, [pvc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[view_field_idx], marker=marker_pvc,label="VF & PF")
         #rowsize!(lg3, 3, 50)
         #rowsize!(lg3,1, Relative(0.6))
         #colsize!(fig.layout, 1, Relative(0.4))
-        colsize!(fig.layout, 4, 70)
-        ax4.xticklabelsvisible = false
-        ax4.xticksvisible = false
-        ax4.ylabel = "Firing rate [Hz]"
+        rowsize!(fig.layout, 2, 70)
+        ax4.yticklabelsvisible = false
+        ax4.yticksvisible = false
+        ax4.xlabel = "Firing rate [Hz]"
         Hippocampus.link_cameras_lscene(fig)
         fig
     end
