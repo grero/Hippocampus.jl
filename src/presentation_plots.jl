@@ -543,6 +543,12 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         ax4.yticklabelsvisible = false
         ax4.yticksvisible = false
         ax4.xlabel = "Firing rate [Hz]"
+        cb =Colorbar(fig[2,1], colormap=:rain, colorrange=(0,1), label="Activity",
+                            ticks=([0,1], ["min", "max"]), tellwidth=false, width=10)
+        cb.flipaxis = false
+        #cb.alignmode = Outside()
+        colgap!(fig.layout, 0)
+
         Hippocampus.link_cameras_lscene(fig)
         fig
     end
