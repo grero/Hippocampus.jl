@@ -433,11 +433,11 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         # view conditioned on place
         lg2 = GridLayout(fig[1,2])
         Label(lg2[1,1,TopLeft()], "B")
-        lscene = LScene(lg2[1,1], show_axis=false)
-        Hippocampus.plot_pillars!(lscene)
+        lscene1 = LScene(lg2[1,1], show_axis=false)
+        Hippocampus.plot_pillars!(lscene1)
         α_view = fill(0.0, length(λ_infield_view))
         α_view[isfinite.(λ_infield_view)] .= 1.0
-        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=showsegments,floor_offset=0.0,segmentcolor=segmentcolor)
+        Hippocampus.plotmesh!(lscene1, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=showsegments,floor_offset=0.0,segmentcolor=segmentcolor)
         λmin,λmax =  extrema(filter(isfinite, λ_infield_view))
         Label(lg2[1,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
         ax1 = Axis(lg2[2,1], aspect=1)
@@ -492,8 +492,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         # place conditioned on view
         lg3 = GridLayout(fig[1,3])
         Label(lg3[1,1,TopLeft()], "D")
-        lscene = LScene(lg3[1,1], show_axis=false)
-        Hippocampus.plot_pillars!(lscene)
+        lscene2 = LScene(lg3[1,1], show_axis=false)
+        Hippocampus.plot_pillars!(lscene2)
         Z_maze = fill(parse(Colorant, :lightgray), nelements(mm))
         alpha = fill(0.0, nelements(mm))
         Z_maze[vidx] .= parse(Colorant, ccolors[view_field_idx])
@@ -501,9 +501,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         Z_maze[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= parse(Colorant, :gray25)
         alpha[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= 1.0
         if showsegments == false
-            Hippocampus.plotmesh!(lscene, mm, color=mazecolor,indicate_north=false,hide_ceiling=true, showsegments=false)
+            Hippocampus.plotmesh!(lscene2, mm, color=mazecolor,indicate_north=false,hide_ceiling=true, showsegments=false)
         end
-        Hippocampus.plotmesh!(lscene, mm, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=showsegments, segmentcolor=segmentcolor)
+        Hippocampus.plotmesh!(lscene2, mm, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=showsegments, segmentcolor=segmentcolor)
         ax3 = Axis(lg3[2,1], aspect=1)
         viz!(ax3, m_floor;color=:lightgray)
         hidedecorations!(ax3)
@@ -555,7 +555,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         #cb.alignmode = Outside()
         colgap!(fig.layout, 0)
 
-        Hippocampus.link_cameras_lscene(fig)
+        Hippocampus.link_cameras_lscene([lscene1, lscene2])
         fig
     end
 end
