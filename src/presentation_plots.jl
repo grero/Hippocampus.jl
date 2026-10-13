@@ -416,24 +416,25 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         #fig = Figure(size=(1000,550))
         fig = Figure(size=figsize)
         # show both place and view maps
-        lg1 = GridLayout(fig[1,1])
+        lg1 = GridLayout(fig[1,1:2])
         Label(lg1[1,1,TopLeft()], "A")
         lg1_1 = GridLayout(lg1[1,1])
         # view field
-        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0, showsegments=showsegments, segmentcolor=segmentcolor, show_colorbar=false)
+        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0, showsegments=showsegments, segmentcolor=segmentcolor, show_colorbar=true)
         λmin, λmax =  extrema(filter(isfinite, pvc.view_fields.λ))
-        Label(lg1[1,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
+        #Label(lg1[1,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
         # place field
-        lg1_2 = GridLayout(lg1[2,1])
+        lg1_2 = GridLayout(lg1[1,2])
         #Label(lg1[2,1,TopLeft()],"B")
-        Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=colormap, show_colorbar=false)
+        Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=colormap, show_colorbar=true)
         λmin,λmax =  extrema(filter(isfinite, pvc.spatial_fields.λ))
-        Label(lg1[2,1,Left()], "peak: $(round(λmax, digits=1)) Hz", rotation=π/2)
+        #Label(lg1[1,2,Top()], "peak: $(round(λmax, digits=1)) Hz", rotation=0)
         #rowsize!(lg1, 2, Aspect(1,1))
-        rowsize!(lg1, 2, Relative(0.4))
+        #rowsize!(lg1, 2, Relative(0.4))
+        colsize!(lg1, 2, Relative(0.4))
 
         # view conditioned on place
-        lg2 = GridLayout(fig[1,2])
+        lg2 = GridLayout(fig[2,1:2])
         Label(lg2[1,1,TopLeft()], "B")
         lscene1 = LScene(lg2[1,1], show_axis=false)
         Hippocampus.plot_pillars!(lscene1)
@@ -441,8 +442,11 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         α_view[isfinite.(λ_infield_view)] .= 1.0
         Hippocampus.plotmesh!(lscene1, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=showsegments,floor_offset=0.0,segmentcolor=segmentcolor)
         λmin,λmax =  extrema(filter(isfinite, λ_infield_view))
-        Label(lg2[1,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
-        ax1 = Axis(lg2[2,1], aspect=1)
+        cb = Colorbar(lg2[1,2], colorrange=(λmin, λmax), colormap=:rain, label = "Firing rate [Hz]",
+                            ticklabelsvisible=true, ticksvisible=true)
+        cb.alignmode = Mixed(right=0)
+        #Label(fig[2,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
+        ax1 = Axis(fig[3,1], aspect=1)
         hidedecorations!(ax1)
         hidespines!(ax1)
         Hippocampus.plot_pillars!(ax1)
@@ -455,8 +459,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         alpha = fill(1.0, size(Z_floor)...)
         viz!(ax1, m_floor; color=Z_floor,alpha=alpha)
         # distribution of conditional and joint firing rate
-        rowsize!(lg2,2,Relative(0.4))
-        lg_stats = GridLayout(fig[2,2:3])
+        #rowsize!(lg2,2,Relative(0.4))
+        lg_stats = GridLayout(fig[4,1:2])
         ax2 = Axis(lg_stats[1,1])
         Label(lg_stats[1,1,TopLeft()], "C", padding=(0.0, 0.0, 10.0, 0.0))
         xx = [fill(1.0, length(X_view_nc));fill(2.0, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
@@ -476,7 +480,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
             marker_vpc = :circle
         end
         if ss_vp
-            marker_vp = :star6
+            marker_vp = :diamond
         else
             marker_vp = :circle
         end
@@ -492,9 +496,9 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         ax2.xlabel = "Firing rate [Hz]"
 
         # place conditioned on view
-        lg3 = GridLayout(fig[1,3])
-        Label(lg3[1,1,TopLeft()], "D")
-        lscene2 = LScene(lg3[1,1], show_axis=false)
+        #lg3 = GridLayout(fig[2,2])
+        Label(lg2[1,3,TopLeft()], "D")
+        lscene2 = LScene(lg2[1,3], show_axis=false)
         Hippocampus.plot_pillars!(lscene2)
         Z_maze = fill(parse(Colorant, :lightgray), nelements(mm))
         alpha = fill(0.0, nelements(mm))
@@ -506,7 +510,8 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
             Hippocampus.plotmesh!(lscene2, mm, color=mazecolor,indicate_north=false,hide_ceiling=true, showsegments=false)
         end
         Hippocampus.plotmesh!(lscene2, mm, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=showsegments, segmentcolor=segmentcolor)
-        ax3 = Axis(lg3[2,1], aspect=1)
+        lg3 = GridLayout(fig[3,2])
+        ax3 = Axis(lg3[1,1], aspect=1)
         viz!(ax3, m_floor;color=:lightgray)
         hidedecorations!(ax3)
         hidespines!(ax3)
@@ -516,9 +521,12 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         mcolor[isnan.(mcolor)] .= 0.0
         viz!(ax3, m_floor, color=mcolor,alpha=malpha,colormap=colormap)
         λmin,λmax =  extrema(filter(isfinite, mcolor))
-        Label(lg3[2,1,Left()], "peak: $(round(λmax, digits=1)) Hz", rotation=π/2)
+        cb2 = Colorbar(lg3[1,2], colorrange=(λmin, λmax), colormap=:rain, label="Firing rate [Hz]",
+                            ticksvisible = true, ticklabelsvisible=true)
+        cb2.alignmode = Mixed(right=0)
+        #Label(fig[3,2,Left()], "peak: $(round(λmax, digits=1)) Hz", rotation=π/2)
         Hippocampus.plot_pillars!(ax3)
-        rowsize!(lg3, 2, Relative(0.4))
+        #rowsize!(lg3, 2, Relative(0.4))
         ax4 = Axis(lg_stats[1,2])
         Label(lg_stats[1,2, TopLeft()], "E", padding=(0.0, 0, 10.0, 0.0))
         xx = [fill(1.0, length(X_place_nc));fill(2.0, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
@@ -532,7 +540,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
             marker_pvc = :circle
         end
         if ss_pv
-            marker_pv = :star6
+            marker_pv = :diamond
         else
             marker_pv = :circle
         end
@@ -547,15 +555,16 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         #rowsize!(lg3, 3, 50)
         #rowsize!(lg3,1, Relative(0.6))
         #colsize!(fig.layout, 1, Relative(0.4))
-        rowsize!(fig.layout, 2, 70)
+        rowsize!(fig.layout, 3, 100)
+        rowsize!(fig.layout, 4, 50)
         ax4.yticklabelsvisible = false
         ax4.yticksvisible = false
         ax4.xlabel = "Firing rate [Hz]"
-        cb =Colorbar(fig[2,1], colormap=:rain, colorrange=(0,1), label="Firing rate",
-                            ticks=([0,1], ["min", "max"]), tellwidth=false, width=10)
-        cb.flipaxis = false
+        #cb =Colorbar(fig[2,1], colormap=:rain, colorrange=(0,1), label="Firing rate",
+        #                    ticks=([0,1], ["min", "max"]), tellwidth=false, width=10)
+        #cb.flipaxis = false
         #cb.alignmode = Outside()
-        colgap!(fig.layout, 0)
+        #colgap!(fig.layout, 0)
 
         Hippocampus.link_cameras_lscene([lscene1, lscene2])
         fig
