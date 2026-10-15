@@ -610,3 +610,65 @@ end
 function plot_goal_poster_selective_cell(celldir::String)
 end
 
+
+function plot_conjunctive_distribution(pvc_res::Vector{Matrix{Bool}})
+    nplace = maximum(size.(pvc_res, 1))
+    nview = maximum(size.(pvc_res, 2))
+    Z = zeros(Int64, nplace, nview)
+    Ztot = zeros(Int64, nplace, nview)
+    for _res in pvc_res
+        #for ii in CartesianIndices(_res)
+        #    Ztot[ii] += 1.0
+        #end
+        Ztot[size(_res)...] += length(_res)
+        Z[size(_res)...] += sum(_res)
+    end
+    Za = zeros(Rational, nplace, nview)
+    Za[Ztot.>0] = Z[Ztot.>0].//Ztot[Ztot.>0]
+    with_theme(theme_minimal()) do 
+        fig = Figure(size=(400,300))
+        ax = Axis(fig[1,1])
+        h = heatmap!(ax, Float64.(Za))
+        ax.xlabel = "Num place fields"
+        ax.xticksvisible = true
+        ax.yticksvisible = true
+        ax.ylabel = "Num view fields"
+        cb = Colorbar(fig[1,2], h,label="Prop. significant")
+        text!(ax, Point2f.(Tuple.(findall(Za.>0))), text=replace.(string.(Za[Za.>0]),"//"=>"/"), align=(:center, :center))
+        fig
+    end
+end
+
+function plot_conjunctive_distribution_alt(pvc_res::Vector{Matrix{Bool}}, vpc_res::Vector{Matrix{Bool}})
+    Z = Dict{Tuple{Int64, Int64}, Dict{Int64, Int64}}()
+    for (_res1,_res2) in zip(pvc_res, vpc_res)
+        rs = size(_res1)
+        if !(rs in keys(Z))
+            Z[rs] = Dict{Int64,Int64}()
+        end
+        z = sum(_res1.|_res2)
+        Z[rs][z] = get(Z[rs], z, 0) + 1 
+    end
+    Z
+    mx = maximum(maximum.(keys.(values(Z)))) + 1
+    Za = fill(NaN, length(Z), mx)
+    kks = sort(collect(keys(Z)))
+    for (ii,k) in enumerate(kks)
+        kk= collect(keys(Z[k]))
+        vv = collect(values(Z[k]))
+        Za[ii,kk.+1] .= vv
+    end
+    with_theme(theme_minimal()) do
+        fig = Figure(size=(450,325))
+        ax = Axis(fig[1,1])
+        ax.xticksvisible = true
+        ax.yticksvisible = true
+        h = heatmap!(ax, 1:size(Za,1), (0:mx-1), Za)
+        ax.xticks = (1:size(Za,1), string.(kks))
+        ax.xticklabelrotation = -π/3
+        ax.ylabel = "Number of sig. combinations"
+        ax.xlabel = "Number of place and view fields"
+        Colorbar(fig[1,2], h, label="Number of cells")
+        fig
+    end
+end
