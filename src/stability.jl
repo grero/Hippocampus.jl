@@ -523,6 +523,17 @@ function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuff
     end
 end
 
+"""
+    get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, prog_offset=0, kwargs...) where T <: MapStabilityHK
+
+Compute the stability of the map represented by `T` via a heat-kernel approach with width `σ`.
+
+The map is computed for the first and second half of the trials seprately, and their similarity is computed
+by computing 
+
+\$ \\sum_{ij} \\lambda_i \\lambda_j e^{-\frac{d^2_{ij}}{\\sigma^2}} \$
+
+"""
 function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, prog_offset=0, kwargs...) where T <: MapStabilityHK
     fname = DPHT.filename(T)
     h = process_kwargs(T;nshuffles=nshuffles, σ=σ, kwargs...)
