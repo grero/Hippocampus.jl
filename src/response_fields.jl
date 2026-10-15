@@ -847,7 +847,7 @@ function get_n_fields(::Type{T}, celldirs::Vector{String}; redo=false, load_only
                         cluster = clusters[ii]
                         push!(bb, find_boundary(mm, cluster))
                         field_size[k][jj] = ustrip(sum(measure.(mm[cluster])))
-                        Z[v.binidx[cluster]] .+= 1.0
+                        Z[cluster] .+= 1.0
                     end
                 else
                     nfields[k] = 0
