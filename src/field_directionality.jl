@@ -554,6 +554,12 @@ struct MajorAxisDirectionTuning{T<:Real}
     occupancy_reverse::Vector{Vector{T}}
     trialidx_forward::Vector{Vector{Int64}}
     trialidx_reverse::Vector{Vector{Int64}}
+    spatial_clusters::Union{Nothing, Vector{Vector{Int64}}}
+    args::Dict{Symbol,Any}
+end
+
+function MajorAxisDirectionTuning(v,μ,ms, spf, spr, of, or, tf, tr)
+    MajorAxisDirectionTuning(v,μ,ms,spf,spr,of,or,tf,tr,nothing, Dict{Symbol,Any}())
 end
 
 function process_kwargs(::Type{MajorAxisDirectionTuning},h::UInt32=zero(UInt32);kwargs...)
@@ -563,7 +569,7 @@ function process_kwargs(::Type{MajorAxisDirectionTuning},h::UInt32=zero(UInt32);
 end
 
 function get_major_axis_direction_tuning(gidx::DirectionFiltered,rf::SpatialResponseFields,jocc::JointOccupancy, vpvrp::ViewAndPlaceRepresentationNew,qdata::UnityRaytraceData;do_shuffle=false,trial_start=2)
-    v,μ,ms = get_major_axis(rf)
+    v,μ,ms, spatial_clusters = get_major_axis(rf)
     spike_count = Float64[]
     spike_count_1 = Vector{Vector{Float64}}(undef, size(v,2))
     spike_count_2 = Vector{Vector{Float64}}(undef, size(v,2))
@@ -629,7 +635,7 @@ function get_major_axis_direction_tuning(gidx::DirectionFiltered,rf::SpatialResp
     end
     # TODO: Aggregate over windows
     #spike_count, occupancy, sindex, 
-    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2), (trialidx_forward, trialidx_reverse)
+    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2), (trialidx_forward, trialidx_reverse), (v,μ,ms,spatial_clusters)
 end
 
 function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
@@ -656,11 +662,10 @@ function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
             qdata, jocc
         end
         rf_spatial =  get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);redo=redo,kwargs...)
-        v,μ,ms = get_major_axis(rf_spatial)
         gidx = DirectionFiltered(;redo=redo,kwargs...)
         vpvrp = ViewAndPlaceRepresentationNew(;redo=redo,kwargs...)
-        (spike_count_1, occupancy_1), (spike_count_2, occupancy_2),(trialidx_forward, trialidx_reverse) = get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata;trial_start=get(kwargs, :trial_start,2))
-        obj = MajorAxisDirectionTuning(v, μ, ms, spike_count_1, spike_count_2,occupancy_1, occupancy_2, trialidx_forward, trialidx_reverse)
+        (spike_count_1, occupancy_1), (spike_count_2, occupancy_2),(trialidx_forward, trialidx_reverse),(v,μ,ms,spatial_clusters) = get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata;trial_start=get(kwargs, :trial_start,2))
+        obj = MajorAxisDirectionTuning(v, μ, ms, spike_count_1, spike_count_2,occupancy_1, occupancy_2, trialidx_forward, trialidx_reverse, spatial_clusters, Dict(kwargs))
         if do_save
             save_jld2(obj, fname)
         end
@@ -1269,7 +1274,11 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
     nrefinements = rf_gaze.args[:nrefinements]
     m_floor = repair_mesh(Hippocampus.floor_topology3(;nrefinements=nrefinements.p))
     mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements.g)
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if mdt.spatial_clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        spatial_clusters = mdt.spatial_clusters
+    end
     # get the distribution of head direction for the relevant trials
     view_clusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
 
@@ -1277,9 +1286,10 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
     # the view field occurs within a 60 degree cone around the preferred direction of a place
     # field
     res = issignificant(mdt)
-    @assert length(res) == length(spatial_clusters)
+    length(res) == length(spatial_clusters) || error("We have $(length(spatial_clusters)) spatial clusters and $(length(res)) significance results.")
     can_be_seen = trues(length(view_clusters), length(spatial_clusters))
     occlusions = zeros(length(view_clusters), length(spatial_clusters))
+    direction_preference = Vector{Union{Nothing, Symbol}}(undef, length(res))
     for (jj,sp) in enumerate(spatial_clusters)
         if !res[jj]
             # since this field does not show any directionalty, just mark it as occluded
@@ -1292,10 +1302,10 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
         λr = isempty(λ_reverse) ? 0.0 : median(λ_reverse)
         if λf > λr 
             v = mdt.v[:,jj]
-            @show "Prefers forward"
+            direction_preference[jj] = :forward
         else
             v = -mdt.v[:,jj]
-            @show "Perfers reverse"
+            direction_preference[jj] = :reverse
         end
         θv = atan(v[2],v[1])
         # find the preferred by just computing the maximum rate (since we know this field has siginificant
@@ -1303,8 +1313,8 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
         for (ii,vc) in enumerate(view_clusters)
             # does a ray originating from any of the point in the place field, along the direction
             # v intersect with the view field?
-            for p in sp
-                for v in vc
+            for v in vc
+                for p in sp
                     l = Meshes.Line(centroid(m_floor[p]) + Meshes.Vec(0,0,1.5), centroid(mm[v]))
                     vl = l.b - l.a
                     θ = atan(last(vl),first(vl))
@@ -1312,12 +1322,19 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                     # if we are not within the cone, add one occl
                     if cos(θ-θv) < cos(half_beam_width)
                         occlusions[ii,jj] += 1
-                        continue
+                        break
                     end
                     for _mm in mm
                         qq = intersection(l, _mm)
                         if qq.type !== NotIntersecting
-                            if !(qq.geom ≈ l.b)
+                            @debug begin
+                                if jj == 1
+                                    @show qq.geom l qq.type
+                                end
+                            end
+                            # if we intersect something, make sure it's within the beam
+                            # this should actually have been taking care of in the 
+                            if !(qq.geom ≈ l.b) && (l.a < qq.geom < l.b)
                                 # we intersected something else
                                 # is just one violation enough?
                                 can_be_seen[ii,jj] = false
@@ -1325,6 +1342,10 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                                 break
                             end
                         end
+                    end
+                    if occlusions[ii,jj] > 0
+                        #we want to compute fraction of view field covered
+                        break 
                     end
                     if !can_be_seen[ii,jj]
                         #break
@@ -1335,15 +1356,16 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                     #break
                 end
             end
-            occlusions[ii,jj] /= length(sp)*length(vc)
+            #normalize to total number of points in this view field
+            occlusions[ii,jj] /= length(vc)
         end
     end
-    occlusions
+    occlusions, direction_preference
 end
 
 function compute_place_direction_view(celldir::String;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
      mdt, rf_spatial, rf_gaze = cd(celldir) do
-        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, kwargs...)
+        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, only_full_traversal=get(kwargs, :only_full_traversal, true), kwargs...)
         rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial, kwargs...) 
         rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
         mdt, rf_spatial, rf_gaze
@@ -1816,7 +1838,7 @@ end
 """
 Illustrate 
 """
-function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap;do_unfold_maze=false, kwargs...)
+function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap,idx::Union{Int64, Nothing}=nothing;do_unfold_maze=false, kwargs...)
     # We need two view maps; one for each direction
     # TODO: Make this more flexible
     nrefinements = rf_gaze.args[:nrefinements]
@@ -1829,8 +1851,16 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         use_maze = mm
     end
     hd_bins = range(0.0, stop=2π, length=24) 
-    idx = findfirst(issignificant(mdt))
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    res = issignificant(mdt)
+    if idx === nothing
+        idx = findfirst(res)
+    end
+    if mdt.spatial_clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        spatial_clusters = mdt.spatial_clusters
+    end
+    length(res) == length(spatial_clusters) || error("We have $(length(spatial_clusters)) spatial clusters and $(length(res)) significance results.")
     # get the distribution of head direction for the relevant trials
     spatial_cluster = spatial_clusters[idx]
     bb_spatial = find_boundary(m_floor, spatial_cluster)
@@ -1881,15 +1911,15 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     colsize!(lg, 2, Aspect(1,1))
 end
 
-function plot_directional_view!(lg, celldir::String;kwargs...)
+function plot_directional_view!(lg, celldir::String,idx;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
     mdt, rf_spatial, rf_gaze, jm = cd(celldir) do
-        mdt = MajorAxisDirectionTuning(;kwargs...)
-        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
-        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
+        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, only_full_traversal=get(kwargs, :only_full_traversal, true), kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial,kwargs...) 
+        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
         jm = JointMap(;kwargs...)
         mdt, rf_spatial, rf_gaze, jm
     end
-    plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm;kwargs...)
+    plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm, idx;kwargs...)
 end
 
 function plot_directional_view(args...;kwargs...)

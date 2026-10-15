@@ -392,6 +392,12 @@ struct SpatialMapStabilityHK
 end
 DPHT.filename(::Type{SpatialMapStabilityHK}) = "spatial_maze_stability_hk.jld2"
 
+get_response_field_type(::Type{GazeMapStabilityHK}) = GazeResponseFields
+get_response_field_type(::Type{SpatialMapStabilityHK}) = SpatialResponseFields
+
+MapStabilityHK = Union{GazeMapStabilityHK, SpatialMapStabilityHK}
+MapStability = Union{MapStabilityHK, MapStabilityGeo}
+
 get_value(X::T)  where T <: MapStabilityHK = X.c12/sqrt(X.c11*X.c22)
 get_surrogate_value(X::T) where T <: MapStabilityHK = X.c12ns
 get_name(::Type{T}) where T <: MapStabilityHK = "Cross-correlation"
@@ -402,12 +408,6 @@ function issignificant(X::T;pv_threshold=0.05) where T <: MapStabilityHK
     threshold = percentile(ccs, 100*(1-pv_threshold))
     cc > threshold
 end
-
-get_response_field_type(::Type{GazeMapStabilityHK}) = GazeResponseFields
-get_response_field_type(::Type{SpatialMapStabilityHK}) = SpatialResponseFields
-
-MapStabilityHK = Union{GazeMapStabilityHK, SpatialMapStabilityHK}
-MapStability = Union{MapStabilityHK, MapStabilityGeo}
 
 GazeMapStabilityAll = Union{GazeMapStabilityGeo, GazeMapStabilityHK}
 SpatialMapStabilityAll = Union{SpatialMapStabilityGeo, SpatialMapStabilityHK}
@@ -523,7 +523,18 @@ function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuff
     end
 end
 
-function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, kwargs...) where T <: MapStabilityHK
+"""
+    get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, prog_offset=0, kwargs...) where T <: MapStabilityHK
+
+Compute the stability of the map represented by `T` via a heat-kernel approach with width `σ`.
+
+The map is computed for the first and second half of the trials seprately, and their similarity is computed
+by computing 
+
+\$ \\sum_{ij} \\lambda_i \\lambda_j e^{-\frac{d^2_{ij}}{\\sigma^2}} \$
+
+"""
+function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, prog_offset=0, kwargs...) where T <: MapStabilityHK
     fname = DPHT.filename(T)
     h = process_kwargs(T;nshuffles=nshuffles, σ=σ, kwargs...)
     if h > 0
@@ -538,7 +549,7 @@ function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffl
         rf2 = get_response_fields(T_rf, 1000;use_trials=:secondHalf, kwargs...)
         nrefinements = rf1.args[:nrefinements]
         mm = get_mesh(T_rf,nrefinements)
-        D = distancematrix(mm;between_centroids=false)
+        D = distancematrix(mm)
         c11 = heat_kernel_cross_correlation(rf1.λ, rf1.λ, D;σ=σ)
         c22 = heat_kernel_cross_correlation(rf2.λ, rf2.λ, D;σ=σ)
         c12 = heat_kernel_cross_correlation(rf1.λ, rf2.λ, D;σ=σ)
@@ -560,7 +571,7 @@ function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffl
         ccs = zeros(nshuffles)
         trial_start = get(kwargs, :trial_start, 2)
         c12ns = zeros(nshuffles)
-        @showprogress for i in 1:nshuffles
+        @showprogress offset=prog_offset for i in 1:nshuffles
             vpvrp = ViewAndPlaceRepresentationNew(rs2.timestamps[:,i]/1000.0, rpdata, qdata;trial_start=trial_start)
             λ2 = get_map(vpvrp, jocc, jocc_filtered, mm;use_trials=:secondHalf, smooth=true, α=α, niter=niter)
             c22s = heat_kernel_cross_correlation(λ2, λ2,D;σ=σ)
@@ -1146,7 +1157,7 @@ function plot_stability(stab::GazeMapStabilityGeo, mm, args...;_plot_theme=plot_
 end
 
 function plot_stability_summary!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where T <: MapStability
-    kargs = (nshuffles=1000, nrefinements=(p=3,g=2), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, smooth=true,smoothing_method=:laplace, α=0.1, niter=50)
+    kargs = (nshuffles=1000, nrefinements=(p=3,g=2), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, smooth=true,smoothing_method=:laplace, α=0.1, niter=50, pv_threshold=0.001, min_speed=1.0)
     nv = length(celldirs)
     vm_stability_value = zeros(nv)
     vm_stability_sig = fill(false, nv)

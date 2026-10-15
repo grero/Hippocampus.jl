@@ -187,6 +187,26 @@ function box_topology2(n::Integer=2)
     ref2 = SimpleMesh(box_mesh.vertices, convert(HalfEdgeTopology, box_mesh.topology))
 end
 
+function Meshes.adjacencymatrix(m::Int, n::Int)
+    A = falses(n*m,n*m)
+    for i2 in 1:n
+        for j2 in 1:m
+            k2 = (i2-1)*m + j2
+            for i1 in 1:n
+                for j1 in 1:m
+                    k1 = (i1-1)*m + j1
+                    d1 = abs(i1-i2)
+                    d2 = abs(j1-j2)
+                    if sum(d1+d2) <= 1
+                        A[k1, k2] = true
+                    end
+                end
+            end
+        end
+    end
+    A
+end
+
 function nearestneighbors(mm::SimpleMesh)
     A = adjacencymatrix(mm;rank=0)
     G = SimpleGraph(A)

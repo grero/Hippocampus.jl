@@ -22,6 +22,12 @@ end
 
 SpatialResponseFieldsAll = Union{SpatialResponseFields, SpatialResponseFieldsSimple}
 
+get_axis_type(::Type{<:SpatialResponseFieldsAll}) = (Axis, (aspect=1,xticksvisible=false, yticksvisible=false,
+                                                            xticklabelsvisible=false,
+                                                            yticklabelsvisible=false,
+                                                            leftspinevisible=false,
+                                                            bottomspinevisible=false))
+
 DPHT.filename(::Type{SpatialResponseFieldsSimple}) = "spatial_response_fields_simple.jld2"
 
 struct GazeResponseFieldsSimple <: AbstractResponseFieldsSimple
@@ -77,6 +83,8 @@ struct GazeResponseFields <: AbstractResponseFields
 end
 
 GazeResponseFieldsAll = Union{GazeResponseFields, GazeResponseFieldsSimple}
+
+get_axis_type(::Type{<:GazeResponseFieldsAll}) = (LScene, (show_axis=false,))
 
 DPHT.filename(::Type{GazeResponseFields}) = "gaze_response_fields.jld2"
 get_mesh(::Type{GazeResponseFields},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
@@ -428,7 +436,7 @@ function get_major_axis(rf::SpatialResponseFields;cluster_threshold=0.001)
         μ[:,i] = mean(Point2f.(Tuple.(mq)))
         ms[i] = ustrip(sum(measure.(mm[c])))
     end
-    v,μ,ms
+    v,μ,ms, spatial_clusters
 end
 
 """
@@ -713,6 +721,92 @@ function find_view_field_intersections(celldirs::Vector{String};kwargs...)
     qq
 end
 
+
+"""
+    compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cells2::Vector{String};redo=false, load_only=false, kwargs...) where T <: AbstractResponseFields
+
+Compare the distribution of view fields between cells groups `cells1` and  `cells2`.
+
+The function accepts the same keyword arguments as `get_response_fields`. It uses the KL-divergence
+between the two maps as a measure of how different they are, and uses a random
+permutation procedure to establish whether that difference is significant. 
+"""
+function compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cells2::Vector{String};redo=false, load_only=false, kwargs...) where T <: AbstractResponseFields
+    h = process_kwargs(T;kwargs...)
+    h = CRC32c.crc32c(string(:cells1=>cells1),h)
+    h = CRC32c.crc32c(string(:cells2=>cells2),h)
+    hs = string(h, base=16)
+    fname = "$(last(split(string(T), '.')))_view_field_comparison_($hs).jld2"
+    fname = joinpath(@__DIR__, "..", "data", fname)
+    if isfile(fname) && !redo
+        return JLD2.load(fname)
+    else
+        celldirs = union(cells1, cells2)
+        (n1,n2) = length.((cells1, cells2))
+        rfs = process_dirs(celldirs) do
+            get_response_fields(T, get(kwargs, :nshuffles, 1000);load_only=load_only, kwargs...)
+        end
+        # compute clusters separately
+        view_clusters = Dict{String, Vector{Vector{Int64}}}()
+        for (k,v) in rfs
+            if v !== nothing
+                clusters = getfields(v;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+                view_clusters[k] = clusters
+            else
+                view_clusters[k] = Vector{Int64}[]
+            end
+        end
+        # smoothing parameters to smooth the distributions
+        α = 0.1
+        niter = 25
+        kk = filter(k->k[2]!==nothing, rfs)
+        mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
+        # histogram of field sizes
+        Z = zeros(nelements(mm), 2)
+        bb = Any[]
+        for (k,v) in view_clusters 
+            if k in cells1
+                jj = 1
+            else
+                jj = 2
+            end
+            if !isempty(v)
+                for cluster in v
+                    Z[cluster,jj] .+= 1.0
+                end
+            end
+        end
+        #smooth and normalize to get a probability distribution
+        Z_smooth = permutedims(laplace_smoothing(permutedims(Z), mm, 0.1;niter=25))
+        Zp = Z_smooth./sum(Z_smooth,dims=1)
+        kl = kldivergence(Zp[:,1], Zp[:,2])
+
+
+        # create a null distribution for this kl divergence via a permutation test
+        kls = fill(0.0, 1000)
+        cellidx = [fill(1, length(cells1));fill(2, length(cells2))]
+        @showprogress for i in 1:1000
+            fill!(Z, 0.0)
+            for (k,v) in view_clusters 
+                # randomly assign this cell
+                shuffle!(cellidx)
+                jj = first(cellidx)
+                if !isempty(v)
+                    for cluster in v
+                        Z[cluster,jj] .+= 1.0
+                    end
+                end
+            end
+            Z_smooth = permutedims(laplace_smoothing(permutedims(Z), mm, 0.1;niter=25))
+            Zp = Z_smooth./sum(Z_smooth,dims=1)
+            kls[i] = kldivergence(Zp[:,1], Zp[:,2])
+        end
+        qdata = Dict("cells1"=>cells1, "cells2"=>cells2, "Z"=>Z, "view_clusters"=>view_clusters, "kl-divergence"=>kl, "kl-divergence_null" => kls, "args"=>Dict(kwargs))
+        JLD2.save(fname,  qdata) 
+        return qdata
+      end
+end
+
 ## plots
 
 function plot_n_fields(::Type{T}, celldirs::Vector{String};figsize=(900,500), kwargs...) where T <: AbstractResponseFields
@@ -761,7 +855,7 @@ function get_n_fields(::Type{T}, celldirs::Vector{String}; redo=false, load_only
                         cluster = clusters[ii]
                         push!(bb, find_boundary(mm, cluster))
                         field_size[k][jj] = ustrip(sum(measure.(mm[cluster])))
-                        Z[v.binidx[cluster]] .+= 1.0
+                        Z[cluster] .+= 1.0
                     end
                 else
                     nfields[k] = 0
@@ -825,6 +919,8 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         args = rfs[first(keys(kk))].args 
         JLD2.save(fname, Dict("Z"=>Z, "nfields"=>nfields, "field_size"=>field_size, "args"=>args, "field_boundaries"=>bb,"peak_firing_rate"=>peak_firing_rate))
     end
+    qdata = get_n_fields(T, celldirs; redo=redo, kwargs...)
+    Z,nfields,field_size, field_boundaries, peak_firing_rate, args = [qdata[k] for k in  ["Z", "nfields","field_size", "field_boundaries","peak_firing_rate", "args"]]
     # normalize to density
     Z ./= sum(filter(isfinite, Z))
     mm = get_mesh(T,args[:nrefinements])
@@ -955,8 +1051,14 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
             ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
             mid_points = setdiff(cpoints, union(floor_points, ceil_points))
             if !isempty(floor_points)
+                ss = 0.5*Meshes.ustrip(mean(sqrt.(measure.(mm))))
                 if show_points
-                    viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=pointsize)
+                    #_floor_points = Point3f.(Tuple.(Translate(0.0, 0.0, floor_offset)(floor_points)))
+                    #viz!(lscene, ,color=cc, pointsize=pointsize)
+                    mq = Meshes.Ngon.(Meshes.vertices.(mm[pidx]))
+                    mqs = _scale.(mq, Ref(0.5));
+                    viz!(lscene, mqs, color=cc, overdraw=true)
+                    #scatter!(lscene, _points, color=cc, markersize=ss, markerspace=:data, overdraw=true, marker=:rect)
                 else
                     midx = findall(Meshes.intersects(m_floor), cpoints)
                     bb = find_boundary(mm[pidx[midx]])
@@ -974,7 +1076,8 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
             end
             if !isempty(mid_points)
                 if show_points
-                viz!(lscene, mid_points,color=cc, pointsize=pointsize)
+                    _mid_points = Point3f.(Tuple.(mid_points))
+                    scatter!(lscene, _mid_points, color=cc, markersize=ss, markerspace=:data, marker=:rect)
                 else
                     midx = findall(Meshes.intersects(m_middle), cpoints)
                     bb = find_boundary(mm[pidx[midx]])
@@ -1076,4 +1179,75 @@ function plot_response_fields!(lg, rf_place::SpatialResponseFields, rf_gaze::Gaz
     plot_response_fields!(lgs, rf_place;kwargs...)
     lgg = GridLayout(lg[1,2])
     plot_response_fields!(lgg, rf_gaze;kwargs...)
+end
+
+function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{String}, cells2::Vector{String};do_unfold_maze=true, kwargs...) where T <: AbstractResponseFields
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    zdata = compute_view_field_distribution(T, cells1, cells2;kwargs...)
+    mm = get_mesh(T,nrefinements)
+    if do_unfold_maze && T <: GazeResponseFieldsAll
+        mm2 = unfold_maze(mm)
+    else
+        mm2 = mm
+    end
+    cr1 = extrema(zdata["Z"][:,1])
+    cr2 = extrema(zdata["Z"][:,2])
+    cr = (min(cr1[1], cr2[1]), max(cr1[2], cr2[2]))
+    axtype,axargs = get_axis_type(T)
+    @show axtype, axargs
+    for i in 1:2
+        lscene = axtype(lg[1,i];axargs...) 
+        if T <: SpatialResponseFieldsAll
+            viz!(lscene, mm2;color=zdata["Z"][:,i], colorrange=cr)
+        else
+            plotmesh!(lscene, mm2;color=zdata["Z"][:,i],hide_ceiling=true, colorrange=cr, showsegments=true)
+        end
+        plot_pillars!(lscene)
+    end
+  
+    Colorbar(lg[1,3], colorrange=cr, label="Density",ticksvisible=true)
+    ax = Axis(lg[1,4])
+    violin!(ax, fill(1.0, length(zdata["kl-divergence_null"])), zdata["kl-divergence_null"], color=:lightgray, show_median=true)
+    scatter!(ax, [1.0], [zdata["kl-divergence"]])
+    ax.xticksvisible = false
+    ax.xticklabelsvisible = false
+    ax.bottomspinevisible = false
+    ax.yaxisposition = :right
+    ax.leftspinevisible = false
+    ax.rightspinevisible = true
+
+    ax.ylabel = "KL-divergence"
+    colsize!(lg, 4, 75)
+    #  if T <: SpatialResponseFieldsAll
+    #    colsize!(lg,1, Aspect(1,1))
+    #    colsize!(lg, 2, Aspect(1,1))
+    #end
+end
+
+function plot_response_field_density_comparison(::Type{T}, args...;kwargs...) where T <: AbstractResponseFields
+    with_theme(plot_theme) do
+        fig = Figure(size=(898, 348))
+        lg = GridLayout(fig[1,1])
+        plot_response_field_density_comparison!(lg, T, args...;kwargs...)
+        link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_response_field_density_comparison(place_cells::Vector{String}, view_cells::Vector{String};group_labels::Union{Nothing, Vector{String}}=nothing, kwargs...)
+    with_theme(plot_theme) do
+        fig = Figure(size=(894, 590))
+        lg1 = GridLayout(fig[1,1])
+        plot_response_field_density_comparison!(lg1, SpatialResponseFields, setdiff(place_cells, view_cells),intersect(place_cells, view_cells);kwargs...)
+        lg2 = GridLayout(fig[2,1])
+        plot_response_field_density_comparison!(lg2, GazeResponseFields, setdiff(view_cells, place_cells),intersect(place_cells, view_cells);kwargs...)
+        link_cameras_lscene(fig)
+
+        Label(lg1[1,1, Top()], "Only place")
+        Label(lg1[1,2, Top()], "Both")
+        Label(lg2[1,1, Top()], "Only view")
+        Label(lg2[1,2, Top()], "Both")
+        #rowsize!(fig.layout, 1, Relative(0.25))
+        fig
+    end
 end

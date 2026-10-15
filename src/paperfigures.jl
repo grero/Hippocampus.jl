@@ -1,18 +1,27 @@
 module PaperFigures
 using CairoMakie
 using GLMakie
+using Makie: GeometryBasics
 using Meshes
 using StatsBase
 using Hippocampus
 using JLD2
+using CRC32c
 using Makie.Colors
+using GraphMakie
+using Graphs
+using SimpleWeightedGraphs
+using NetworkLayout
+using HypothesisTests
+using VennDiagrams
 
+# TODO: Distribution of place field distance from poster locations for directional and non-directional posters
 plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
                            xticklabelsize=14, yticklabelsize=14,
                            topspinevisible=false, rightspinevisible=false,
                            xgridvisible=false, ygridvisible=false,ylabelvisible=true,
                            xticklabelsvisible=true, xlabelvisible=true),
-                     Scatter=(markersize=10px,),
+                     Scatter=(markersize=10,),
                      Lines=(linewidth=3,),
                      fontsize=14)
 
@@ -22,6 +31,40 @@ function get_sessions()
         readlines(fid)
     end
     sessiondirs = unique(Hippocampus.DPHT.get_level_path.("session", allcelldirs))
+end
+
+function get_conjunctive_cells(place_cells::Vector{String}, view_cells::Vector{String})
+    place_and_view_cells = intersect(place_cells, view_cells)
+    h = zero(UInt32)
+    for celldir in place_and_view_cells
+        h = CRC32c.crc32c(celldir, h)
+    end
+    hs = string(h, base=16)
+    fname = joinpath(@__DIR__, "..", "data", "place_view_conjunctive_cells_$(hs).txt")
+    if isfile(fname)
+        celldirs = readlines(open(fname))
+    else
+        res_pvc = map(place_and_view_cells) do celldir
+        cd(celldir) do
+                Hippocampus.isconjunctive(Hippocampus.SpatialResponseFields, Hippocampus.GazeResponseFields;nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_view_duration=0.02, min_place_obs=5, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001, trial_start=2, nshuffles=1_000)
+            end
+        end
+        celldirs = place_and_view_cells[res_pvc]
+        open(fname, "w") do fid
+            write(fid, join(celldirs, "\n"))
+        end
+    end
+    celldirs
+end
+
+function get_poster_selective_cells(view_cells::Vector{String})
+    res_poster_view = map(view_cells) do celldir
+        qq = cd(celldir) do
+            Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+        end
+        any(qq)
+    end
+    view_cells[res_poster_view]
 end
 
 """
@@ -385,7 +428,7 @@ function plot_directional_place_fields(;use_pie_chart=false)
             # normal bar plot
             axp = Axis(lg21[1,1], alignmode=Inside())
             @show length.([place_cells, place_cells_width_directed_fields])
-            barplot!(axp, [1:2;], length.([place_cells, place_cells_width_directed_fields]), color=[:lightgray, :darkorchid])
+            barplot!(axp, [1:2;], length.([place_cells, place_cells_width_directed_fields]), color=[:lightgray, :mediumpurple])
             axp.xticks = ([1,2], ["All place", "Directional"])
             axp.xticklabelrotation = -π/6
             axp.ylabel = "Number of cells"
@@ -513,7 +556,7 @@ function plot_landmark_cells(view_cells::Vector{String};redo=false)
     hs = string(h, base=16)
     fname = joinpath(@__DIR__, "..","data","landmark_cells_$(hs).jld2")
     if isfile(fname) && !redo
-        landmark_cells, poster_selective_view_cells,view_cells,landmark_only_idx = JLD2.load(fname, "landmark_cells","poster_selective_view_cells", "view_cells","landmark_pure_idx")
+        landmark_cells, poster_selective_view_cells,view_cells,landmark_only_idx = JLD2.load(fname, "landmark_cells","poster_selective_view_cells", "view_cells","landmark_pure_idx", "view_poster_pref", "cue_poster_pref")
     else
         view_poster_pref = map(view_cells) do celldir
             qq = cd(celldir) do
@@ -631,12 +674,12 @@ function plot_summary_figure(;)
     colors = [:steelblue1, :mediumpurple, :tan1, :palegreen3, :gold, :tomato]
     node_colors = Dict(k=>v for (k,v) in zip(keys(sets), colors))
     node_colors = Dict(:place_cells => :palegreen3,
-                        :place_selective_cells => :aquamarine3,
+                        :place_selective_cells => :darkgreen,
                         :view_cells => :gold,
                         :view_selective_cells => :gold3,
                         :place_and_view_cells => :steelblue3,
                         :place_view_conjunctions => :steelblue1,
-                        :directed_place_cells => :darkseagreen,
+                        :directed_place_cells => :salmon,
                         :goal_cells => :mediumpurple)
 
     with_theme(plot_theme) do 
@@ -649,7 +692,13 @@ function plot_summary_figure(;)
         ax1.xticklabelrotation = -π/6
         ax1.ylabel = "Number or cells"
         lg2 = GridLayout(fig[1,2])
-        plot_graph!(lg2, sets;labels=labels,node_colors=node_colors)
+        #plot_graph!(lg2, sets;labels=labels,node_colors=node_colors)
+        plot_venn_diagram_summary!(lg2, place_cells, view_cells, directed_place_cells, place_view_conjunctions, goal_cells;place_color=node_colors[:place_cells],
+                                                                                                                           view_color=node_colors[:view_cells],
+                                                                                                                           place_view_color=node_colors[:place_and_view_cells],
+                                                                                                                           place_view_conj_color=node_colors[:place_view_conjunctions],
+                                                                                                                           place_with_directed_fields_color=node_colors[:directed_place_cells],
+                                                                                                                           landmark_color=node_colors[:goal_cells])
         #colsize!(lg2, 1, Aspect(1,1))
         colsize!(fig.layout, 1, 250)
         fig
@@ -726,7 +775,11 @@ function plot_place_cell_poster_proximity!(lg;kwargs...)
     pidx = setdiff(1:length(place_cells), qidx)
 
     # plot the distributions, then use permutation test to test whether they are different
+    # TODO: Stricly speaking, MannWhitney assumes independent samples
+    #       but since pidx and qidx are partitions of the same data, they are not independent
+    #       to be safe, use permutation test instead
     pv = pvalue(MannWhitneyUTest(poster_dist_min[pidx], poster_dist_min[qidx]))
+    @show pv
     marker = "ns"
      if pv < 0.01
         marker = "**"
@@ -773,8 +826,14 @@ function plot_venn_diagram_summary()
     # another subset is goal cells
 end
 
-function plot_venn_diagram_summary(place_cells, view_cells, place_cells_width_directed_fields,
-                                   place_and_view_conjunctive_cells, landmark_cells)
+function plot_venn_diagram_summary!(lg, place_cells, view_cells, place_cells_width_directed_fields,
+                                   place_and_view_conjunctive_cells, landmark_cells;place_color=Cycled(1),
+                                                                                    view_color=Cycled(2),
+                                                                                    place_view_color=Cycled(3),
+                                                                                    place_view_conj_color=Cycled(4),
+                                                                                    place_with_directed_fields_color=Cycled(5),
+                                                                                    landmark_color=Cycled(6),
+                                                                                    intersection_color=Cycled(7))
     place_and_view_cells = intersect(place_cells, view_cells)
     directional_place_and_view_cells = intersect(view_cells, place_cells_width_directed_fields)
     landmark_place_cells = intersect(place_cells, landmark_cells)
@@ -794,27 +853,68 @@ function plot_venn_diagram_summary(place_cells, view_cells, place_cells_width_di
     pv_intersection = VennDiagrams.intersection_path(rp,rv,d)
     dpd = VennDiagrams.find_d(rpp, rdpv, length(intersect(landmark_place_cells, directional_place_and_view_cells)))
     lpd_intersection = VennDiagrams.intersection_path(rdpv, rpp, dpd;x0=d-rv+rdpv)
+    ax = Axis(lg[1,1],aspect=DataAspect())
+    hidedecorations!(ax)
+    hidespines!(ax)
+    poly!(ax, Makie.Circle(Point2f(0.0), rp), label="Place ($(length(place_cells)))",color=place_color)
+    text!(ax, Point2f(0.0, 0.75*rp), text="$(length(place_cells))", align=(:center, :center))
+    poly!(ax, Makie.Circle(Point2f(d, 0.0), rv), label="View ($(length(view_cells)))", color=view_color)
+    text!(ax, Point2f(d+0.5*rv, 0.5*rv), text="$(length(view_cells))", align=(:center, :center))
+    poly!(ax, pv_intersection, label="Place and view ($(length(place_and_view_cells)))", color=place_view_color)
+    text!(ax, Point2f(xc+0.2, 1.2*rcj), text="$(length(place_and_view_cells))", align=(:center, :center))
+    # conjunctive
+    poly!(ax, Makie.Circle(Point2f(xc, 0), rcj), label="Conjunctive ($(length(place_and_view_conjunctive_cells)))", color=place_view_conj_color)
+    text!(ax, Point2f(xc, -0.8*rcj), text="$(length(place_and_view_conjunctive_cells))", align=(:center, :center))
+    # directed place fields
+    poly!(ax, Makie.Circle(Point2f(d-rv+rdpv, 0), rdpv), label="Directional place ($(length(setdiff(place_cells_width_directed_fields, view_cells))) | $(length(intersect(place_cells_width_directed_fields, place_and_view_conjunctive_cells))))", color=place_with_directed_fields_color)
+    text!(ax, Point2f(d-rv+0.5*rdpv, 0.0), text="$(length(intersect(place_cells_width_directed_fields, place_and_view_conjunctive_cells)))", align=(:center, :center))
+    poly!(ax, Makie.Circle(Point2f(d-rv+rdpv+dpd, 0), rpp), label="Poster ID ($(length(intersect(landmark_cells, place_and_view_conjunctive_cells))) | $(length(setdiff(landmark_cells, place_cells))))",color=landmark_color)
+    text!(ax, Point2f(d-rv+rdpv+1.5*dpd, 0), text="$(length(intersect(landmark_cells, place_and_view_conjunctive_cells)))", align=(:center, :center))
+    poly!(ax, lpd_intersection, label="Conjunctive & Directional\n& Poster ID ($(length(intersect(landmark_cells, place_cells_width_directed_fields, place_and_view_conjunctive_cells))))",color=intersection_color)
+    text!(ax, Point2f(xc, 0.0), text="$(length(intersect(landmark_cells, place_cells_width_directed_fields, place_and_view_conjunctive_cells)))", align=(:center, :center))
+    # draw the blobs
+    poly!(ax, Makie.Circle(Point2f(d-rv-rdpv_rem, 0), rdpv_rem), color=place_with_directed_fields_color)
+    text!(ax, Point2f(d-rv-rdpv_rem, 0), text="$(length(setdiff(place_cells_width_directed_fields, view_cells)))", align=(:center, :center))
+    poly!(ax, Makie.Circle(Point2f(rp+rpp_rem, 0.0), rpp_rem), color=landmark_color)
+    text!(ax, Point2f(rp+rpp_rem, 0.0), text="$(length(setdiff(landmark_cells, place_cells)))", align=(:center, :center))
+    # legend
+end
+
+function plot_venn_diagram_summary(args...)
     with_theme(plot_theme) do
         fig = Figure()
-        ax = Axis(fig[1,1],aspect=DataAspect())
-        hidedecorations!(ax)
-        hidespines!(ax)
-        poly!(ax, Makie.Circle(Point2f(0.0), rp), label="Place ($(length(place_cells)))")
-        poly!(ax, Makie.Circle(Point2f(d, 0.0), rv), label="View ($(length(view_cells)))")
-        poly!(ax, pv_intersection, label="Place and view ($(length(place_and_view_cells)))")
-        # conjunctive
-        poly!(ax, Makie.Circle(Point2f(xc, 0), rcj), label="Conjunctive ($(length(place_and_view_conjunctive_cells)))")
-        # directed place fields
-        poly!(ax, Makie.Circle(Point2f(d-rv+rdpv, 0), rdpv), color=:red, label="Directional place ($(length(setdiff(place_cells_width_directed_fields, view_cells))) | $(length(intersect(place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
-        poly!(ax, Makie.Circle(Point2f(d-rv+rdpv+dpd, 0), rpp), label="Poster ID ($(length(intersect(landmark_cells, place_and_view_conjunctive_cells))) | $(length(setdiff(landmark_cells, place_cells))))")
-        poly!(ax, lpd_intersection, label="Conjunctive & Directional\n& Poster ID ($(length(intersect(landmark_cells, place_cells_width_directed_fields, place_and_view_conjunctive_cells))))")
-        # draw the blobs
-        poly!(ax, Makie.Circle(Point2f(d-rv-rdpv_rem, 0), rdpv_rem), color=:red)
-        poly!(ax, Makie.Circle(Point2f(rp+rpp_rem, 0.0), rpp_rem), color=Cycled(5))
-        # legend
-        Legend(fig[1,2], ax)
+        lg = GridLayout(fig[1,1])
+        plot_venn_diagram_summary!(lg, args...)
         fig
     end
+end
+
+function plot_place_and_view_fields(place_cells::Vector{String}, view_cells::Vector{String})
+    kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001, nrefinements=(p=3,g=2),
+              α=0.1, smooth=true, smoothing_method=:laplace, nshuffles=1000)
+    place_and_view_cells = intersect(place_cells, view_cells)
+    @show length(place_and_view_cells)
+    qdata_place = Hippocampus.get_n_fields(Hippocampus.SpatialResponseFields, place_and_view_cells;redo=false, load_only=false, niter=50, kwargs...)
+    qdata_view = Hippocampus.get_n_fields(Hippocampus.GazeResponseFields, place_and_view_cells;redo=false, load_only=false, niter=50, kwargs...)
+    mm = Hippocampus.get_maze_mesh(;nrefinements=2);
+    mm_unfolded = Hippocampus.unfold_maze(mm)
+    m_floor = Hippocampus.repair_mesh(Hippocampus.floor_topology3(;nrefinements=3))
+    with_theme(plot_theme) do
+        fig = Figure()
+        lg1 = GridLayout(fig[1,1])
+        lscene = LScene(lg1[1,1], show_axis=false)
+        Hippocampus.plotmesh!(lscene, mm_unfolded;color=:lightgray, showsegments=true, hide_ceiling=true)
+        Hippocampus.plotmesh!(lscene, mm_unfolded;color=qdata_view["Z"], hide_ceiling=true)
+        Hippocampus.plot_pillars!(lscene)
+        lg2 = GridLayout(fig[1,2],)
+        ax = Axis(lg2[1,1])
+        viz!(ax, m_floor;color=qdata_place["Z"])
+        Hippocampus.plot_pillars!(ax)
+        hidedecorations!(ax)
+        colsize!(lg2, 1, Aspect(1,1))
+        fig
+    end
+
 end
 
 

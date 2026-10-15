@@ -984,7 +984,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
                 m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
                 viz!(lscene, m, color=cc,colormap=colormap)
                 if show_normals
-                    arrows!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
+                    arrows3d!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
                 end
             end
         end
@@ -1703,7 +1703,7 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
             scatter!(ax, end_point, marker=teardrop_shape(), markersize=20px, color=:orange)
         end
         if indicate_north
-            arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
+            arrows2d!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
         end
         ax
     end
