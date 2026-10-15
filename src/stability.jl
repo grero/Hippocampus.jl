@@ -538,7 +538,7 @@ function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffl
         rf2 = get_response_fields(T_rf, 1000;use_trials=:secondHalf, kwargs...)
         nrefinements = rf1.args[:nrefinements]
         mm = get_mesh(T_rf,nrefinements)
-        D = distancematrix(mm;between_centroids=false)
+        D = distancematrix(mm)
         c11 = heat_kernel_cross_correlation(rf1.λ, rf1.λ, D;σ=σ)
         c22 = heat_kernel_cross_correlation(rf2.λ, rf2.λ, D;σ=σ)
         c12 = heat_kernel_cross_correlation(rf1.λ, rf2.λ, D;σ=σ)
