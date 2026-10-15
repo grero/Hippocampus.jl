@@ -911,6 +911,8 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         args = rfs[first(keys(kk))].args 
         JLD2.save(fname, Dict("Z"=>Z, "nfields"=>nfields, "field_size"=>field_size, "args"=>args, "field_boundaries"=>bb,"peak_firing_rate"=>peak_firing_rate))
     end
+    qdata = get_n_fields(T, celldirs; redo=redo, kwargs...)
+    Z,nfields,field_size, field_boundaries, peak_firing_rate, args = [qdata[k] for k in  ["Z", "nfields","field_size", "field_boundaries","peak_firing_rate", "args"]]
     # normalize to density
     Z ./= sum(filter(isfinite, Z))
     mm = get_mesh(T,args[:nrefinements])
