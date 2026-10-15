@@ -390,7 +390,7 @@ function plot_conjunctions_new(celldir::String,args...;kwargs...)
     plot_conjunctions_new(Hippocampus.SpatialResponseFields, Hippocampus.GazeResponseFields, celldir, args...;kwargs...)
 end
 
-function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme, distr_plot=:boxplot, figsize=(595.28, 500), kwargs...) where T1 <: Hippocampus.SpatialResponseFieldsAll where T2 <: Hippocampus.GazeResponseFieldsAll
+function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme, distr_plot=:boxplot, figsize=(595.28, 731), kwargs...) where T1 <: Hippocampus.SpatialResponseFieldsAll where T2 <: Hippocampus.GazeResponseFieldsAll
     jm,vpc, pvc = cd(celldir) do
         jm = Hippocampus.JointMap(;nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
         vpc = Hippocampus.ViewPlaceConjunction(T2,T1;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
