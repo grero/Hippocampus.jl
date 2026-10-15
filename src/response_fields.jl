@@ -713,20 +713,30 @@ function find_view_field_intersections(celldirs::Vector{String};kwargs...)
     qq
 end
 
-function compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cells2::Vector{String};load_only=false, kwargs...) where T <: AbstractResponseFields
+function compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cells2::Vector{String};redo=false, load_only=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;kwargs...)
     h = CRC32c.crc32c(string(:cells1=>cells1),h)
     h = CRC32c.crc32c(string(:cells2=>cells2),h)
     hs = string(h, base=16)
     fname = "$(last(split(string(T), '.')))_view_field_comparison_($hs).jld2"
     fname = joinpath(@__DIR__, "..", "data", fname)
-    if isfile(fname)
-        Z = JLD2.load(fname, "Z")
+    if isfile(fname) && !redo
+        return JLD2.load(fname)
     else
         celldirs = union(cells1, cells2)
         (n1,n2) = length.((cells1, cells2))
         rfs = process_dirs(celldirs) do
             get_response_fields(T, get(kwargs, :nshuffles, 1000);load_only=load_only, kwargs...)
+        end
+        # compute clusters separately
+        view_clusters = Dict{String, Vector{Vector{Int64}}}()
+        for (k,v) in rfs
+            if v !== nothing
+                clusters = getfields(v;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+                view_clusters[k] = clusters
+            else
+                view_clusters[k] = Vector{Int64}[]
+            end
         end
         # smoothing parameters to smooth the distributions
         α = 0.1
@@ -736,24 +746,47 @@ function compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cell
         # histogram of field sizes
         Z = zeros(nelements(mm), 2)
         bb = Any[]
-        for (k,v) in rfs
+        for (k,v) in view_clusters 
             if k in cells1
                 jj = 1
             else
                 jj = 2
             end
-            if v !== nothing
-                clusters = getfields(v;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
-                if length(clusters) > 0
-                    for cluster in clusters
+            if !isempty(v)
+                for cluster in v
+                    Z[cluster,jj] .+= 1.0
+                end
+            end
+        end
+        #smooth and normalize to get a probability distribution
+        Z_smooth = permutedims(laplace_smoothing(permutedims(Z), mm, 0.1;niter=25))
+        Zp = Z_smooth./sum(Z_smooth,dims=1)
+        kl = kldivergence(Zp[:,1], Zp[:,2])
+
+
+        # create a null distribution for this kl divergence via a permutation test
+        kls = fill(0.0, 1000)
+        cellidx = [fill(1, length(cells1));fill(2, length(cells2))]
+        @showprogress for i in 1:1000
+            fill!(Z, 0.0)
+            for (k,v) in view_clusters 
+                # randomly assign this cell
+                shuffle!(cellidx)
+                jj = first(cellidx)
+                if !isempty(v)
+                    for cluster in v
                         Z[cluster,jj] .+= 1.0
                     end
                 end
             end
+            Z_smooth = permutedims(laplace_smoothing(permutedims(Z), mm, 0.1;niter=25))
+            Zp = Z_smooth./sum(Z_smooth,dims=1)
+            kls[i] = kldivergence(Zp[:,1], Zp[:,2])
         end
-        JLD2.save(fname, Dict("cells1"=>cells1, "cells2"=>cells2, "Z"=>Z, "args"=>Dict(kwargs)))
-    end
-    Z
+        qdata = Dict("cells1"=>cells1, "cells2"=>cells2, "Z"=>Z, "view_clusters"=>view_clusters, "kl-divergence"=>kl, "kl-divergence_null" => kls, "args"=>Dict(kwargs))
+        JLD2.save(fname,  qdata) 
+        return qdata
+      end
 end
 
 ## plots
