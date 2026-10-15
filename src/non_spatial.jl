@@ -136,12 +136,12 @@ function compute_poster_selectivity(nspikes::Vector{Int64}, posterid::Vector{Int
     vv0, vv, model
 end
 
-function find_preferred_poster(nspikes::Vector{Int64}, posterid::Vector{Int64};k=1,nshuffles=1000)
+function find_preferred_poster(nspikes::Vector{Int64}, posterid::Vector{Int64},k;nshuffles=1000)
     vv0,vv,model =  compute_poster_selectivity(nspikes, posterid;nshuffles=nshuffles)
-    find_preferred_poster(model, nspikes, posterid;k=k,nshuffles=nshuffles)
+    find_preferred_poster(model, nspikes, posterid,k;nshuffles=nshuffles)
 end
 
-function find_preferred_poster(model, nspikes::Vector{Int64}, posterid::Vector{Int64};k=1,nshuffles=1000)
+function find_preferred_poster(model, nspikes::Vector{Int64}, posterid::Vector{Int64},k;nshuffles=1000)
     preferred = sortperm(model.pp.beta0,rev=true)[1:k]
     qlabel = fill(0, length(nspikes))
     tidx = findall(in(preferred[k]).(posterid))
@@ -154,14 +154,17 @@ function find_preferred_poster(model, nspikes::Vector{Int64}, posterid::Vector{I
 end
 
 function find_preferred_poster(celldir::String;kwargs...)
-    pv_threshold = get(kwargs, :pv_threshold, 0.01)
     nspikes, posterid, outcome = get_poster_cue_response(celldir)
     cidx = outcome.==3
-    vv0,vv,model = compute_poster_selectivity(nspikes[cidx], posterid[cidx];nshuffles=get(kwargs, :nshuffles, 1000))
+    find_preferred_poster(nspikes[cidx], posterid[cidx];kwargs...)
+end
+
+function find_preferred_poster(nspikes::AbstractVector{<:Real}, posterid::AbstractVector{<:Real};pv_threshold=0.01, kwargs...)
+    vv0,vv,model = compute_poster_selectivity(nspikes, posterid;nshuffles=get(kwargs, :nshuffles, 1000))
     preferred = Int64[]
     if vv0 < percentile(vv, 100*pv_threshold)
         for k in 1:6
-            ww0,ww,_preferred, m2 = find_preferred_poster(model, nspikes[cidx], posterid[cidx];k=k)
+            ww0,ww,_preferred, m2 = find_preferred_poster(model, nspikes, posterid,k)
             if !(ww0 < percentile(ww, 100*pv_threshold))
                 # return the previous result
                 return vv0,vv,model, preferred
