@@ -523,7 +523,7 @@ function get_map_stability_geo(::Type{T};redo=fname->false, do_save=true, nshuff
     end
 end
 
-function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, kwargs...) where T <: MapStabilityHK
+function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffles=1000, σ=1.0, prog_offset=0, kwargs...) where T <: MapStabilityHK
     fname = DPHT.filename(T)
     h = process_kwargs(T;nshuffles=nshuffles, σ=σ, kwargs...)
     if h > 0
@@ -560,7 +560,7 @@ function get_map_stability_hk(::Type{T};redo=fname->false, do_save=true, nshuffl
         ccs = zeros(nshuffles)
         trial_start = get(kwargs, :trial_start, 2)
         c12ns = zeros(nshuffles)
-        @showprogress for i in 1:nshuffles
+        @showprogress offset=prog_offset for i in 1:nshuffles
             vpvrp = ViewAndPlaceRepresentationNew(rs2.timestamps[:,i]/1000.0, rpdata, qdata;trial_start=trial_start)
             λ2 = get_map(vpvrp, jocc, jocc_filtered, mm;use_trials=:secondHalf, smooth=true, α=α, niter=niter)
             c22s = heat_kernel_cross_correlation(λ2, λ2,D;σ=σ)
