@@ -1911,15 +1911,15 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     colsize!(lg, 2, Aspect(1,1))
 end
 
-function plot_directional_view!(lg, celldir::String;kwargs...)
+function plot_directional_view!(lg, celldir::String,idx;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
     mdt, rf_spatial, rf_gaze, jm = cd(celldir) do
-        mdt = MajorAxisDirectionTuning(;kwargs...)
-        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
-        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
+        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, only_full_traversal=get(kwargs, :only_full_traversal, true), kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial,kwargs...) 
+        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
         jm = JointMap(;kwargs...)
         mdt, rf_spatial, rf_gaze, jm
     end
-    plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm;kwargs...)
+    plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm, idx;kwargs...)
 end
 
 function plot_directional_view(args...;kwargs...)
