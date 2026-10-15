@@ -392,6 +392,12 @@ struct SpatialMapStabilityHK
 end
 DPHT.filename(::Type{SpatialMapStabilityHK}) = "spatial_maze_stability_hk.jld2"
 
+get_response_field_type(::Type{GazeMapStabilityHK}) = GazeResponseFields
+get_response_field_type(::Type{SpatialMapStabilityHK}) = SpatialResponseFields
+
+MapStabilityHK = Union{GazeMapStabilityHK, SpatialMapStabilityHK}
+MapStability = Union{MapStabilityHK, MapStabilityGeo}
+
 get_value(X::T)  where T <: MapStabilityHK = X.c12/sqrt(X.c11*X.c22)
 get_surrogate_value(X::T) where T <: MapStabilityHK = X.c12ns
 get_name(::Type{T}) where T <: MapStabilityHK = "Cross-correlation"
@@ -402,12 +408,6 @@ function issignificant(X::T;pv_threshold=0.05) where T <: MapStabilityHK
     threshold = percentile(ccs, 100*(1-pv_threshold))
     cc > threshold
 end
-
-get_response_field_type(::Type{GazeMapStabilityHK}) = GazeResponseFields
-get_response_field_type(::Type{SpatialMapStabilityHK}) = SpatialResponseFields
-
-MapStabilityHK = Union{GazeMapStabilityHK, SpatialMapStabilityHK}
-MapStability = Union{MapStabilityHK, MapStabilityGeo}
 
 GazeMapStabilityAll = Union{GazeMapStabilityGeo, GazeMapStabilityHK}
 SpatialMapStabilityAll = Union{SpatialMapStabilityGeo, SpatialMapStabilityHK}
