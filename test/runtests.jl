@@ -9,6 +9,14 @@ using StatsBase
 using StableRNGs
 using Dates
 
+@testset "Statistics" begin
+    rng = StableRNG(1234)
+    x1 = randn(rng, 10)
+    x2 = randn(rng, 12)
+    q1, q2 = Hippocampus.permutation_test(mean, x1, x2)
+    @show size.((q1,q2))
+end
+
 @testset "Topology" begin
     A = Hippocampus.get_circular_adjancency(5)
     @test A == [1.0 1.0 0.0 0.0 1.0;
