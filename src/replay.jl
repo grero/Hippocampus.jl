@@ -2158,9 +2158,16 @@ function JointOccupancy(;redo=fname->false, do_save=true,kwargs...)
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
+    do_compute = true 
     if isfile(fname) && !redo(fname)
         jocc = load_jld2(JointOccupancy, fname)
-    else 
+        if isa(jocc, JLD2.ReconstructedMutable)
+            do_compute = true
+        else
+            do_compute = false
+        end
+    end
+    if do_compute
         udata = UnityData()
         qdata = UnityRaytraceData(;kwargs...)
         jocc = Hippocampus.JointOccupancy(qdata,udata;kwargs...)
