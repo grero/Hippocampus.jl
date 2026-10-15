@@ -998,8 +998,14 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
             ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
             mid_points = setdiff(cpoints, union(floor_points, ceil_points))
             if !isempty(floor_points)
+                ss = 0.5*Meshes.ustrip(mean(sqrt.(measure.(mm))))
                 if show_points
-                    viz!(lscene, Translate(0.0, 0.0, floor_offset)(floor_points),color=cc, pointsize=pointsize)
+                    #_floor_points = Point3f.(Tuple.(Translate(0.0, 0.0, floor_offset)(floor_points)))
+                    #viz!(lscene, ,color=cc, pointsize=pointsize)
+                    mq = Meshes.Ngon.(Meshes.vertices.(mm[pidx]))
+                    mqs = _scale.(mq, Ref(0.5));
+                    viz!(lscene, mqs, color=cc, overdraw=true)
+                    #scatter!(lscene, _points, color=cc, markersize=ss, markerspace=:data, overdraw=true, marker=:rect)
                 else
                     midx = findall(Meshes.intersects(m_floor), cpoints)
                     bb = find_boundary(mm[pidx[midx]])
@@ -1017,7 +1023,8 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
             end
             if !isempty(mid_points)
                 if show_points
-                viz!(lscene, mid_points,color=cc, pointsize=pointsize)
+                    _mid_points = Point3f.(Tuple.(mid_points))
+                    scatter!(lscene, _mid_points, color=cc, markersize=ss, markerspace=:data, marker=:rect)
                 else
                     midx = findall(Meshes.intersects(m_middle), cpoints)
                     bb = find_boundary(mm[pidx[midx]])
