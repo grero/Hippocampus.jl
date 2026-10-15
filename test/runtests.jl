@@ -478,3 +478,30 @@ end
     _, _,_, poster_pref = Hippocampus.find_preferred_poster(nspikes,posterid)
     @test poster_pref == [1,3]
 end
+
+@testset "Stability" begin
+    # simple square map
+    m1 = zeros(7,7)
+    m2 = zeros(7,7)
+    m1[1,3] = 1.0
+    m2[1,3] = 1.0
+    A = adjacencymatrix(7,7)
+    D = Hippocampus.distancematrix(A)
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ 0.958702627737268
+    # slight shift
+    m2 = zeros(7,7)
+    m2[3,3] = 1.0
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ -0.0316209238775601
+    m2 = zeros(7,7)
+    m2[4,4] = 1.0
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ -0.04994149195925211
+    m1 = zeros(7,7)
+    m2 = zeros(7,7)
+    m1[1,1] = 1.0
+    m2[7,7] = 1.0
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ -0.024776647216171628 
+end
