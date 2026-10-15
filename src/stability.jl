@@ -1146,7 +1146,7 @@ function plot_stability(stab::GazeMapStabilityGeo, mm, args...;_plot_theme=plot_
 end
 
 function plot_stability_summary!(lg, ::Type{T}, celldirs::Vector{String};kwargs...) where T <: MapStability
-    kargs = (nshuffles=1000, nrefinements=(p=3,g=2), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, smooth=true,smoothing_method=:laplace, α=0.1, niter=50)
+    kargs = (nshuffles=1000, nrefinements=(p=3,g=2), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, smooth=true,smoothing_method=:laplace, α=0.1, niter=50, pv_threshold=0.001, min_speed=1.0)
     nv = length(celldirs)
     vm_stability_value = zeros(nv)
     vm_stability_sig = fill(false, nv)
