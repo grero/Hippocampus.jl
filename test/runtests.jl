@@ -17,6 +17,16 @@ using Dates
                 0.0 0.0 1.0 1.0 1.0;
                 1.0 0.0 0.0 1.0 1.0]
     
+    #matrix
+    A = adjacencymatrix(2,3)
+    @test size(A) == (6,6)
+    @test A == Bool[1 1 1 0 0 0;
+                    1 1 0 1 0 0;
+                    1 0 1 1 1 0;
+                    0 1 1 1 0 1;
+                    0 0 1 0 1 1;
+                    0 0 0 1 1 1]
+    #each of the corners has 3 neighbours
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
     # normals
     nn = Hippocampus.get_normal(mm[1])
