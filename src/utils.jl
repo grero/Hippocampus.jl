@@ -1238,3 +1238,9 @@ function benjamini_yekutieli_fdr(pvalues::AbstractVector{T},α::T) where T <: Re
     end
     sidx[1:k]
 end
+
+function get_pvalue(::Type{T}, celldirs::Vector{String};kwargs...) where T
+    pv = @showprogress map(celldirs) do celldir
+        get_pvalue(T, celldir;prog_offset=1, kwargs...)
+    end
+end
