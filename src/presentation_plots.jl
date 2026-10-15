@@ -2,6 +2,7 @@ using CairoMakie
 using Hippocampus
 using Random
 using Makie.Colors
+using StatsBase
 
 _plot_theme = theme_dark()
 _plot_theme.Axis.xgridvisible = false
