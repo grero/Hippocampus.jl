@@ -3,6 +3,16 @@ using GeometryBasics
 using GeometryBasics: Point, Rect, Vec, faces,Mat
 using LinearAlgebra
 
+function _scale(p::Vector{T}, s::T2) where T <: Point{N, T2} where N where T2 <: Real
+    μ = mean(p)
+    s*(p .- μ) .+ μ
+end
+
+function _scale(p::Meshes.Quadrangle, s::Real)
+    μ = centroid(p)
+    Meshes.Translate(Tuple(μ)...)(Meshes.Scale(s)(Meshes.Translate(((-).(Tuple(μ)))...)(p)))
+end
+
 function get_allcelldirs()
     if ispath("/Volumes/Hippocampus")
         allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
