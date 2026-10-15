@@ -713,6 +713,16 @@ function find_view_field_intersections(celldirs::Vector{String};kwargs...)
     qq
 end
 
+
+"""
+    compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cells2::Vector{String};redo=false, load_only=false, kwargs...) where T <: AbstractResponseFields
+
+Compare the distribution of view fields between cells groups `cells1` and  `cells2`.
+
+The function accepts the same keyword arguments as `get_response_fields`. It uses the KL-divergence
+between the two maps as a measure of how different they are, and uses a random
+permutation procedure to establish whether that difference is significant. 
+"""
 function compute_view_field_distribution(::Type{T}, cells1::Vector{String}, cells2::Vector{String};redo=false, load_only=false, kwargs...) where T <: AbstractResponseFields
     h = process_kwargs(T;kwargs...)
     h = CRC32c.crc32c(string(:cells1=>cells1),h)
