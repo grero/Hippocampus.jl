@@ -22,6 +22,12 @@ end
 
 SpatialResponseFieldsAll = Union{SpatialResponseFields, SpatialResponseFieldsSimple}
 
+get_axis_type(::Type{<:SpatialResponseFieldsAll}) = (Axis, (aspect=1,xticksvisible=false, yticksvisible=false,
+                                                            xticklabelsvisible=false,
+                                                            yticklabelsvisible=false,
+                                                            leftspinevisible=false,
+                                                            bottomspinevisible=false))
+
 DPHT.filename(::Type{SpatialResponseFieldsSimple}) = "spatial_response_fields_simple.jld2"
 
 struct GazeResponseFieldsSimple <: AbstractResponseFieldsSimple
@@ -77,6 +83,8 @@ struct GazeResponseFields <: AbstractResponseFields
 end
 
 GazeResponseFieldsAll = Union{GazeResponseFields, GazeResponseFieldsSimple}
+
+get_axis_type(::Type{<:GazeResponseFieldsAll}) = (LScene, (show_axis=false,))
 
 DPHT.filename(::Type{GazeResponseFields}) = "gaze_response_fields.jld2"
 get_mesh(::Type{GazeResponseFields},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
