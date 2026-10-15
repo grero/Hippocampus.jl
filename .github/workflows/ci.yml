@@ -6,11 +6,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Julia 1.10.0
+      - name: Set up Julia 1.11.0
         uses: julia-actions/setup-julia@v1
         with:
-          version: "1.10.0"
+          version: "1.11.7"
+      - run: julia -e 'using Pkg; Pkg.Registry.add(RegistrySpec(url="https://github.com/JuliaRegistries/General.git"))'
       - run: julia -e 'using Pkg; Pkg.Registry.add(RegistrySpec(url = "https://github.com/grero/NeuralCodingRegistry.jl.git"))'
+      - run: julia --project=@. -e 'using Pkg; Pkg.add(url = "https://github.com/christiangnrd/ManifoldLearning.jl.git",rev="patch-1");Pkg.pin("ManifoldLearning")'
         shell: bash
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
