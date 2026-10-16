@@ -713,6 +713,29 @@ function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     -sum(filter(isfinite, pp.*log2.(pp)))
 end
 
+function plotmap!(ax, spm::SpatialMapNew;kwargs...)
+    viz!(ax, spm.mm;color=get_rate_map(spm),kwargs...)
+end
+
+function plotmap!(lg::GridLayout, spm::SpatialMapNew;kwargs...)
+    ax = Axis(lg[1,1])
+    pl = plotmap!(ax, spm;kwargs...)
+    colorrange = extrema(filter(isfinite, pl.color[]))
+    Colorbar(lg[1,2], colorrange=colorrange, colormap=pl.colormap[], label="Firing rate [Hz]")
+    Makie.AxisPlot(ax, pl) 
+end
+
+function plotmap(spm::SpatialMapNew;show_colorbar=true, kwargs...)
+    fig = Figure()
+    if show_colorbar
+        ax,pl = plotmap!(fig.layout, spm;kwargs...)
+    else
+        ax = Axis(fig[1,1])
+        pl = plotmap!(ax, spm;kwargs...)
+    end
+    Makie.FigureAxisPlot(fig,ax, pl)
+end
+
 function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::AbstractSpatialMap,args::NamedTuple=(;))
     default_arguments = Dict(:normalize=>true, :filter_gaze => true)
     for k in keys(args)
