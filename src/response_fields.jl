@@ -1043,6 +1043,7 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
     clusters = getfields(rf;cluster_threshold=0.001)
 
     ccolors = get_colors(colormap)
+    ss = 0.5*Meshes.ustrip(mean(sqrt.(measure.(mm))))
     if show_points || show_boundaries
         for (cc,cluster) in zip(ccolors[1:length(clusters)],clusters)
             pidx = cluster
@@ -1051,7 +1052,6 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
             ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
             mid_points = setdiff(cpoints, union(floor_points, ceil_points))
             if !isempty(floor_points)
-                ss = 0.5*Meshes.ustrip(mean(sqrt.(measure.(mm))))
                 if show_points
                     #_floor_points = Point3f.(Tuple.(Translate(0.0, 0.0, floor_offset)(floor_points)))
                     #viz!(lscene, ,color=cc, pointsize=pointsize)
