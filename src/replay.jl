@@ -2688,6 +2688,7 @@ DPHT.filename(::Type{ViewMapNew}) = "view_map.jld2"
 DPHT.filename(::Type{ViewMapNew{T}}) where T <: Real = "view_map.jld2"
 DPHT.level(::Type{ViewMapNew}) = "cell"
 DPHT.level(::Type{ViewMapNew{T}}) where T <: Real = "cell"
+DPHT.filename(::Type{SmoothedMap{<:Real, ViewMapNew}}) = "smoothed_view_map.jld2"
 
 function compute_skaggs_sic(sm::ViewMapNew)
     weight = sm.weight

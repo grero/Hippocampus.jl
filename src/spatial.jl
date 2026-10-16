@@ -371,7 +371,8 @@ struct SmoothedSpatialMap{T<:Real} <: AbstractSpatialMap
     α::T
 end
 
-struct SmoothedMap{T<:Real} <: AbstractMap
+struct SmoothedMap{T<:Real, T2<:AbstractMap} <: AbstractSpatialMap
+    maptype::Type{T2}
     mm::SimpleMesh
     weight::Vector{T}
     occupancy::Vector{T}
@@ -380,10 +381,9 @@ struct SmoothedMap{T<:Real} <: AbstractMap
 end
 
 DPHT.filename(sm::SmoothedMap{T}) where T <: Real = "smoothed_map.jld2"
-DPHT.filename(::Type{SmoothedMap}) = "smoothed_map.jld2"
+DPHT.filename(::Type{<:SmoothedMap{<:Real, SpatialMapNew}}) = "smoothed_spatial_map.jld2"
 
-function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, nrefinemensts=3,niter=1000, kwargs...)
-    h = zero(UInt32)
+function process_kwargs(::Type{T}, h::UInt32=zero(UInt32);method=:adaptive, α=10000,rmax=10, nrefinemensts=3,niter=1000, kwargs...) where T <: SmoothedMap{T1,T2} where T1 <: Real where T2 <: AbstractMap
     h = crc32c(string(method=>method),h)
     h = crc32c(string(alpha=>alpha),h)
     h = crc32c(string(rmax=>rmax),h)
@@ -398,7 +398,7 @@ function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, 
 end
 
 
-function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=false, rmax=10, kwargs...)
+function SmoothedMap(spm::T;method=:gaussian, σ=5, m=4, edge_correct=false, rmax=10, kwargs...) where T <: AbstractMap
     weight = get_weight(spm)
     occupancy = get_occupancy(spm)
     if method == :gaussian
@@ -425,11 +425,11 @@ function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=
         error("Unkonwn smoothing method $method")
     end
     unvisited = findall(occupancy .== 0)
-    SmoothedMap(spm.mm, Xg[:], Yg[:], unvisited, smooth_params)
+    SmoothedMap{eltype(weight),T}(T, spm.mm, Xg[:], Yg[:], unvisited, smooth_params)
 end
 
 function SmoothedMap(::Type{T},args...;redo=false, do_save=true, kwargs...) where T <: AbstractMap
-    fname = DPHT.filename(SmoothedMap)
+    fname = DPHT.filename(SmoothedMap{Float64, T})
     # append the type name of the base map that we are smoothing
     bn = lowercase(last(split(string(T), '.')))
     fname = replace(fname, ".jld2"=>"_$(bn).jld2")
@@ -656,7 +656,7 @@ function filter_occupancy(spm::SpatialMapNew{T}) where T <: Real
     findall(spm.occupancy .== 0)
 end
 
-function filter_occupancy(spm::SmoothedSpatialMap{T}) where T <: Real
+function filter_occupancy(spm::SmoothedMap{<:Real, <:AbstractMap})
     spm.unvisited
 end
 
