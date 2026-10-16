@@ -390,6 +390,7 @@ function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, 
     if nrefinemensts != 3
         h = crc32c(string(nrefinements=>nrefinemensts),h)
     end
+    smoothing_method = get(kwargs, :smoothing_method, :laplace)
     if smoothing_method == :laplace
         h = crc32c(string(niter=>niter),h)
     end
