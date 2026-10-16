@@ -431,8 +431,6 @@ end
 function SmoothedMap(::Type{T},args...;redo=false, do_save=true, kwargs...) where T <: AbstractMap
     fname = DPHT.filename(SmoothedMap{Float64, T})
     # append the type name of the base map that we are smoothing
-    bn = lowercase(last(split(string(T), '.')))
-    fname = replace(fname, ".jld2"=>"_$(bn).jld2")
     h = process_kwargs(SmoothedMap;kwargs...)
     if h > 0
         hs = string(h, base=16)
