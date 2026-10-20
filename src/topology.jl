@@ -587,7 +587,7 @@ function get_cotangent_laplacian(mm::SimpleMesh)
 
 end
 
-function get_normalize_laplacian(mm::SimpleMesh)
+function get_normalize_laplacian(mm::Domain)
     A = adjacencymatrix(mm)
     Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
     Ls = I - Dp*A*Dp
