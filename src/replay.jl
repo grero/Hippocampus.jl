@@ -185,15 +185,15 @@ function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true, kwargs...)
     JLD2.save(fname, Dict("data"=>qdata, "meta"=>metadata, "args"=>Dict(kwargs)))
 end
 
-function load_jld2(::Type{T},fname=DPHT.filename(T)) where T
+function load_jld2(::Type{T},fname=DPHT.filename(T);typemap::Dict=Dict()) where T
     fname = replace(fname, ".mat"=>".jld2")
-    meta,data = JLD2.load(fname, "meta","data")
+    meta,data = JLD2.load(fname, "meta","data";typemap=typemap)
     ft = fieldtypes(T)
-    if SimpleMesh in ft 
-        midx = findfirst(ft.==SimpleMesh)
+    if Domain in ft 
+        midx = findfirst(ft.==Domain)
         args = Any[]
         for k in fieldnames(T)
-            if fieldtype(T, k) <: SimpleMesh
+            if fieldtype(T, k) <: Domain
                 continue
             end
             v = data[k]
