@@ -1065,7 +1065,7 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
                     viz!(lscene, Translate(0.0, 0.0, floor_offset)(bb),color=cc, pointsize=pointsize, segmentsize=segmentsize)
                 end
             end
-            if !isempty(ceil_points) && !hide_ceiling
+            if !isempty(ceil_points) && !get(kwargs, :hide_ceiling, false)
                 if show_points
                     viz!(lscene, Translate(0.0, 0.0, ceiling_offset)(ceil_points),color=cc, pointsize=pointsize)
                 else
