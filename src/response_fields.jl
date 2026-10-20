@@ -503,13 +503,11 @@ end
 
 function find_boundaries(rf::T) where T <: AbstractResponseFields
     mm = get_mesh(T, rf.args[:nrefinements])
-     clusters = merge_fields(rf)
-     nclusters = get_num_fields(rf)
-     cidx = findall(dropdims(mean(nclusters,dims=2),dims=2) .< 0.001)
-     boundaries = map(cidx) do _cidx
-        find_boundary(mm, rf.binidx[clusters[_cidx]])
-     end
-     boundaries
+    cidx = getfields(rf)
+    boundaries = map(cidx) do _cidx
+       find_boundary(mm, _cidx)
+    end
+    boundaries
 end
 
 """
