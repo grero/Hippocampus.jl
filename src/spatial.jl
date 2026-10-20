@@ -352,7 +352,7 @@ struct SpatialMap{T<:Real} <: AbstractSpatialMap
 end
 
 struct SpatialMapNew{T<:Real} <: AbstractSpatialMap
-    mm::SimpleMesh
+    mm::Domain
     weight::Vector{T}
     occupancy::Vector{T}
 end
@@ -373,7 +373,7 @@ end
 
 struct SmoothedMap{T<:Real, T2<:AbstractMap} <: AbstractSpatialMap
     maptype::Type{T2}
-    mm::SimpleMesh
+    mm::Domain
     weight::Vector{T}
     occupancy::Vector{T}
     unvisited::Vector{Int64}
@@ -525,7 +525,7 @@ function SpatialMapNew(;redo=false, do_save=true, kwargs...)
     if h > 0
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
-        spm = load_jld2(SpatialMap,fname)
+        spm = load_jld2(SpatialMapNew,fname)
     end
     if !redo && isfile(fname)
         spm = load_jld2(SpatialMapNew, fname)
