@@ -164,11 +164,11 @@ function DPHT.save(gdata::T;append_tag=true) where T
 end
 
 function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true, kwargs...) where T
-    if SimpleMesh in fieldtypes(T)
+    if Domain in fieldtypes(T)
         # this is a bit hacky, needed because SimpleMesh does not save cleanly
         qdata = Dict()
         for k in fieldnames(T)
-            if fieldtype(T, k) <: SimpleMesh
+            if fieldtype(T, k) <: Domain 
                 continue
             end
             v = getfield(gdata, k)
