@@ -1251,3 +1251,41 @@ function plot_response_field_density_comparison(place_cells::Vector{String}, vie
         fig
     end
 end
+
+function plotmap!(ax::Axis, spm::Observable{<:SpatialResponseFieldsAll};show_pillars=true, show_boundaries=false, kwargs...)
+    color = lift(spm) do _spm
+        _spm.λ
+    end
+    if show_pillars
+        plot_pillars!(ax)
+    end
+    m_floor = lift(spm) do _spm
+        nrefinements = _spm.args[:nrefinements]
+        Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+    end
+    pl = viz!(ax, m_floor;color=color,kwargs...)
+    ccolors = get_colors(pl.colormap[])
+    if show_boundaries
+        # to get this work nicely with observables, convert to a series of linesegments
+        ls = Observable(Tuple{Point2f, Point2f}[])
+        cc = Observable(Colorant[])
+        on(spm) do rf
+            bb = find_boundaries(rf)
+            #Observables.clear(ls)
+            #Observables.clear(cc)
+            ls.val = Tuple{Point2f, Point2f}[]
+            cc.val = Colorant[]
+            for (j,_bb) in enumerate(bb)
+                _color = ccolors[mod(j, length((ccolors)))]
+                for (p1,p2) in Meshes.vertices.(_bb)
+                    push!(cc[], to_color(_color))
+                    push!(ls[], (Point2f(Tuple(p1)...), Point2f(Tuple(p2)...)))
+                end
+            end
+            notify(ls)
+            notify(cc)
+        end
+        linesegments!(ax, ls, color=cc)
+    end
+    pl
+end
