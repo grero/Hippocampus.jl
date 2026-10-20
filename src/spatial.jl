@@ -735,8 +735,14 @@ function plotmap!(lg::GridLayout, spm;kwargs...)
     hidedecorations!(ax)
     hidespines!(ax)
     pl = plotmap!(ax, spm;kwargs...)
-    colorrange = extrema(filter(isfinite, pl.color[]))
-    Colorbar(lg[1,2], colorrange=colorrange, colormap=pl.colormap[], label="Firing rate [Hz]")
+    colorrange = map(pl.color) do pl_color
+        extrema(filter(isfinite, pl_color))
+    end
+    colormap = lift(pl.colormap) do _colormap
+        _colormap
+    end
+
+    Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]")
     Makie.AxisPlot(ax, pl) 
 end
 
