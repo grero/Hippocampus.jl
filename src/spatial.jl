@@ -712,11 +712,25 @@ function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     -sum(filter(isfinite, pp.*log2.(pp)))
 end
 
-function plotmap!(ax, spm::AbstractSpatialMap;kwargs...)
+function plotmap!(ax, spm::AbstractSpatialMap;show_pillars=true, kwargs...)
     viz!(ax, spm.mm;color=get_rate_map(spm),kwargs...)
+    if show_pillars
+        plot_pillars(ax)
+    end
 end
 
-function plotmap!(lg::GridLayout, spm::AbstractSpatialMap;kwargs...)
+function plotmap!(ax, spm::Observable{<:AbstractSpatialMap};show_pillars=true, kwargs...)
+    color = lift(spm) do _spm
+        λ=get_rate_map(_spm)
+        λ
+    end
+    if show_pillars
+        plot_pillars!(ax)
+    end
+    viz!(ax, spm[].mm;color=color,kwargs...)
+end
+
+function plotmap!(lg::GridLayout, spm;kwargs...)
     ax = Axis(lg[1,1],aspect=1)
     hidedecorations!(ax)
     hidespines!(ax)
@@ -724,6 +738,63 @@ function plotmap!(lg::GridLayout, spm::AbstractSpatialMap;kwargs...)
     colorrange = extrema(filter(isfinite, pl.color[]))
     Colorbar(lg[1,2], colorrange=colorrange, colormap=pl.colormap[], label="Firing rate [Hz]")
     Makie.AxisPlot(ax, pl) 
+end
+
+function plotmap!(lg::GridLayout, spm::Observable{<:AbstractSpatialMap};kwargs...)
+    ax = Axis(lg[1,1],aspect=1)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    pl = plotmap!(ax, spm;kwargs...)
+    colorrange = lift(pl.color) do pl_color
+        cr = extrema(filter(isfinite, pl_color))
+        cr
+    end
+    colormap = lift(pl.colormap) do _colormap
+        _colormap
+    end
+    Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]")
+    Makie.AxisPlot(ax, pl) 
+end
+
+function plotmap(objs::Vector{T};kwargs...) where T <: Any
+    cellidx = Observable(1)
+    spm = lift(cellidx)  do _cellidx
+        _spm = objs[_cellidx]
+        _spm
+    end
+
+    function box_validator(ss::String)
+        ii = tryparse(Int64, ss)
+        if ii === nothing
+            return false
+        end
+        0 < ii <= length(objs)
+    end
+    fig = Figure()
+    lg = GridLayout(fig[2,1])
+    prev_button = Button(lg[1,1], label="Prev", tellwidth=false, halign=:right)
+    tb = Textbox(lg[1,2], placeholder="Index", validator = box_validator, tellwidth=false, halign=:right)
+    Label(lg[1,3], "/$(length(objs))", halign=:left, tellwidth=false)
+    next_button = Button(lg[1,4], label="Next", tellwidth=false, halign=:left)
+
+    on(tb.stored_string) do s
+        _cellidx = parse(Int64, s)
+        if _cellidx != cellidx[]
+            cellidx[] = _cellidx
+        end
+    end
+    on(cellidx) do _cellidx
+        Makie.set!(tb, "$(_cellidx)")
+    end
+    on(prev_button.clicks) do n
+        cellidx[] = max(1, cellidx[]-1)
+    end
+    on(next_button.clicks) do n
+        cellidx[] = min(length(objs), cellidx[]+1)
+    end
+    Hippocampus.plotmap!(GridLayout(fig[1,1]), spm;kwargs...)
+    cellidx[] = 1
+    fig
 end
 
 function plotmap(spm::AbstractSpatialMap;show_colorbar=true, kwargs...)
