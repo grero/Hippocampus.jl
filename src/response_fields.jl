@@ -1,5 +1,6 @@
 using Meshes
 using BetaKDE
+using Makie.Observables
 abstract type AbstractResponseFields end
 
 struct SpatialResponseFields <: AbstractResponseFields
