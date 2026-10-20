@@ -7,6 +7,7 @@ struct SpatialResponseFields <: AbstractResponseFields
     λ::Vector{Float64}
     binidx::Vector{Int64}
     gamma_params::Matrix{Float64} # gaamma parameter fit for the null distribution; two parameters per bin
+    clusters::Union{Vector{Vector{Int64}}, Nothing}
     args::Dict{Symbol,Any}
 end
 
@@ -80,7 +81,16 @@ struct GazeResponseFields <: AbstractResponseFields
     λ::Vector{Float64}
     binidx::Vector{Int64}
     gamma_params::Matrix{Float64} # gaamma parameter fit for the null distribution; two parameters per bin
+    clusters::Union{Vector{Vector{Int64}}, Nothing}
     args::Dict{Symbol,Any}
+end
+
+function JLD2.rconvert(::Type{T}, nt::NamedTuple)  where T <: Union{SpatialResponseFields, GazeResponseFields}
+    if length(nt) == 5
+        return T(nt.λ, nt.binidx, nt.gamma_params, nt.clusters, nt.args)
+    else
+        return T(nt.λ, nt.binidx, nt.gamma_params, nothing, nt.args)
+    end
 end
 
 GazeResponseFieldsAll = Union{GazeResponseFields, GazeResponseFieldsSimple}
@@ -177,11 +187,20 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
     do_compute = true 
     obj = nothing
     if !redo(fname) && isfile(fname)
-        obj = load_jld2(T, fname)
+        obj = load_jld2(T, fname;typemap=Dict("Hippocampus.SpatialResponseFields"=>JLD2.Upgrade(SpatialResponseFields),
+                                              "Hippocampus.GazeResponseFields"=>JLD2.Upgrade(GazeResponseFields)))
         if isa(obj, JLD2.ReconstructedMutable)
             do_compute = true
+        elseif isnothing(obj.clusters)
+            # TODO: This doesn't work, obj.clusters can actually be empty
+            _clusters = getfields(obj;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+            resize!(obj.clusters, length(_clusters))
+            obj.clusters .= _clusters
+            do_save = true
+            do_compute = false
         else
             do_compute = false
+            do_save = false
         end
     elseif use_fitted
         # load an object where the only difference is the pv_threshold and check whether
@@ -272,10 +291,12 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
             end
         end
         binidx = findall(exceeds)
-        obj = T(λ,binidx, gamma_params, args)
-        if do_save
-            save_jld2(obj, fname)
-        end
+        obj = T(λ,binidx, gamma_params, Int64[][], args)
+        obj.clusters = getfield(obj;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    end
+    if do_save
+        @show "Saving..."
+        save_jld2(obj, fname)
     end
     obj
 end
