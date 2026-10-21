@@ -1860,6 +1860,14 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     else
         spatial_clusters = mdt.spatial_clusters
     end
+    λ_forward = mean(filter(isfinite, mdt.spike_count_forward[idx]./mdt.occupancy_forward[idx]))
+    λ_reverse = mean(filter(isfinite, mdt.spike_count_reverse[idx]./mdt.occupancy_reverse[idx]))
+    @show λ_forward λ_reverse
+    if λ_forward > λ_reverse
+        arrow_color = [:orange, :black]
+    else
+        arrow_color = [:black, :orange]
+    end
     length(res) == length(spatial_clusters) || error("We have $(length(spatial_clusters)) spatial clusters and $(length(res)) significance results.")
     # get the distribution of head direction for the relevant trials
     spatial_cluster = spatial_clusters[idx]
@@ -1868,7 +1876,7 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
 
     # get distribution over 
     ccolor = get_colors(get(kwargs, :colormap, :viridis))
-    for (ii,trialidx) in enumerate([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]])
+    for (ii,(trialidx, acolor)) in enumerate(zip([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]], arrow_color))
         # get all time points
         qidx = filter(k->(k[2] in spatial_cluster)&&(k[4] in trialidx), jm.index) 
         # create a view map 
@@ -1895,7 +1903,7 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         else
             v = 5*mdt.v[:,idx]
         end
-        arrows3d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v..., 0.0))
+        arrows3d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v..., 0.0);color=acolor)
         viz!(lscene, bb_spatial, segmentsize=3, color=:black)
         ax = PolarAxis(lg[ii,2])
         ax.rticksvisible = false 
