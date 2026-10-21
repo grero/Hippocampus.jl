@@ -1264,36 +1264,53 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             end
         end
         # kind of dumb;trigger a change
-        tcolor[] = tcolor.val
         #talpha = get(kwargs, :alpha, fill(1.0, length(tcolor[])))
-        talpha = get(kwargs, :alpha, nothing)
-        if talpha === nothing
+        # TODO: We need alpha also to be an observable
+        tqalpha = get(kwargs, :alpha, nothing)
+        if tqalpha === nothing
             if isa(tcolor[], AbstractVector{<:Real})
-                talpha = fill(1.0, length(tcolor[]))
+                tqalpha = fill(1.0, length(tcolor[]))
             end
+        end
+        if !isa(tqalpha, Observable)
+            talpha = Observable(tqalpha)
+        else
+            talpha = tqalpha
         end
         kwargs = filter(k->k[1]!=:alpha, kwargs)
-        use_alpha = Dict{Symbol,Any}()
-        if isa(talpha, AbstractVector{<:Real})
-            if nanidx !== nothing
-                qalpha = fill!(similar(talpha), one(eltype(talpha)))
-                qalpha .= talpha
-                qalpha[nanidx] .= zero(eltype(qalpha)) 
-            else
-                qalpha = talpha
-            end
-            use_alpha[:middle] = qalpha[m_middle.inds]
-            use_alpha[:floor] = qalpha[m_floor2.inds]
-            use_alpha[:ceiling] = qalpha[m_ceiling2.inds]
-        else
-            if talpha === nothing
-                talpha = 1.0
-            end
-            use_alpha[:middle] = talpha
-            use_alpha[:floor] = talpha
-            use_alpha[:ceiling] = talpha
+        use_alpha = Dict{Symbol,Observable{Any}}()
+        for k in [:ceiling, :middle, :floor]
+            use_alpha[k] = Observable(1.0)
         end
-        viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
+        # alpha values change when colors change
+        on(tcolor) do _tcolor
+            if isa(_tcolor, AbstractArray{<:Any})
+                nanidx = isnan.(_tcolor)
+                if isa(talpha[], AbstractVector{<:Real})
+                    if nanidx !== nothing
+                        qalpha = fill!(similar(talpha[]), one(eltype(talpha[])))
+                        qalpha .= talpha[]
+                        qalpha[nanidx] .= zero(eltype(qalpha)) 
+                    else
+                        qalpha = talpha
+                    end
+                    use_alpha[:middle][] = qalpha[m_middle.inds]
+                    use_alpha[:floor][] = qalpha[m_floor2.inds]
+                    use_alpha[:ceiling][] = qalpha[m_ceiling2.inds]
+                else
+                    #if talpha[] === nothing
+                    #    talpha[] = 1.0
+                    #end
+                    use_alpha[:middle][] = talpha[]
+                    use_alpha[:floor][] = talpha[]
+                    use_alpha[:ceiling][] = talpha[]
+                end
+            end
+        end
+
+        tcolor[] = tcolor.val
+        @show keys(use_alpha)
+        pl = viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
         if !hide_floor
             viz!(lscene, m_floor2;color=use_color[:floor],alpha=use_alpha[:floor], colorrange=cr, kwargs...)
         end
