@@ -1318,11 +1318,12 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             viz!(lscene, m_ceiling2;color=use_color[:ceiling],alpha=use_alpha[:ceiling], colorrange=cr, kwargs...)
         end
     else
-       viz!(lscene, mm;kwargs...) 
+       pl = viz!(lscene, mm;kwargs...) 
     end
     if indicate_north
         arrows3d!(lscene, Point3f(0.0, 10.0, 7.0+ceiling_offset), Point3f(0.0, 5.0, 0.0), color=arrow_color)
     end
+    pl
 end
 
 function explore!(fig, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0, color=fill(0.0, nelements(mm)),alpha=fill(1.0, nelements(mm)),label::String="", show_axis=true, show_colorbar=true, kwargs...)
