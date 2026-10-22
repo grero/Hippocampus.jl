@@ -1281,7 +1281,11 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
         spatial_clusters = mdt.spatial_clusters
     end
     # get the distribution of head direction for the relevant trials
-    view_clusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if isempty(rf_gaze.clusters)
+        view_clusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        view_clusters = rf_gaze.clusters
+    end
 
     # for each combinatino of spatial_cluster[i] and view_cluster[j], check whether
     # the view field occurs within a 60 degree cone around the preferred direction of a place
