@@ -1378,6 +1378,38 @@ function compute_place_direction_view(celldir::String;niter_spatial=50, niter_ga
     compute_place_direction_view(mdt, rf_spatial, rf_gaze)
 end
 
+function summarize_occlusion_data(occlusion_data)
+    nn = length(occlusion_data)    
+    vv = zeros(nn)    
+    for (ii,_data) in enumerate(occlusion_data)
+        if !isempty(_data[1])
+            vv[ii] = sum(dropdims(minimum(_data[1], dims=2),dims=2) .<= 0.5)/size(_data[1],1)
+        end
+    end
+    vv
+end
+
+function summarize_occlusion_data(occlusion_data, poster_selectivity_data::Vector{Matrix{Bool}})
+    nn = length(occlusion_data)    
+    vv = zeros(nn)    
+    overlaps_poster = fill(0, (2,nn)) 
+    for (ii,(_data, qq)) in enumerate(zip(occlusion_data, poster_selectivity_data))
+        if !isempty(_data[1])
+            # get all combinations with less than 50% occlusion
+            vidx = dropdims(minimum(_data[1], dims=2),dims=2) .<= 0.5 
+            if length(vidx) != size(qq,2)
+                @show ii
+                continue
+            end
+            vv[ii] = sum(vidx)/size(_data[1],1)
+            overlaps_poster[:,ii] = [sum(qq[:,vidx]),sum(vidx)]
+        end
+    end
+    vv, overlaps_poster
+end
+
+
+
 ## plots
 
 function plot_directional_summary(qq) 
