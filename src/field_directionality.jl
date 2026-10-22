@@ -1899,7 +1899,6 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     end
     λ_forward = mean(filter(isfinite, mdt.spike_count_forward[idx]./mdt.occupancy_forward[idx]))
     λ_reverse = mean(filter(isfinite, mdt.spike_count_reverse[idx]./mdt.occupancy_reverse[idx]))
-    @show λ_forward λ_reverse
     if λ_forward > λ_reverse
         arrow_color = [:orange, :black]
     else
