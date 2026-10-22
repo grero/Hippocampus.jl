@@ -1898,10 +1898,12 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         lscene = LScene(lgv[1,1], show_axis=false)
         λ = get_rate_map(vml)
         plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false)
-        pl = plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true, colormap=colormap)
+        if any(isfinite.(λ))
+            pl = plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true, colormap=colormap)
+            Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=colormap, label="Firing rate [Hz]")
+        end
         viz!(lscene, bb;color=:black, segmentsize=3.0)
         plot_pillars!(lscene)
-        Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=colormap, label="Firing rate [Hz]")
         # show the fields
         # do this a bit more cleverly
         #
@@ -1922,8 +1924,10 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         ax.thetagridvisible = true
         # the the head direction
         cc = countmap(getindex.(qidx, 3))
-        kk = sort(collect(keys(cc)))
-        barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
+        if sum(values(cc)) > 0
+            kk = sort(collect(keys(cc)))
+            barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
+        end
     end
     Label(lg[1,2,Top()], "Head direction")
     colsize!(lg, 2, Aspect(1,1))
