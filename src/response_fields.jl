@@ -443,7 +443,11 @@ end
 
 function get_major_axis(rf::SpatialResponseFields;cluster_threshold=0.001)
     mm = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=rf.args[:nrefinements].p))
-    spatial_clusters = getfields(rf;cluster_threshold)
+    if isempty(rf.clusters)
+        spatial_clusters = getfields(rf;cluster_threshold)
+    else
+        spatial_clusters = rf.clusters
+    end
     v = Matrix{Float64}(undef, 2, length(spatial_clusters))
     μ = Matrix{Float64}(undef, 2, length(spatial_clusters))
     ms = zeros(size(v,2)) # field size
@@ -634,7 +638,11 @@ function find_poster_view_intersection(;kwargs...)
     nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
     rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 1000);kwargs...)
     mm = get_maze_mesh(;nrefinements=nrefinements.g)
-    viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if isempty(rf_gaze.clusters)
+        viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        viewclusters = rf_gaze.clusters
+    end
     qq = fill(false, 6, length(viewclusters))
     if isempty(viewclusters)
         return qq
@@ -1060,7 +1068,7 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
     end
     plotmesh!(lscene, mm;color=λ, showsegments=showsegments, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
     plot_pillars!(lscene;floor_offset=floor_offset)
-    clusters = getfields(rf;cluster_threshold=0.001)
+    clusters = rf.clusters
 
     ccolors = get_colors(colormap)
     ss = 0.5*Meshes.ustrip(mean(sqrt.(measure.(mm))))
