@@ -297,17 +297,19 @@ end
 function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, mm::SimpleMesh, rf::SpatialResponseFields;trial_start=1,only_full_traversal=false, kwargs...)
     nt = numtrials(qdata)
     θbins = range(-π, stop=π, length=24)
-    nn = zeros(Int64, nt)
-    nm = zeros(Int64, nt)
     clusters = merge_fields(mm, rf.binidx)
-    nclusters = Hippocampus.get_num_fields(rf)
-    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2) .< 0.001)
-    gidx = Vector{Vector{CartesianIndex{5}}}(undef, length(cidx))
-    deltaT = Vector{Vector{Float64}}(undef, length(cidx))
-    nspikes = Vector{Vector{Float64}}(undef, length(cidx))
-    weight = Vector{Dict{CartesianIndex{4}, Float64}}(undef, length(cidx))
-    occupancy = Vector{Dict{CartesianIndex{4},Float64}}(undef, length(cidx))
-    for i in 1:length(cidx)
+    if isempty(rf.clusters)
+        clusters = getfields(rf;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        clusters = rf.clusters
+    end
+    nclusters = length(clusters)
+    gidx = Vector{Vector{CartesianIndex{5}}}(undef, nclusters)
+    deltaT = Vector{Vector{Float64}}(undef, nclusters)
+    nspikes = Vector{Vector{Float64}}(undef, nclusters)
+    weight = Vector{Dict{CartesianIndex{4}, Float64}}(undef, nclusters)
+    occupancy = Vector{Dict{CartesianIndex{4},Float64}}(undef, nclusters)
+    for i in 1:length(clusters)
         gidx[i] = CartesianIndex{5}[]
         weight[i] = Dict{CartesianIndex{4}, Float64}()
         occupancy[i] = Dict{CartesianIndex{4}, Float64}()
@@ -315,17 +317,16 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
         nspikes[i] = Float64[]
     end
     for i in 1:nt
-        for (ll,idx) in enumerate(clusters[cidx])
+        for (ll,idx) in enumerate(clusters)
             # find the first point at which the field is entered and when it is exited
             tg,gaze,pos, fixmask,fo = get_trial(qdata,i;trial_start=trial_start);
-            idx0,idx1 = get_direction(pos[1:2,:], mm,rf.binidx[idx])
+            idx0,idx1 = get_direction(pos[1:2,:], mm,idx)
             if only_full_traversal && idx1==length(tg)-1
                 # skip this trial if we did not see a full traversal, i.e. if idx1 is at the penultimate step
                 continue
             end
             # debug: check the number of times the field is visited
             qmidx = jocc.index[i][vpvrp.placeviewidx[i]]
-            nn[i] = length(filter(k->in(idx)(getindex(k,2)), qmidx))
             # TODO: Also get the gaze for these positions
         
             if idx1 >= idx0 > 0
