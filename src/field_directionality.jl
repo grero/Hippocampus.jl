@@ -1951,6 +1951,7 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         viz!(lscene, bb_spatial, segmentsize=3, color=:black)
         ax = PolarAxis(lg[ii,2])
         ax.rticksvisible = false 
+        ax.rticklabelsvisible = false
         ax.thetaticksvisible = true
         ax.rgridvisible = true
         ax.thetagridvisible = true
