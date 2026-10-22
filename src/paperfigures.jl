@@ -658,7 +658,8 @@ function plot_summary_figure(;)
     place_and_view_cells = intersect(place_cells, view_cells)
     place_view_conjunctions = get_conjunctive_cells(place_cells, view_cells)
     directed_place_cells= readlines(open(joinpath(@__DIR__, "..", "data/place_cells_with_oriented_fields.txt")))
-    goal_cells = JLD2.load(joinpath(@__DIR__, "..", "data/landmark_cells.jld2"), "landmark_cells")
+    landmark_data = get_landmark_cells(view_cells)
+    goal_cells = landmark_data["landmark_cells"]
 
     sets = Dict(:view_cells => view_cells,
                 :place_cells=>place_cells,
@@ -818,12 +819,16 @@ function plot_venn_diagram_summary()
     place_and_view_cells = intersect(place_cells, view_cells)
     place_and_view_conjunctive_cells = PaperFigures.get_conjunctive_cells(place_cells, view_cells)
     poster_selective_cells = get_poster_selective_cells(view_cells)
+    landmark_data = get_landmark_cells(view_cells)
+    landmark_cells = landmark_data["landmark_cells"]
 
     # with these we want to try drawing a venn diagram where the main interesction is between
     # place and view cells
     # of the cells that both place and view, a subset are also conjunctive. 
     # another subset has directed place fields
     # another subset is goal cells
+    plot_venn_diagram_summary(place_cells, view_cells, place_cells_width_directed_fields, place_and_view_conjunctive_cells,
+                              landmark_cells)
 end
 
 function plot_venn_diagram_summary!(lg, place_cells, view_cells, place_cells_width_directed_fields,
@@ -857,11 +862,11 @@ function plot_venn_diagram_summary!(lg, place_cells, view_cells, place_cells_wid
     hidedecorations!(ax)
     hidespines!(ax)
     poly!(ax, Makie.Circle(Point2f(0.0), rp), label="Place ($(length(place_cells)))",color=place_color)
-    text!(ax, Point2f(0.0, 0.75*rp), text="$(length(place_cells))", align=(:center, :center))
+    text!(ax, Point2f(-0.5*rp, 0.75*rp), text="$(length(place_cells))", align=(:center, :center))
     poly!(ax, Makie.Circle(Point2f(d, 0.0), rv), label="View ($(length(view_cells)))", color=view_color)
-    text!(ax, Point2f(d+0.5*rv, 0.5*rv), text="$(length(view_cells))", align=(:center, :center))
+    text!(ax, Point2f(d+0.6*rv, -0.5*rv), text="$(length(view_cells))", align=(:center, :center))
     poly!(ax, pv_intersection, label="Place and view ($(length(place_and_view_cells)))", color=place_view_color)
-    text!(ax, Point2f(xc+0.2, 1.2*rcj), text="$(length(place_and_view_cells))", align=(:center, :center))
+    text!(ax, Point2f(xc+0.2, 1.1*rcj), text="$(length(place_and_view_cells))", align=(:center, :center))
     # conjunctive
     poly!(ax, Makie.Circle(Point2f(xc, 0), rcj), label="Conjunctive ($(length(place_and_view_conjunctive_cells)))", color=place_view_conj_color)
     text!(ax, Point2f(xc, -0.8*rcj), text="$(length(place_and_view_conjunctive_cells))", align=(:center, :center))
