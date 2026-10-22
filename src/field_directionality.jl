@@ -1876,7 +1876,8 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
 
     # get distribution over 
-    ccolor = get_colors(get(kwargs, :colormap, :viridis))
+    colormap = get(kwargs, :colormap, :viridis)
+    ccolor = get_colors(colormap)
     for (ii,(trialidx, acolor)) in enumerate(zip([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]], arrow_color))
         # get all time points
         qidx = filter(k->(k[2] in spatial_cluster)&&(k[4] in trialidx), jm.index) 
@@ -1889,10 +1890,10 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         lscene = LScene(lgv[1,1], show_axis=false)
         λ = get_rate_map(vml)
         plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false)
-        plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true)
+        pl = plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true, colormap=colormap)
         viz!(lscene, bb;color=:black, segmentsize=3.0)
         plot_pillars!(lscene)
-        Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), label="Firing rate [Hz]")
+        Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=colormap, label="Firing rate [Hz]")
         # show the fields
         # do this a bit more cleverly
         #
