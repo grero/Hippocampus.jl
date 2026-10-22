@@ -1947,7 +1947,7 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         else
             v = 5*mdt.v[:,idx]
         end
-        arrows3d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v..., 0.0);color=acolor)
+        arrows2d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v...,0.0);color=acolor, overdraw=true)
         viz!(lscene, bb_spatial, segmentsize=3, color=:black)
         ax = PolarAxis(lg[ii,2])
         ax.rticksvisible = false 
