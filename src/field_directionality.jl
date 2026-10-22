@@ -1987,7 +1987,7 @@ end
 
 function plot_directional_view(args...;kwargs...)
     with_theme(plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(574,275))
         lg = GridLayout(fig[1,1])
         plot_directional_view!(lg, args...;kwargs...)
         link_cameras_lscene(fig)
