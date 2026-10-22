@@ -1877,7 +1877,11 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     # get the distribution of head direction for the relevant trials
     spatial_cluster = spatial_clusters[idx]
     bb_spatial = find_boundary(m_floor, spatial_cluster)
-    viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if isempty(rf_gaze.clusters)
+        viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        viewclusters = rf_gaze.clusters
+    end
 
     # get distribution over 
     colormap = get(kwargs, :colormap, :viridis)
