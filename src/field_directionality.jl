@@ -1929,7 +1929,7 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         vm = ViewMapNew(jm, mm;trialidx=trialidx, placebins=spatial_cluster)
         vml = SmoothedMap(vm;method=:laplace, α=0.1, niter=50)
         # smooth?
-        lgv = GridLayout(lg[ii,1])
+        lgv = GridLayout(lg[1,ii])
         #plot_response_fields!(lgv, rf_gaze, get_rate_map(vm);floor_offset=0, hide_ceiling=true, indicate_north=true, show_points=true, colormap=:rain, ceiling_offset=0)
         lscene = LScene(lgv[1,1], show_axis=false)
         λ = get_rate_map(vml)
@@ -1953,12 +1953,16 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         end
         arrows2d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v...,0.0);color=acolor, overdraw=true)
         viz!(lscene, bb_spatial, segmentsize=3, color=:black)
-        ax = PolarAxis(lg[ii,2])
+        ax = PolarAxis(lg[1,ii], width=Relative(0.5),height=Relative(0.32),
+                                 halign=0.8, valign=0.95, clipcolor=:gray75,clip=false)
+        # polar always has aspect of 1, so reverse engineering what the width and height should be
         ax.rticksvisible = false 
         ax.rticklabelsvisible = false
         ax.thetaticksvisible = true
         ax.rgridvisible = true
         ax.thetagridvisible = true
+        ax.thetaticklabelsvisible = false
+        ax.title = "Head direction"
         # the the head direction
         cc = countmap(getindex.(qidx, 3))
         if sum(values(cc)) > 0
@@ -1966,8 +1970,8 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
             barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
         end
     end
-    Label(lg[1,2,Top()], "Head direction")
-    colsize!(lg, 2, Aspect(1,1))
+    #Label(lg[1,2,Top()], "Head direction")
+    #colsize!(lg, 2, Aspect(1,1))
 end
 
 function plot_directional_view!(lg, celldir::String,idx;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
