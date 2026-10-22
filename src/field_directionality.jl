@@ -1339,7 +1339,7 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                             end
                             # if we intersect something, make sure it's within the beam
                             # this should actually have been taking care of in the 
-                            if !(qq.geom ≈ l.b) && (l.a < qq.geom < l.b)
+                            if (l.a < qq.geom < l.b) || (l.b < qq.geom < l.a)
                                 # we intersected something else
                                 # is just one violation enough?
                                 can_be_seen[ii,jj] = false
