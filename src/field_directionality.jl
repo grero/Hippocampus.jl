@@ -1378,7 +1378,12 @@ function compute_place_direction_view(celldir::String;niter_spatial=50, niter_ga
     compute_place_direction_view(mdt, rf_spatial, rf_gaze)
 end
 
-function summarize_occlusion_data(occlusion_data)
+"""
+    summarize_occlusion_data(occlusion_data)
+
+Count the number of cells with less then 50% occlusion between each place and view field 
+"""
+function summarize_occlusion_data(occlusion_data::Vector{<:Any})
     nn = length(occlusion_data)    
     vv = zeros(nn)    
     for (ii,_data) in enumerate(occlusion_data)
