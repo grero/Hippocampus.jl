@@ -1880,12 +1880,15 @@ function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{
         Z[k[1], k[2]] = median(v)
     end
     ax = Axis(lg[1,1])
+    ax.xlabelpadding = 0
+    ax.ylabelpadding = 0
     h = heatmap!(ax,Z)
-    Colorbar(lg[1,2],h,label="Relative traj length")
+    cb = Colorbar(lg[1,2],h,label="Relative traj length")
 
+    cb.alignmode = Mixed(right=0)
     imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
     # create dummy axes for the labels
-    axl = Axis(lg[1,0])
+    axl = Axis(lg[1,0], halign=:right)
     scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
     axb = Axis(lg[2,1])
     scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
@@ -1905,7 +1908,8 @@ function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{
     axl.xlabelvisible = true
     axb.ylabel = "From"
     axb.ylabelvisible = true
-    colgap!(lg, 1, 1)
+    colgap!(lg, 0, 0)
+    colgap!(lg, 1, 0)
     rowgap!(lg, 1, 1)
 end
 
