@@ -1698,6 +1698,40 @@ function get_confusion_map(udata::UnityData)
     starting_poster, goal_poster, start_pos, end_pos, trial_outcome
 end
 
+function get_timeout_trajectories(udata::UnityData)
+    nt = numtrials(udata)
+    traj = Vector{Point2f}[]
+    poster_pair = Tuple{Int64, Int64}[]
+    for i in 1:nt
+        if udata.triggers[i,3] > 40
+            if i > 1
+                start_poster = udata.triggers[i-1,1] - 10
+            else
+                start_poster = 0
+            end
+            goal_poster = udata.triggers[i,1] - 10
+            push!(poster_pair, (start_poster, goal_poster))
+            tu,posx,posy,hd = get_trial(udata,i;trial_start=2)
+            push!(traj, Point2f.(zip(posx, posy)))
+        end
+    end
+    traj, poster_pair
+end
+
+function get_timeout_trajectories(sessions::Vector{String})
+    traj = Vector{Point2f}[]
+    poster_pair = Tuple{Int64, Int64}[]
+    for session in sessions
+        udata = cd(session) do
+            UnityData()
+        end
+        _traj, _poster_pair = get_timeout_trajectories(udata)
+        append!(traj, _traj)
+        append!(poster_pair, _poster_pair)
+    end
+    traj, poster_pair
+end
+
 ## plots
 function plot_flat_maze_with_posters(;figsize=(350,350),kwargs...)
     with_theme(poster_theme) do
