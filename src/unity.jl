@@ -1666,6 +1666,38 @@ function get_poster_position(pos::NTuple{N,T}, mm::SimpleMesh) where T <: Real w
     first(midx)
 end
 
+"""
+    get_confusion_map(udata::UnityData)
+
+Return a spatial map of where the monkey ended up at the end of each trial.
+"""
+function get_confusion_map(udata::UnityData)
+    nt = numtrials(udata)
+    starting_poster = zeros(Int64, nt)
+    goal_poster = zeros(Int64, nt)
+    start_pos = Vector{Point2f}(undef, nt)
+    end_pos = Vector{Point2f}(undef, nt)
+    trial_outcome = Vector{Symbol}(undef, nt)
+    for i in 1:nt
+        if i > 1
+            if udata.triggers[i-1,3] < 40
+                starting_poster[i] = udata.triggers[i-1,1] - 10
+            end
+        end
+        goal_poster[i] = udata.triggers[i,1] - 10
+        tu, posx, posy,hd = get_trial(udata, i;trial_start=2)
+        start_pos[i] = Point2f(posx[1], posy[1])
+        end_pos[i] = Point2f(posx[end], posy[end])
+
+        if udata.triggers[i,3] < 40
+            trial_outcome[i] = :correct
+        else
+            trial_outcome[i] = :timeout
+        end
+    end
+    starting_poster, goal_poster, start_pos, end_pos, trial_outcome
+end
+
 ## plots
 function plot_flat_maze_with_posters(;figsize=(350,350),kwargs...)
     with_theme(poster_theme) do
