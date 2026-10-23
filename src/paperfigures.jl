@@ -16,15 +16,17 @@ using HypothesisTests
 using VennDiagrams
 
 # TODO: Distribution of place field distance from poster locations for directional and non-directional posters
-plot_theme = Theme(Axis=(xlabelsize=14, ylabelsize=14,
-                           xticklabelsize=14, yticklabelsize=14,
+function plot_theme()
+    _plot_theme = Theme(Axis=(xlabelsize=12, ylabelsize=12,
+                           xticklabelsize=12, yticklabelsize=12,
                            topspinevisible=false, rightspinevisible=false,
                            xgridvisible=false, ygridvisible=false,ylabelvisible=true,
                            xticklabelsvisible=true, xlabelvisible=true),
                      Scatter=(markersize=10,),
                      Lines=(linewidth=3,),
-                     fontsize=14)
-
+                     fontsize=12)
+    _plot_theme
+end
 
 function get_sessions()
     allcelldirs = open("/Volumes/Hippocampus/Data/picasso-misc/AnalysisHM/Current Analysis/cell_list.txt") do fid
@@ -125,7 +127,7 @@ function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
 end
 
 function plot_response_field_with_sic(celldir::String,args...)
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure(size=(600,600))
         lg = GridLayout(fig[1,1])
         plot_response_field_with_sic!(lg, celldir,args...)
@@ -192,7 +194,7 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
     kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001)
     mm = Hippocampus.get_mesh(T,(p=3,g=2))
     #m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure(size=(900,800))
         # Example of a cell with place activity
         lgm = GridLayout(fig[1,1])
@@ -293,7 +295,7 @@ function plot_performance()
     @show mean(perf) std(perf) percentile(perf[:], [25, 50, 75])
     @show mean(timeouts) std(timeouts) percentile(timeouts[:], [10,50,95]) extrema(timeouts[:])
     imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure()
         ax = Axis(fig[1,1])
         ii = collect(CartesianIndices(size(perf)))
@@ -392,7 +394,7 @@ function plot_trajectory_time!(lg, Δt::Matrix{<:Real};kwargs...)
 end
 
 function plot_trajectory_time(args...;kwargs...)
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure()
         lg = GridLayout(fig[1,1])
         plot_trajectory_time!(lg, args...;kwargs...)
@@ -489,7 +491,7 @@ function plot_goal_poster_selectivity_figure()
     end
     h1 = sum(sum(gsf.w_goal .> 0.02,dims=1).>0)
     h2 = sum(sum(gsi.w_goal .> 0.02,dims=1).>0)
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure(size=(600,400))
         lg1 = GridLayout(fig[1,1])
         lg2 = GridLayout(fig[2,1])
@@ -599,7 +601,7 @@ function plot_landmark_cells(view_cells::Vector{String};redo=false)
         Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.01)
     end
     imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure(size=(975,442))
         lg1 = GridLayout(fig[1,1])
         ax1 = Axis(lg1[1,1])
@@ -683,7 +685,7 @@ function plot_summary_figure(;)
                         :directed_place_cells => :salmon,
                         :goal_cells => :mediumpurple)
 
-    with_theme(plot_theme) do 
+    with_theme(plot_theme()) do 
         fig = Figure(size=(700,400))
         lg1 = GridLayout(fig[1,1])
         ax1 = Axis(lg1[1,1], alignmode=Outside())
@@ -758,7 +760,7 @@ function plot_graph!(lg, sets::Dict{Symbol, <:AbstractVector{<:Any}};labels::Dic
 end
 
 function plot_graph(sets;kwargs...)
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure()
         lg = GridLayout(fig[1,1])
         plot_graph!(lg, sets;kwargs...)
@@ -802,7 +804,7 @@ function plot_place_cell_poster_proximity!(lg;kwargs...)
 end
 
 function plot_place_cell_poster_proximity(;kwargs...)
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure(size=(300,400))
         lg = GridLayout(fig[1,1])
         plot_place_cell_poster_proximity!(lg;kwargs...)
@@ -886,7 +888,7 @@ function plot_venn_diagram_summary!(lg, place_cells, view_cells, place_cells_wid
 end
 
 function plot_venn_diagram_summary(args...)
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure()
         lg = GridLayout(fig[1,1])
         plot_venn_diagram_summary!(lg, args...)
@@ -904,7 +906,7 @@ function plot_place_and_view_fields(place_cells::Vector{String}, view_cells::Vec
     mm = Hippocampus.get_maze_mesh(;nrefinements=2);
     mm_unfolded = Hippocampus.unfold_maze(mm)
     m_floor = Hippocampus.repair_mesh(Hippocampus.floor_topology3(;nrefinements=3))
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure()
         lg1 = GridLayout(fig[1,1])
         lscene = LScene(lg1[1,1], show_axis=false)
