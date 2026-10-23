@@ -1703,7 +1703,7 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
             scatter!(ax, end_point, marker=teardrop_shape(), markersize=20px, color=:orange)
         end
         if indicate_north
-            arrows2d!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
+            arrows2d!(ax, Point2f(0.0, 10.0), Vec2f(0.0, 1.0), color=:black,lengthscale=2.0)
         end
         ax
     end
