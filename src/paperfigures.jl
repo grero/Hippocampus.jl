@@ -297,7 +297,7 @@ end
 """
 Plot the performance of the animal
 """
-function plot_performance()
+function plot_performance!(lg, ;use_boxplot=true, arrangement=:horizontal, markersize=50)
     fname = joinpath(@__DIR__,"..", "data","performance.jld2")
     if isfile(fname)
         perf,timeouts,perf_paths = JLD2.load(fname, "performance","timeouts","performnace_per_path")
@@ -316,19 +316,56 @@ function plot_performance()
     @show mean(perf) std(perf) percentile(perf[:], [25, 50, 75])
     @show mean(timeouts) std(timeouts) percentile(timeouts[:], [10,50,95]) extrema(timeouts[:])
     imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
-    with_theme(plot_theme()) do
-        fig = Figure()
-        ax = Axis(fig[1,1])
-        ii = collect(CartesianIndices(size(perf)))
-        boxplot!(ax, getindex.(ii, 1)[:], perf[:];show_outliers=false)
+    figsize = (300,200)
+    if arrangement == :vertical
+        figsize = (200,300)
+    end
+
+    ax = Axis(lg[1,1])
+    ii = collect(CartesianIndices(size(perf)))
+    if arrangement == :horizontal
+        orientation = :vertical
+    else
+        orientation = :horizontal
+    end
+
+    if use_boxplot
+        boxplot!(ax, getindex.(ii, 1)[:], perf[:];show_outliers=false, orientation=orientation)
+    else
+        violin!(ax, getindex.(ii,1)[:], perf[:], show_median=true, orientation=orientation)
+    end
+    if arrangement == :horizontal
         ax.xticksvisible = false
         ax.xticklabelsvisible = false
         ax.bottomspinevisible = false
         # TODO: Use the posters as axis tick labels
-        scatter!(ax, [1:6;], fill(0.65, 6), marker=imgs, markersize=70)
-        ylims!(ax, 0.6, 1.0)
-        ax.yticks = [0.7, 0.8, 0.9, 1.0]
+        scatter!(ax, [1:6;], fill(0.55, 6), marker=imgs, markersize=markersize)
+        ylims!(ax, 0.5, 1.0)
+        ax.yticks = [0.6, 0.7, 0.8, 0.9, 1.0]
         ax.ytrimspine = true
+        ax.ylabel = "Performance"
+    else
+        ax.yticksvisible = false
+        ax.yticklabelsvisible = false
+        ax.leftspinevisible = false
+        scatter!(ax, fill(0.55, 6), [1:6;], marker=imgs, markersize=markersize)
+        xlims!(ax, 0.5, 1.0)
+        ax.xticks = [0.6, 0.8, 1.0]
+        ax.xtrimspine = true
+        ax.xlabel = "Performance"
+    end
+end
+
+function plot_performance(;arrangement=:horizontal, kwargs...)
+    figsize = (300,200)
+    if arrangement == :vertical
+        figsize = (200,300)
+    end
+
+    with_theme(plot_theme()) do
+        fig = Figure(size=figsize)
+        lg = GridLayout(fig[1,1])
+        plot_performance!(lg;arrangement=arrangement, kwargs...)
         fig
     end
 end
