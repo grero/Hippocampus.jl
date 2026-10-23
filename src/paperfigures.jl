@@ -294,6 +294,7 @@ function get_performance(session::String)
     perf_path ./= nn_path
     perf, timeouts, perf_path
 end
+
 """
 Plot the performance of the animal
 """
