@@ -1698,6 +1698,12 @@ function get_confusion_map(udata::UnityData)
     starting_poster, goal_poster, start_pos, end_pos, trial_outcome
 end
 
+"""
+    get_timeout_trajectories(udata::UnityData)
+
+Extract trajectories and (start,goal) poster pair for each timeout trial 
+in `udata`.
+"""
 function get_timeout_trajectories(udata::UnityData)
     nt = numtrials(udata)
     traj = Vector{Point2f}[]
