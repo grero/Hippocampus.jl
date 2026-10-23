@@ -267,6 +267,8 @@ function get_performance(session::String)
         Hippocampus.UnityData()
     end
     perf = zeros(6)
+    perf_path = zeros(6,6)
+    nn_path = zeros(6,6)
     timeouts = zeros(6)
     for k in 1:6
         cidx = findall(udata.triggers[:,3].==30+k)
@@ -274,9 +276,23 @@ function get_performance(session::String)
         # that is trials preceded by an incorrect trial with the same poster
         cidx = filter(c->c==1 ? true : ((udata.triggers[c-1,3] .< 40)&&(udata.triggers[c-1,1]!=udata.triggers[c,1])), cidx)
         perf[k] = length(cidx)/sum(udata.triggers[:,1].==10+k)
+        for cc in cidx
+            if cc > 1
+                kf = udata.triggers[cc-1,1] - 10
+                perf_path[kf, k] += 1
+            end
+        end
+        # TODO Separate into start end end poster
         timeouts[k] = sum(udata.triggers[:,3].==40+k)/sum(udata.triggers[:,1].==10+k)
     end
-    perf, timeouts
+    #find total number of all transitions
+    for ii in 2:Hippocampus.numtrials(udata)
+        kf = udata.triggers[ii-1,1] - 10
+        k = udata.triggers[ii,1] - 10
+        nn_path[kf,k] += 1
+    end
+    perf_path ./= nn_path
+    perf, timeouts, perf_path
 end
 """
 Plot the performance of the animal
@@ -284,17 +300,18 @@ Plot the performance of the animal
 function plot_performance()
     fname = joinpath(@__DIR__,"..", "data","performance.jld2")
     if isfile(fname)
-        perf,timeouts = JLD2.load(fname, "performance","timeouts")
+        perf,timeouts,perf_paths = JLD2.load(fname, "performance","timeouts","performnace_per_path")
     else
         sessions = get_sessions()
         # for each session, get he performance
         # TODO: Filter repeat trials, i.e. trials in which the monkey failed and then repeated the same trial
         perf = zeros(6, length(sessions))
+        perf_paths = zeros(6,6,length(sessions))
         timeouts = zeros(6, length(sessions))
         for (ii,session) in enumerate(sessions)
-            perf[:,ii], timeouts[:,ii] = get_performance(session)
+            perf[:,ii], timeouts[:,ii],perf_paths[:,:,ii] = get_performance(session)
         end
-        JLD2.save(fname, Dict("performance"=>perf, "timeouts"=>timeouts, "sessions"=>sessions))
+        JLD2.save(fname, Dict("performance"=>perf, "performance_per_path"=>perf_paths, "timeouts"=>timeouts, "sessions"=>sessions))
     end
     @show mean(perf) std(perf) percentile(perf[:], [25, 50, 75])
     @show mean(timeouts) std(timeouts) percentile(timeouts[:], [10,50,95]) extrema(timeouts[:])
