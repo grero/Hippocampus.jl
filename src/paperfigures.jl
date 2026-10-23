@@ -80,7 +80,7 @@ function figure1()
     end
     poster_pos =  Dict(k=>v[[1,3]] for (k,v) in udata.header["PosterLocations"]) 
     sessions = get_sessions()
-    with_theme(plot_theme) do
+    with_theme(plot_theme()) do
         fig = Figure(size=(768,768))
         lg_top = GridLayout(fig[1,1:2])
         axg = Axis(lg_top[1,1],aspect=DataAspect())
