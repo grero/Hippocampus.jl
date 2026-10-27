@@ -1231,6 +1231,9 @@ function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{S
             plotmesh!(lscene, mm2;color=Zn[:,i],hide_ceiling=true, colorrange=cr, colormap=colormap, showsegments=true)
         end
         plot_pillars!(lscene)
+        if label !== nothing
+            Label(lg[1,i,Top()], label[i])
+        end
     end
 
   
