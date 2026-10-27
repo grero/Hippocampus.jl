@@ -1218,9 +1218,8 @@ function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{S
     else
         mm2 = mm
     end
-    cr1 = extrema(zdata["Z"][:,1])
-    cr2 = extrema(zdata["Z"][:,2])
-    cr = (min(cr1[1], cr2[1]), max(cr1[2], cr2[2]))
+    Zn = zdata["Z"]./sum(zdata["Z"],dims=1)
+    cr = extrema(filter(isfinite, Zn))
     axtype,axargs = get_axis_type(T)
     @show axtype, axargs
     colormap = get(kwargs, :colormap, :viridis)
