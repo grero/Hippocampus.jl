@@ -1209,7 +1209,7 @@ function plot_response_fields!(lg, rf_place::SpatialResponseFields, rf_gaze::Gaz
     plot_response_fields!(lgg, rf_gaze;kwargs...)
 end
 
-function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{String}, cells2::Vector{String};do_unfold_maze=true, kwargs...) where T <: AbstractResponseFields
+function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{String}, cells2::Vector{String};label::Union{Vector{String}, Nothing}=nothing, do_unfold_maze=true, kwargs...) where T <: AbstractResponseFields
     nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
     zdata = compute_view_field_distribution(T, cells1, cells2;kwargs...)
     mm = get_mesh(T,nrefinements)
