@@ -609,6 +609,23 @@ function get_landmark_cells(view_cells::Vector{String};redo=false)
     qdata
 end
 
+"""
+    analyze_landmark_cells(view_cells::String)
+
+Find the number of cells with overlapping poster preference during the cue
+and navigation period
+"""
+function analyze_landmark_cells(view_cells::Vector{String})
+    landmark_data = get_landmark_cells(view_cells)
+    # find all cells with at least one poster in one of its view fields
+    midx = findall((!isempty).(landmark_data["view_poster_pref"]))
+    # get the poster preference for those cells
+    vv = [[v.I[1] for v in vv] for vv in landmark_data["view_poster_pref"][midx]]
+
+    # find the overlapping preference between the two periods
+    ll = length.(intersect.(landmark_data["cue_poster_pref"], vv))
+end
+
 function plot_landmark_cells(view_cells::Vector{String};redo=false)
     # TODO: Separate into pure goal cells, i.e where the all view fields overlap with preferred posters
     h = zero(UInt32)
