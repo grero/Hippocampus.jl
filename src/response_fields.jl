@@ -1223,17 +1223,19 @@ function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{S
     cr = (min(cr1[1], cr2[1]), max(cr1[2], cr2[2]))
     axtype,axargs = get_axis_type(T)
     @show axtype, axargs
+    colormap = get(kwargs, :colormap, :viridis)
     for i in 1:2
         lscene = axtype(lg[1,i];axargs...) 
         if T <: SpatialResponseFieldsAll
-            viz!(lscene, mm2;color=zdata["Z"][:,i], colorrange=cr)
+            viz!(lscene, mm2;color=Zn[:,i], colorrange=cr, colormap=colormap)
         else
-            plotmesh!(lscene, mm2;color=zdata["Z"][:,i],hide_ceiling=true, colorrange=cr, showsegments=true)
+            plotmesh!(lscene, mm2;color=Zn[:,i],hide_ceiling=true, colorrange=cr, colormap=colormap, showsegments=true)
         end
         plot_pillars!(lscene)
     end
+
   
-    Colorbar(lg[1,3], colorrange=cr, label="Density",ticksvisible=true)
+    Colorbar(lg[1,3], colorrange=cr, label="Fields density",ticksvisible=false, ticklabelsvisible=false,colormap=colormap)
     ax = Axis(lg[1,4])
     violin!(ax, fill(1.0, length(zdata["kl-divergence_null"])), zdata["kl-divergence_null"], color=:lightgray, show_median=true)
     scatter!(ax, [1.0], [zdata["kl-divergence"]])
