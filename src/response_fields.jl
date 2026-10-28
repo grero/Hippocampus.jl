@@ -1053,7 +1053,7 @@ function plot_response_fields(rf::SpatialResponseFields,args...;_plot_theme=plot
     end
 end
 
-function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=true, show_colorbar=true, show_points=true, label="Firing rate [Hz]",colorbar_below=false,  show_boundaries=false, segmentsize=2.0,showsegments=true, kwargs...) where T <: GazeResponseFieldsAll
+function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=true, show_colorbar=true, show_points=true, label="Firing rate [Hz]",colorbar_below=false,  show_boundaries=false, segmentsize=2.0,showsegments=true, do_unfold_maze=false, kwargs...) where T <: GazeResponseFieldsAll
     mm = get_mesh(T, get(rf.args,:nrefinements, (p=3,g=2)))
     m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
     lscene = LScene(lg[1,1],show_axis=false)
@@ -1063,10 +1063,17 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
     mazecolor = get(kwargs, :mazecolor, :lightgray)
     colorrange = get(kwargs, :colorrange, extrema(filter(isfinite, λ)))
     pointsize = get(kwargs, :pointsize, 10)
-    if mazecolor !== nothing
-        plotmesh!(lscene, mm;color=mazecolor, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
+    if do_unfold_maze
+        mmf = unfold_maze(mm)
+        floor_offset = 0.0
+        ceiling_offset = 0.0
+    else
+        mmf = mm
     end
-    plotmesh!(lscene, mm;color=λ, showsegments=showsegments, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
+    if mazecolor !== nothing
+        plotmesh!(lscene, mmf;color=mazecolor, showsegments=false, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
+    end
+    plotmesh!(lscene, mmf;color=λ, showsegments=showsegments, ceiling_offset=ceiling_offset, floor_offset=floor_offset, colormap=colormap,colorrange=colorrange, kwargs...)
     plot_pillars!(lscene;floor_offset=floor_offset)
     clusters = rf.clusters
 
