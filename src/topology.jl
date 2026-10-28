@@ -1129,8 +1129,9 @@ end
 
 function plotpoints!(lscene, pidx::AbstractVector{<:Integer}, mm::UnfoldedMaze;kwargs...)
     idx = findin.(pidx, Ref(mm));
-    μ = [centroid(mm.parts[k][v]) for (k,v) in idx]
-    viz!(lscene, μ;kwargs...)
+    mq = Meshes.Ngon.([Meshes.vertices(mm.parts[k][v]) for (k,v) in idx])
+    mqs = _scale.(mq, Ref(0.5));
+    viz!(lscene, mqs;kwargs...)
 end
 
 function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs...)
