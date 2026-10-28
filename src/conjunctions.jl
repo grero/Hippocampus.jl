@@ -513,8 +513,16 @@ function get_view_rate_map(jm::JointMap, spatial_idx::AbstractVector{<:Integer},
 end
 
 function conjunctions2(jm::JointMap, rf_gaze::Union{GazeResponseFields,GazeResponseFieldsSimple}, rf_spatial::Union{SpatialResponseFields, SpatialResponseFieldsSimple}, condition_on::Integer)
-    view_clusters = getfields(rf_gaze;cluster_threshold=0.001)
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=0.001)
+    if rf_gaze.clusters === nothing
+        view_clusters = getfields(rf_gaze;cluster_threshold=0.001)
+    else
+        view_clusters = rf_gaze.clusters
+    end
+    if rf_spatial.clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=0.001)
+    else
+        spatial_clusters = rf_spatial.clusters
+    end
     if isempty(view_clusters) || isempty(spatial_clusters)
         if condition_on == 1
             λ_infield = SpatialRateMap{Float64}[]
