@@ -30,6 +30,8 @@ get_axis_type(::Type{<:SpatialResponseFieldsAll}) = (Axis, (aspect=1,xticksvisib
                                                             leftspinevisible=false,
                                                             bottomspinevisible=false))
 
+get_axis_type(::Type{Observable{T}}) where T<:SpatialResponseFieldsAll = get_axis_type(T)
+
 DPHT.filename(::Type{SpatialResponseFieldsSimple}) = "spatial_response_fields_simple.jld2"
 
 struct GazeResponseFieldsSimple <: AbstractResponseFieldsSimple
