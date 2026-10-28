@@ -874,13 +874,16 @@ function get_n_fields(::Type{T}, celldirs::Vector{String}; redo=false, load_only
         for (k,v) in rfs
             if v !== nothing
                 peak_firing_rate[k] = maximum(filter(isfinite, v.λ))
-                clusters = getfields(v;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+                if v.clusters === nothing
+                    clusters = getfields(v;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+                else
+                    clusters = v.clusters
+                end
                 if length(clusters) > 0
                     nclusters = length(clusters)
                     nfields[k] = nclusters
                     field_size[k] = fill(0.0, nclusters)
-                    for (jj,ii) in enumerate(clusters)
-                        cluster = clusters[ii]
+                    for (jj,cluster) in enumerate(clusters)
                         push!(bb, find_boundary(mm, cluster))
                         field_size[k][jj] = ustrip(sum(measure.(mm[cluster])))
                         Z[cluster] .+= 1.0
