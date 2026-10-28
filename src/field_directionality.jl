@@ -1934,23 +1934,25 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         vm = ViewMapNew(jm, mm;trialidx=trialidx, placebins=spatial_cluster)
         vml = SmoothedMap(vm;method=:laplace, α=0.1, niter=50)
         # smooth?
-        lgv = GridLayout(lg[1,ii])
+        lgv = GridLayout(lg[1,ii], alignmode=Inside())
         #plot_response_fields!(lgv, rf_gaze, get_rate_map(vm);floor_offset=0, hide_ceiling=true, indicate_north=true, show_points=true, colormap=:rain, ceiling_offset=0)
         lscene = LScene(lgv[1,1], show_axis=false, alignmode=Outside())
         push!(lscenes,lscene)
         λ = get_rate_map(vml)
-        plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false)
+        plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false,indicate_north=false)
         if any(isfinite.(λ))
             pl = plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true, colormap=colormap)
             Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=colormap, label="Firing rate [Hz]")
         end
+        #indicate north
+        arrows2d!(lscene, Point3f(0.0, 12.5, 1.0), Vec3f(0.0, 2.5, 0.0), color=:blue,overdraw=true)
         viz!(lscene, bb;color=:black, segmentsize=3.0)
         plot_pillars!(lscene)
         # show the fields
         # do this a bit more cleverly
         #
         for (pq,cq) in zip(viewclusters,ccolor)
-            plotpoints!(lscene,pq,use_maze;pointsize=10, color=cq)
+            plotpoints!(lscene,pq,use_maze;pointsize=10, color=cq,overdraw=true)
         end
         if ii == 2 # reverse
             v = -5*mdt.v[:,idx]
@@ -1959,16 +1961,18 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         end
         arrows2d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v...,0.0);color=acolor, overdraw=true)
         viz!(lscene, bb_spatial, segmentsize=3, color=:black)
-        ax = PolarAxis(lg[1,ii], width=Relative(0.5),height=Relative(0.32),
+        ax = PolarAxis(lg[1,ii], width=Relative(0.5),height=Relative(0.4),
                                  halign=0.8, valign=0.95, clipcolor=:gray75,clip=false)
         # polar always has aspect of 1, so reverse engineering what the width and height should be
         ax.rticksvisible = false 
         ax.rticklabelsvisible = false
-        ax.thetaticksvisible = true
+        ax.thetaticksvisible = false 
         ax.rgridvisible = true
         ax.thetagridvisible = true
         ax.thetaticklabelsvisible = false
-        ax.title = "Head direction"
+        #ax.title = "Head dir"
+        #ax.titlegap = -5
+        text!(lscene, 0.8, 0.925, text="Head dir", space=:relative, align=(:center, :bottom), overdraw=true)
         # the the head direction
         cc = countmap(getindex.(qidx, 3))
         if sum(values(cc)) > 0
