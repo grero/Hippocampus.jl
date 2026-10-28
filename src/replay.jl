@@ -3062,6 +3062,27 @@ function get_maps(jm::JointMap;)
     X,Y
 end
 
+function get_view_occupancy_map(jocc::JointOccupancy)
+    #this is clunky way to get this informaton
+    bmin,bmax = extrema(getindex.(keys(jocc.weight),1))
+    if bmax <=  82
+        nrefinements=0
+    elseif bmax <= 328
+        nrefinements=1
+    elseif bmax <= 1321
+        nrefinements=2
+    elseif bmax <= 5248
+        nrefinements=3
+    end
+    mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements)
+    X = zeros(nelements(mm))
+    for (idx,w) in jocc.weight
+        vidx = getindex(idx,1)
+        X[vidx] += w
+    end
+    X
+end
+
 function get_weight(jm::JointMap)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=jm.dims[2]))
     np = nelements(m_floor)
