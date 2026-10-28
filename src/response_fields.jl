@@ -586,6 +586,24 @@ function get_response_fields(::Type{T},args...;redo=fname->false, do_save=true, 
     do_compute = false
     if !isfile(fname) || redo(fname)
         do_compute=true
+    else
+        obj = load_jld2(T, fname)
+        do_save = false
+        if isa(typeof(obj), JLD2.ReconstructedMutable)
+            args = Any[]
+            for k in fieldnames(T)
+                if k == :clusters && !(k in keys(obj))
+                    push!(args, Int64[][])
+                else
+                    push!(args, obj[k])
+                end
+            end
+            obj = T(args...)
+            if isempty(obj.clusters)
+                obj.clusters .= getfields(obj;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+            end
+            do_save = true
+        end
     end
     if do_compute
         nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
@@ -601,12 +619,12 @@ function get_response_fields(::Type{T},args...;redo=fname->false, do_save=true, 
         peak_threshold = pop!(dd, :peak_threshold, 0.5)
         dd[:dir] = pwd()
         obj = T(get_rate_map(spml), ff, baseline_percentile_threshold, peak_percentile_threshold, peak_threshold,dd)
-        if do_save
-            save_jld2(obj, fname)
+        if T <: SpatialResponseFields
+            obj.clusters .= getfields(obj;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
         end
-    else
-        # load it
-        obj = load_jld2(T, fname)
+    end
+    if do_save
+        save_jld2(obj, fname)
     end
     obj
 end
