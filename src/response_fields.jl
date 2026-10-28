@@ -1284,7 +1284,24 @@ function plot_response_field_density_comparison(place_cells::Vector{String}, vie
     end
 end
 
-function plotmap!(ax::Axis, spm::Observable{<:SpatialResponseFieldsAll};show_pillars=true, show_boundaries=false, kwargs...)
+function plot_response_field_density_comparison_conj(place_and_view_cells::Vector{String}, place_and_view_conjunctive::Vector{String};group_labels::Union{Nothing, Vector{String}}=nothing, niter_place=50, niter_view=25, kwargs...)
+    place_and_view_non_conjuctive = setdiff(place_and_view_cells, place_and_view_conjunctive)
+    with_theme(plot_theme) do
+        fig = Figure(size=(894, 590))
+        lg1 = GridLayout(fig[1,1])
+        plot_response_field_density_comparison!(lg1, SpatialResponseFields, place_and_view_non_conjuctive, place_and_view_conjunctive;niter=niter_place, kwargs...)
+        lg2 = GridLayout(fig[2,1])
+        plot_response_field_density_comparison!(lg2, GazeResponseFields, place_and_view_non_conjuctive,place_and_view_conjunctive;niter=niter_view, kwargs...)
+        link_cameras_lscene(fig)
+
+        Label(lg1[1,1, Top()], "Place-view-non-conjunctive")
+        Label(lg1[1,2, Top()], "Place-view-conjunctive")
+        rowsize!(fig.layout, 1, Relative(0.35))
+        fig
+    end
+end
+
+function plotmap!(ax::Union{Axis, Axis3, LScene}, spm::Observable{T};show_pillars=true, show_boundaries=false, show_points=false, mazecolor::Union{Nothing, Colorant, Symbol}=nothing, kwargs...) where T <:AbstractResponseFields
     color = lift(spm) do _spm
         _spm.λ
     end
