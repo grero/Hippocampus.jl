@@ -914,8 +914,10 @@ function isconjunctive(::Type{T1}, ::Type{T2};kwargs...) where T1 <: SpatialResp
         return false
     end
     pv_threshold = get(kwargs, :pv_threshold, 0.01)
-    A1 = issignificant(pvc;pv_threshold=pv_threshold)
-    A2 = issignificant(vpc;pv_threshold=pv_threshold)
+    min_non_covered_ratio = get(kwargs, :min_non_covered_ratio, 1.0)
+    A1 = issignificant(pvc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    A2 = issignificant(vpc;pv_threshold=pv_threshold,min_non_covered_ratio=min_non_covered_ratio)
+
     return any(A1) || any(A2)
 end
 
