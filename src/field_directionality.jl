@@ -1781,10 +1781,10 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p));
     v = mdt.v
     # FIXME: This doesnt work
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    spatial_clusters = rf_spatial.clusters
     @assert size(v,2) == length(spatial_clusters)
 
-    cm = mean(Point2f.(Tuple.(centroid.(m_floor[rf_spatial.binidx[spatial_clusters[idx]]]))))
+    cm = mean(Point2f.(Tuple.(centroid.(m_floor[spatial_clusters[idx]]))))
 
     λf = mdt.spike_count_forward[idx]./mdt.occupancy_forward[idx]
     λr = mdt.spike_count_reverse[idx]./mdt.occupancy_reverse[idx]
