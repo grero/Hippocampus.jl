@@ -912,7 +912,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         Z,nfields,field_size, field_boundaries, peak_firing_rate, args = JLD2.load(fname, "Z", "nfields","field_size", "field_boundaries","peak_firing_rate", "args")
     else
         rfs = process_dirs(celldirs) do
-            get_response_fields(T, 10_000;load_only=true, kwargs...)
+            get_response_fields(T, 1000;load_only=true, kwargs...)
         end
         kk = filter(k->k[2]!==nothing, rfs)
         mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
