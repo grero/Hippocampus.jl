@@ -1018,9 +1018,15 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
             viz!(ax3, mm;color=:lightgray)
             viz!(ax3, mm;color=Z, showsegments=false, colormap=colormap)
         else
+            if get(kwargs, :do_unfold_maze, false)
+                mmf = unfold_maze(mm)
+                floor_offset = 0.0
+            else
+                mmf = mm
+            end
             ax3 = LScene(lg2[1,1], show_axis=false)
             hide_ceiling = get(kwargs, :hide_ceiling, true)
-            plotmesh!(ax3, mm;color=Z, showsegments=true, indicate_north=false, segmentcolor=:lightgray, floor_offset=floor_offset, ceiling_offset=10, colormap=colormap, hide_ceiling=hide_ceiling)
+            plotmesh!(ax3, mmf;color=Z, showsegments=true, indicate_north=false, segmentcolor=get(kwargs, :segmentcolor, :lightgray), segmentsize=get(kwargs, :segmentsize, 1.0), floor_offset=floor_offset, ceiling_offset=10, colormap=colormap, hide_ceiling=hide_ceiling)
         end
         # indicate where the pillars are
         plot_pillars!(ax3;floor_offset=floor_offset)
