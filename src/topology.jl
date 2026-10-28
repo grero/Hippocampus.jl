@@ -1134,7 +1134,7 @@ function plotpoints!(lscene, pidx::AbstractVector{<:Integer}, mm::UnfoldedMaze;k
     viz!(lscene, mqs;kwargs...)
 end
 
-function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs...)
+function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,indicate_north=false, ceiling_offset=0.0, floor_offset=0.0, kwargs...)
     tqcolor = get(kwargs, :color,:lightgray) 
     if !isa(tqcolor,Observable)
         tcolor = Observable(tqcolor)
@@ -1211,6 +1211,9 @@ function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs
             continue
         end
         viz!(lscene, v;color=use_color[k],alpha=use_alpha[k], colorrange=cr, kwargs...)
+    end
+    if indicate_north
+        arrows2d!(lscene, Point3f(0.0, 12.5, 1.0), Vec3f(0.0, 5.0, 0.0), color=:red, overdraw=true)
     end
 end
 
