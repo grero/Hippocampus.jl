@@ -1992,7 +1992,7 @@ function plot_directional_view!(lg, celldir::String,idx;niter_spatial=50, niter_
     plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm, idx;kwargs...)
 end
 
-function plot_directional_view(args...;kwargs...)
+function plot_directional_view(args...;plot_theme=theme_minimal(), kwargs...)
     with_theme(plot_theme) do
         fig = Figure(size=(574,275))
         lg = GridLayout(fig[1,1])
