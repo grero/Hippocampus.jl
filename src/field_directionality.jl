@@ -2001,3 +2001,63 @@ function plot_directional_view(args...;plot_theme=theme_minimal(), kwargs...)
         fig
     end
 end
+
+function plot_direction_view_summary(;plot_theme=theme_minimal())
+    place_cells_width_directed_fields = readlines(open(joinpath(@__DIR__, "..", "data","place_cells_with_oriented_fields.txt")))
+    view_cells = readlines(open(joinpath(@__DIR__, "..", "data","view_cells.txt")))
+    directional_view_cells = intersect(view_cells, place_cells_width_directed_fields)
+    fname = joinpath(@__DIR__, "data", "direction_view_summary_data.jld2")
+    if isfile(fname)
+        vv, poster_overlaps = JLD2.load(fname, "vv","poster_overlaps")
+    else
+        occlusion_data = map(directional_view_cells) do celldir 
+        try
+            Hippocampus.compute_place_direction_view(celldir;only_full_reversal=true, nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter_spatial=50, niter_gaze=25, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, nshuffles=1000)
+        catch ee
+                @show celldir
+                return zeros(0,0), Symbol[]
+            end
+        end
+        qq_poster_view = map(directional_view_cells) do celldir
+            qq = cd(celldir) do
+                Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=25, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+            end
+            qq
+        end
+        vv,poster_overlaps = summarize_occlusion_data(occlusion_data, qq_poster_view)
+        JLD2.save(fname, Dict("vv"=>vv, "poster_overlaps"=>poster_overlaps))
+    end
+    cidx = findall(vv.>0) 
+
+    mx = maximum(poster_overlaps)+1
+    Z = zeros(mx,mx)
+    for (i1,i2) in eachcol(poster_overlaps)
+        Z[i2+1,i1+1] += 1
+    end
+    Z[1,1] = NaN # exclude (0,0)
+    with_theme(plot_theme) do
+        fig = Figure(size=(590,280))
+        lg1 = GridLayout(fig[1,1])
+        plot_directional_view!(lg1, directional_view_cells[cidx[1]],1;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter_spatial=50, niter_gaze=25, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, nshuffles=1000, do_unfold_maze=true,colormap=:rain)
+        Label(lg1[1,1, TopLeft()], "A")
+        Label(lg1[1,2,TopLeft()], "B")
+        lg2 = GridLayout(fig[1,2], alignmode=Inside())
+        Label(lg2[1,1,TopLeft()], "C")
+        ax = Axis(lg2[3,1])
+        cc = countmap(poster_overlaps[2,:])
+        barplot!(ax, collect(keys(cc)), collect(values(cc)), color=:gray)
+        ax.xlabel = "Num non-occluded"
+        ax.ylabel = "Count"
+        ax2 = Axis(lg2[2,1])
+        hh = heatmap!(ax2, Z;colormap=:dense)
+        Colorbar(lg2[1,1],hh, label="Count", vertical=false, ticklabelpad=1.5)
+        ax2.xticks = (1:mx, string.([0:mx-1;]))
+        ax2.xticklabelsvisible = false
+        ax2.yticks = (1:mx, string.([0:mx-1;]))
+        ax2.ylabel = "Poster\noverlapping"
+        rowsize!(lg2, 2, Aspect(1, 1))
+        rowgap!(lg2, 5)
+        colsize!(fig.layout, 2, 70)
+        fig
+    end
+end
