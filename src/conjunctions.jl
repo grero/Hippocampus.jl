@@ -698,13 +698,15 @@ function PlaceViewConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=
     nshuffles = get(kwargs, :nshuffles, 10_000)
     if do_compute
         jm = JointMap(;kwargs...)
-        rf_spatial = get_response_fields(T1,nshuffles;kwargs...)
+        niter_place = get(kwargs, :niter_place, 50)
+        rf_spatial = get_response_fields(T1,nshuffles;niter=niter_place, kwargs...)
         if isa(rf_spatial, JLD2.ReconstructedMutable)
-            rf_spatial = get_response_fields(T1,nshuffles;redo=fname->true, kwargs...)
+            rf_spatial = get_response_fields(T1,nshuffles;redo=fname->true, niter=niter_place, kwargs...)
         end
-        rf_gaze = get_response_fields(T2,nshuffles;kwargs...)
+        niter_view = get(kwargs, :niter_view, 25)
+        rf_gaze = get_response_fields(T2,nshuffles;niter=niter_view, kwargs...)
         if isa(rf_gaze, JLD2.ReconstructedMutable)
-            rf_gaze = get_response_fields(T2,nshuffles;redo=fname->true, kwargs...)
+            rf_gaze = get_response_fields(T2,nshuffles;redo=fname->true, niter=niter_view, kwargs...)
         end
         λ_covered, λ_sub,λ_infield, λ_outfield,matched_idx = conjunctions2(jm, rf_gaze, rf_spatial, 1)
         X = PlaceViewConjunction{T1,T2}(rf_spatial, rf_gaze, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
@@ -741,13 +743,15 @@ function ViewPlaceConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=
     end
     if do_compute
         jm = JointMap(;kwargs...)
-        rf_spatial = get_response_fields(T2,10_000;kwargs...)
+        niter_place = get(kwargs, :niter_place, 50)
+        rf_spatial = get_response_fields(T2,1_000;niter=niter_place, kwargs...)
         if isa(rf_spatial, JLD2.ReconstructedMutable)
-            rf_spatial = get_response_fields(T2,10_000;redo=fname->true, kwargs...)
+            rf_spatial = get_response_fields(T2,1_000;redo=fname->true, niter=niter_place,kwargs...)
         end
-        rf_gaze = get_response_fields(T1,10_000;kwargs...)
+        niter_view = get(kwargs, :niter_view, 25)
+        rf_gaze = get_response_fields(T1,1_000;niter=niter_view, kwargs...)
         if isa(rf_gaze, JLD2.ReconstructedMutable)
-            rf_gaze = get_response_fields(T1,10_000;redo=fname->true, kwargs...)
+            rf_gaze = get_response_fields(T1,1_000;redo=fname->true, niter=niter_view, kwargs...)
         end
         λ_covered, λ_sub,λ_infield, λ_outfield, matched_idx = conjunctions2(jm, rf_gaze, rf_spatial,2)
         X = ViewPlaceConjunction{T1,T2}(rf_gaze, rf_spatial, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
