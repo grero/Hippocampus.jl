@@ -719,13 +719,16 @@ function plotmap!(ax, spm::AbstractSpatialMap;show_pillars=true, kwargs...)
     end
 end
 
-function plotmap!(ax, spm::Observable{<:AbstractSpatialMap};show_pillars=true, kwargs...)
+function plotmap!(ax, spm::Observable{<:AbstractSpatialMap};show_pillars=true, mazecolor::Union{Nothing,Symbol,Colorant}=nothing, kwargs...)
     color = lift(spm) do _spm
         λ=get_rate_map(_spm)
         λ
     end
     if show_pillars
         plot_pillars!(ax)
+    end
+    if !isnothing(mazecolor)
+        viz!(ax, spm[].mm;color=mazecolor,kwargs...)
     end
     viz!(ax, spm[].mm;color=color,kwargs...)
 end
