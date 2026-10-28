@@ -1002,13 +1002,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         hist_color = [fill(:gray, length(hh_pp.weights));fill(:black, length(hh_np.weights))]
         hist_dodge = [fill(1, length(hh_pp.weights));fill(2, length(hh_np.weights))]
         barplot!(axf, hist_bins, hist_weight, dodge=hist_dodge, color=hist_color, direction=:x)
-        #hist!(axf, yy_pp, bins=xx_pp, normalization=:pdf, color=:gray, direction=:x)
-        #scatter!(axf, hh_pp.weights, hh_pp.edges[1][1:end-1], color=:gray)
-        #barplot!(axf, hh_pp.edges[1][1:end-1], hh_pp.weights, color=:gray, direction=:x)
-        #lines!(axf, kde_pp.density, kde_pp.x, color=:gray)
-        #hist!(axf, yy_np, bins=xx_np, normalization=:pdf, color=:black, direction=:x)
-        #barplot!(axf,hh_np.edges[1][1:end-1], hh_np.weights, color=:black, direction=:x, width=0.7*Δx)
-        #lines!(axf, kde_np.density, kde_np.x, color=:black)
+
         axf.ylabel = "Peak firing rate [Hz]"
         axf.xticklabelsvisible = false
         axf.xticksvisible = true 
