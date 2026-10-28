@@ -1324,27 +1324,42 @@ function plotmap!(ax::Union{Axis, Axis3, LScene}, spm::Observable{T};show_pillar
         plotmesh!(ax, mm[];color=color, kwargs...)
     end
     ccolors = get_colors(pl.colormap[])
-    if show_boundaries
+    if show_boundaries || show_points
+        dd = embeddim(mm[])
         # to get this work nicely with observables, convert to a series of linesegments
-        ls = Observable(Tuple{Point2f, Point2f}[])
+        ls = Observable(Tuple{Point{dd,Float32}, Point{dd,Float32}}[])
         cc = Observable(Colorant[])
+        pq = Observable(Point{dd, Float32}[])
+        pc = Observable(Colorant[])
+        pa = Observable(Point{dd, Float32}[])
         on(spm) do rf
-            bb = find_boundaries(rf)
+            bb = find_boundaries(mm[], rf.clusters)
             #Observables.clear(ls)
             #Observables.clear(cc)
             ls.val = Tuple{Point2f, Point2f}[]
             cc.val = Colorant[]
+            pq.val = Point{dd,Float32}[]
+            pc.val = Colorant[]
             for (j,_bb) in enumerate(bb)
                 _color = ccolors[mod(j, length((ccolors)))]
                 for (p1,p2) in Meshes.vertices.(_bb)
                     push!(cc[], to_color(_color))
-                    push!(ls[], (Point2f(Tuple(p1)...), Point2f(Tuple(p2)...)))
+                    push!(ls[], (Point{dd,Float32}(Tuple(p1)...), Point{dd,Float32}(Tuple(p2)...)))
                 end
             end
+            for (cc,cluster) in zip(ccolors, rf.clusters)
+                append!(pq[], Point{dd,Float32}.(Tuple.(centroid.(mm[][cluster]))))
+                append!(pc[], [to_color(cc) for _ in 1:length(cluster)])
+            end
+            pa[] = Point{dd,Float32}.(Tuple.(centroid.(mm[][rf.binidx])))
             notify(ls)
             notify(cc)
+            notify(pq)
+            notify(pc)
         end
-        linesegments!(ax, ls, color=cc)
+        linesegments!(ax, ls, color=cc, visible=show_boundaries)
+        scatter!(ax, pa, color=:gray25, visible=show_points)
+        scatter!(ax, pq, color=pc, visible=show_points)
     end
     pl
 end
