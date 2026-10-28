@@ -1266,13 +1266,13 @@ function plot_response_field_density_comparison(::Type{T}, args...;kwargs...) wh
     end
 end
 
-function plot_response_field_density_comparison(place_cells::Vector{String}, view_cells::Vector{String};group_labels::Union{Nothing, Vector{String}}=nothing, kwargs...)
+function plot_response_field_density_comparison(place_cells::Vector{String}, view_cells::Vector{String};group_labels::Union{Nothing, Vector{String}}=nothing, niter_place=50, niter_view=25, kwargs...)
     with_theme(plot_theme) do
         fig = Figure(size=(894, 590))
         lg1 = GridLayout(fig[1,1])
-        plot_response_field_density_comparison!(lg1, SpatialResponseFields, setdiff(place_cells, view_cells),intersect(place_cells, view_cells);kwargs...)
+        plot_response_field_density_comparison!(lg1, SpatialResponseFields, setdiff(place_cells, view_cells),intersect(place_cells, view_cells);niter=niter_place, kwargs...)
         lg2 = GridLayout(fig[2,1])
-        plot_response_field_density_comparison!(lg2, GazeResponseFields, setdiff(view_cells, place_cells),intersect(place_cells, view_cells);kwargs...)
+        plot_response_field_density_comparison!(lg2, GazeResponseFields, setdiff(view_cells, place_cells),intersect(place_cells, view_cells);niter=niter_view, kwargs...)
         link_cameras_lscene(fig)
 
         Label(lg1[1,1, Top()], "Only place")
