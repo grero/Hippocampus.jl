@@ -1075,6 +1075,10 @@ function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=t
     if show_points || show_boundaries
         for (cc,cluster) in zip(ccolors[1:length(clusters)],clusters)
             pidx = cluster
+            if do_unfold_maze && show_points
+                plotpoints!(lscene, pidx, mmf;color=cc, overdraw=true)
+                continue
+            end
             cpoints = centroid.(mm[pidx])
             floor_points = filter(Meshes.intersects(m_floor), cpoints)
             ceil_points = filter(Meshes.intersects(m_ceiling), cpoints)
