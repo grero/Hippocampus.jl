@@ -931,10 +931,10 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
                     clusters = v.clusters
                 end
                 if length(clusters) > 0
-                    nclusters = get_num_fields(v)
+                    nclusters = length.(clusters)
                     threshold = dropdims(sum(nclusters.>0,dims=2),dims=2)
                     cluster_idx = findall(threshold .<= 0.01)
-                    nfields[k] = length(cluster_idx)
+                    nfields[k] = clusters
                     field_size[k] = fill(0.0, length(cluster_idx))
                     for (jj,ii) in enumerate(cluster_idx)
                         cluster = clusters[ii]
