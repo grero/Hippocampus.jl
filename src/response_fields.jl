@@ -925,7 +925,11 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         for (k,v) in rfs
             if v !== nothing
                 peak_firing_rate[k] = maximum(filter(isfinite, v.λ))
-                clusters = merge_fields(v)
+                if v.clusters === nothing
+                    clusters = merge_fields(v)
+                else
+                    clusters = v.clusters
+                end
                 if length(clusters) > 0
                     nclusters = get_num_fields(v)
                     threshold = dropdims(sum(nclusters.>0,dims=2),dims=2)
