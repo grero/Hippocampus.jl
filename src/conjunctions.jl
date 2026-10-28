@@ -142,9 +142,21 @@ function Base.show(io::IO, pvc::ViewPlaceConjunction)
 end
 
 
-function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05)
+function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05, min_non_covered_ratio=1.0)
     pv = fill(false, size(pvc.λ_covered)[1:2]...)
     for ii in CartesianIndices(pv) 
+        # check that we have enough non-covered indices to faciliate a meaningful comparison
+        pidx = getindex(ii,1)
+        vidx = getindex(ii,2)
+        if isa(pvc, PlaceViewConjunction)
+            covered_idx = pvc.spatial_fields.clusters[pidx]
+        else
+            covered_idx = pvc.view_fields.clusters[vidx]
+        end
+        if length(pvc.non_covered_idx[ii])  < min_non_covered_ratio*length(covered_idx)
+            # non-significant
+            continue
+        end
         vv = filter(isfinite, pvc.λ_sub[ii,:])
         if !isempty(vv)
             qt = percentile(vv, 100*(1-pv_threshold))
