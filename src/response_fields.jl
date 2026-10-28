@@ -530,6 +530,10 @@ end
 function find_boundaries(rf::T) where T <: AbstractResponseFields
     mm = get_mesh(T, rf.args[:nrefinements])
     cidx = getfields(rf)
+    find_boundaries(mm, cidx)
+end
+
+function find_boundaries(mm::Domain, cidx::Vector{<:Vector{<:Integer}})
     boundaries = map(cidx) do _cidx
        find_boundary(mm, _cidx)
     end
