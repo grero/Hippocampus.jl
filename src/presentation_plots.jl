@@ -374,7 +374,7 @@ end
 
 function sample_map(pvc::Hippocampus.ViewPlaceConjunction, vidx::Integer, pidx::Integer;nruns=200)
     fidx = findall(isfinite.(pvc.λ_infield[:,pidx]))
-    qidx = Hippocampus.getfields(pvc.view_fields; cluster_threshold=0.001)[vidx]
+    qidx = pvc.view_fields.clusters[vidx]
 
     μ = mean(pvc.view_fields.λ[qidx])
     μc = mean(filter(isfinite, pvc.λ_infield[qidx,pidx]))
