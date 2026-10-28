@@ -1926,6 +1926,7 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
     # get distribution over 
     colormap = get(kwargs, :colormap, :viridis)
     ccolor = get_colors(colormap)
+    lscenes = Any[]
     for (ii,(trialidx, acolor)) in enumerate(zip([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]], arrow_color))
         # get all time points
         qidx = filter(k->(k[2] in spatial_cluster)&&(k[4] in trialidx), jm.index) 
@@ -1935,7 +1936,8 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         # smooth?
         lgv = GridLayout(lg[1,ii])
         #plot_response_fields!(lgv, rf_gaze, get_rate_map(vm);floor_offset=0, hide_ceiling=true, indicate_north=true, show_points=true, colormap=:rain, ceiling_offset=0)
-        lscene = LScene(lgv[1,1], show_axis=false)
+        lscene = LScene(lgv[1,1], show_axis=false, alignmode=Outside())
+        push!(lscenes,lscene)
         λ = get_rate_map(vml)
         plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false)
         if any(isfinite.(λ))
@@ -1974,6 +1976,7 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
             barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
         end
     end
+    link_cameras_lscene(lscenes)
     #Label(lg[1,2,Top()], "Head direction")
     #colsize!(lg, 2, Aspect(1,1))
 end
