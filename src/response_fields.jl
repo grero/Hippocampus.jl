@@ -1031,7 +1031,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         # indicate where the pillars are
         plot_pillars!(ax3;floor_offset=floor_offset)
         Label(lg2[1,1,TopLeft()], labels[4])
-        Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, ticklabelsvisible=false, label="Spatial density", colormap=colormap)
+        Colorbar(lg2[1,2],colorrange=extrema(filter(isfinite, Z)), ticksvisible=true, ticklabelsvisible=true, label="Number of fields", colormap=colormap)
         #rowsize!(lg, 1, Relative(0.4))
         colsize!(lg, 1, Relative(0.2))
         colsize!(lg, 2, Relative(0.2))
