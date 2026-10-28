@@ -734,9 +734,12 @@ function plotmap!(ax, spm::Observable{<:AbstractSpatialMap};show_pillars=true, m
 end
 
 function plotmap!(lg::GridLayout, spm;kwargs...)
-    ax = Axis(lg[1,1],aspect=1)
-    hidedecorations!(ax)
-    hidespines!(ax)
+    axtype, axargs = get_axis_type(typeof(spm))
+    ax = axtype(lg[1,1];axargs...)
+    if axtype <: Axis
+        hidedecorations!(ax)
+        hidespines!(ax)
+    end
     pl = plotmap!(ax, spm;kwargs...)
     colorrange = map(pl.color) do pl_color
         extrema(filter(isfinite, pl_color))
