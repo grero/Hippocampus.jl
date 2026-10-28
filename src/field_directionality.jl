@@ -1776,7 +1776,7 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     end
 end
 
-function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, label=["A","B"], kwargs...)
+function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, label=["A","B"], use_boxplot=true, kwargs...)
     nrefinements = rf_spatial.args[:nrefinements] 
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p));
     v = mdt.v
@@ -1820,7 +1820,11 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     lg4 = GridLayout(lg[1,5])
     Label(lg[1,5,TopLeft()], label[2])
     ax4 = Axis(lg4[1,1])
-    boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray, show_outliers=false, show_notch=true)
+    if use_boxplot
+        boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray, show_outliers=false, show_notch=true)
+    else
+        violin!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray, show_median=true)
+    end
     scatter!(ax4, [1.0], [mean(λf) - mean(λr)], color=ccolors[idx])
     ax4.bottomspinevisible = false
     ax4.xticklabelsvisible = false
