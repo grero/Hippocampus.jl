@@ -861,7 +861,7 @@ function get_n_fields(::Type{T}, celldirs::Vector{String}; redo=false, load_only
         qdata = JLD2.load(fname)
     else
         rfs = process_dirs(celldirs) do
-            get_response_fields(T, get(kwargs, :nshuffles, 10_000);load_only=load_only, kwargs...)
+            get_response_fields(T, get(kwargs, :nshuffles, 1000);load_only=load_only, kwargs...)
         end
         kk = filter(k->k[2]!==nothing, rfs)
         mm = get_mesh(T,rfs[first(keys(kk))].args[:nrefinements])
