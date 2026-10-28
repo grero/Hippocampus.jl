@@ -1308,11 +1308,21 @@ function plotmap!(ax::Union{Axis, Axis3, LScene}, spm::Observable{T};show_pillar
     if show_pillars
         plot_pillars!(ax)
     end
-    m_floor = lift(spm) do _spm
+    mm = lift(spm) do _spm
         nrefinements = _spm.args[:nrefinements]
-        Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        get_mesh(T, nrefinements)
     end
-    pl = viz!(ax, m_floor;color=color,kwargs...)
+    pl = if T <: SpatialResponseFieldsAll
+        if !isnothing(mazecolor)
+            viz!(ax, spm[].mm;color=mazecolor,kwargs...)
+        end
+        viz!(ax, mm;color=color,kwargs...)
+    else
+        if !isnothing(mazecolor)
+            plotmesh!(ax, mm[];color=mazecolor,kwargs...)
+        end
+        plotmesh!(ax, mm[];color=color, kwargs...)
+    end
     ccolors = get_colors(pl.colormap[])
     if show_boundaries
         # to get this work nicely with observables, convert to a series of linesegments
