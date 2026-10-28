@@ -954,7 +954,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
     qdata = get_n_fields(T, celldirs; redo=redo, kwargs...)
     Z,nfields,field_size, field_boundaries, peak_firing_rate, args = [qdata[k] for k in  ["Z", "nfields","field_size", "field_boundaries","peak_firing_rate", "args"]]
     # normalize to density
-    Z ./= sum(filter(isfinite, Z))
+    #Z ./= sum(filter(isfinite, Z))
     mm = get_mesh(T,args[:nrefinements])
     cc = countmap(values(nfields))
     non_place_cells = collect(keys(filter(k->k[2]==0, nfields)))
