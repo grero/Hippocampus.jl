@@ -194,8 +194,8 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
         elseif isnothing(obj.clusters)
             # TODO: This doesn't work, obj.clusters can actually be empty
             _clusters = getfields(obj;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
-            resize!(obj.clusters, length(_clusters))
-            obj.clusters .= _clusters
+            obj2 = T(obj.λ,obj.binidx, obj.gamma_params, _clusters, obj.args)
+            obj = obj2
             do_save = true
             do_compute = false
         else
@@ -291,8 +291,10 @@ function get_response_fields(::Type{T}, nshuffles::Integer;nrefinements=(p=3,g=2
             end
         end
         binidx = findall(exceeds)
-        obj = T(λ,binidx, gamma_params, Int64[][], args)
-        obj.clusters = getfield(obj;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+        obj = T(λ,binidx, gamma_params, Vector{Int64}[], args)
+        _clusters = getfields(obj;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+        resize!(obj.clusters, length(_clusters))
+        obj.clusters .= _clusters
     end
     if do_save
         @show "Saving..."
