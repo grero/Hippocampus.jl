@@ -1313,7 +1313,6 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
         end
 
         tcolor[] = tcolor.val
-        @show keys(use_alpha)
         pl = viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
         if !hide_floor
             viz!(lscene, m_floor2;color=use_color[:floor],alpha=use_alpha[:floor], colorrange=cr, kwargs...)
