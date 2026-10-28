@@ -96,6 +96,7 @@ end
 GazeResponseFieldsAll = Union{GazeResponseFields, GazeResponseFieldsSimple}
 
 get_axis_type(::Type{<:GazeResponseFieldsAll}) = (LScene, (show_axis=false,))
+get_axis_type(::Type{<:Observable{<:GazeResponseFieldsAll}}) = (LScene, (show_axis=false,))
 
 DPHT.filename(::Type{GazeResponseFields}) = "gaze_response_fields.jld2"
 get_mesh(::Type{GazeResponseFields},nrefinements::NamedTuple) = get_maze_mesh(;nrefinements=nrefinements.g)
