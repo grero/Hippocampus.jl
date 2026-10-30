@@ -296,6 +296,26 @@ end
     @test fname == "joint_map_4944c465.jld2"
     fname = Hippocampus.DPHT.filename(Hippocampus.JointMap;min_place_obs=6)
     @test fname == "joint_map_70397042.jld2"
+
+    weight = Float64.(rand(0:5, 20))
+    occupancy = exp.(randn(20))
+    index = [CartesianIndex(rand(1:1312), rand(1:1344), rand(1:24), i) for i in 1:20]
+    dims = [2,3,1]
+    jm1 = Hippocampus.JointMap(weight, occupancy, index, dims)
+    weight2 = Float64.(rand(0:5, 20))
+    jm2= Hippocampus.JointMap(weight2, occupancy, index, dims)
+    
+    pjm = Hippocampus.PopulationJointMap(jm1, jm2)
+    @test Hippocampus.numcells(pjm) == 2
+    jm1_test = Hippocampus.JointMap(pjm, 1)
+    @test jm1_test.weight ≈ jm1.weight
+    @test jm1_test.occupancy ≈ jm1.occupancy
+    @test jm1_test.index == jm1.index
+
+    jm2_test = Hippocampus.JointMap(pjm,2)
+    @test jm2_test.weight ≈ jm2.weight
+    @test jm2_test.occupancy ≈ jm2.occupancy
+    @test jm2_test.index == jm2.index
 end
 
 @testset "Raytrace" begin
