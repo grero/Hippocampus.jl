@@ -2737,7 +2737,7 @@ function PopulationJointMap(pjm::PopulationJointMap{T}, jm2::JointMap{T}) where 
     for idx in jm2.index
         push!(index, CartesianIndex(idx, k))
     end
-    PopulationJointMap(weight, occupancy, index, pjm.dims)
+    PopulationJointMap{T}(weight, occupancy, index, pjm.dims)
 end
 
 numcells(pjm::PopulationJointMap) = maximum(getindex.(pjm.index, 5))
