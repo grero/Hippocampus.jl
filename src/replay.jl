@@ -2706,6 +2706,42 @@ struct JointMap{T<:Real} <: AbstractMap
     dims::Vector{Int64}
 end
 
+struct PopulationJointMap{T<:Real} <: AbstractMap
+    weight::Vector{T}
+    occupancy::Vector{T}
+    index::Vector{CartesianIndex{5}}
+    dims::Vector{Int64}
+end
+
+function PopulationJointMap(jm1::JointMap{T}, jm2::JointMap{T}) where T <: Real
+    dims = jm1.dims
+    jm2.dims == dims || error("The maps should have the same underyling dimension.")
+    weight = [jm1.weight;jm2.weight] 
+    occupancy = [jm1.occupancy;jm2.occupancy]
+    index = CartesianIndex{5}[]
+    for (ii,jm) in enumerate((jm1,jm2))
+        for idx in jm.index
+            push!(index, CartesianIndex(idx,ii))
+        end
+    end
+    PopulationJointMap(weight, occupancy, index, dims)
+end
+
+function PopulationJointMap(pjm::PopulationJointMap{T}, jm2::JointMap{T}) where T <: Real
+    pjm.dims == jm2.dims || error("The maps should have the same underyling dimension.")
+    weight = [pjm.weight;jm2.weight]
+    occupancy = [pjm.occupancy;jm2.occupancy]
+    index = copy(pjm.index)
+    ncells = maximum(getindex.(index,5))
+    k = ncells+1
+    for idx in jm2.index
+        push!(index, CartesianIndex(idx, k))
+    end
+    PopulationJointMap(weight, occupancy, index, pjm.dims)
+end
+
+numcells(pjm::PopulationJointMap) = maximum(getindex.(pjm.index, 5))
+
 function Base.merge(jm1::JointMap{T}, jm2::JointMap{T}) where T <: Real
     @assert jm1.dims == jm2.dims
     # the last element of each `index` is the trial index
