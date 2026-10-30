@@ -2742,6 +2742,15 @@ end
 
 numcells(pjm::PopulationJointMap) = maximum(getindex.(pjm.index, 5))
 
+function JointMap(pjm::PopulationJointMap{T}, cellidx::Integer) where T <: Real
+    cidx = getindex.(pjm.index, 5) .== cellidx
+    weight = pjm.weight[cidx]
+    occupancy = pjm.occupancy[cidx]
+    index = [CartesianIndex(idx.I[1:4]) for idx in pjm.index[cidx]]
+    dims = pjm.dims
+    JointMap{T}(weight, occupancy, index,dims)
+end
+
 function Base.merge(jm1::JointMap{T}, jm2::JointMap{T}) where T <: Real
     @assert jm1.dims == jm2.dims
     # the last element of each `index` is the trial index
