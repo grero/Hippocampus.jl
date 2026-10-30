@@ -36,10 +36,18 @@ end
                     0 0 0 1 1 1]
     #each of the corners has 3 neighbours
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    @test nelements(mm) == 1312
+
     # normals
     nn = Hippocampus.get_normal(mm[1])
     @test length(nn) == 3
     @test nn ≈ [0.0, 0.0, 1.0]
+
+    # floor
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
+    @test nelements(m_floor) == 1344
+    # check that the area is that of a 25 × 25 floor minus the 4 pillars
+    @test Meshes.ustrip(measure(m_floor)) == 25*25 - 4*5*5
 
     # unfolding
     unfolded_maze = Hippocampus.unfold_maze(mm)
