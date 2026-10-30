@@ -316,6 +316,9 @@ end
     @test jm2_test.weight ≈ jm2.weight
     @test jm2_test.occupancy ≈ jm2.occupancy
     @test jm2_test.index == jm2.index
+
+    pjm2 = Hippocampus.PopulationJointMap(pjm, jm2)
+    @test Hippocampus.numcells(pjm2) == 3
 end
 
 @testset "Raytrace" begin
