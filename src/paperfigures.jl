@@ -35,11 +35,17 @@ function get_sessions()
     sessiondirs = unique(Hippocampus.DPHT.get_level_path.("session", allcelldirs))
 end
 
-function get_conjunctive_cells(place_cells::Vector{String}, view_cells::Vector{String})
+function get_conjunctive_cells(place_cells::Vector{String}, view_cells::Vector{String};redo=false, pv_threshold=0.01,min_non_covered_ratio=1.0)
     place_and_view_cells = intersect(place_cells, view_cells)
     h = zero(UInt32)
     for celldir in place_and_view_cells
         h = CRC32c.crc32c(celldir, h)
+    end
+    if pv_threshold != 0.01
+        h = CRC32c.crc32c(string(:pv_threshold=>pv_threshold),h)
+    end
+    if min_non_covered_ratio > 0
+        h = CRC32c.crc32c(string(:min_non_covered_ratio=>min_non_covered_ratio),h)
     end
     hs = string(h, base=16)
     fname = joinpath(@__DIR__, "..", "data", "place_view_conjunctive_cells_$(hs).txt")
@@ -48,7 +54,7 @@ function get_conjunctive_cells(place_cells::Vector{String}, view_cells::Vector{S
     else
         res_pvc = map(place_and_view_cells) do celldir
         cd(celldir) do
-                Hippocampus.isconjunctive(Hippocampus.SpatialResponseFields, Hippocampus.GazeResponseFields;nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_view_duration=0.02, min_place_obs=5, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001, trial_start=2, nshuffles=1_000)
+                Hippocampus.isconjunctive(Hippocampus.SpatialResponseFields, Hippocampus.GazeResponseFields;nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter_place=50, niter_view=25, min_view_obs=5, min_view_duration=0.02, min_place_obs=5, min_place_duration=0.05, min_speed=1.0, pv_threshold=pv_threshold, trial_start=2, nshuffles=1_000, min_non_covered_ratio=min_non_covered_ratio)
             end
         end
         celldirs = place_and_view_cells[res_pvc]
