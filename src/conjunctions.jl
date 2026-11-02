@@ -414,8 +414,8 @@ Compute the mean firing rate when location was within `placeidx` and the view wa
 Compare to surrogates where the view was not in `view idx` by seelcting random views elicited by the same place idx, but from
 outside the view field.
 """
-# TODO: Test this!
 function conjunctions2(jm::JointMap, viewidx::AbstractVector{<:Integer}, placeidx::AbstractVector{<:Integer}, condition_on::Integer=1)
+# TODO: Test this!
     # get all view indices experienecd with placeidx
     matchindex(k1,k2) = condition_on == 1 ? (getindex(k1,2)==getindex(k2,2)) : (getindex(k1,1)==getindex(k2,1))
     ffp = in(placeidx)
