@@ -601,7 +601,7 @@ function plot_simpler_place_cells(;figsize=(600,600),_plot_theme=plot_theme)
         end
     end
 
-    with_theme(_plot_theme) do
+    with_theme(_plot_theme()) do
         fig = Figure(size=figsize)
         ax1 = Axis(fig[1,1])
 
