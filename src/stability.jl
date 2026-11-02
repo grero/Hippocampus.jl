@@ -1,4 +1,5 @@
 using OptimalTransport
+using KernelDensity
 
 struct SpatialMapStability
     λ1::Vector{Float64}
