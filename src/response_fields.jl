@@ -1087,6 +1087,16 @@ function plot_response_fields(rf::SpatialResponseFields,args...;_plot_theme=plot
     end
 end
 
+
+function plot_response_fields(args...;_plot_theme=plot_theme, kwargs...)
+    with_theme(_plot_theme) do
+        fig = Figure(size=(600,500))
+        lg = GridLayout(fig[1,1])
+        lscene = plot_response_fields!(lg, args...;kwargs...)
+        fig
+    end
+end
+
 function plot_response_fields!(lg::GridLayout, rf::T, λ=rf.λ;filter_spurious=true, show_colorbar=true, show_points=true, label="Firing rate [Hz]",colorbar_below=false,  show_boundaries=false, segmentsize=2.0,showsegments=true, do_unfold_maze=false, kwargs...) where T <: GazeResponseFieldsAll
     mm = get_mesh(T, get(rf.args,:nrefinements, (p=3,g=2)))
     m_floor, m_ceiling, m_middle = get_floor_and_ceiling(mm)
