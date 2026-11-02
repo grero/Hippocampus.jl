@@ -1173,7 +1173,7 @@ function plot_stability_summary!(lg, ::Type{T}, celldirs::Vector{String};kwargs.
 
     ax = Axis(lg[1,1,])
     vms_sig = vm_stability_value[vm_stability_sig]
-    @show sum(vm_stability_sig)
+    @debug sum(vm_stability_sig) length(vm_stability_sig)
     l,m,h = percentile(vms_sig, [10,50,90])
     x0,idx0 = findmin(x->norm(x-l), vms_sig)
     x1,idx1 = findmin(x->norm(x-m), vms_sig)
@@ -1215,8 +1215,8 @@ function plot_stability_summary!(lg, ::Type{T}, celldirs::Vector{String};kwargs.
         _lg1 = GridLayout(_lg[1,1])
         _lg2 = GridLayout(_lg[2,1])
         cr = extrema(filter(isfinite, [rf1.λ;rf2.λ]))
-        ax1 = plot_response_fields!(_lg1, rf1;colorrange=cr, colormap=colormap, show_colorbar=false, mazecolor=nothing,floor_offset=-20) 
-        ax2 =plot_response_fields!(_lg2, rf2;colorrange=cr, colormap=colormap, show_colorbar=false, mazecolor=nothing, floor_offset=-20) 
+        ax1 = plot_response_fields!(_lg1, rf1;colorrange=cr, colormap=colormap, show_colorbar=false, floor_offset=-20) 
+        ax2 =plot_response_fields!(_lg2, rf2;colorrange=cr, colormap=colormap, show_colorbar=false, floor_offset=-20) 
 
         rf = cd(celldirs[idx]) do
             rf = get_response_fields(Trf, 1000;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, use_trials=:all)
