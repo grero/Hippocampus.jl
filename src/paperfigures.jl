@@ -543,11 +543,11 @@ function plot_trajectory_time(args...;kwargs...)
     end
 end
 
-function plot_directional_place_fields(;use_pie_chart=false)     
+function plot_directional_place_fields(;use_pie_chart=false, colormap=:jet)     
     place_cells = readlines(open(joinpath(@__DIR__, "..", "data","place_cells.txt")));
     place_cells_width_directed_fields = readlines(open(joinpath(@__DIR__, "..","data/place_cells_with_oriented_fields.txt")))
     # place_cells_width_directed_fields[13]
-    kwargs = (only_full_traversal=true, nshuffles=1000, nrefinements=(p=3,g=2), min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, pv_threshold=0.001, redo=fname->false,colormap=:jet)
+    kwargs = (only_full_traversal=true, nshuffles=1000, nrefinements=(p=3,g=2), min_speed=1.0, trial_start=2, smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, pv_threshold=0.001, redo=fname->false,colormap=colormap)
     celldir = "/Volumes/Hippocampus/Data/picasso-misc/20180727/session01/array03/channel086/cell01"
     with_theme(plot_theme) do
         fig = Figure(size=(700,600))
