@@ -1131,4 +1131,15 @@ function plot_remote_view_conjunctions(;kwargs...)
     end
 end
 
+"""
+    create_figures()
+
+Create all figures used in the paper
+"""
+function create_figures()
+    fig1 = figure1()    
+    fig2 = figure2()
+    fig3 = figure3()
+end
+
 end #module
