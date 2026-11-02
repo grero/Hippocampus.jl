@@ -49,7 +49,7 @@ function get_conjunctive_cells(place_cells::Vector{String}, view_cells::Vector{S
     end
     hs = string(h, base=16)
     fname = joinpath(@__DIR__, "..", "data", "place_view_conjunctive_cells_$(hs).txt")
-    if isfile(fname)
+    if isfile(fname) && !redo
         celldirs = readlines(open(fname))
     else
         res_pvc = map(place_and_view_cells) do celldir
