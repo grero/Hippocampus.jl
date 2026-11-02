@@ -1481,3 +1481,12 @@ function plot_conjunctions!(lg, fj::FieldConjunctions{GazeResponseFields,Spatial
     ylims!(ax, ymin-0.1*Δy, ymax+0.2*Δy)
     bracket!(ax, 1, ymax, 2, ymax, offset=5, text=tt,style=:square)
 end
+
+function plot_response_fields!(lg::GridLayout, pvc::AbstractFieldConjunctions;pv_threshold=0.001, min_non_covered_ratio=2.0, kwargs...)
+    sidx = issignificant(pvc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    isidx = findall(sidx)
+    plot_response_fields!(lg, pvc,isidx;kwargs...)
+end
+function plot_response_fields!(lg::GridLayout, pvc::AbstractFieldConjunctions,clusteridx::Vector{CartesianIndex{2}};kwargs...)
+    plot_response_fields!(lg, pvc.spatial_fields, pvc.view_fields;clusteridx=clusteridx, kwargs...)
+end
