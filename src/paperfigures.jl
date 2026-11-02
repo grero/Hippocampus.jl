@@ -931,7 +931,7 @@ function plot_place_cell_poster_proximity!(lg;kwargs...)
     place_cells = readlines(open(joinpath(@__DIR__, "..", "data","place_cells.txt")));
     directed_place_cells= readlines(open(joinpath(@__DIR__, "..", "data/place_cells_with_oriented_fields.txt")))
 
-    poster_dist = Hippocampus.get_minimum_poster_distance(place_cells;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+    poster_dist,pv = Hippocampus.get_minimum_poster_distance(place_cells;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=50, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
     # the minimum across fields for each cell
     poster_dist_min = minimum.(poster_dist)
     qidx = findall(in(directed_place_cells), place_cells)
