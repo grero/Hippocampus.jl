@@ -316,6 +316,67 @@ function get_performance(session::String)
     perf, timeouts, perf_path
 end
 
+function get_performance(;redo=false)
+    fname = joinpath(@__DIR__,"..", "data","performance.jld2")
+    if !redo && isfile(fname)
+        perf,timeouts,perf_paths = JLD2.load(fname, "performance","timeouts","performance_per_path")
+    else
+        # for each session, get he performance
+        # TODO: Filter repeat trials, i.e. trials in which the monkey failed and then repeated the same trial
+        sessions = get_sessions()
+        perf = zeros(6, length(sessions))
+        perf_paths = zeros(6,6,length(sessions))
+        timeouts = zeros(6, length(sessions))
+        for (ii,session) in enumerate(sessions)
+            perf[:,ii], timeouts[:,ii],perf_paths[:,:,ii] = get_performance(session)
+        end
+        JLD2.save(fname, Dict("performance"=>perf, "performance_per_path"=>perf_paths, "timeouts"=>timeouts, "sessions"=>sessions))
+    end
+    perf, timeouts, perf_paths
+end
+
+
+function plot_performance_per_pair!(lg;markersize=50, kwargs...)
+    perf,timeouts, perf_paths = get_performance()
+    pp = dropdims(mean(perf_paths,dims=3) ,dims=3)
+    ax = Axis(lg[1,1])
+    h = heatmap!(ax, pp)
+    Colorbar(lg[1,2],h, label="Performance")
+     imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
+    # create dummy axes for the labels
+    axl = Axis(lg[1,0], halign=:right)
+    scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
+    axb = Axis(lg[2,1])
+    scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
+    colsize!(lg, 0, 2*markersize-20)
+    rowsize!(lg, 2, 2*markersize-20)
+    linkxaxes!(axb, ax)
+    linkyaxes!(axl, ax)
+    hidedecorations!(axb)
+    hidespines!(axb)
+    hidedecorations!(axl)
+    hidespines!(axl)
+    ax.xticklabelsvisible = false
+    ax.yticklabelsvisible = false
+    ax.xticks = [1:6;]
+    ax.yticks = [1:6;]
+    axl.xlabel = "To"
+    axl.xlabelvisible = true
+    axb.ylabel = "From"
+    axb.ylabelvisible = true
+    colgap!(lg, 0, 0)
+    colgap!(lg, 1, 0)
+    rowgap!(lg, 1, 1)
+end
+
+function plot_performance_per_pair(;kwargs...)
+    with_theme(plot_theme()) do
+        fig = Figure()
+        h = plot_performance_per_pair!(GridLayout(fig[1,1]))
+        fig
+    end
+end
+
 """
 Plot the performance of the animal
 """
