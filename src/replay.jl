@@ -2047,7 +2047,7 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
-function process_kwargs(::Type{JointOccupancy},h::UInt32=zero(UInt32);trial_start=1, nrefinements=(p=3, g=3),min_speed=-1, kwargs...)
+function process_kwargs(::Type{JointOccupancy},h::UInt32=zero(UInt32);trial_start=1, nrefinements=(p=3, g=3),min_speed=-1, fixations_only=false, kwargs...)
     if trial_start != 1
         h = crc32c(string((:trial_start=>trial_start)),h)
     end
@@ -2060,11 +2060,14 @@ function process_kwargs(::Type{JointOccupancy},h::UInt32=zero(UInt32);trial_star
     if min_speed != -1
         h = crc32c(string((:min_speed=>min_speed)),h)
     end
-
+    if fixations_only 
+        h = crc32c(string((:fixations_only=>fixations_only)),h)
+    end
     h
 end
 
-function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1,nrefinements=(p=3, g=2),min_speed=-1, kwargs...)
+function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1,nrefinements=(p=3, g=2),min_speed=-1, fixations_only=false, kwargs...)
+    # TODO: Filter with respect to fixations
     nt = numtrials(gdata)
     hd_bins = range(0.0, stop=2π, length=24)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
@@ -2094,6 +2097,10 @@ function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1
         aindex[i] = [CartesianIndex(0,0,0) for _ in 1:length(tt)-1]
         binsize[i] = fill(NaN, length(tt)-1)
         for j in 2:size(pos,2)
+            # skip if we are not currently in a fixation
+            if (fixations_only && !fixmask[j])
+                continue
+            end
             # FIXME: We sometimes have big gaps here; we need to deal with those
             Δt = tt[j] - tt[j-1]
             # heuristic
@@ -2280,9 +2287,12 @@ DPHT.level(::Type{ViewAndPlaceRepresentationNew}) = "cell"
 DPHT.level(::ViewAndPlaceRepresentationNew) = "cell"
 DPHT.filename(::Type{ViewAndPlaceRepresentationNew}) = "view_and_place_representation.jld2"
 
-function process_kwargs(::Type{ViewAndPlaceRepresentationNew},h::UInt32=zero(UInt32);trial_start=2,kwargs...)
+function process_kwargs(::Type{ViewAndPlaceRepresentationNew},h::UInt32=zero(UInt32);trial_start=2,fixation_only=false, kwargs...)
     if trial_start != 2
         h = crc32c(string((:trial_start=>trial_start)),h)
+    end
+    if fixation_only
+        h = crc32c(string((:fixation_only=>fixation_only)),h)
     end
     return h
 end
@@ -2939,7 +2949,7 @@ function get_num_spikes_per_bin(::Type{T};redo=fname->false, do_save=true, kwarg
     obj
 end
 
-function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, min_speed=1, nrefinements=(p=3,g=2),use_trials=:all, kwargs...)
+function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, min_speed=1, nrefinements=(p=3,g=2),use_trials=:all, fixations_only=false,kwargs...)
     if min_place_duration != 0.05
         h = CRC32c.crc32c(string(min_place_duration=>min_place_duration),h)
     end
@@ -2961,6 +2971,9 @@ function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_durati
     h = CRC32c.crc32c(string(nrefinements=>nrefinements),h)
     if use_trials != :all
         h = CRC32c.crc32c(string(:use_trials=>use_trials),h)
+    end
+    if fixations_only 
+        h = CRC32c.crc32c(string(:fixations_only=>fixations_only),h)
     end
     h
 end
