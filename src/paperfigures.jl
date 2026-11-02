@@ -580,6 +580,8 @@ function plot_directional_place_fields(;use_pie_chart=false, colormap=:jet)
         lgv = GridLayout(lg21[1,2],alignmode=Inside())
         Label(lg21[1,2,TopLeft()], "G",padding=(0,20,0,0))
         plot_place_cell_poster_proximity!(lgv,;color=[:lightgray, :mediumpurple])
+        # TODO: Add view cell interaction here?
+        # we would need to show 
         colsize!(lg21, 2, Relative(0.6))
         colsize!(lg2, 2, 250)
         fig
