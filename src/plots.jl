@@ -232,7 +232,12 @@ function plot_response_fields!(lg, ::Type{T}, celldir::String;nshuffles=10_000, 
     @show rf.binidx 
     if embeddim(mm) == 3
         lscene = LScene(lg[1,1])
-        plotmesh!(lscene, mm;showsegments=true, color=Z,floor_offset=-20, ceiling_offset=10)
+        if get(kwargs, :unfold_maze, false)
+            mmf = unfold_maze(mm)
+        else
+            mmf = mm
+        end
+        plotmesh!(lscene, mmf;showsegments=true, color=Z,floor_offset=-20, ceiling_offset=10)
     else
         ax = Axis(lg[1,1])
         ax.xticklabelsvisible = false

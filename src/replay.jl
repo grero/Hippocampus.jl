@@ -164,11 +164,11 @@ function DPHT.save(gdata::T;append_tag=true) where T
 end
 
 function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true, kwargs...) where T
-    if SimpleMesh in fieldtypes(T)
+    if Domain in fieldtypes(T)
         # this is a bit hacky, needed because SimpleMesh does not save cleanly
         qdata = Dict()
         for k in fieldnames(T)
-            if fieldtype(T, k) <: SimpleMesh
+            if fieldtype(T, k) <: Domain 
                 continue
             end
             v = getfield(gdata, k)
@@ -185,15 +185,15 @@ function save_jld2(gdata::T,fname=DPHT.filename(T), ;append_tag=true, kwargs...)
     JLD2.save(fname, Dict("data"=>qdata, "meta"=>metadata, "args"=>Dict(kwargs)))
 end
 
-function load_jld2(::Type{T},fname=DPHT.filename(T)) where T
+function load_jld2(::Type{T},fname=DPHT.filename(T);typemap::Dict=Dict()) where T
     fname = replace(fname, ".mat"=>".jld2")
-    meta,data = JLD2.load(fname, "meta","data")
+    meta,data = JLD2.load(fname, "meta","data";typemap=typemap)
     ft = fieldtypes(T)
-    if SimpleMesh in ft 
-        midx = findfirst(ft.==SimpleMesh)
+    if Domain in ft 
+        midx = findfirst(ft.==Domain)
         args = Any[]
         for k in fieldnames(T)
-            if fieldtype(T, k) <: SimpleMesh
+            if fieldtype(T, k) <: Domain
                 continue
             end
             v = data[k]
@@ -2047,7 +2047,7 @@ function ViewAndPlaceOccupancy(gdata::UnityRaytraceData, mm::SimpleMesh;fixation
     ViewAndPlaceOccupancy(weight_place, placebin_idx, weight_view, viewbin_idx, mm)
 end
 
-function process_kwargs(::Type{JointOccupancy},h::UInt32=zero(UInt32);trial_start=1, nrefinements=(p=3, g=3),min_speed=-1, kwargs...)
+function process_kwargs(::Type{JointOccupancy},h::UInt32=zero(UInt32);trial_start=1, nrefinements=(p=3, g=3),min_speed=-1, fixations_only=false, kwargs...)
     if trial_start != 1
         h = crc32c(string((:trial_start=>trial_start)),h)
     end
@@ -2060,11 +2060,14 @@ function process_kwargs(::Type{JointOccupancy},h::UInt32=zero(UInt32);trial_star
     if min_speed != -1
         h = crc32c(string((:min_speed=>min_speed)),h)
     end
-
+    if fixations_only 
+        h = crc32c(string((:fixations_only=>fixations_only)),h)
+    end
     h
 end
 
-function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1,nrefinements=(p=3, g=2),min_speed=-1, kwargs...)
+function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1,nrefinements=(p=3, g=2),min_speed=-1, fixations_only=false, kwargs...)
+    # TODO: Filter with respect to fixations
     nt = numtrials(gdata)
     hd_bins = range(0.0, stop=2π, length=24)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
@@ -2094,6 +2097,10 @@ function JointOccupancy(gdata::UnityRaytraceData, udata::UnityData;trial_start=1
         aindex[i] = [CartesianIndex(0,0,0) for _ in 1:length(tt)-1]
         binsize[i] = fill(NaN, length(tt)-1)
         for j in 2:size(pos,2)
+            # skip if we are not currently in a fixation
+            if (fixations_only && !fixmask[j])
+                continue
+            end
             # FIXME: We sometimes have big gaps here; we need to deal with those
             Δt = tt[j] - tt[j-1]
             # heuristic
@@ -2158,9 +2165,16 @@ function JointOccupancy(;redo=fname->false, do_save=true,kwargs...)
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
     end
+    do_compute = true 
     if isfile(fname) && !redo(fname)
         jocc = load_jld2(JointOccupancy, fname)
-    else 
+        if isa(jocc, JLD2.ReconstructedMutable)
+            do_compute = true
+        else
+            do_compute = false
+        end
+    end
+    if do_compute
         udata = UnityData()
         qdata = UnityRaytraceData(;kwargs...)
         jocc = Hippocampus.JointOccupancy(qdata,udata;kwargs...)
@@ -2273,9 +2287,12 @@ DPHT.level(::Type{ViewAndPlaceRepresentationNew}) = "cell"
 DPHT.level(::ViewAndPlaceRepresentationNew) = "cell"
 DPHT.filename(::Type{ViewAndPlaceRepresentationNew}) = "view_and_place_representation.jld2"
 
-function process_kwargs(::Type{ViewAndPlaceRepresentationNew},h::UInt32=zero(UInt32);trial_start=2,kwargs...)
+function process_kwargs(::Type{ViewAndPlaceRepresentationNew},h::UInt32=zero(UInt32);trial_start=2,fixation_only=false, kwargs...)
     if trial_start != 2
         h = crc32c(string((:trial_start=>trial_start)),h)
+    end
+    if fixation_only
+        h = crc32c(string((:fixation_only=>fixation_only)),h)
     end
     return h
 end
@@ -2681,6 +2698,7 @@ DPHT.filename(::Type{ViewMapNew}) = "view_map.jld2"
 DPHT.filename(::Type{ViewMapNew{T}}) where T <: Real = "view_map.jld2"
 DPHT.level(::Type{ViewMapNew}) = "cell"
 DPHT.level(::Type{ViewMapNew{T}}) where T <: Real = "cell"
+DPHT.filename(::Type{SmoothedMap{<:Real, ViewMapNew}}) = "smoothed_view_map.jld2"
 
 function compute_skaggs_sic(sm::ViewMapNew)
     weight = sm.weight
@@ -2696,6 +2714,51 @@ struct JointMap{T<:Real} <: AbstractMap
     occupancy::Vector{T}
     index::Vector{CartesianIndex{4}}
     dims::Vector{Int64}
+end
+
+struct PopulationJointMap{T<:Real} <: AbstractMap
+    weight::Vector{T}
+    occupancy::Vector{T}
+    index::Vector{CartesianIndex{5}}
+    dims::Vector{Int64}
+end
+
+function PopulationJointMap(jm1::JointMap{T}, jm2::JointMap{T}) where T <: Real
+    dims = jm1.dims
+    jm2.dims == dims || error("The maps should have the same underyling dimension.")
+    weight = [jm1.weight;jm2.weight] 
+    occupancy = [jm1.occupancy;jm2.occupancy]
+    index = CartesianIndex{5}[]
+    for (ii,jm) in enumerate((jm1,jm2))
+        for idx in jm.index
+            push!(index, CartesianIndex(idx,ii))
+        end
+    end
+    PopulationJointMap{T}(weight, occupancy, index, dims)
+end
+
+function PopulationJointMap(pjm::PopulationJointMap{T}, jm2::JointMap{T}) where T <: Real
+    pjm.dims == jm2.dims || error("The maps should have the same underyling dimension.")
+    weight = [pjm.weight;jm2.weight]
+    occupancy = [pjm.occupancy;jm2.occupancy]
+    index = copy(pjm.index)
+    ncells = maximum(getindex.(index,5))
+    k = ncells+1
+    for idx in jm2.index
+        push!(index, CartesianIndex(idx, k))
+    end
+    PopulationJointMap{T}(weight, occupancy, index, pjm.dims)
+end
+
+numcells(pjm::PopulationJointMap) = maximum(getindex.(pjm.index, 5))
+
+function JointMap(pjm::PopulationJointMap{T}, cellidx::Integer) where T <: Real
+    cidx = getindex.(pjm.index, 5) .== cellidx
+    weight = pjm.weight[cidx]
+    occupancy = pjm.occupancy[cidx]
+    index = [CartesianIndex(idx.I[1:4]) for idx in pjm.index[cidx]]
+    dims = pjm.dims
+    JointMap{T}(weight, occupancy, index,dims)
 end
 
 function Base.merge(jm1::JointMap{T}, jm2::JointMap{T}) where T <: Real
@@ -2886,7 +2949,7 @@ function get_num_spikes_per_bin(::Type{T};redo=fname->false, do_save=true, kwarg
     obj
 end
 
-function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, min_speed=1, nrefinements=(p=3,g=2),use_trials=:all, kwargs...)
+function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_duration=0.05, min_place_obs=5, min_view_duration=0.02, min_view_obs=5, trial_start=2, min_speed=1, nrefinements=(p=3,g=2),use_trials=:all, fixations_only=false,kwargs...)
     if min_place_duration != 0.05
         h = CRC32c.crc32c(string(min_place_duration=>min_place_duration),h)
     end
@@ -2908,6 +2971,9 @@ function process_kwargs(::Type{JointMap},h::UInt32=zero(UInt32);min_place_durati
     h = CRC32c.crc32c(string(nrefinements=>nrefinements),h)
     if use_trials != :all
         h = CRC32c.crc32c(string(:use_trials=>use_trials),h)
+    end
+    if fixations_only 
+        h = CRC32c.crc32c(string(:fixations_only=>fixations_only),h)
     end
     h
 end
@@ -3052,6 +3118,27 @@ function get_maps(jm::JointMap;)
         Y[gidx,pidx] += o
     end
     X,Y
+end
+
+function get_view_occupancy_map(jocc::JointOccupancy)
+    #this is clunky way to get this informaton
+    bmin,bmax = extrema(getindex.(keys(jocc.weight),1))
+    if bmax <=  82
+        nrefinements=0
+    elseif bmax <= 328
+        nrefinements=1
+    elseif bmax <= 1321
+        nrefinements=2
+    elseif bmax <= 5248
+        nrefinements=3
+    end
+    mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements)
+    X = zeros(nelements(mm))
+    for (idx,w) in jocc.weight
+        vidx = getindex(idx,1)
+        X[vidx] += w
+    end
+    X
 end
 
 function get_weight(jm::JointMap)

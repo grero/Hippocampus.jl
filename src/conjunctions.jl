@@ -142,9 +142,21 @@ function Base.show(io::IO, pvc::ViewPlaceConjunction)
 end
 
 
-function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05)
+function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05, min_non_covered_ratio=1.0)
     pv = fill(false, size(pvc.λ_covered)[1:2]...)
     for ii in CartesianIndices(pv) 
+        # check that we have enough non-covered indices to faciliate a meaningful comparison
+        pidx = getindex(ii,1)
+        vidx = getindex(ii,2)
+        if isa(pvc, PlaceViewConjunction)
+            covered_idx = pvc.spatial_fields.clusters[pidx]
+        else
+            covered_idx = pvc.view_fields.clusters[vidx]
+        end
+        if length(pvc.non_covered_idx[ii])  < min_non_covered_ratio*length(covered_idx)
+            # non-significant
+            continue
+        end
         vv = filter(isfinite, pvc.λ_sub[ii,:])
         if !isempty(vv)
             qt = percentile(vv, 100*(1-pv_threshold))
@@ -501,8 +513,16 @@ function get_view_rate_map(jm::JointMap, spatial_idx::AbstractVector{<:Integer},
 end
 
 function conjunctions2(jm::JointMap, rf_gaze::Union{GazeResponseFields,GazeResponseFieldsSimple}, rf_spatial::Union{SpatialResponseFields, SpatialResponseFieldsSimple}, condition_on::Integer)
-    view_clusters = getfields(rf_gaze;cluster_threshold=0.001)
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=0.001)
+    if rf_gaze.clusters === nothing
+        view_clusters = getfields(rf_gaze;cluster_threshold=0.001)
+    else
+        view_clusters = rf_gaze.clusters
+    end
+    if rf_spatial.clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=0.001)
+    else
+        spatial_clusters = rf_spatial.clusters
+    end
     if isempty(view_clusters) || isempty(spatial_clusters)
         if condition_on == 1
             λ_infield = SpatialRateMap{Float64}[]
@@ -678,13 +698,15 @@ function PlaceViewConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=
     nshuffles = get(kwargs, :nshuffles, 10_000)
     if do_compute
         jm = JointMap(;kwargs...)
-        rf_spatial = get_response_fields(T1,nshuffles;kwargs...)
+        niter_place = get(kwargs, :niter_place, 50)
+        rf_spatial = get_response_fields(T1,nshuffles;niter=niter_place, kwargs...)
         if isa(rf_spatial, JLD2.ReconstructedMutable)
-            rf_spatial = get_response_fields(T1,nshuffles;redo=fname->true, kwargs...)
+            rf_spatial = get_response_fields(T1,nshuffles;redo=fname->true, niter=niter_place, kwargs...)
         end
-        rf_gaze = get_response_fields(T2,nshuffles;kwargs...)
+        niter_view = get(kwargs, :niter_view, 25)
+        rf_gaze = get_response_fields(T2,nshuffles;niter=niter_view, kwargs...)
         if isa(rf_gaze, JLD2.ReconstructedMutable)
-            rf_gaze = get_response_fields(T2,nshuffles;redo=fname->true, kwargs...)
+            rf_gaze = get_response_fields(T2,nshuffles;redo=fname->true, niter=niter_view, kwargs...)
         end
         λ_covered, λ_sub,λ_infield, λ_outfield,matched_idx = conjunctions2(jm, rf_gaze, rf_spatial, 1)
         X = PlaceViewConjunction{T1,T2}(rf_spatial, rf_gaze, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
@@ -721,13 +743,15 @@ function ViewPlaceConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=
     end
     if do_compute
         jm = JointMap(;kwargs...)
-        rf_spatial = get_response_fields(T2,10_000;kwargs...)
+        niter_place = get(kwargs, :niter_place, 50)
+        rf_spatial = get_response_fields(T2,1_000;niter=niter_place, kwargs...)
         if isa(rf_spatial, JLD2.ReconstructedMutable)
-            rf_spatial = get_response_fields(T2,10_000;redo=fname->true, kwargs...)
+            rf_spatial = get_response_fields(T2,1_000;redo=fname->true, niter=niter_place,kwargs...)
         end
-        rf_gaze = get_response_fields(T1,10_000;kwargs...)
+        niter_view = get(kwargs, :niter_view, 25)
+        rf_gaze = get_response_fields(T1,1_000;niter=niter_view, kwargs...)
         if isa(rf_gaze, JLD2.ReconstructedMutable)
-            rf_gaze = get_response_fields(T1,10_000;redo=fname->true, kwargs...)
+            rf_gaze = get_response_fields(T1,1_000;redo=fname->true, niter=niter_view, kwargs...)
         end
         λ_covered, λ_sub,λ_infield, λ_outfield, matched_idx = conjunctions2(jm, rf_gaze, rf_spatial,2)
         X = ViewPlaceConjunction{T1,T2}(rf_gaze, rf_spatial, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
@@ -890,8 +914,10 @@ function isconjunctive(::Type{T1}, ::Type{T2};kwargs...) where T1 <: SpatialResp
         return false
     end
     pv_threshold = get(kwargs, :pv_threshold, 0.01)
-    A1 = issignificant(pvc;pv_threshold=pv_threshold)
-    A2 = issignificant(vpc;pv_threshold=pv_threshold)
+    min_non_covered_ratio = get(kwargs, :min_non_covered_ratio, 1.0)
+    A1 = issignificant(pvc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    A2 = issignificant(vpc;pv_threshold=pv_threshold,min_non_covered_ratio=min_non_covered_ratio)
+
     return any(A1) || any(A2)
 end
 
@@ -938,6 +964,25 @@ function test_conjunction()
             push!(spatial_idc, l)
         end
     end
+end
+
+function compute_field_distance(pvc::AbstractFieldConjunctions, vpc::AbstractFieldConjunctions;pv_threshold=0.001, min_non_covered_ratio=0.0)
+    # get the signficant combinations
+    qq1 = issignificant(pvc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    qq2 = issignificant(vpc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    qq = qq1.|qq2
+    nrefinements = pvc.view_fields.args[:nrefinements]
+    mm = get_maze_mesh(;nrefinements=nrefinements.g)
+    m_floor = floor_topology3(;nrefinements=nrefinements.p)
+    dd = zeros(sum(qq))
+    for (jj,ii) in enumerate(findall(qq))
+        pidx = pvc.spatial_fields.clusters[getindex(ii,1)]
+        μ_place = mean(Point3f.(Tuple.(centroid.(m_floor[pidx]))))
+        vidx = pvc.view_fields.clusters[getindex(ii,2)]
+        μ_view = mean(Point3f.(Tuple.(centroid.(mm[vidx]))))
+        dd[jj] = norm(μ_place - μ_view)
+    end
+    dd
 end
 
 ## plots
@@ -1454,4 +1499,13 @@ function plot_conjunctions!(lg, fj::FieldConjunctions{GazeResponseFields,Spatial
     Δy = ymax-ymin
     ylims!(ax, ymin-0.1*Δy, ymax+0.2*Δy)
     bracket!(ax, 1, ymax, 2, ymax, offset=5, text=tt,style=:square)
+end
+
+function plot_response_fields!(lg::GridLayout, pvc::AbstractFieldConjunctions;pv_threshold=0.001, min_non_covered_ratio=2.0, kwargs...)
+    sidx = issignificant(pvc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    isidx = findall(sidx)
+    plot_response_fields!(lg, pvc,isidx;kwargs...)
+end
+function plot_response_fields!(lg::GridLayout, pvc::AbstractFieldConjunctions,clusteridx::Vector{CartesianIndex{2}};kwargs...)
+    plot_response_fields!(lg, pvc.spatial_fields, pvc.view_fields;clusteridx=clusteridx, kwargs...)
 end

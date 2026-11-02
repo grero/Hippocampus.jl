@@ -984,7 +984,7 @@ function visualize!(lscene, mm::MazeModel;color::Dict{Symbol,<:Any}=get_maze_col
                 m = CartesianGrid(first.(bin), last.(bin);dims=length.(bin))
                 viz!(lscene, m, color=cc,colormap=colormap)
                 if show_normals
-                    arrows!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
+                    arrows3d!(lscene, [Point3f(mean.(om.bins))], [Point3f(om.normal)])
                 end
             end
         end
@@ -1666,6 +1666,78 @@ function get_poster_position(pos::NTuple{N,T}, mm::SimpleMesh) where T <: Real w
     first(midx)
 end
 
+"""
+    get_confusion_map(udata::UnityData)
+
+Return a spatial map of where the monkey ended up at the end of each trial.
+"""
+function get_confusion_map(udata::UnityData)
+    nt = numtrials(udata)
+    starting_poster = zeros(Int64, nt)
+    goal_poster = zeros(Int64, nt)
+    start_pos = Vector{Point2f}(undef, nt)
+    end_pos = Vector{Point2f}(undef, nt)
+    trial_outcome = Vector{Symbol}(undef, nt)
+    for i in 1:nt
+        if i > 1
+            if udata.triggers[i-1,3] < 40
+                starting_poster[i] = udata.triggers[i-1,1] - 10
+            end
+        end
+        goal_poster[i] = udata.triggers[i,1] - 10
+        tu, posx, posy,hd = get_trial(udata, i;trial_start=2)
+        start_pos[i] = Point2f(posx[1], posy[1])
+        end_pos[i] = Point2f(posx[end], posy[end])
+
+        if udata.triggers[i,3] < 40
+            trial_outcome[i] = :correct
+        else
+            trial_outcome[i] = :timeout
+        end
+    end
+    starting_poster, goal_poster, start_pos, end_pos, trial_outcome
+end
+
+"""
+    get_timeout_trajectories(udata::UnityData)
+
+Extract trajectories and (start,goal) poster pair for each timeout trial 
+in `udata`.
+"""
+function get_timeout_trajectories(udata::UnityData)
+    nt = numtrials(udata)
+    traj = Vector{Point2f}[]
+    poster_pair = Tuple{Int64, Int64}[]
+    for i in 1:nt
+        if udata.triggers[i,3] > 40
+            if i > 1
+                start_poster = udata.triggers[i-1,1] - 10
+            else
+                start_poster = 0
+            end
+            goal_poster = udata.triggers[i,1] - 10
+            push!(poster_pair, (start_poster, goal_poster))
+            tu,posx,posy,hd = get_trial(udata,i;trial_start=2)
+            push!(traj, Point2f.(zip(posx, posy)))
+        end
+    end
+    traj, poster_pair
+end
+
+function get_timeout_trajectories(sessions::Vector{String})
+    traj = Vector{Point2f}[]
+    poster_pair = Tuple{Int64, Int64}[]
+    for session in sessions
+        udata = cd(session) do
+            UnityData()
+        end
+        _traj, _poster_pair = get_timeout_trajectories(udata)
+        append!(traj, _traj)
+        append!(poster_pair, _poster_pair)
+    end
+    traj, poster_pair
+end
+
 ## plots
 function plot_flat_maze_with_posters(;figsize=(350,350),kwargs...)
     with_theme(poster_theme) do
@@ -1703,24 +1775,26 @@ function plot_flat_maze_with_posters!(lg;start_point::Union{Nothing, Point2f}=no
             scatter!(ax, end_point, marker=teardrop_shape(), markersize=20px, color=:orange)
         end
         if indicate_north
-            arrows!(ax, Point2f(0.0, 10.0), Point2f(0.0, 2.0), color=:black,arrowsize=10.0)
+            arrows2d!(ax, Point2f(0.0, 10.0), Vec2f(0.0, 1.0), color=:black,lengthscale=2.0)
         end
         ax
     end
 end
 
-function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVector{T};nruns=1000) where T <: Real
+function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVector{T};rng=Random.default_rng(), nruns=1000) where T <: Real
+    # seems kind of hackish; figure of the type returned by func
+    rT = typeof(func(x1))
     if isempty(x1) || isempty(x2)
-        return T[], T[]
+        return rT[], rT[]
     end
     idx1 = [1:length(x1);]
     idx2 = [1:length(x2);]
     x1s = similar(x1)
     x2s = similar(x2)
-    q1 = zeros(T,nruns)
-    q2 = zeros(T,nruns)
+    q1 = zeros(rT,nruns)
+    q2 = zeros(rT,nruns)
     for r in 1:nruns
-        shuffle!(idx2)
+        shuffle!(rng, idx2)
         for j in 1:length(x1)
             q = rand()
             if q < 0.5
@@ -1731,7 +1805,7 @@ function permutation_test(func::Function, x1::AbstractVector{T}, x2::AbstractVec
             end
         end
         q1[r] = func(x1s)
-        shuffle!(idx1)
+        shuffle!(rng, idx1)
         for j in 1:length(x2)
             q = rand()
             if q < 0.5
@@ -1878,12 +1952,15 @@ function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{
         Z[k[1], k[2]] = median(v)
     end
     ax = Axis(lg[1,1])
+    ax.xlabelpadding = 0
+    ax.ylabelpadding = 0
     h = heatmap!(ax,Z)
-    Colorbar(lg[1,2],h,label="Relative traj length")
+    cb = Colorbar(lg[1,2],h,label="Relative traj length")
 
+    cb.alignmode = Mixed(right=0)
     imgs = [load(Hippocampus.poster_img[nn]) for nn in Hippocampus.poster_names]
     # create dummy axes for the labels
-    axl = Axis(lg[1,0])
+    axl = Axis(lg[1,0], halign=:right)
     scatter!(axl, fill(0.0, 6), [1:6;], marker=imgs, markersize=markersize)
     axb = Axis(lg[2,1])
     scatter!(axb, [1:6;], fill(0.0, 6), marker=imgs, markersize=markersize)
@@ -1903,7 +1980,8 @@ function plot_trajectory_lengths!(lg, lengths::Dict{Tuple{Int64, Int64}, Vector{
     axl.xlabelvisible = true
     axb.ylabel = "From"
     axb.ylabelvisible = true
-    colgap!(lg, 1, 1)
+    colgap!(lg, 0, 0)
+    colgap!(lg, 1, 0)
     rowgap!(lg, 1, 1)
 end
 

@@ -297,17 +297,19 @@ end
 function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresentationNew, jocc::JointOccupancy, mm::SimpleMesh, rf::SpatialResponseFields;trial_start=1,only_full_traversal=false, kwargs...)
     nt = numtrials(qdata)
     θbins = range(-π, stop=π, length=24)
-    nn = zeros(Int64, nt)
-    nm = zeros(Int64, nt)
     clusters = merge_fields(mm, rf.binidx)
-    nclusters = Hippocampus.get_num_fields(rf)
-    cidx = findall(dropdims(mean(nclusters,dims=2),dims=2) .< 0.001)
-    gidx = Vector{Vector{CartesianIndex{5}}}(undef, length(cidx))
-    deltaT = Vector{Vector{Float64}}(undef, length(cidx))
-    nspikes = Vector{Vector{Float64}}(undef, length(cidx))
-    weight = Vector{Dict{CartesianIndex{4}, Float64}}(undef, length(cidx))
-    occupancy = Vector{Dict{CartesianIndex{4},Float64}}(undef, length(cidx))
-    for i in 1:length(cidx)
+    if isempty(rf.clusters)
+        clusters = getfields(rf;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        clusters = rf.clusters
+    end
+    nclusters = length(clusters)
+    gidx = Vector{Vector{CartesianIndex{5}}}(undef, nclusters)
+    deltaT = Vector{Vector{Float64}}(undef, nclusters)
+    nspikes = Vector{Vector{Float64}}(undef, nclusters)
+    weight = Vector{Dict{CartesianIndex{4}, Float64}}(undef, nclusters)
+    occupancy = Vector{Dict{CartesianIndex{4},Float64}}(undef, nclusters)
+    for i in 1:length(clusters)
         gidx[i] = CartesianIndex{5}[]
         weight[i] = Dict{CartesianIndex{4}, Float64}()
         occupancy[i] = Dict{CartesianIndex{4}, Float64}()
@@ -315,17 +317,16 @@ function DirectionFiltered(qdata::UnityRaytraceData, vpvrp::ViewAndPlaceRepresen
         nspikes[i] = Float64[]
     end
     for i in 1:nt
-        for (ll,idx) in enumerate(clusters[cidx])
+        for (ll,idx) in enumerate(clusters)
             # find the first point at which the field is entered and when it is exited
             tg,gaze,pos, fixmask,fo = get_trial(qdata,i;trial_start=trial_start);
-            idx0,idx1 = get_direction(pos[1:2,:], mm,rf.binidx[idx])
+            idx0,idx1 = get_direction(pos[1:2,:], mm,idx)
             if only_full_traversal && idx1==length(tg)-1
                 # skip this trial if we did not see a full traversal, i.e. if idx1 is at the penultimate step
                 continue
             end
             # debug: check the number of times the field is visited
             qmidx = jocc.index[i][vpvrp.placeviewidx[i]]
-            nn[i] = length(filter(k->in(idx)(getindex(k,2)), qmidx))
             # TODO: Also get the gaze for these positions
         
             if idx1 >= idx0 > 0
@@ -554,6 +555,12 @@ struct MajorAxisDirectionTuning{T<:Real}
     occupancy_reverse::Vector{Vector{T}}
     trialidx_forward::Vector{Vector{Int64}}
     trialidx_reverse::Vector{Vector{Int64}}
+    spatial_clusters::Union{Nothing, Vector{Vector{Int64}}}
+    args::Dict{Symbol,Any}
+end
+
+function MajorAxisDirectionTuning(v,μ,ms, spf, spr, of, or, tf, tr)
+    MajorAxisDirectionTuning(v,μ,ms,spf,spr,of,or,tf,tr,nothing, Dict{Symbol,Any}())
 end
 
 function process_kwargs(::Type{MajorAxisDirectionTuning},h::UInt32=zero(UInt32);kwargs...)
@@ -563,7 +570,7 @@ function process_kwargs(::Type{MajorAxisDirectionTuning},h::UInt32=zero(UInt32);
 end
 
 function get_major_axis_direction_tuning(gidx::DirectionFiltered,rf::SpatialResponseFields,jocc::JointOccupancy, vpvrp::ViewAndPlaceRepresentationNew,qdata::UnityRaytraceData;do_shuffle=false,trial_start=2)
-    v,μ,ms = get_major_axis(rf)
+    v,μ,ms, spatial_clusters = get_major_axis(rf)
     spike_count = Float64[]
     spike_count_1 = Vector{Vector{Float64}}(undef, size(v,2))
     spike_count_2 = Vector{Vector{Float64}}(undef, size(v,2))
@@ -629,7 +636,7 @@ function get_major_axis_direction_tuning(gidx::DirectionFiltered,rf::SpatialResp
     end
     # TODO: Aggregate over windows
     #spike_count, occupancy, sindex, 
-    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2), (trialidx_forward, trialidx_reverse)
+    (spike_count_1, occupancy_1), (spike_count_2, occupancy_2), (trialidx_forward, trialidx_reverse), (v,μ,ms,spatial_clusters)
 end
 
 function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
@@ -656,11 +663,10 @@ function MajorAxisDirectionTuning(;redo=fname->false, do_save=true, kwargs...)
             qdata, jocc
         end
         rf_spatial =  get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);redo=redo,kwargs...)
-        v,μ,ms = get_major_axis(rf_spatial)
         gidx = DirectionFiltered(;redo=redo,kwargs...)
         vpvrp = ViewAndPlaceRepresentationNew(;redo=redo,kwargs...)
-        (spike_count_1, occupancy_1), (spike_count_2, occupancy_2),(trialidx_forward, trialidx_reverse) = get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata;trial_start=get(kwargs, :trial_start,2))
-        obj = MajorAxisDirectionTuning(v, μ, ms, spike_count_1, spike_count_2,occupancy_1, occupancy_2, trialidx_forward, trialidx_reverse)
+        (spike_count_1, occupancy_1), (spike_count_2, occupancy_2),(trialidx_forward, trialidx_reverse),(v,μ,ms,spatial_clusters) = get_major_axis_direction_tuning(gidx, rf_spatial, jocc, vpvrp,qdata;trial_start=get(kwargs, :trial_start,2))
+        obj = MajorAxisDirectionTuning(v, μ, ms, spike_count_1, spike_count_2,occupancy_1, occupancy_2, trialidx_forward, trialidx_reverse, spatial_clusters, Dict(kwargs))
         if do_save
             save_jld2(obj, fname)
         end
@@ -1269,17 +1275,26 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
     nrefinements = rf_gaze.args[:nrefinements]
     m_floor = repair_mesh(Hippocampus.floor_topology3(;nrefinements=nrefinements.p))
     mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements.g)
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if mdt.spatial_clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        spatial_clusters = mdt.spatial_clusters
+    end
     # get the distribution of head direction for the relevant trials
-    view_clusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if isempty(rf_gaze.clusters)
+        view_clusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        view_clusters = rf_gaze.clusters
+    end
 
     # for each combinatino of spatial_cluster[i] and view_cluster[j], check whether
     # the view field occurs within a 60 degree cone around the preferred direction of a place
     # field
     res = issignificant(mdt)
-    @assert length(res) == length(spatial_clusters)
+    length(res) == length(spatial_clusters) || error("We have $(length(spatial_clusters)) spatial clusters and $(length(res)) significance results.")
     can_be_seen = trues(length(view_clusters), length(spatial_clusters))
     occlusions = zeros(length(view_clusters), length(spatial_clusters))
+    direction_preference = Vector{Union{Nothing, Symbol}}(undef, length(res))
     for (jj,sp) in enumerate(spatial_clusters)
         if !res[jj]
             # since this field does not show any directionalty, just mark it as occluded
@@ -1292,10 +1307,10 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
         λr = isempty(λ_reverse) ? 0.0 : median(λ_reverse)
         if λf > λr 
             v = mdt.v[:,jj]
-            @show "Prefers forward"
+            direction_preference[jj] = :forward
         else
             v = -mdt.v[:,jj]
-            @show "Perfers reverse"
+            direction_preference[jj] = :reverse
         end
         θv = atan(v[2],v[1])
         # find the preferred by just computing the maximum rate (since we know this field has siginificant
@@ -1303,8 +1318,8 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
         for (ii,vc) in enumerate(view_clusters)
             # does a ray originating from any of the point in the place field, along the direction
             # v intersect with the view field?
-            for p in sp
-                for v in vc
+            for v in vc
+                for p in sp
                     l = Meshes.Line(centroid(m_floor[p]) + Meshes.Vec(0,0,1.5), centroid(mm[v]))
                     vl = l.b - l.a
                     θ = atan(last(vl),first(vl))
@@ -1312,12 +1327,19 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                     # if we are not within the cone, add one occl
                     if cos(θ-θv) < cos(half_beam_width)
                         occlusions[ii,jj] += 1
-                        continue
+                        break
                     end
                     for _mm in mm
                         qq = intersection(l, _mm)
                         if qq.type !== NotIntersecting
-                            if !(qq.geom ≈ l.b)
+                            @debug begin
+                                if jj == 1
+                                    @show qq.geom l qq.type
+                                end
+                            end
+                            # if we intersect something, make sure it's within the beam
+                            # this should actually have been taking care of in the 
+                            if (l.a < qq.geom < l.b) || (l.b < qq.geom < l.a)
                                 # we intersected something else
                                 # is just one violation enough?
                                 can_be_seen[ii,jj] = false
@@ -1325,6 +1347,10 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                                 break
                             end
                         end
+                    end
+                    if occlusions[ii,jj] > 0
+                        #we want to compute fraction of view field covered
+                        break 
                     end
                     if !can_be_seen[ii,jj]
                         #break
@@ -1335,21 +1361,59 @@ function compute_place_direction_view(mdt::MajorAxisDirectionTuning, rf_spatial:
                     #break
                 end
             end
-            occlusions[ii,jj] /= length(sp)*length(vc)
+            #normalize to total number of points in this view field
+            occlusions[ii,jj] /= length(vc)
         end
     end
-    occlusions
+    occlusions, direction_preference
 end
 
 function compute_place_direction_view(celldir::String;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
      mdt, rf_spatial, rf_gaze = cd(celldir) do
-        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, kwargs...)
+        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, only_full_traversal=get(kwargs, :only_full_traversal, true), kwargs...)
         rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial, kwargs...) 
         rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
         mdt, rf_spatial, rf_gaze
     end
     compute_place_direction_view(mdt, rf_spatial, rf_gaze)
 end
+
+"""
+    summarize_occlusion_data(occlusion_data)
+
+Count the number of cells with less then 50% occlusion between each place and view field 
+"""
+function summarize_occlusion_data(occlusion_data::Vector{<:Any})
+    nn = length(occlusion_data)    
+    vv = zeros(nn)    
+    for (ii,_data) in enumerate(occlusion_data)
+        if !isempty(_data[1])
+            vv[ii] = sum(dropdims(minimum(_data[1], dims=2),dims=2) .<= 0.5)/size(_data[1],1)
+        end
+    end
+    vv
+end
+
+function summarize_occlusion_data(occlusion_data, poster_selectivity_data::Vector{Matrix{Bool}})
+    nn = length(occlusion_data)    
+    vv = zeros(nn)    
+    overlaps_poster = fill(0, (2,nn)) 
+    for (ii,(_data, qq)) in enumerate(zip(occlusion_data, poster_selectivity_data))
+        if !isempty(_data[1])
+            # get all combinations with less than 50% occlusion
+            vidx = dropdims(minimum(_data[1], dims=2),dims=2) .<= 0.5 
+            if length(vidx) != size(qq,2)
+                @show ii
+                continue
+            end
+            vv[ii] = sum(vidx)/size(_data[1],1)
+            overlaps_poster[:,ii] = [sum(qq[:,vidx]),sum(vidx)]
+        end
+    end
+    vv, overlaps_poster
+end
+
+
 
 ## plots
 
@@ -1712,15 +1776,15 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     end
 end
 
-function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, label=["A","B"], kwargs...)
+function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFields, jm::JointMap,idx::Integer;_plot_theme=plot_theme, show_titles=true, label=["A","B"], use_boxplot=true, kwargs...)
     nrefinements = rf_spatial.args[:nrefinements] 
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p));
     v = mdt.v
     # FIXME: This doesnt work
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    spatial_clusters = rf_spatial.clusters
     @assert size(v,2) == length(spatial_clusters)
 
-    cm = mean(Point2f.(Tuple.(centroid.(m_floor[rf_spatial.binidx[spatial_clusters[idx]]]))))
+    cm = mean(Point2f.(Tuple.(centroid.(m_floor[spatial_clusters[idx]]))))
 
     λf = mdt.spike_count_forward[idx]./mdt.occupancy_forward[idx]
     λr = mdt.spike_count_reverse[idx]./mdt.occupancy_reverse[idx]
@@ -1756,7 +1820,11 @@ function plot_field_direction_tuning!(lg, mdt::MajorAxisDirectionTuning, rf_spat
     lg4 = GridLayout(lg[1,5])
     Label(lg[1,5,TopLeft()], label[2])
     ax4 = Axis(lg4[1,1])
-    boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray, show_outliers=false, show_notch=true)
+    if use_boxplot
+        boxplot!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray, show_outliers=false, show_notch=true)
+    else
+        violin!(ax4, fill(1.0, length(q1)), q1-q2,color=:gray, show_median=true)
+    end
     scatter!(ax4, [1.0], [mean(λf) - mean(λr)], color=ccolors[idx])
     ax4.bottomspinevisible = false
     ax4.xticklabelsvisible = false
@@ -1816,7 +1884,7 @@ end
 """
 Illustrate 
 """
-function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap;do_unfold_maze=false, kwargs...)
+function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::SpatialResponseFieldsAll, rf_gaze::GazeResponseFieldsAll, jm::JointMap,idx::Union{Int64, Nothing}=nothing;do_unfold_maze=false, kwargs...)
     # We need two view maps; one for each direction
     # TODO: Make this more flexible
     nrefinements = rf_gaze.args[:nrefinements]
@@ -1829,75 +1897,171 @@ function plot_directional_view!(lg, mdt::MajorAxisDirectionTuning, rf_spatial::S
         use_maze = mm
     end
     hd_bins = range(0.0, stop=2π, length=24) 
-    idx = findfirst(issignificant(mdt))
-    spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    res = issignificant(mdt)
+    if idx === nothing
+        idx = findfirst(res)
+    end
+    if mdt.spatial_clusters === nothing
+        spatial_clusters = getfields(rf_spatial;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        spatial_clusters = mdt.spatial_clusters
+    end
+    λ_forward = mean(filter(isfinite, mdt.spike_count_forward[idx]./mdt.occupancy_forward[idx]))
+    λ_reverse = mean(filter(isfinite, mdt.spike_count_reverse[idx]./mdt.occupancy_reverse[idx]))
+    if λ_forward > λ_reverse
+        arrow_color = [:orange, :black]
+    else
+        arrow_color = [:black, :orange]
+    end
+    length(res) == length(spatial_clusters) || error("We have $(length(spatial_clusters)) spatial clusters and $(length(res)) significance results.")
     # get the distribution of head direction for the relevant trials
     spatial_cluster = spatial_clusters[idx]
     bb_spatial = find_boundary(m_floor, spatial_cluster)
-    viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    if isempty(rf_gaze.clusters)
+        viewclusters = getfields(rf_gaze;cluster_threshold=get(kwargs, :cluster_threshold, 0.001))
+    else
+        viewclusters = rf_gaze.clusters
+    end
 
     # get distribution over 
-    ccolor = get_colors(get(kwargs, :colormap, :viridis))
-    for (ii,trialidx) in enumerate([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]])
+    colormap = get(kwargs, :colormap, :viridis)
+    ccolor = get_colors(colormap)
+    lscenes = Any[]
+    for (ii,(trialidx, acolor)) in enumerate(zip([mdt.trialidx_forward[idx], mdt.trialidx_reverse[idx]], arrow_color))
         # get all time points
         qidx = filter(k->(k[2] in spatial_cluster)&&(k[4] in trialidx), jm.index) 
         # create a view map 
         vm = ViewMapNew(jm, mm;trialidx=trialidx, placebins=spatial_cluster)
         vml = SmoothedMap(vm;method=:laplace, α=0.1, niter=50)
         # smooth?
-        lgv = GridLayout(lg[ii,1])
+        lgv = GridLayout(lg[1,ii], alignmode=Inside())
         #plot_response_fields!(lgv, rf_gaze, get_rate_map(vm);floor_offset=0, hide_ceiling=true, indicate_north=true, show_points=true, colormap=:rain, ceiling_offset=0)
-        lscene = LScene(lgv[1,1], show_axis=false)
+        lscene = LScene(lgv[1,1], show_axis=false, alignmode=Outside())
+        push!(lscenes,lscene)
         λ = get_rate_map(vml)
-        plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false)
-        plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true)
+        plotmesh!(lscene,use_maze;color=:lightgray,hide_ceiling=true, showsegments=false,indicate_north=false)
+        if any(isfinite.(λ))
+            pl = plotmesh!(lscene,use_maze;color=λ,hide_ceiling=true, showsegments=true, colormap=colormap)
+            Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), colormap=colormap, label="Firing rate [Hz]")
+        end
+        #indicate north
+        arrows2d!(lscene, Point3f(0.0, 12.5, 1.0), Vec3f(0.0, 2.5, 0.0), color=:blue,overdraw=true)
         viz!(lscene, bb;color=:black, segmentsize=3.0)
         plot_pillars!(lscene)
-        Colorbar(lgv[1,2], colorrange=extrema(filter(isfinite, λ)), label="Firing rate [Hz]")
         # show the fields
         # do this a bit more cleverly
         #
         for (pq,cq) in zip(viewclusters,ccolor)
-            plotpoints!(lscene,pq,use_maze;pointsize=10, color=cq)
+            plotpoints!(lscene,pq,use_maze;pointsize=10, color=cq,overdraw=true)
         end
         if ii == 2 # reverse
             v = -5*mdt.v[:,idx]
         else
             v = 5*mdt.v[:,idx]
         end
-        arrows3d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v..., 0.0))
+        arrows2d!(Point3f(mdt.μ[:,idx]..., 0.5), Vec3f(v...,0.0);color=acolor, overdraw=true)
         viz!(lscene, bb_spatial, segmentsize=3, color=:black)
-        ax = PolarAxis(lg[ii,2])
+        ax = PolarAxis(lg[1,ii], width=Relative(0.5),height=Relative(0.4),
+                                 halign=0.8, valign=0.95, clipcolor=:gray75,clip=false)
+        # polar always has aspect of 1, so reverse engineering what the width and height should be
         ax.rticksvisible = false 
-        ax.thetaticksvisible = true
+        ax.rticklabelsvisible = false
+        ax.thetaticksvisible = false 
         ax.rgridvisible = true
         ax.thetagridvisible = true
+        ax.thetaticklabelsvisible = false
+        #ax.title = "Head dir"
+        #ax.titlegap = -5
+        text!(lscene, 0.8, 0.925, text="Head dir", space=:relative, align=(:center, :bottom), overdraw=true)
         # the the head direction
         cc = countmap(getindex.(qidx, 3))
-        kk = sort(collect(keys(cc)))
-        barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
+        if sum(values(cc)) > 0
+            kk = sort(collect(keys(cc)))
+            barplot!(ax, hd_bins[kk], [cc[k] for k in kk])
+        end
     end
-    Label(lg[1,2,Top()], "Head direction")
-    colsize!(lg, 2, Aspect(1,1))
+    link_cameras_lscene(lscenes)
+    #Label(lg[1,2,Top()], "Head direction")
+    #colsize!(lg, 2, Aspect(1,1))
 end
 
-function plot_directional_view!(lg, celldir::String;kwargs...)
+function plot_directional_view!(lg, celldir::String,idx;niter_spatial=50, niter_gaze=niter_spatial, kwargs...)
     mdt, rf_spatial, rf_gaze, jm = cd(celldir) do
-        mdt = MajorAxisDirectionTuning(;kwargs...)
-        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
-        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);kwargs...) 
+        mdt = MajorAxisDirectionTuning(;niter=niter_spatial, only_full_traversal=get(kwargs, :only_full_traversal, true), kwargs...)
+        rf_spatial = get_response_fields(SpatialResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_spatial,kwargs...) 
+        rf_gaze = get_response_fields(GazeResponseFields, get(kwargs, :nshuffles, 10_000);niter=niter_gaze, kwargs...) 
         jm = JointMap(;kwargs...)
         mdt, rf_spatial, rf_gaze, jm
     end
-    plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm;kwargs...)
+    plot_directional_view!(lg, mdt, rf_spatial, rf_gaze, jm, idx;kwargs...)
 end
 
-function plot_directional_view(args...;kwargs...)
+function plot_directional_view(args...;plot_theme=theme_minimal(), kwargs...)
     with_theme(plot_theme) do
-        fig = Figure()
+        fig = Figure(size=(574,275))
         lg = GridLayout(fig[1,1])
         plot_directional_view!(lg, args...;kwargs...)
         link_cameras_lscene(fig)
+        fig
+    end
+end
+
+function plot_direction_view_summary(;plot_theme=theme_minimal())
+    place_cells_width_directed_fields = readlines(open(joinpath(@__DIR__, "..", "data","place_cells_with_oriented_fields.txt")))
+    view_cells = readlines(open(joinpath(@__DIR__, "..", "data","view_cells.txt")))
+    directional_view_cells = intersect(view_cells, place_cells_width_directed_fields)
+    fname = joinpath(@__DIR__, "data", "direction_view_summary_data.jld2")
+    if isfile(fname)
+        vv, poster_overlaps = JLD2.load(fname, "vv","poster_overlaps")
+    else
+        occlusion_data = map(directional_view_cells) do celldir 
+        try
+            Hippocampus.compute_place_direction_view(celldir;only_full_reversal=true, nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter_spatial=50, niter_gaze=25, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, nshuffles=1000)
+        catch ee
+                @show celldir
+                return zeros(0,0), Symbol[]
+            end
+        end
+        qq_poster_view = map(directional_view_cells) do celldir
+            qq = cd(celldir) do
+                Hippocampus.find_poster_view_intersection(nshuffles=1000,nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter=25, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001)
+            end
+            qq
+        end
+        vv,poster_overlaps = summarize_occlusion_data(occlusion_data, qq_poster_view)
+        JLD2.save(fname, Dict("vv"=>vv, "poster_overlaps"=>poster_overlaps))
+    end
+    cidx = findall(vv.>0) 
+
+    mx = maximum(poster_overlaps)+1
+    Z = zeros(mx,mx)
+    for (i1,i2) in eachcol(poster_overlaps)
+        Z[i2+1,i1+1] += 1
+    end
+    Z[1,1] = NaN # exclude (0,0)
+    with_theme(plot_theme) do
+        fig = Figure(size=(590,280))
+        lg1 = GridLayout(fig[1,1])
+        plot_directional_view!(lg1, directional_view_cells[cidx[1]],1;nrefinements=(p=3,g=2),smooth=true, smoothing_method=:laplace, α=0.1, niter_spatial=50, niter_gaze=25, redo=fname->false, min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02,trial_start=2, pv_threshold=0.001, nshuffles=1000, do_unfold_maze=true,colormap=:rain)
+        Label(lg1[1,1, TopLeft()], "A")
+        Label(lg1[1,2,TopLeft()], "B")
+        lg2 = GridLayout(fig[1,2], alignmode=Inside())
+        Label(lg2[1,1,TopLeft()], "C")
+        ax = Axis(lg2[3,1])
+        cc = countmap(poster_overlaps[2,:])
+        barplot!(ax, collect(keys(cc)), collect(values(cc)), color=:gray)
+        ax.xlabel = "Num non-occluded"
+        ax.ylabel = "Count"
+        ax2 = Axis(lg2[2,1])
+        hh = heatmap!(ax2, Z;colormap=:dense)
+        Colorbar(lg2[1,1],hh, label="Count", vertical=false, ticklabelpad=1.5)
+        ax2.xticks = (1:mx, string.([0:mx-1;]))
+        ax2.xticklabelsvisible = false
+        ax2.yticks = (1:mx, string.([0:mx-1;]))
+        ax2.ylabel = "Poster\noverlapping"
+        rowsize!(lg2, 2, Aspect(1, 1))
+        rowgap!(lg2, 5)
+        colsize!(fig.layout, 2, 70)
         fig
     end
 end

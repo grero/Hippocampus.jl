@@ -9,6 +9,14 @@ using StatsBase
 using StableRNGs
 using Dates
 
+@testset "Statistics" begin
+    rng = StableRNG(1234)
+    x1 = randn(rng, 10)
+    x2 = randn(rng, 12)
+    q1, q2 = Hippocampus.permutation_test(mean, x1, x2)
+    @show size.((q1,q2))
+end
+
 @testset "Topology" begin
     A = Hippocampus.get_circular_adjancency(5)
     @test A == [1.0 1.0 0.0 0.0 1.0;
@@ -17,11 +25,29 @@ using Dates
                 0.0 0.0 1.0 1.0 1.0;
                 1.0 0.0 0.0 1.0 1.0]
     
+    #matrix
+    A = adjacencymatrix(2,3)
+    @test size(A) == (6,6)
+    @test A == Bool[1 1 1 0 0 0;
+                    1 1 0 1 0 0;
+                    1 0 1 1 1 0;
+                    0 1 1 1 0 1;
+                    0 0 1 0 1 1;
+                    0 0 0 1 1 1]
+    #each of the corners has 3 neighbours
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
+    @test nelements(mm) == 1312
+
     # normals
     nn = Hippocampus.get_normal(mm[1])
     @test length(nn) == 3
     @test nn ≈ [0.0, 0.0, 1.0]
+
+    # floor
+    m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
+    @test nelements(m_floor) == 1344
+    # check that the area is that of a 25 × 25 floor minus the 4 pillars
+    @test Meshes.ustrip(measure(m_floor)) == 25*25 - 4*5*5
 
     # unfolding
     unfolded_maze = Hippocampus.unfold_maze(mm)
@@ -278,6 +304,29 @@ end
     @test fname == "joint_map_4944c465.jld2"
     fname = Hippocampus.DPHT.filename(Hippocampus.JointMap;min_place_obs=6)
     @test fname == "joint_map_70397042.jld2"
+
+    weight = Float64.(rand(0:5, 20))
+    occupancy = exp.(randn(20))
+    index = [CartesianIndex(rand(1:1312), rand(1:1344), rand(1:24), i) for i in 1:20]
+    dims = [2,3,1]
+    jm1 = Hippocampus.JointMap(weight, occupancy, index, dims)
+    weight2 = Float64.(rand(0:5, 20))
+    jm2= Hippocampus.JointMap(weight2, occupancy, index, dims)
+    
+    pjm = Hippocampus.PopulationJointMap(jm1, jm2)
+    @test Hippocampus.numcells(pjm) == 2
+    jm1_test = Hippocampus.JointMap(pjm, 1)
+    @test jm1_test.weight ≈ jm1.weight
+    @test jm1_test.occupancy ≈ jm1.occupancy
+    @test jm1_test.index == jm1.index
+
+    jm2_test = Hippocampus.JointMap(pjm,2)
+    @test jm2_test.weight ≈ jm2.weight
+    @test jm2_test.occupancy ≈ jm2.occupancy
+    @test jm2_test.index == jm2.index
+
+    pjm2 = Hippocampus.PopulationJointMap(pjm, jm2)
+    @test Hippocampus.numcells(pjm2) == 3
 end
 
 @testset "Raytrace" begin
@@ -467,4 +516,31 @@ end
     @test vv0  < percentile(vv, 0.01)
     _, _,_, poster_pref = Hippocampus.find_preferred_poster(nspikes,posterid)
     @test poster_pref == [1,3]
+end
+
+@testset "Stability" begin
+    # simple square map
+    m1 = zeros(7,7)
+    m2 = zeros(7,7)
+    m1[1,3] = 1.0
+    m2[1,3] = 1.0
+    A = adjacencymatrix(7,7)
+    D = Hippocampus.distancematrix(A)
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ 0.958702627737268
+    # slight shift
+    m2 = zeros(7,7)
+    m2[3,3] = 1.0
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ -0.0316209238775601
+    m2 = zeros(7,7)
+    m2[4,4] = 1.0
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ -0.04994149195925211
+    m1 = zeros(7,7)
+    m2 = zeros(7,7)
+    m1[1,1] = 1.0
+    m2[7,7] = 1.0
+    cc = Hippocampus.heat_kernel_cross_correlation(vec(m1), vec(m2), D;σ=1)
+    @test cc ≈ -0.024776647216171628 
 end

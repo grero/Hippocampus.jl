@@ -352,7 +352,7 @@ struct SpatialMap{T<:Real} <: AbstractSpatialMap
 end
 
 struct SpatialMapNew{T<:Real} <: AbstractSpatialMap
-    mm::SimpleMesh
+    mm::Domain
     weight::Vector{T}
     occupancy::Vector{T}
 end
@@ -371,8 +371,9 @@ struct SmoothedSpatialMap{T<:Real} <: AbstractSpatialMap
     α::T
 end
 
-struct SmoothedMap{T<:Real} <: AbstractMap
-    mm::SimpleMesh
+struct SmoothedMap{T<:Real, T2<:AbstractMap} <: AbstractSpatialMap
+    maptype::Type{T2}
+    mm::Domain
     weight::Vector{T}
     occupancy::Vector{T}
     unvisited::Vector{Int64}
@@ -380,16 +381,16 @@ struct SmoothedMap{T<:Real} <: AbstractMap
 end
 
 DPHT.filename(sm::SmoothedMap{T}) where T <: Real = "smoothed_map.jld2"
-DPHT.filename(::Type{SmoothedMap}) = "smoothed_map.jld2"
+DPHT.filename(::Type{<:SmoothedMap{<:Real, SpatialMapNew}}) = "smoothed_spatial_map.jld2"
 
-function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, nrefinemensts=3,niter=1000, kwargs...)
-    h = zero(UInt32)
+function process_kwargs(::Type{T}, h::UInt32=zero(UInt32);method=:adaptive, α=10000,rmax=10, nrefinemensts=3,niter=1000, kwargs...) where T <: SmoothedMap{T1,T2} where T1 <: Real where T2 <: AbstractMap
     h = crc32c(string(method=>method),h)
     h = crc32c(string(alpha=>alpha),h)
     h = crc32c(string(rmax=>rmax),h)
     if nrefinemensts != 3
         h = crc32c(string(nrefinements=>nrefinemensts),h)
     end
+    smoothing_method = get(kwargs, :smoothing_method, :laplace)
     if smoothing_method == :laplace
         h = crc32c(string(niter=>niter),h)
     end
@@ -397,7 +398,7 @@ function process_kwargs(::Type{SmoothedMap};method=:adaptive, α=10000,rmax=10, 
 end
 
 
-function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=false, rmax=10, kwargs...)
+function SmoothedMap(spm::T;method=:gaussian, σ=5, m=4, edge_correct=false, rmax=10, kwargs...) where T <: AbstractMap
     weight = get_weight(spm)
     occupancy = get_occupancy(spm)
     if method == :gaussian
@@ -424,14 +425,12 @@ function SmoothedMap(spm::AbstractMap;method=:gaussian, σ=5, m=4, edge_correct=
         error("Unkonwn smoothing method $method")
     end
     unvisited = findall(occupancy .== 0)
-    SmoothedMap(spm.mm, Xg[:], Yg[:], unvisited, smooth_params)
+    SmoothedMap{eltype(weight),T}(T, spm.mm, Xg[:], Yg[:], unvisited, smooth_params)
 end
 
 function SmoothedMap(::Type{T},args...;redo=false, do_save=true, kwargs...) where T <: AbstractMap
-    fname = DPHT.filename(SmoothedMap)
+    fname = DPHT.filename(SmoothedMap{Float64, T})
     # append the type name of the base map that we are smoothing
-    bn = lowercase(last(split(string(T), '.')))
-    fname = replace(fname, ".jld2"=>"_$(bn).jld2")
     h = process_kwargs(SmoothedMap;kwargs...)
     if h > 0
         hs = string(h, base=16)
@@ -526,7 +525,7 @@ function SpatialMapNew(;redo=false, do_save=true, kwargs...)
     if h > 0
         hs = string(h, base=16)
         fname = replace(fname, ".jld2"=>"_$(hs).jld2")
-        spm = load_jld2(SpatialMap,fname)
+        spm = load_jld2(SpatialMapNew,fname)
     end
     if !redo && isfile(fname)
         spm = load_jld2(SpatialMapNew, fname)
@@ -544,7 +543,7 @@ function SpatialMapNew(;redo=false, do_save=true, kwargs...)
 end
 
 function get_mesh(::Type{SpatialMapNew};nrefinements=(p=3,g=2),kwargs...)
-    Shadow("xy")floor_topology3(;nrefinements=nrefinements.p)
+    Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
 end
 
 function get_rate_map(spm::AbstractMap;invalidate_unvisited=true)
@@ -655,7 +654,7 @@ function filter_occupancy(spm::SpatialMapNew{T}) where T <: Real
     findall(spm.occupancy .== 0)
 end
 
-function filter_occupancy(spm::SmoothedSpatialMap{T}) where T <: Real
+function filter_occupancy(spm::SmoothedMap{<:Real, <:AbstractMap})
     spm.unvisited
 end
 
@@ -711,6 +710,114 @@ end
 function compute_entropy(sp::Union{SpatialMap, SpatialOccupancy})
     pp = sp.weight./sum(sp.weight)
     -sum(filter(isfinite, pp.*log2.(pp)))
+end
+
+function plotmap!(ax, spm::AbstractSpatialMap;show_pillars=true, kwargs...)
+    viz!(ax, spm.mm;color=get_rate_map(spm),kwargs...)
+    if show_pillars
+        plot_pillars(ax)
+    end
+end
+
+function plotmap!(ax, spm::Observable{<:AbstractSpatialMap};show_pillars=true, mazecolor::Union{Nothing,Symbol,Colorant}=nothing, kwargs...)
+    color = lift(spm) do _spm
+        λ=get_rate_map(_spm)
+        λ
+    end
+    if show_pillars
+        plot_pillars!(ax)
+    end
+    if !isnothing(mazecolor)
+        viz!(ax, spm[].mm;color=mazecolor,kwargs...)
+    end
+    viz!(ax, spm[].mm;color=color,kwargs...)
+end
+
+function plotmap!(lg::GridLayout, spm;kwargs...)
+    axtype, axargs = get_axis_type(typeof(spm))
+    ax = axtype(lg[1,1];axargs...)
+    if axtype <: Axis
+        hidedecorations!(ax)
+        hidespines!(ax)
+    end
+    pl = plotmap!(ax, spm;kwargs...)
+    colorrange = map(pl.color) do pl_color
+        extrema(filter(isfinite, pl_color))
+    end
+    colormap = lift(pl.colormap) do _colormap
+        _colormap
+    end
+
+    Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]")
+    Makie.AxisPlot(ax, pl) 
+end
+
+function plotmap!(lg::GridLayout, spm::Observable{<:AbstractSpatialMap};kwargs...)
+    ax = Axis(lg[1,1],aspect=1)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    pl = plotmap!(ax, spm;kwargs...)
+    colorrange = lift(pl.color) do pl_color
+        cr = extrema(filter(isfinite, pl_color))
+        cr
+    end
+    colormap = lift(pl.colormap) do _colormap
+        _colormap
+    end
+    Colorbar(lg[1,2], colorrange=colorrange, colormap=colormap, label="Firing rate [Hz]")
+    Makie.AxisPlot(ax, pl) 
+end
+
+function plotmap(objs::Vector{T};kwargs...) where T <: Any
+    cellidx = Observable(1)
+    spm = lift(cellidx)  do _cellidx
+        _spm = objs[_cellidx]
+        _spm
+    end
+
+    function box_validator(ss::String)
+        ii = tryparse(Int64, ss)
+        if ii === nothing
+            return false
+        end
+        0 < ii <= length(objs)
+    end
+    fig = Figure()
+    lg = GridLayout(fig[2,1])
+    prev_button = Button(lg[1,1], label="Prev", tellwidth=false, halign=:right)
+    tb = Textbox(lg[1,2], placeholder="Index", validator = box_validator, tellwidth=false, halign=:right)
+    Label(lg[1,3], "/$(length(objs))", halign=:left, tellwidth=false)
+    next_button = Button(lg[1,4], label="Next", tellwidth=false, halign=:left)
+
+    on(tb.stored_string) do s
+        _cellidx = parse(Int64, s)
+        if _cellidx != cellidx[]
+            cellidx[] = _cellidx
+        end
+    end
+    on(cellidx) do _cellidx
+        Makie.set!(tb, "$(_cellidx)")
+    end
+    on(prev_button.clicks) do n
+        cellidx[] = max(1, cellidx[]-1)
+    end
+    on(next_button.clicks) do n
+        cellidx[] = min(length(objs), cellidx[]+1)
+    end
+    Hippocampus.plotmap!(GridLayout(fig[1,1]), spm;kwargs...)
+    cellidx[] = 1
+    fig
+end
+
+function plotmap(spm::AbstractSpatialMap;show_colorbar=true, kwargs...)
+    fig = Figure()
+    if show_colorbar
+        ax,pl = plotmap!(fig.layout, spm;kwargs...)
+    else
+        ax = Axis(fig[1,1])
+        pl = plotmap!(ax, spm;kwargs...)
+    end
+    Makie.FigureAxisPlot(fig,ax, pl)
 end
 
 function Makie.convert_arguments(::Type{<:AbstractPlot}, spm::AbstractSpatialMap,args::NamedTuple=(;))

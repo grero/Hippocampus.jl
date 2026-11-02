@@ -2,6 +2,8 @@ using CairoMakie
 using Hippocampus
 using Random
 using Makie.Colors
+using StatsBase
+using Meshes
 
 _plot_theme = theme_dark()
 _plot_theme.Axis.xgridvisible = false
@@ -359,13 +361,16 @@ Sample random points from the view conditioned map in `pvc.λ_infield[:, vidx]`.
 """
 function sample_map(pvc::Hippocampus.PlaceViewConjunction, vidx::Integer, pidx::Integer;nruns=200)
     fidx = findall(isfinite.(pvc.λ_infield[:,vidx]))
-    qidx = Hippocampus.getfields(pvc.spatial_fields;cluster_threshold=0.001)[pidx]
+    qidx = pvc.spatial_fields.clusters[pidx]
     μ = mean(pvc.spatial_fields.λ[qidx])
     μc = mean(filter(isfinite, pvc.λ_infield[qidx,vidx]))
     widx = setdiff(fidx, qidx)
     X = zeros(nruns)
     for i in 1:length(X)
-        _idx = shuffle(widx)[1:length(qidx)]
+        # TODO: This is kind of a cop-out; if there aren't enough samples to Create
+        # a meaningful shuffle, we should just throw an error
+        #_idx = shuffle(widx)[1:length(qidx)]
+        _idx = rand(widx, length(qidx))
         X[i] = mean(pvc.λ_infield[_idx,vidx])
     end
     X, μ, μc
@@ -373,7 +378,7 @@ end
 
 function sample_map(pvc::Hippocampus.ViewPlaceConjunction, vidx::Integer, pidx::Integer;nruns=200)
     fidx = findall(isfinite.(pvc.λ_infield[:,pidx]))
-    qidx = Hippocampus.getfields(pvc.view_fields; cluster_threshold=0.001)[vidx]
+    qidx = pvc.view_fields.clusters[vidx]
 
     μ = mean(pvc.view_fields.λ[qidx])
     μc = mean(filter(isfinite, pvc.λ_infield[qidx,pidx]))
@@ -390,17 +395,24 @@ function plot_conjunctions_new(celldir::String,args...;kwargs...)
     plot_conjunctions_new(Hippocampus.SpatialResponseFields, Hippocampus.GazeResponseFields, celldir, args...;kwargs...)
 end
 
-function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_field_idx::Integer, view_field_idx::Integer;_plot_theme=_plot_theme, distr_plot=:boxplot, kwargs...) where T1 <: Hippocampus.SpatialResponseFieldsAll where T2 <: Hippocampus.GazeResponseFieldsAll
+function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_field_idx::Union{Integer,Nothing}, view_field_idx::Union{Integer,Nothing};_plot_theme=_plot_theme, distr_plot=:boxplot, figsize=(595.28, 731), do_unfold_maze=false, kwargs...) where T1 <: Hippocampus.SpatialResponseFieldsAll where T2 <: Hippocampus.GazeResponseFieldsAll
     jm,vpc, pvc = cd(celldir) do
         jm = Hippocampus.JointMap(;nrefinements=(p=3,g=2),min_speed=1.0, min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2)
-        vpc = Hippocampus.ViewPlaceConjunction(T2,T1;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
-        pvc = Hippocampus.PlaceViewConjunction(T1,T2;nshuffles=1000, nrefinements=(p=3, g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter=50,  min_view_obs=5, min_place_obs=5, min_view_duration=0.02,  min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+        vpc = Hippocampus.ViewPlaceConjunction(T2,T1;nshuffles=1000, nrefinements=(p=3,g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter_place=50, niter_view=25, min_view_obs=5, min_place_obs=5, min_view_duration=0.02, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+        pvc = Hippocampus.PlaceViewConjunction(T1,T2;nshuffles=1000, nrefinements=(p=3, g=2), smooth=true, smoothing_method=:laplace, α=0.1, niter_place=50,  niter_view=25, min_view_obs=5, min_place_obs=5, min_view_duration=0.02,  min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
         jm, vpc, pvc
      end
     mm = Hippocampus.get_maze_mesh(;nrefinements=2)
     m_floor = Hippocampus.repair_mesh(Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3)))
-    pidx = Hippocampus.getfields(vpc.spatial_fields;cluster_threshold=0.001)[spatial_field_idx]
-    vidx = Hippocampus.getfields(vpc.view_fields;cluster_threshold=0.001)[view_field_idx]
+    if (spatial_field_idx === nothing) && (view_field_idx === nothing)
+        hh = Hippocampus.issignificant(vpc;pv_threshold=0.001)
+        ii = findfirst(hh)
+        spatial_field_idx = getindex(ii,1)
+        view_field_idx = getindex(ii,2)
+    end
+
+    pidx = vpc.spatial_fields.clusters[spatial_field_idx]
+    vidx = vpc.view_fields.clusters[view_field_idx]
     vm = Hippocampus.get_view_rate_map(jm, pidx, size(vpc.λ_infield,1))
     λ_infield_view = vec(Hippocampus.laplace_smoothing(vm, mm, 0.1;niter=50))
     λ_infield_view[vm.occupancy.==0] .= NaN
@@ -409,42 +421,66 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
     X_view_nc, μ_view, μ_view_place = sample_map(vpc, view_field_idx,spatial_field_idx)
     colormap = get(kwargs, :colormap, :rain)
     ccolors = Hippocampus.get_colors(colormap)
-
-    with_theme(_plot_theme) do
-        fig = Figure(size=(1000,550))
+    showsegments = get(kwargs, :showsegments, true)
+    mazecolor = get(kwargs, :mazecolor, :lightgray)
+    segmentcolor = get(kwargs, :segmentcolor, :gray55)
+    with_theme(_plot_theme()) do
+        #fig = Figure(size=(1000,550))
+        fig = Figure(size=figsize)
         # show both place and view maps
-        lg1 = GridLayout(fig[1,1])
+        lg1 = GridLayout(fig[1,1:2])
         Label(lg1[1,1,TopLeft()], "A")
         lg1_1 = GridLayout(lg1[1,1])
         # view field
-        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0)
+        Hippocampus.plot_response_fields!(lg1_1, pvc.view_fields;colormap=colormap, hide_ceiling=true, indicate_north=false, floor_offset=0.0, showsegments=showsegments, segmentcolor=segmentcolor, show_colorbar=true, do_unfold_maze=do_unfold_maze)
+        λmin, λmax =  extrema(filter(isfinite, pvc.view_fields.λ))
+        #Label(lg1[1,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
         # place field
-        lg1_2 = GridLayout(lg1[2,1])
-        Label(lg1[2,1,TopLeft()],"B")
-        Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=colormap)
+        lg1_2 = GridLayout(lg1[1,2])
+        #Label(lg1[2,1,TopLeft()],"B")
+        Hippocampus.plot_response_fields!(lg1_2, pvc.spatial_fields;colormap=colormap, show_colorbar=true)
+        λmin,λmax =  extrema(filter(isfinite, pvc.spatial_fields.λ))
+        #Label(lg1[1,2,Top()], "peak: $(round(λmax, digits=1)) Hz", rotation=0)
+        #rowsize!(lg1, 2, Aspect(1,1))
+        #rowsize!(lg1, 2, Relative(0.4))
+        colsize!(lg1, 2, Relative(0.4))
+
         # view conditioned on place
-        lg2 = GridLayout(fig[1,2])
-        Label(lg2[1,1,TopLeft()], "C")
-        lg2_1 = GridLayout(lg2[1,1])
-        lscene = LScene(lg2_1[1,1], show_axis=false)
-        Hippocampus.plot_pillars!(lscene)
+        lg2 = GridLayout(fig[2,1:2])
+        Label(lg2[1,1,TopLeft()], "B")
+        lscene1 = LScene(lg2[1,1], show_axis=false)
+        Hippocampus.plot_pillars!(lscene1)
         α_view = fill(0.0, length(λ_infield_view))
         α_view[isfinite.(λ_infield_view)] .= 1.0
-        Hippocampus.plotmesh!(lscene, mm;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=true,floor_offset=0.0)
-        ax1 = Axis(lg2_1[2,1], aspect=1)
+        if do_unfold_maze
+            mmf = Hippocampus.unfold_maze(mm)
+        else
+            mmf = mm
+        end
+        Hippocampus.plotmesh!(lscene1, mmf;color=λ_infield_view,alpha=α_view, colormap=colormap, indicate_north=false, hide_ceiling=true, showsegments=showsegments,floor_offset=0.0,segmentcolor=segmentcolor)
+        λmin,λmax =  extrema(filter(isfinite, λ_infield_view))
+        cb = Colorbar(lg2[1,2], colorrange=(λmin, λmax), colormap=:rain, label = "Firing rate [Hz]",
+                            ticklabelsvisible=true, ticksvisible=true)
+        cb.alignmode = Mixed(right=0)
+        #Label(fig[2,1,Top()], "peak: $(round(λmax, digits=1)) Hz")
+        ax1 = Axis(fig[3,1], aspect=1)
         hidedecorations!(ax1)
+        hidespines!(ax1)
         Hippocampus.plot_pillars!(ax1)
         Z_floor = fill(parse(Colorant, :lightgray), nelements(m_floor))
         alpha = fill(0.0, nelements(m_floor))
         Z_floor[pidx] .= parse(Colorant, ccolors[spatial_field_idx])
         alpha[pidx] .= 1.0
-        Z_floor[vpc.non_covered_idx[spatial_field_idx, view_field_idx]] .= parse(Colorant, :gray25)
-        alpha[vpc.non_covered_idx[spatial_field_idx, view_field_idx]] .= 1.0
+        non_covered_idx = filter(k->k>0, vpc.non_covered_idx[spatial_field_idx, view_field_idx])
+        Z_floor[non_covered_idx] .= parse(Colorant, :gray25)
+        alpha[non_covered_idx] .= 1.0
         alpha = fill(1.0, size(Z_floor)...)
         viz!(ax1, m_floor; color=Z_floor,alpha=alpha)
         # distribution of conditional and joint firing rate
-        ax2 = Axis(lg2_1[3,1])
-        Label(lg2_1[3,1, TopLeft()], "D")
+        #rowsize!(lg2,2,Relative(0.4))
+        lg_stats = GridLayout(fig[4,1:2])
+        ax2 = Axis(lg_stats[1,1])
+        Label(lg_stats[1,1,TopLeft()], "C", padding=(0.0, 0.0, 10.0, 0.0))
         xx = [fill(1.0, length(X_view_nc));fill(2.0, length(vpc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         yy = [X_view_nc;vpc.λ_sub[spatial_field_idx,view_field_idx,:]]
         ss_vpc = vpc.λ_covered[spatial_field_idx, view_field_idx] > percentile(vpc.λ_sub[spatial_field_idx, view_field_idx,:], 97.5)
@@ -462,45 +498,55 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
             marker_vpc = :circle
         end
         if ss_vp
-            marker_vp = :start6
+            marker_vp = :diamond
         else
             marker_vp = :circle
         end
-        scatter!(ax2, [μ_view_place], [1.0],color=ccolors[view_field_idx], marker=marker_vp, label="Inside VF")
-        scatter!(ax2, [μ_view], [1.0],color=:seagreen, label="Original VF")
+        scatter!(ax2, [μ_view_place],[1.0], color=ccolors[view_field_idx], marker=marker_vp, label="Inside VF")
+        scatter!(ax2, [μ_view],[1.0], color=:seagreen, label="Original VF")
         scatter!(ax2, [vpc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[spatial_field_idx], marker=marker_vpc, label="VF & PF")
         if ss_vpc
         end
-        rowsize!(lg2_1, 3, 75)
-        rowsize!(lg2_1,1, Relative(0.5))
+        #rowsize!(lg2_1, 3, 50)
+        #rowsize!(lg2_1,1, Relative(0.6))
         ax2.yticklabelsvisible = false
         ax2.yticksvisible = false
         ax2.xlabel = "Firing rate [Hz]"
 
         # place conditioned on view
-        lg3 = GridLayout(fig[1,3])
-        Label(lg3[1,1,TopLeft()], "E")
-        lscene = LScene(lg3[1,1], show_axis=false)
-        Hippocampus.plot_pillars!(lscene)
+        #lg3 = GridLayout(fig[2,2])
+        Label(lg2[1,3,TopLeft()], "D")
+        lscene2 = LScene(lg2[1,3], show_axis=false)
+        Hippocampus.plot_pillars!(lscene2)
         Z_maze = fill(parse(Colorant, :lightgray), nelements(mm))
         alpha = fill(0.0, nelements(mm))
         Z_maze[vidx] .= parse(Colorant, ccolors[view_field_idx])
         alpha[vidx] .= 1.0
         Z_maze[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= parse(Colorant, :gray25)
         alpha[pvc.non_covered_idx[spatial_field_idx, view_field_idx]] .= 1.0
-        Hippocampus.plotmesh!(lscene, mm, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=true)
-        ax3 = Axis(lg3[2,1], aspect=1)
+        if showsegments == false
+            Hippocampus.plotmesh!(lscene2, mmf, color=mazecolor,indicate_north=false,hide_ceiling=true, showsegments=false)
+        end
+        Hippocampus.plotmesh!(lscene2, mmf, color=Z_maze, alpha=alpha, indicate_north=false,hide_ceiling=true, showsegments=showsegments, segmentcolor=segmentcolor)
+        lg3 = GridLayout(fig[3,2])
+        ax3 = Axis(lg3[1,1], aspect=1)
         viz!(ax3, m_floor;color=:lightgray)
         hidedecorations!(ax3)
+        hidespines!(ax3)
         mcolor = vec(λ_infield_place)
         malpha = zeros(length(mcolor))
         malpha[isfinite.(mcolor)] .= 1.0
         mcolor[isnan.(mcolor)] .= 0.0
         viz!(ax3, m_floor, color=mcolor,alpha=malpha,colormap=colormap)
+        λmin,λmax =  extrema(filter(isfinite, mcolor))
+        cb2 = Colorbar(lg3[1,2], colorrange=(λmin, λmax), colormap=:rain, label="Firing rate [Hz]",
+                            ticksvisible = true, ticklabelsvisible=true)
+        cb2.alignmode = Mixed(right=0)
+        #Label(fig[3,2,Left()], "peak: $(round(λmax, digits=1)) Hz", rotation=π/2)
         Hippocampus.plot_pillars!(ax3)
-
-        ax4 = Axis(lg3[3,1])
-        Label(lg3[3,1, TopLeft()], "F")
+        #rowsize!(lg3, 2, Relative(0.4))
+        ax4 = Axis(lg_stats[1,2])
+        Label(lg_stats[1,2, TopLeft()], "E", padding=(0.0, 0, 10.0, 0.0))
         xx = [fill(1.0, length(X_place_nc));fill(2.0, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
         yy = [X_place_nc;pvc.λ_sub[spatial_field_idx,view_field_idx,:]]
         cc = [fill(1, length(X_place_nc));fill(2, length(pvc.λ_sub[spatial_field_idx,view_field_idx,:]))]
@@ -512,7 +558,7 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
             marker_pvc = :circle
         end
         if ss_pv
-            marker_pv = :star6
+            marker_pv = :diamond
         else
             marker_pv = :circle
         end
@@ -521,15 +567,27 @@ function plot_conjunctions_new(::Type{T1}, ::Type{T2}, celldir::String,spatial_f
         else
             violin!(ax4, xx,yy, orientation=:horizontal, show_median=true, color=[:royalblue, :gray25][cc])
         end
-        scatter!(ax4, [μ_place_view], [1.0],color=ccolors[spatial_field_idx], marker=marker_pv, label="Inside VF")
-        scatter!(ax4, [μ_place], [1.0],color=:seagreen, label="Original VF")
+        scatter!(ax4, [μ_place_view], [1.0], color=ccolors[spatial_field_idx], marker=marker_pv, label="Inside VF")
+        scatter!(ax4, [μ_place],[1.0], color=:seagreen, label="Original VF")
         scatter!(ax4, [pvc.λ_covered[spatial_field_idx,view_field_idx]], [2.0], color=ccolors[view_field_idx], marker=marker_pvc,label="VF & PF")
-        rowsize!(lg3, 3, 75)
-        rowsize!(lg3,1, Relative(0.5))
+        #rowsize!(lg3, 3, 50)
+        #rowsize!(lg3,1, Relative(0.6))
+        #colsize!(fig.layout, 1, Relative(0.4))
+        rowsize!(fig.layout, 3, 80)
+        rowsize!(fig.layout, 4, 30)
         ax4.yticklabelsvisible = false
         ax4.yticksvisible = false
         ax4.xlabel = "Firing rate [Hz]"
-        Hippocampus.link_cameras_lscene(fig)
+        #cb =Colorbar(fig[2,1], colormap=:rain, colorrange=(0,1), label="Firing rate",
+        #                    ticks=([0,1], ["min", "max"]), tellwidth=false, width=10)
+        #cb.flipaxis = false
+        #cb.alignmode = Outside()
+        #colgap!(fig.layout, 0)
+
+        Hippocampus.link_cameras_lscene([lscene1, lscene2])
+        lg_samples = GridLayout(fig[5,1:2])
+        Label(lg_samples[1,1,TopLeft()], "F")
+        PaperFigures.plot_remote_view_conjunctions!(lg_samples;show_activity=false)
         fig
     end
 end
@@ -573,3 +631,64 @@ end
 function plot_goal_poster_selective_cell(celldir::String)
 end
 
+
+function plot_conjunctive_distribution(pvc_res::Vector{Matrix{Bool}})
+    nplace = maximum(size.(pvc_res, 1))
+    nview = maximum(size.(pvc_res, 2))
+    Z = zeros(Int64, nplace, nview)
+    Ztot = zeros(Int64, nplace, nview)
+    for _res in pvc_res
+        #for ii in CartesianIndices(_res)
+        #    Ztot[ii] += 1.0
+        #end
+        Ztot[size(_res)...] += length(_res)
+        Z[size(_res)...] += sum(_res)
+    end
+    Za = zeros(Rational, nplace, nview)
+    Za[Ztot.>0] = Z[Ztot.>0].//Ztot[Ztot.>0]
+    with_theme(theme_minimal()) do 
+        fig = Figure(size=(400,300))
+        ax = Axis(fig[1,1])
+        h = heatmap!(ax, Float64.(Za))
+        ax.xlabel = "Num place fields"
+        ax.xticksvisible = true
+        ax.yticksvisible = true
+        ax.ylabel = "Num view fields"
+        cb = Colorbar(fig[1,2], h,label="Prop. significant")
+        text!(ax, Point2f.(Tuple.(findall(Za.>0))), text=replace.(string.(Za[Za.>0]),"//"=>"/"), align=(:center, :center))
+        fig
+    end
+end
+
+function plot_conjunctive_distribution_alt(pvc_res::Vector{Matrix{Bool}}, vpc_res::Vector{Matrix{Bool}})
+    Z = Dict{Tuple{Int64, Int64}, Dict{Int64, Int64}}()
+    for (_res1,_res2) in zip(pvc_res, vpc_res)
+        rs = size(_res1)
+        if !(rs in keys(Z))
+            Z[rs] = Dict{Int64,Int64}()
+        end
+        z = sum(_res1.|_res2)
+        Z[rs][z] = get(Z[rs], z, 0) + 1 
+    end
+    mx = maximum(maximum.(keys.(values(Z)))) + 1
+    Za = fill(NaN, length(Z), mx)
+    kks = sort(collect(keys(Z)))
+    for (ii,k) in enumerate(kks)
+        kk= collect(keys(Z[k]))
+        vv = collect(values(Z[k]))
+        Za[ii,kk.+1] .= vv
+    end
+    with_theme(theme_minimal()) do
+        fig = Figure(size=(450,325))
+        ax = Axis(fig[1,1])
+        ax.xticksvisible = true
+        ax.yticksvisible = true
+        h = heatmap!(ax, 1:size(Za,1), (0:mx-1), Za)
+        ax.xticks = (1:size(Za,1), string.(kks))
+        ax.xticklabelrotation = -π/3
+        ax.ylabel = "Number of sig. combinations"
+        ax.xlabel = "Number of place and view fields"
+        Colorbar(fig[1,2], h, label="Number of cells")
+        fig
+    end
+end

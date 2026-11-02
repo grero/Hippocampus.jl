@@ -35,4 +35,5 @@ include("conjunctions.jl")
 include("plots.jl")
 include("poster_analysis.jl")
 include("goal_poster_analysis.jl")
+include("stability.jl")
 end

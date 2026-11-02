@@ -187,6 +187,26 @@ function box_topology2(n::Integer=2)
     ref2 = SimpleMesh(box_mesh.vertices, convert(HalfEdgeTopology, box_mesh.topology))
 end
 
+function Meshes.adjacencymatrix(m::Int, n::Int)
+    A = falses(n*m,n*m)
+    for i2 in 1:n
+        for j2 in 1:m
+            k2 = (i2-1)*m + j2
+            for i1 in 1:n
+                for j1 in 1:m
+                    k1 = (i1-1)*m + j1
+                    d1 = abs(i1-i2)
+                    d2 = abs(j1-j2)
+                    if sum(d1+d2) <= 1
+                        A[k1, k2] = true
+                    end
+                end
+            end
+        end
+    end
+    A
+end
+
 function nearestneighbors(mm::SimpleMesh)
     A = adjacencymatrix(mm;rank=0)
     G = SimpleGraph(A)
@@ -567,7 +587,7 @@ function get_cotangent_laplacian(mm::SimpleMesh)
 
 end
 
-function get_normalize_laplacian(mm::SimpleMesh)
+function get_normalize_laplacian(mm::Domain)
     A = adjacencymatrix(mm)
     Dp = Diagonal(vec(1.0./sqrt.(sum(A,dims=2))))
     Ls = I - Dp*A*Dp
@@ -1109,11 +1129,12 @@ end
 
 function plotpoints!(lscene, pidx::AbstractVector{<:Integer}, mm::UnfoldedMaze;kwargs...)
     idx = findin.(pidx, Ref(mm));
-    μ = [centroid(mm.parts[k][v]) for (k,v) in idx]
-    viz!(lscene, μ;kwargs...)
+    mq = Meshes.Ngon.([Meshes.vertices(mm.parts[k][v]) for (k,v) in idx])
+    mqs = _scale.(mq, Ref(0.5));
+    viz!(lscene, mqs;kwargs...)
 end
 
-function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs...)
+function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,indicate_north=false, ceiling_offset=0.0, floor_offset=0.0, kwargs...)
     tqcolor = get(kwargs, :color,:lightgray) 
     if !isa(tqcolor,Observable)
         tcolor = Observable(tqcolor)
@@ -1191,6 +1212,9 @@ function plotmesh!(lscene, unfolded_maze::UnfoldedMaze;hide_ceiling=false,kwargs
         end
         viz!(lscene, v;color=use_color[k],alpha=use_alpha[k], colorrange=cr, kwargs...)
     end
+    if indicate_north
+        arrows2d!(lscene, Point3f(0.0, 12.5, 1.0), Vec3f(0.0, 5.0, 0.0), color=:red, overdraw=true)
+    end
 end
 
 function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,hide_ceiling=false, hide_floor=false, indicate_north=true, arrow_color=:black, kwargs...)
@@ -1244,36 +1268,52 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             end
         end
         # kind of dumb;trigger a change
-        tcolor[] = tcolor.val
         #talpha = get(kwargs, :alpha, fill(1.0, length(tcolor[])))
-        talpha = get(kwargs, :alpha, nothing)
-        if talpha === nothing
+        # TODO: We need alpha also to be an observable
+        tqalpha = get(kwargs, :alpha, nothing)
+        if tqalpha === nothing
             if isa(tcolor[], AbstractVector{<:Real})
-                talpha = fill(1.0, length(tcolor[]))
+                tqalpha = fill(1.0, length(tcolor[]))
             end
+        end
+        if !isa(tqalpha, Observable)
+            talpha = Observable(tqalpha)
+        else
+            talpha = tqalpha
         end
         kwargs = filter(k->k[1]!=:alpha, kwargs)
-        use_alpha = Dict{Symbol,Any}()
-        if isa(talpha, AbstractVector{<:Real})
-            if nanidx !== nothing
-                qalpha = fill!(similar(talpha), one(eltype(talpha)))
-                qalpha .= talpha
-                qalpha[nanidx] .= zero(eltype(qalpha)) 
-            else
-                qalpha = talpha
-            end
-            use_alpha[:middle] = qalpha[m_middle.inds]
-            use_alpha[:floor] = qalpha[m_floor2.inds]
-            use_alpha[:ceiling] = qalpha[m_ceiling2.inds]
-        else
-            if talpha === nothing
-                talpha = 1.0
-            end
-            use_alpha[:middle] = talpha
-            use_alpha[:floor] = talpha
-            use_alpha[:ceiling] = talpha
+        use_alpha = Dict{Symbol,Observable{Any}}()
+        for k in [:ceiling, :middle, :floor]
+            use_alpha[k] = Observable(1.0)
         end
-        viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
+        # alpha values change when colors change
+        on(tcolor) do _tcolor
+            if isa(_tcolor, AbstractArray{<:Any})
+                nanidx = isnan.(_tcolor)
+                if isa(talpha[], AbstractVector{<:Real})
+                    if nanidx !== nothing
+                        qalpha = fill!(similar(talpha[]), one(eltype(talpha[])))
+                        qalpha .= talpha[]
+                        qalpha[nanidx] .= zero(eltype(qalpha)) 
+                    else
+                        qalpha = talpha
+                    end
+                    use_alpha[:middle][] = qalpha[m_middle.inds]
+                    use_alpha[:floor][] = qalpha[m_floor2.inds]
+                    use_alpha[:ceiling][] = qalpha[m_ceiling2.inds]
+                else
+                    #if talpha[] === nothing
+                    #    talpha[] = 1.0
+                    #end
+                    use_alpha[:middle][] = talpha[]
+                    use_alpha[:floor][] = talpha[]
+                    use_alpha[:ceiling][] = talpha[]
+                end
+            end
+        end
+
+        tcolor[] = tcolor.val
+        pl = viz!(lscene, m_middle;color=use_color[:middle],alpha=use_alpha[:middle], colorrange=cr, kwargs...)
         if !hide_floor
             viz!(lscene, m_floor2;color=use_color[:floor],alpha=use_alpha[:floor], colorrange=cr, kwargs...)
         end
@@ -1281,11 +1321,12 @@ function plotmesh!(lscene, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0,h
             viz!(lscene, m_ceiling2;color=use_color[:ceiling],alpha=use_alpha[:ceiling], colorrange=cr, kwargs...)
         end
     else
-       viz!(lscene, mm;kwargs...) 
+       pl = viz!(lscene, mm;kwargs...) 
     end
     if indicate_north
         arrows3d!(lscene, Point3f(0.0, 10.0, 7.0+ceiling_offset), Point3f(0.0, 5.0, 0.0), color=arrow_color)
     end
+    pl
 end
 
 function explore!(fig, mm::SimpleMesh;floor_offset=0.0, ceiling_offset=0.0, color=fill(0.0, nelements(mm)),alpha=fill(1.0, nelements(mm)),label::String="", show_axis=true, show_colorbar=true, kwargs...)
