@@ -572,9 +572,9 @@ function plot_directional_place_fields(;use_pie_chart=false, colormap=:jet)
             axp = Axis(lg21[1,1], alignmode=Inside())
             @show length.([place_cells, place_cells_width_directed_fields])
             barplot!(axp, [1:2;], length.([place_cells, place_cells_width_directed_fields]), color=[:lightgray, :mediumpurple])
-            axp.xticks = ([1,2], ["All place", "Directional"])
-            axp.xticklabelrotation = -π/6
-            axp.ylabel = "Number of cells"
+            axp.xticks = ([1,2], ["All", "Dir"])
+            axp.xticklabelrotation = 0 
+            axp.ylabel = "Num cells"
         end
         Label(lg21[1,1,TopLeft()], "F", padding=(0,20,0,0))
         lgv = GridLayout(lg21[1,2],alignmode=Inside())
