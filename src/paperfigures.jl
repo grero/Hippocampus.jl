@@ -210,6 +210,7 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
         # Example of a cell with place activity
         lgm = GridLayout(fig[1,1])
         Label(lgm[1,1,TopLeft()], "A")
+        lscenes = Any[]
         for (ii,jj) in enumerate(example_idx)
             lg1 = GridLayout(lgm[1,ii])
             sic,rfs = cd(celldirs[jj]) do
@@ -223,8 +224,8 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
             lg12 = GridLayout(lg1[1,1])
             show_points = T <: Hippocampus.GazeResponseFields
             show_boundaries = !show_points
-            Hippocampus.plot_response_fields!(lg12, rfs;filter_spurious=true, colorbar_below=true, colormap=:jet, show_points=show_points, show_boundaries=show_boundaries, plot_kwargs...)
-
+            lscene = Hippocampus.plot_response_fields!(lg12, rfs;filter_spurious=true, colorbar_below=true, colormap=:jet, show_points=show_points, show_boundaries=show_boundaries, plot_kwargs...)
+            push!(lscenes, lscene)
             # show SIC distribution
             #lg2 = GridLayout(fig[1,2])
             ax2 = Axis(lg12[3,1])
@@ -243,7 +244,8 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
             ax2.xlabel = "SIC"
             rowsize!(lg12, 1, Relative(0.9))
         end
-
+        # link cameras, mainly to keep the zoom factor the same
+        Hippocampus.link_cameras_lscene(lscenes)
         # summary showing total number of fields and coverage
         lg3 = GridLayout(fig[2,1]) 
         Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E","F"], pv_threshold=0.001, smooth=true, smoothing_method=:laplace, α=0.1,niter=50,colormap=:jet,floor_offset=-20, kwargs...)
