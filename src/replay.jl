@@ -2734,7 +2734,7 @@ function PopulationJointMap(jm1::JointMap{T}, jm2::JointMap{T}) where T <: Real
             push!(index, CartesianIndex(idx,ii))
         end
     end
-    PopulationJointMap(weight, occupancy, index, dims)
+    PopulationJointMap{T}(weight, occupancy, index, dims)
 end
 
 function PopulationJointMap(pjm::PopulationJointMap{T}, jm2::JointMap{T}) where T <: Real
