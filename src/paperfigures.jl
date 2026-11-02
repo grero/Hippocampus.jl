@@ -1095,4 +1095,40 @@ function plot_place_and_view_fields(place_and_view_cells::Vector{String})
 end
 
 
+function plot_remote_view_conjunctions!(lg::GridLayout;kwargs...)
+    place_cells = readlines(open("$(homedir())/Documents/programming/julia/Hippocampus/data/place_cells.txt"))
+    view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
+       readlines(fid)
+       end
+    place_and_view_conjunctive_cells = get_conjunctive_cells(place_cells, view_cells;redo=false,pv_threshold=0.001, min_non_covered_ratio=2.0)
+    cellidx = [44, 53,62]
+    clusteridx = [[CartesianIndex{2}(3,1)], [CartesianIndex{2}(3,1)], [CartesianIndex{2}(3,2)]]
+
+    pvc1 = cd(place_and_view_conjunctive_cells[44]) do
+        pvc = Hippocampus.PlaceViewConjunction(;nshuffles=1000,nrefinements=(p=3,g=2),redo=fname->false, smooth=true, smoothing_method=:laplace, α=0.1, niter_place=50, niter_view=25, min_view_obs=5, min_view_duration=0.02, min_place_obs=5, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+    end
+    pvc2 = cd(place_and_view_conjunctive_cells[53]) do
+        pvc = Hippocampus.PlaceViewConjunction(;nshuffles=1000,nrefinements=(p=3,g=2),redo=fname->false, smooth=true, smoothing_method=:laplace, α=0.1, niter_place=50, niter_view=25, min_view_obs=5, min_view_duration=0.02, min_place_obs=5, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+    end
+    vpc3 = cd(place_and_view_conjunctive_cells[62]) do
+        vpc = Hippocampus.ViewPlaceConjunction(Hippocampus.GazeResponseFields, Hippocampus.SpatialResponseFields;nshuffles=1000,nrefinements=(p=3,g=2),redo=fname->false, smooth=true, smoothing_method=:laplace, α=0.1, niter_place=50, niter_view=25, min_view_obs=5, min_view_duration=0.02, min_place_obs=5, min_place_duration=0.05, min_speed=1.0, pv_threshold=0.001)
+    end
+    lscenes = Any[] 
+    for (ii,(cidx,clidx, pvc)) in enumerate(zip(cellidx, clusteridx, (pvc1, pvc2, vpc3)))
+        lgi = GridLayout(lg[1,ii])
+        _lscene = Hippocampus.plot_response_fields!(lgi, pvc, clidx;show_colorbar=true, kwargs...)
+        push!(lscenes, _lscene)
+    end
+    Hippocampus.link_cameras_lscene(lscenes)
+end
+
+function plot_remote_view_conjunctions(;kwargs...)
+    with_theme(plot_theme()) do
+        fig = Figure()
+        lg = GridLayout(fig[1,1])
+        plot_remote_view_conjunctions!(lg;kwargs...)
+        fig
+    end
+end
+
 end #module
