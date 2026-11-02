@@ -966,6 +966,25 @@ function test_conjunction()
     end
 end
 
+function compute_field_distance(pvc::AbstractFieldConjunctions, vpc::AbstractFieldConjunctions;pv_threshold=0.001, min_non_covered_ratio=0.0)
+    # get the signficant combinations
+    qq1 = issignificant(pvc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    qq2 = issignificant(vpc;pv_threshold=pv_threshold, min_non_covered_ratio=min_non_covered_ratio)
+    qq = qq1.|qq2
+    nrefinements = pvc.view_fields.args[:nrefinements]
+    mm = get_maze_mesh(;nrefinements=nrefinements.g)
+    m_floor = floor_topology3(;nrefinements=nrefinements.p)
+    dd = zeros(sum(qq))
+    for (jj,ii) in enumerate(findall(qq))
+        pidx = pvc.spatial_fields.clusters[getindex(ii,1)]
+        μ_place = mean(Point3f.(Tuple.(centroid.(m_floor[pidx]))))
+        vidx = pvc.view_fields.clusters[getindex(ii,2)]
+        μ_view = mean(Point3f.(Tuple.(centroid.(mm[vidx]))))
+        dd[jj] = norm(μ_place - μ_view)
+    end
+    dd
+end
+
 ## plots
 function plot_conjunction_old(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
 
