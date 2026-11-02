@@ -670,7 +670,6 @@ function plot_conjunctive_distribution_alt(pvc_res::Vector{Matrix{Bool}}, vpc_re
         z = sum(_res1.|_res2)
         Z[rs][z] = get(Z[rs], z, 0) + 1 
     end
-    Z
     mx = maximum(maximum.(keys.(values(Z)))) + 1
     Za = fill(NaN, length(Z), mx)
     kks = sort(collect(keys(Z)))
