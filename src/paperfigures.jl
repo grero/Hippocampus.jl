@@ -818,7 +818,7 @@ function plot_summary_figure(;)
             readlines(fid)
     end
     place_and_view_cells = intersect(place_cells, view_cells)
-    place_view_conjunctions = get_conjunctive_cells(place_cells, view_cells)
+    place_view_conjunctions = get_conjunctive_cells(place_cells, view_cells;pv_threshold=0.001, min_non_covered_ratio=2.0)
     directed_place_cells= readlines(open(joinpath(@__DIR__, "..", "data/place_cells_with_oriented_fields.txt")))
     landmark_data = get_landmark_cells(view_cells)
     goal_cells = landmark_data["landmark_cells"]
