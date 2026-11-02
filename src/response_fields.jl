@@ -1264,6 +1264,42 @@ function plot_response_fields!(lg, rf_place::SpatialResponseFields, rf_gaze::Gaz
     plot_response_fields!(lgg, rf_gaze;kwargs...)
 end
 
+function plot_response_fields!(lg::GridLayout, rf_spatial::SpatialResponseFields, rf_gaze::GazeResponseFields;clusteridx::Union{Vector{CartesianIndex{2}},Nothing}=nothing, show_colorbar=false, show_activity=true, kwargs...)
+    colormap = get(kwargs, :colormap, :rain)
+    lscene = LScene(lg[1,1], show_axis=false)
+
+    # plot an unfolded layout. The view fields are shown as fields while the center
+    # of the place field is represented by a a stick
+    nrefinements = rf_spatial.args[:nrefinements]
+    mm = unfold_maze(get_maze_mesh(;nrefinements=nrefinements.g))
+    m_floor = Hippocampus.floor_topology3(;nrefinements=nrefinements.p)
+    plotmesh!(lscene, mm, color=:lightgray, segmentcolor=:gray50, segmentsize=1.0, showsegments=true, hide_ceiling=true, colormap=colormap)
+    if show_activity
+        plotmesh!(lscene, mm, color=rf_gaze.λ, hide_ceiling=true, colormap=colormap)
+    end
+    plot_pillars!(lscene)
+    ccolors = get_colors(colormap)
+    if clusteridx === nothing
+        clusteridx = [CartesianIndex(p,v) for p in 1:length(rf_spatial.clusters) for v in 1:length(rf_gaze.clusters)]
+    end
+    for (cc, cidx) in zip(ccolors, clusteridx)
+        #view field
+        vidx = rf_gaze.clusters[getindex(cidx[2])]
+        plotpoints!(lscene, vidx, mm;color=cc,overdraw=true)
+        pidx = rf_spatial.clusters[getindex(cidx[1])]
+
+        #place field
+        μ = mean(Point3f.(Tuple.(centroid.(m_floor[pidx]))))
+        μ2 = μ + Vec3f(0.0, 0.0, 5.0)
+        linesegments!(lscene, [μ=>μ2], color=cc)
+        scatter!(lscene, μ2,color=cc, markersize=10)
+    end
+    if show_colorbar && show_activity
+        Colorbar(lg[1,2], colorrange=extrema(filter(isfinite, rf_gaze.λ)), colormap=colormap)
+    end
+    lscene
+end
+
 function plot_response_field_density_comparison!(lg, ::Type{T}, cells1::Vector{String}, cells2::Vector{String};label::Union{Vector{String}, Nothing}=nothing, do_unfold_maze=true, kwargs...) where T <: AbstractResponseFields
     nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
     zdata = compute_view_field_distribution(T, cells1, cells2;kwargs...)
