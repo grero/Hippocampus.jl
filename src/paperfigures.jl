@@ -958,9 +958,9 @@ function plot_place_cell_poster_proximity!(lg;kwargs...)
     bracket!(ax, 1, ym, 2, ym;text=marker,style=:square, width=7, textoffset=7)
     ym = maximum(poster_dist_min) + 0.6*(maximum(poster_dist_min) - minimum(poster_dist_min))
     ylims!(ax, -0.5, ym)
-    ax.xticks = ([1,2], ["Non-directional","Directional"])
-    ax.xticklabelrotation = -π/6
-    ax.ylabel = "Poster distance"
+    ax.xticks = ([1,2], ["Non-dir","Dir"])
+    ax.xticklabelrotation = 0 
+    ax.ylabel = "Poster dist"
 end
 
 function plot_place_cell_poster_proximity(;kwargs...)
