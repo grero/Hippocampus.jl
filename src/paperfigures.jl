@@ -261,7 +261,19 @@ View cells
 function figure3(view_cells::Vector{String}, example_idx::Vector{<:Integer};kwargs...)
     # plot this using GLMakie
     GLMakie.activate!()
-    plot_field_summary(Hippocampus.GazeResponseFields, view_cells, example_idx;hide_ceiling=true, indicate_north=false,show_points=true, show_boundaries=false, pointsize=2.5, floor_offset=-20.0, kwargs...)
+    with_theme(plot_theme()) do
+        plot_field_summary(Hippocampus.GazeResponseFields, view_cells, example_idx;hide_ceiling=true, indicate_north=false,show_points=true, show_boundaries=false, pointsize=2.5, floor_offset=-20.0, kwargs...)
+    end
+end
+
+function figure3(;kwargs...)
+    view_cells = open("/Users/roger/Documents/programming/julia/Hippocampus/data/view_cells.txt") do fid
+            readlines(fid)
+    end
+    view_selective_cells = readlines(open("$(homedir())/Documents/programming/julia/Hippocampus/data/view_selective_cells.txt"))
+
+    non_view_cells = setdiff(view_selective_cells, view_cells)
+    figure3(view_selective_cells, [findfirst(in(non_view_cells), view_selective_cells);findall(in(view_cells), view_selective_cells)[1:2]];segmentsize=3.0, showsegments=false, kwargs...)
 end
 
 
