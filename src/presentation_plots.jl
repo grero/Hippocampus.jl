@@ -367,7 +367,10 @@ function sample_map(pvc::Hippocampus.PlaceViewConjunction, vidx::Integer, pidx::
     widx = setdiff(fidx, qidx)
     X = zeros(nruns)
     for i in 1:length(X)
-        _idx = shuffle(widx)[1:length(qidx)]
+        # TODO: This is kind of a cop-out; if there aren't enough samples to Create
+        # a meaningful shuffle, we should just throw an error
+        #_idx = shuffle(widx)[1:length(qidx)]
+        _idx = rand(widx, length(qidx))
         X[i] = mean(pvc.λ_infield[_idx,vidx])
     end
     X, μ, μc
