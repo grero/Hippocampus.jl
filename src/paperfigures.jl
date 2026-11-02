@@ -213,8 +213,8 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
         for (ii,jj) in enumerate(example_idx)
             lg1 = GridLayout(lgm[1,ii])
             sic,rfs = cd(celldirs[jj]) do
-                sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=50,kwargs...)
-                rfs = Hippocampus.get_response_fields(T, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=50,pv_threshold=0.001,kwargs...) 
+                sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=25,kwargs...)
+                rfs = Hippocampus.get_response_fields(T, 1_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=25,pv_threshold=0.001,kwargs...) 
                 sic,rfs
             end
             if isempty(rfs.binidx) || sic === nothing
