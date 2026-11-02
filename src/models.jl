@@ -47,6 +47,60 @@ function (vf::ViewField)(pidx::Int64)
 end
 
 sigmoid(x, x0, a) = 1.0/(1+exp(a*(x-x0)))
+
+function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::JointOccupancy, spm::T;jocc_filtered::Union{JointFilteredOccupancy, Nothing}=nothing, dt=0.0005,rng=Random.default_rng()) where T <: AbstractMap
+    nt = numtrials(qdata)
+
+    λ = get_rate_map(spm)
+    spikes = Float64[]
+    q = -log(rand(rng))
+    r = 0.0
+    @showprogress for i in 1:nt
+        t,gaze,pos,_,_ = get_trial(qdata, i;trial_start=2)
+        # get the time from ripple
+        trp = rpdata.timestamps[i,2]
+        # reference to ripple time
+        t .= t .- t[1] .+ trp
+        Δt = diff(t)
+        for (jk,(t0,qidx)) in enumerate(zip(t,jocc.index[i]))
+            if qidx == CartesianIndex(0,0,0)
+                continue
+            end
+            # grab firing rate from the map
+            pidx = getindex(qidx,T)
+            if jocc_filtered !== nothing
+                if !(CartesianIndex(qidx,i) in jocc_filtered.index)
+                    break
+                end
+            end
+            # this should always be finite
+            # could be filtering, actually
+            _λ = λ[pidx]
+            if !isfinite(_λ)
+                @show i jk
+                break
+            end
+            _t = t0
+            while _t < t0+Δt[jk]
+                r += _λ*dt
+                if !isfinite(r)
+                    @show i, jk _λ
+                end
+                if r >= q 
+                    # refractory period
+                    if isempty(spikes) || _t - spikes[end] > 1.0
+                        push!(spikes, _t)
+                        r = 0.0
+                        q = -log(rand(rng))
+                    end
+                end
+                _t += dt
+            end
+        end
+    end
+    spikes
+end
+
 """
 Simulate a simple place field neuron using behavioural data in `udata`
 """
