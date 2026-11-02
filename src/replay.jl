@@ -7,6 +7,10 @@ using Meshes
 using CRC32c
 
 abstract type AbstractViewMap <: AbstractMap end
+
+Base.getindex(qidx::CartesianIndex, ::Type{<:AbstractSpatialMap}) = getindex(qidx,2)
+Base.getindex(qidx::CartesianIndex, ::Type{<:AbstractViewMap}) = getindex(qidx,1)
+
 struct DummyCam
     pos::Point3f
     dir::Vec3f
