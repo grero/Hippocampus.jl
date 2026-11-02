@@ -48,10 +48,13 @@ end
 
 sigmoid(x, x0, a) = 1.0/(1+exp(a*(x-x0)))
 
-function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::JointOccupancy, spm::T;jocc_filtered::Union{JointFilteredOccupancy, Nothing}=nothing, dt=0.0005,rng=Random.default_rng()) where T <: AbstractMap
+function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::JointOccupancy, spm::T, vm::Union{Nothing, T2}=nothing;jocc_filtered::Union{JointFilteredOccupancy, Nothing}=nothing, dt=0.0005,rng=Random.default_rng()) where T <: AbstractMap where T2 <: AbstractMap
     nt = numtrials(qdata)
 
     λ = get_rate_map(spm)
+    if vm !== nothing
+        λ2 = get_rate_map(vm)
+    end
     spikes = Float64[]
     q = -log(rand(rng))
     r = 0.0
@@ -66,16 +69,17 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
             if qidx == CartesianIndex(0,0,0)
                 continue
             end
-            # grab firing rate from the map
-            pidx = getindex(qidx,T)
             if jocc_filtered !== nothing
                 if !(CartesianIndex(qidx,i) in jocc_filtered.index)
                     break
                 end
             end
-            # this should always be finite
-            # could be filtering, actually
+            pidx = getindex(qidx,T)
             _λ = λ[pidx]
+            if vm !== nothing
+                vidx = getindex(qidx,T2)
+                _λ += λ2[vidx] 
+            end
             if !isfinite(_λ)
                 @show i jk
                 break
