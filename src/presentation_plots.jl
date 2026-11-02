@@ -361,7 +361,7 @@ Sample random points from the view conditioned map in `pvc.λ_infield[:, vidx]`.
 """
 function sample_map(pvc::Hippocampus.PlaceViewConjunction, vidx::Integer, pidx::Integer;nruns=200)
     fidx = findall(isfinite.(pvc.λ_infield[:,vidx]))
-    qidx = Hippocampus.getfields(pvc.spatial_fields;cluster_threshold=0.001)[pidx]
+    qidx = pvc.spatial_fields.clusters[pidx]
     μ = mean(pvc.spatial_fields.λ[qidx])
     μc = mean(filter(isfinite, pvc.λ_infield[qidx,vidx]))
     widx = setdiff(fidx, qidx)
