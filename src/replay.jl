@@ -2688,8 +2688,8 @@ struct ViewMap{T<:Real}
     occupancy::Array{T,3}
 end
 
-struct ViewMapNew{T<:Real} <: AbstractMap
-    mm::SimpleMesh
+struct ViewMapNew{T<:Real} <: AbstractViewMap
+    mm::Domain
     weight::Vector{T}
     occupancy::Vector{T}
 end
