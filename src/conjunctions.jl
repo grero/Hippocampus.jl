@@ -652,22 +652,22 @@ end
 
 function process_kwargs(::Type{<:AbstractFieldConjunctions},h::UInt32=zero(UInt32);kwargs...)
     h = process_kwargs(JointMap,h;kwargs...)
-    h = process_kwargs(SpatialResponseFields,h;kwargs...)
-    h = process_kwargs(GazeResponseFields,h;kwargs...)
+    h = process_kwargs(SpatialResponseFields,h;niter=get(kwargs, :niter_place,50), kwargs...)
+    h = process_kwargs(GazeResponseFields,h;niter=get(kwargs, :niter_view, 25), kwargs...)
     h
 end
 
 function process_kwargs(::Type{PlaceViewConjunction{T1,T2}},h::UInt32=zero(UInt32);kwargs...) where T1 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple} where T2 <: Union{GazeResponseFields, GazeResponseFieldsSimple}
     h = process_kwargs(JointMap,h;kwargs...)
-    h = process_kwargs(T1,h;kwargs...)
-    h = process_kwargs(T2,h;kwargs...)
+    h = process_kwargs(T1,h;niter=get(kwargs, :niter_place,50), kwargs...)
+    h = process_kwargs(T2,h;niter=get(kwargs, :niter_view, 25), kwargs...)
     h
 end
 
 function process_kwargs(::Type{ViewPlaceConjunction{T1,T2}},h::UInt32=zero(UInt32);kwargs...) where T2 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple} where T1 <: Union{GazeResponseFields, GazeResponseFieldsSimple}
     h = process_kwargs(JointMap,h;kwargs...)
-    h = process_kwargs(T1,h;kwargs...)
-    h = process_kwargs(T2,h;kwargs...)
+    h = process_kwargs(T1,h;niter=get(kwargs, :niter_view, 25), kwargs...)
+    h = process_kwargs(T2,h;niter=get(kwargs, :niter_place,50), kwargs...)
     h
 end
 
