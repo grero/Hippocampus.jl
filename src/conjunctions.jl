@@ -995,11 +995,14 @@ function compute_field_distance(pvc::AbstractFieldConjunctions, vpc::AbstractFie
     dd
 end
 
-function test_conjunctions(celldirs::Vector{String};redo=fname->false, kwargs...)
+function test_conjunctions(celldirs::Vector{String};redo=fname->false, nruns=1,kwargs...)
     fname = joinpath(@__DIR__, "..","data","surrogate_conjunctions.jld2")
     h = process_kwargs(ViewPlaceConjunction;kwargs...)
     for celldir in celldirs
         h = CRC32c.crc32c(celldir, h)
+    end
+    if nruns > 1
+        h = CRC32c.crc32c(string(:nruns=>nruns),h)
     end
     if h > 0
         hs = string(h, base=16)
@@ -1016,7 +1019,7 @@ function test_conjunctions(celldirs::Vector{String};redo=fname->false, kwargs...
         dt = get(kwargs, :dt, 0.001)
         niter_spatial = get(kwargs, :niter_spatial, 50)
         niter_gaze = get(kwargs, :niter_gaze, 25)
-        res = falses(length(celldirs))
+        res = falses(length(celldirs), nruns)
         prog = Progress(length(celldirs),desc="Computing surrogate conjunctions...")
         for sessiondir in sessiondirs
             cidx = findall(allsessiondirs.==sessiondir)
@@ -1039,11 +1042,13 @@ function test_conjunctions(celldirs::Vector{String};redo=fname->false, kwargs...
                 vm = ViewMapNew(jm, mm)
                 vml = SmoothedMap(vm;method=:laplace, α=0.1,niter=25)
                 # sample
-                jms = simulate_joint_map(qdata, rpdata, jocc, spml, vml;jocc_filtered=jocc_filtered,dt=dt,prog_offset=1)
-                # create conjunction objects
-                vpc = ViewPlaceConjunction(jms, rf_gaze, rf_spatial)
-                pvc = PlaceViewConjunction(jms, rf_spatial, rf_gaze)
-                res[cidx[jj]] = any((issignificant(vpc)).|(issignificant(pvc)))
+                @showprogress offset=1 desc="Running surrogates..." for rr in 1:nruns
+                    jms = simulate_joint_map(qdata, rpdata, jocc, spml, vml;jocc_filtered=jocc_filtered,dt=dt,prog_offset=2)
+                    # create conjunction objects
+                    vpc = ViewPlaceConjunction(jms, rf_gaze, rf_spatial)
+                    pvc = PlaceViewConjunction(jms, rf_spatial, rf_gaze)
+                    res[cidx[jj],rr] = any((issignificant(vpc)).|(issignificant(pvc)))
+                end
                 next!(prog)
             end
         end
