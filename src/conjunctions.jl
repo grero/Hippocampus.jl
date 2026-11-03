@@ -8,7 +8,7 @@ struct FieldConjunctions{T1<:AbstractResponseFields, T2<:AbstractResponseFields}
     λ_outfield::Vector{Vector{Float64}}
 end
 
-function Hippocampus.issignificant(fj::FieldConjunctions;pv_threshold=0.05)
+function issignificant(fj::FieldConjunctions;pv_threshold=0.05)
     res = fill(false, size(fj.λ_infield))
     for pidx in 1:length(fj.λ_outfield)
         for vidx in 1:size(fj.λ_infield,1)
