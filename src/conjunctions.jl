@@ -675,6 +675,11 @@ function PlaceViewConjunction(;kwargs...)
     PlaceViewConjunction(SpatialResponseFields, GazeResponseFields;kwargs...)
 end
 
+function PlaceViewConjunction(jm::JointMap, rf_spatial::T1, rf_gaze::T2) where T1 <: SpatialResponseFieldsAll where T2 <: GazeResponseFieldsAll
+    λ_covered, λ_sub,λ_infield, λ_outfield,matched_idx = conjunctions2(jm, rf_gaze, rf_spatial, 1)
+    PlaceViewConjunction{T1,T2}(rf_spatial, rf_gaze, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
+end
+
 function PlaceViewConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=true, load_only=false, kwargs...) where T1 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple} where T2 <: Union{GazeResponseFields, GazeResponseFieldsSimple}
     fname = "place_view_conjunction_new.jld2"
     h = process_kwargs(PlaceViewConjunction{T1,T2};kwargs...)
@@ -719,6 +724,11 @@ end
 
 function ViewPlaceConjunction(;kwargs...)
     ViewPlaceConjunction(GazeResponseFields, SpatialResponseFields;kwargs...)
+end
+
+function ViewPlaceConjunction(jm::JointMap, rf_gaze::T1, rf_spatial::T2) where T2 <: SpatialResponseFieldsAll where T1 <: GazeResponseFieldsAll
+    λ_covered, λ_sub,λ_infield, λ_outfield, matched_idx = conjunctions2(jm, rf_gaze, rf_spatial,2)
+    ViewPlaceConjunction{T1,T2}(rf_gaze, rf_spatial, λ_covered, λ_sub,get_rate(λ_infield), get_rate(λ_outfield), matched_idx)
 end
 
 function ViewPlaceConjunction(::Type{T1}, ::Type{T2};redo=fname->false, do_save=true, load_only=false, kwargs...) where T1 <: Union{GazeResponseFields, GazeResponseFieldsSimple} where T2 <: Union{SpatialResponseFields, SpatialResponseFieldsSimple}
