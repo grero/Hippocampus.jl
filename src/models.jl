@@ -61,6 +61,9 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
     r = 0.0
     @showprogress offset=prog_offset desc="Generating spikes..." for i in 1:nt
         t,gaze,pos,_,_ = get_trial(qdata, i;trial_start=2)
+        if isempty(t)
+            continue
+        end
         # get the time from ripple
         trp = rpdata.timestamps[i,2]
         # reference to ripple time
