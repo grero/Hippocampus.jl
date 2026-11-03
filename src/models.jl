@@ -55,6 +55,7 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
     if vm !== nothing
         λ2 = get_rate_map(vm)
     end
+    allidx = CartesianIndex{5}[]
     spikes = Float64[]
     q = -log(rand(rng))
     r = 0.0
@@ -80,6 +81,7 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
                 vidx = getindex(qidx,T2)
                 _λ += λ2[vidx] 
             end
+            push!(allidx, CartesianIndex(qidx, i, jk))
             if !isfinite(_λ)
                 @show i jk
                 break
