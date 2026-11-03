@@ -111,6 +111,20 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
 end
 
 """
+    simulate_joint_map(qdata::UnityRaytraceData, rpdata::RippleData, jocc::JointOccupancy, spm::T, vm::Union{Nothing, T2}=nothing;jocc_filtered::Union{JointFilteredOccupancy, Nothing}=nothing, dt=0.0005,rng=Random.default_rng()) where T <: AbstractMap where T2 <: AbstractMap
+ 
+Create a surrogate joint map by using `spm` and `vml` as rates for separate Poisson processes.
+"""
+function simulate_joint_map(qdata::UnityRaytraceData, rpdata::RippleData, jocc::JointOccupancy, spm::T, vm::Union{Nothing, T2}=nothing;jocc_filtered::Union{JointFilteredOccupancy, Nothing}=nothing, dt=0.0005,rng=Random.default_rng(),prog_offset=0) where T <: AbstractMap where T2 <: AbstractMap
+    spikes, allidx = generate_spikes(qdata, rpdata, jocc, spm, vm;jocc_filtered=jocc_filtered,dt=dt,rng=rng,prog_offset=prog_offset)
+
+    # create a joint map from the model spiketrain
+    vpvrep = ViewAndPlaceRepresentationNew(spikes, rpdata, qdata;trial_start=2)
+    JointMap(vpvrep, jocc, jocc_filtered)
+end
+
+
+"""
 Simulate a simple place field neuron using behavioural data in `udata`
 """
 function model_place_field(udata::Union{UnityData,UnityRaytraceData}, rpdata::RippleData;λmin=0.1, λmax=3.0,dt=0.01,σ1=1.0,σ2=σ1, μ=[3.5,1.2],ρ=0.0, fd=0.0, temporal_factor=0.0, sigmoid_params=(Inf,1.0), view_field::Union{ViewField,Nothing}=nothing, rng=Random.default_rng())
