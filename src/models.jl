@@ -107,7 +107,7 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
             end
         end
     end
-    spikes
+    spikes, allidx
 end
 
 """
