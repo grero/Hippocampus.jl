@@ -995,6 +995,63 @@ function compute_field_distance(pvc::AbstractFieldConjunctions, vpc::AbstractFie
     dd
 end
 
+function test_conjunctions(celldirs::Vector{String};redo=fname->false, kwargs...)
+    fname = joinpath(@__DIR__, "..","data","surrogate_conjunctions.jld2")
+    h = process_kwargs(ViewPlaceConjunction;kwargs...)
+    for celldir in celldirs
+        h = CRC32c.crc32c(celldir, h)
+    end
+    if h > 0
+        hs = string(h, base=16)
+        fname = replace(fname, ".jld2"=> "_$(hs).jld2")
+    end
+    if !redo(fname) && isfile(fname)
+        res = JLD2.load(fname, "results")
+    else
+        allsessiondirs = DPHT.get_level_path.("session", celldirs)
+        sessiondirs = unique(allsessiondirs)
+        nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+        m_floor = Shadow("xy")(floor_topology3(;nrefinements=nrefinements.p))
+        mm = get_maze_mesh(;nrefinements=nrefinements.g) 
+        dt = get(kwargs, :dt, 0.001)
+        niter_spatial = get(kwargs, :niter_spatial, 50)
+        niter_gaze = get(kwargs, :niter_gaze, 25)
+        res = falses(length(celldirs))
+        prog = Progress(length(celldirs),desc="Computing surrogate conjunctions...")
+        for sessiondir in sessiondirs
+            cidx = findall(allsessiondirs.==sessiondir)
+            qdata, jocc, rpdata = cd(sessiondir) do
+                qdata = UnityRaytraceData(raytrace_fname="unityfile_eyelink_new.csv";redo=fname->false)
+                jocc = JointOccupancy(;kwargs...)
+                rpdata = RippleData()
+                qdata, jocc, rpdata
+            end
+            jocc_filtered = JointFilteredOccupancy(jocc,qdata;kwargs...)
+            for (jj, celldir) in enumerate(celldirs[cidx])
+                jm,rf_gaze, rf_spatial = cd(celldir) do
+                    jm = JointMap(;kwargs...)
+                    rf_gaze = get_response_fields(GazeResponseFields, 1_000;niter=niter_gaze, kwargs...)
+                    rf_spatial = get_response_fields(SpatialResponseFields, 1_000;niter=niter_spatial, kwargs...)
+                    jm, rf_gaze, rf_spatial
+                end
+                spm = SpatialMapNew(jm, m_floor) 
+                spml = SmoothedMap(spm;method=:laplace, α=0.1,niter=50)
+                vm = ViewMapNew(jm, mm)
+                vml = SmoothedMap(vm;method=:laplace, α=0.1,niter=25)
+                # sample
+                jms = simulate_joint_map(qdata, rpdata, jocc, spml, vml;jocc_filtered=jocc_filtered,dt=dt,prog_offset=1)
+                # create conjunction objects
+                vpc = ViewPlaceConjunction(jms, rf_gaze, rf_spatial)
+                pvc = PlaceViewConjunction(jms, rf_spatial, rf_gaze)
+                res[cidx[jj]] = any((issignificant(vpc)).|(issignificant(pvc)))
+                next!(prog)
+            end
+        end
+        JLD2.save(fname, Dict("celldirs"=>celldirs, "results"=>res, "args"=>kwargs))
+    end
+    res
+end
+
 ## plots
 function plot_conjunction_old(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
 
