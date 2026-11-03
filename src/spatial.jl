@@ -380,6 +380,8 @@ struct SmoothedMap{T<:Real, T2<:AbstractMap} <: AbstractSpatialMap
     smooth_params::NamedTuple
 end
 
+Base.getindex(qidx::CartesianIndex, ::Type{<:SmoothedMap{<:Real, T}}) where T <: AbstractMap = getindex(qidx, T)
+
 DPHT.filename(sm::SmoothedMap{T}) where T <: Real = "smoothed_map.jld2"
 DPHT.filename(::Type{<:SmoothedMap{<:Real, SpatialMapNew}}) = "smoothed_spatial_map.jld2"
 
