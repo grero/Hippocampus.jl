@@ -48,7 +48,7 @@ end
 
 sigmoid(x, x0, a) = 1.0/(1+exp(a*(x-x0)))
 
-function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::JointOccupancy, spm::T, vm::Union{Nothing, T2}=nothing;jocc_filtered::Union{JointFilteredOccupancy, Nothing}=nothing, dt=0.0005,rng=Random.default_rng()) where T <: AbstractMap where T2 <: AbstractMap
+function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::JointOccupancy, spm::T, vm::Union{Nothing, T2}=nothing;jocc_filtered::Union{JointFilteredOccupancy, Nothing}=nothing, dt=0.0005,rng=Random.default_rng(),prog_offset=0) where T <: AbstractMap where T2 <: AbstractMap
     nt = numtrials(qdata)
 
     λ = get_rate_map(spm)
@@ -58,7 +58,7 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
     spikes = Float64[]
     q = -log(rand(rng))
     r = 0.0
-    @showprogress for i in 1:nt
+    @showprogress offset=prog_offset desc="Generating spikes..." for i in 1:nt
         t,gaze,pos,_,_ = get_trial(qdata, i;trial_start=2)
         # get the time from ripple
         trp = rpdata.timestamps[i,2]
