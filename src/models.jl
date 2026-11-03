@@ -92,7 +92,7 @@ function generate_spikes(qdata::UnityRaytraceData, rpdata::RippleData, jocc::Joi
                 end
                 if r >= q 
                     # refractory period
-                    if isempty(spikes) || _t - spikes[end] > 1.0
+                    if isempty(spikes) || _t - spikes[end] > 0.001
                         push!(spikes, _t)
                         r = 0.0
                         q = -log(rand(rng))
