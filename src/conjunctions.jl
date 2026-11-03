@@ -142,7 +142,7 @@ function Base.show(io::IO, pvc::ViewPlaceConjunction)
 end
 
 
-function Hippocampus.issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05, min_non_covered_ratio=1.0)
+function issignificant(pvc::AbstractFieldConjunctions;pv_threshold=0.05, min_non_covered_ratio=1.0)
     pv = fill(false, size(pvc.λ_covered)[1:2]...)
     for ii in CartesianIndices(pv) 
         # check that we have enough non-covered indices to faciliate a meaningful comparison
