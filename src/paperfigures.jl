@@ -128,8 +128,11 @@ end
 Place cells
 """
 function figure2()
-    spatially_selective, example_idx = JLD2.load(joinpath(@__DIR__, "..","data","paper","figure2_data.jld2"), "spatially_selective", "example_cell_idx")
-    figure2(spatially_selective, example_idx)
+    place_selective_cells = readlines(open(joinpath(@__DIR__, "..","data","place_selective_cells.txt")))
+    place_cells = readlines(open(joinpath(@__DIR__, "..","data","place_cells.txt")))
+    non_place_cell_idx = findfirst(in(setdiff(place_selective_cells, place_cells)), place_selective_cells)
+    place_idx = findall(in(place_cells), place_selective_cells)[[4,8]]
+    figure2(place_selective_cells, [non_place_cell_idx;place_idx])
 end
 
 function figure2(spatial_cells::Vector{String},example_idx::Vector{Int64})
