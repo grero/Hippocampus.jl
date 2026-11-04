@@ -205,6 +205,11 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
     kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001)
     mm = Hippocampus.get_mesh(T,(p=3,g=2))
     #m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
+    if T <: Hippocampus.GazeResponseFieldsAll
+        niter = 25
+    else
+        niter = 50
+    end
     with_theme(plot_theme()) do
         fig = Figure(size=(900,800))
         # Example of a cell with place activity
@@ -215,7 +220,7 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
             lg1 = GridLayout(lgm[1,ii])
             sic,rfs = cd(celldirs[jj]) do
                 sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=25,kwargs...)
-                rfs = Hippocampus.get_response_fields(T, 1_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=25,pv_threshold=0.001,kwargs...) 
+                rfs = Hippocampus.get_response_fields(T, 1_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=niter,pv_threshold=0.001,kwargs...) 
                 sic,rfs
             end
             if isempty(rfs.binidx) || sic === nothing
@@ -250,7 +255,7 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
         end
         # summary showing total number of fields and coverage
         lg3 = GridLayout(fig[2,1]) 
-        Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E","F"], pv_threshold=0.001, smooth=true, smoothing_method=:laplace, α=0.1,niter=25,colormap=:jet,floor_offset=-20, plot_kwargs...)
+        Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E","F"], pv_threshold=0.001, smooth=true, smoothing_method=:laplace, α=0.1,niter=niter,colormap=:jet,floor_offset=-20, plot_kwargs...)
         rowsize!(fig.layout, 1, Relative(0.6))
         fig
     end
