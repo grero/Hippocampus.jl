@@ -245,7 +245,9 @@ function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vec
             rowsize!(lg12, 1, Relative(0.9))
         end
         # link cameras, mainly to keep the zoom factor the same
-        Hippocampus.link_cameras_lscene(lscenes)
+        if T <: Hippocampus.GazeResponseFieldsAll
+            Hippocampus.link_cameras_lscene(lscenes)
+        end
         # summary showing total number of fields and coverage
         lg3 = GridLayout(fig[2,1]) 
         Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E","F"], pv_threshold=0.001, smooth=true, smoothing_method=:laplace, α=0.1,niter=25,colormap=:jet,floor_offset=-20, plot_kwargs...)
