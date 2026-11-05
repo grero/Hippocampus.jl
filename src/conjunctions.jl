@@ -1057,6 +1057,33 @@ function test_conjunctions(celldirs::Vector{String};redo=fname->false, nruns=1,k
     res
 end
 
+"""
+    get_joint_vs_independent_information(;kwargs...)
+
+Get the difference between the joint spatial information criterion and the sum of the 
+individual information criterion for place and view separately. This approximates the
+degree of redundancy between the spatial and view responses.
+
+If the difference is positive, then the joint response provides more information about place and view
+than observing either on their own would. On the other hand, if the difference is negative, there is a degree
+of redundacy in the responses, i.e. they contain the same spatial information.
+
+"""
+function get_joint_vs_independent_information(;kwargs...)
+    nshuffles = get(kwargs, :nshuffles, 10_000)
+    sic_joint = compute_skaggs_sic(JointInformationContent,nshuffles;kwargs...)
+    sic_spatial = compute_skaggs_sic(SpatialInformationContent, nshuffles;kwargs...)
+    sic_gaze = compute_skaggs_sic(GazeInformationContent, nshuffles;kwargs...)
+    x = sic_joint.sic0 - (sic_spatial.sic0 + sic_gaze.sic0)
+    xs = sic_joint.sic - (sic_spatial.sic + sic_gaze.sic)
+    x,xs
+end
+
+function get_joint_vs_independent_information_default()
+    kwargs = (smooth=false, nrefinements=(p=0,g=0), min_place_obs=5, min_view_obs=5, min_place_duration=0.05, min_view_duration=0.02, trial_start=2, pv_threshold=0.001, min_speed=1.0)
+    get_joint_vs_independent_information(;kwargs...)
+end
+
 ## plots
 function plot_conjunction_old(pvc::PlaceViewConjunction,idx=1;smooth=true,smoothing_method=:laplace, α=0.1, niter=100)
 
