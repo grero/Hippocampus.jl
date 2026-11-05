@@ -226,7 +226,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;load_only=fname->false
             RippleData()
         end
         sp = Spiketrain()
-        sp_r = RandomlyShiftedSpiketrains(;nshifts=nshuffles, rseed=rseed, tmin=tmin, tmax=tmax, kwargs...)
+        sp_r = RandomlyShiftedSpiketrains(;nshifts=nshuffles, rseed=rseed, kwargs...)
 
         jm = JointMap(;use_trials=use_trials, kwargs...)
         unity_gaze_data = cd(DPHT.process_level("session")) do
