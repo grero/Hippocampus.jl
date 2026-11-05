@@ -963,16 +963,13 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
                     clusters = v.clusters
                 end
                 if length(clusters) > 0
-                    nclusters = length.(clusters)
-                    threshold = dropdims(sum(nclusters.>0,dims=2),dims=2)
-                    cluster_idx = findall(threshold .<= 0.01)
-                    nfields[k] = clusters
-                    field_size[k] = fill(0.0, length(cluster_idx))
-                    for (jj,ii) in enumerate(cluster_idx)
-                        cluster = clusters[ii]
-                        push!(bb, find_boundary(mm, v.binidx[cluster]))
+                    nfields[k] = length(clusters)
+                    field_size[k] = fill(0.0, length(clusters))
+                    for (jj,ii) in enumerate(clusters)
+                        cluster = clusters[jj]
+                        push!(bb, find_boundary(mm, cluster))
                         field_size[k][jj] = ustrip(sum(measure.(mm[cluster])))
-                        Z[v.binidx[cluster]] .+= 1.0
+                        Z[cluster] .+= 1.0
                     end
                 else
                     nfields[k] = 0
