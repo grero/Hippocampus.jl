@@ -1042,8 +1042,7 @@ function plot_n_fields!(lg, ::Type{T}, celldirs::Vector{String};labels=["A","B",
         if embeddim(mm) == 2
             ax3 = Axis(lg2[1,1],aspect=1)
             hidedecorations!(ax3)
-            ax3.topspinevisible = true
-            ax3.rightspinevisible = true
+            hidespines!(ax3)
             viz!(ax3, mm;color=:lightgray)
             viz!(ax3, mm;color=Z, showsegments=false, colormap=colormap)
         else
