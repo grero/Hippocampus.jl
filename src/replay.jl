@@ -3149,6 +3149,19 @@ function get_view_occupancy_map(jocc::JointOccupancy,mm::Domain)
     X
 end
 
+function get_view_occupancy(sessions::Vector{String};kwargs...)
+    nrefinements = get(kwargs, :nrefinements, (p=3,g=2))
+    mm = repair_mesh(Hippocampus.get_maze_mesh(;nrefinements=nrefinements.g))
+    X = zeros(nelements(mm))
+    for session in sessions
+        jocc = cd(session) do
+            JointOccupancy(;kwargs...)
+        end
+        X .+= get_view_occupancy_map(jocc, mm)
+    end
+    X
+end
+
 function get_weight(jm::JointMap)
     m_floor = Shadow("xy")(floor_topology3(;nrefinements=jm.dims[2]))
     np = nelements(m_floor)
