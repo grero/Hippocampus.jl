@@ -67,6 +67,8 @@ function get_colors(colormap::Symbol)
         ccolors = [:red, :gold, :orangered, :orange, :salmon, :coral3, :goldenrod1, :firebrick, :tan1, :sienna]
     elseif in([:jet])(colormap)
         ccolors = [:darkorchid4, :sandybrown, :navajowhite4, :wheat, :lightsalmon]
+    elseif in([:viridis])(colormap)
+        ccolors = [:red, :sandybrown, :sienna, :salmon, :goldenrod1, :firebrick, :tan1, :sienna]
     else
         ccolors = Makie.wong_colors()
     end 
