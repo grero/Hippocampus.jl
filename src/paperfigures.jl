@@ -152,6 +152,7 @@ end
 function plot_response_field_with_sic!(lg, celldir::String, ::Type{T}) where T <: Hippocampus.AbstractResponseFields
     kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001)
     mm = Hippocampus.get_mesh(T,(p=3,g=2))
+    colormap = get(kwargs, :colormap, :rain)
     sic,rfs = cd(celldir) do
         sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=50,kwargs...)
         rfs = Hippocampus.get_response_fields(T, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=50,pv_threshold=0.001,kwargs...) 
@@ -168,7 +169,7 @@ function plot_response_field_with_sic!(lg, celldir::String, ::Type{T}) where T <
         ax.leftspinevisible = false
         ax.bottomspinevisible = false
         # show the outline of the maze
-        viz!(ax, mm;color=:lightgray)
+        viz!(ax, mm;color=:lightgray, colormap=colormap)
         viz!(ax,mm;color=Z)
     else
         ax = LScene(lg12[1,1],show_axis=false)
@@ -186,7 +187,7 @@ function plot_response_field_with_sic!(lg, celldir::String, ::Type{T}) where T <
         bb = Hippocampus.find_boundary(mm, rfs.binidx[cluster])
         viz!(ax, bb;color=:black)
     end
-    Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite, Z)), label="Firing rate [Hz]",vertical=false,tellwidth=false)
+    Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite, Z)), label="Firing rate [Hz]",vertical=false,tellwidth=false, colormap=colormap)
     #colsize!(lg1, 1, Relative(0.6))
 
     # show SIC distribution
