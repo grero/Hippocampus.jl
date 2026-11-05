@@ -3137,6 +3137,10 @@ function get_view_occupancy_map(jocc::JointOccupancy)
         nrefinements=3
     end
     mm = Hippocampus.get_maze_mesh(;nrefinements=nrefinements)
+    get_view_occupancy_map(jocc, mm)
+end
+
+function get_view_occupancy_map(jocc::JointOccupancy,mm::Domain)
     X = zeros(nelements(mm))
     for (idx,w) in jocc.weight
         vidx = getindex(idx,1)
