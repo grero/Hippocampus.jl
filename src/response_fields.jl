@@ -1454,3 +1454,123 @@ function plotmap!(ax::Union{Axis, Axis3, LScene}, spm::Observable{T};show_pillar
     end
     pl
 end
+
+function plot_response_field_with_sic(celldir::String,args...;kwargs...)
+    with_theme(plot_theme()) do
+        fig = Figure(size=(600,600))
+        lg = GridLayout(fig[1,1])
+        plot_response_field_with_sic!(lg, celldir,args...;kwargs...)
+        fig
+    end
+end
+
+function plot_response_field_with_sic!(lg, celldir::String, ::Type{T}) where T <: Hippocampus.AbstractResponseFields
+    kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001)
+    mm = Hippocampus.get_mesh(T,(p=3,g=2))
+    colormap = get(kwargs, :colormap, :rain)
+    sic,rfs = cd(celldir) do
+        sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=50,kwargs...)
+        rfs = Hippocampus.get_response_fields(T, 10_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=50,pv_threshold=0.001,kwargs...) 
+        sic,rfs
+    end
+    if isempty(rfs.binidx) || sic === nothing
+        @show jj
+    end
+    lg12 = GridLayout(lg[1,1])
+    Z = rfs.λ
+    if embeddim(mm) == 2
+        ax = Axis(lg12[1,1],aspect=1)
+        hidedecorations!(ax)
+        ax.leftspinevisible = false
+        ax.bottomspinevisible = false
+        # show the outline of the maze
+        viz!(ax, mm;color=:lightgray, colormap=colormap)
+        viz!(ax,mm;color=Z)
+    else
+        ax = LScene(lg12[1,1],show_axis=false)
+        #TODO: only hide the ceiling if this cell has no field on the ceiling
+        Hippocampus.plotmesh!(ax, mm;color=Z,indicate_north=true,hide_ceiling=true, colormap=colormap)
+    end
+
+    clusters - rfs.clusters
+    for cluster in clusters
+        bb = Hippocampus.find_boundary(mm, cluster)
+        viz!(ax, bb;color=:black)
+    end
+    Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite, Z)), label="Firing rate [Hz]",vertical=false,tellwidth=false, colormap=colormap)
+    #colsize!(lg1, 1, Relative(0.6))
+
+    # show SIC distribution
+    #lg2 = GridLayout(fig[1,2])
+    ax2 = Axis(lg12[3,1])
+
+    boxplot!(ax2, fill(1.0, length(sic.sic)), sic.sic,color=:gray,show_notch=true,orientation=:horizontal,show_outliers=false)
+    vlines!(ax2, sic.sic0, linestyle=:dot, color=:black)
+    ax2.yticklabelsvisible = false
+    ax2.yticksvisible = false
+    ax2.bottomspinevisible = true 
+    ax2.leftspinevisible = false
+    ax2.rightspinevisible = false 
+    ax2.xlabel = "SIC"
+    rowsize!(lg12, 1, Relative(0.8))
+end
+
+function plot_field_summary(::Type{T}, celldirs::Vector{String},example_idx::Vector{Int64};_plot_theme=theme_minimal, plot_kwargs...) where T<:Hippocampus.AbstractResponseFields
+    kwargs = (min_speed=1.0, trial_start=2, min_place_obs=5, min_place_duration=0.05, min_view_obs=5, min_view_duration=0.02, pv_threshold=0.001)
+    mm = Hippocampus.get_mesh(T,(p=3,g=2))
+    #m_floor = Shadow("xy")(Hippocampus.floor_topology3(;nrefinements=3))
+    if T <: Hippocampus.GazeResponseFieldsAll
+        niter = 25
+    else
+        niter = 50
+    end
+    with_theme(_plot_theme()) do
+        fig = Figure(size=(900,800))
+        # Example of a cell with place activity
+        lgm = GridLayout(fig[1,1])
+        Label(lgm[1,1,TopLeft()], "A")
+        lscenes = Any[]
+        for (ii,jj) in enumerate(example_idx)
+            lg1 = GridLayout(lgm[1,ii])
+            sic,rfs = cd(celldirs[jj]) do
+                sic = Hippocampus.compute_skaggs_sic(Hippocampus.get_sic_type(T), 10_000;load_only=true, smooth=true, smoothing_method=:laplace, α=0.1, niter=25,kwargs...)
+                rfs = Hippocampus.get_response_fields(T, 1_000;smooth=true, smoothing_method=:laplace, α=0.1, niter=niter,pv_threshold=0.001,kwargs...) 
+                sic,rfs
+            end
+            if isempty(rfs.binidx) || sic === nothing
+                @show jj
+            end
+            lg12 = GridLayout(lg1[1,1])
+            show_points = T <: Hippocampus.GazeResponseFields
+            show_boundaries = !show_points
+            lscene = Hippocampus.plot_response_fields!(lg12, rfs;filter_spurious=true, colorbar_below=true, colormap=:jet, show_points=show_points, show_boundaries=show_boundaries, plot_kwargs...)
+            push!(lscenes, lscene)
+            # show SIC distribution
+            #lg2 = GridLayout(fig[1,2])
+            ax2 = Axis(lg12[3,1])
+            if ii == 1
+                Label(lg12[3,1, TopLeft()],"B";tellheight=false)
+            else
+                Label(lg12[3,1, TopLeft()],"")
+            end
+            boxplot!(ax2, fill(1.0, length(sic.sic)), sic.sic,color=:gray,show_notch=true,orientation=:horizontal,show_outliers=false)
+            vlines!(ax2, sic.sic0, linestyle=:dot, color=:black)
+            ax2.yticklabelsvisible = false
+            ax2.yticksvisible = false
+            ax2.bottomspinevisible = true 
+            ax2.leftspinevisible = false
+            ax2.rightspinevisible = false 
+            ax2.xlabel = "SIC"
+            rowsize!(lg12, 1, Relative(0.9))
+        end
+        # link cameras, mainly to keep the zoom factor the same
+        if T <: Hippocampus.GazeResponseFieldsAll
+            Hippocampus.link_cameras_lscene(lscenes)
+        end
+        # summary showing total number of fields and coverage
+        lg3 = GridLayout(fig[2,1]) 
+        Hippocampus.plot_n_fields!(lg3, T,celldirs;labels=["C","D","E","F"], pv_threshold=0.001, smooth=true, smoothing_method=:laplace, α=0.1,niter=niter,colormap=:jet,floor_offset=-20, plot_kwargs...)
+        rowsize!(fig.layout, 1, Relative(0.6))
+        fig
+    end
+end
