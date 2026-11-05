@@ -226,21 +226,7 @@ function compute_skaggs_sic(::Type{T}, nshuffles::Integer;load_only=fname->false
             RippleData()
         end
         sp = Spiketrain()
-        # TODO: shuffle only some spikes
-        trialstart = args[:trial_start]
-        nt = div(size(rp.timestamps,1), 2)
-        if use_trials == :firstHalf
-            tmin = 1000.0*rp.timestamps[1,trialstart]
-            tmax = 1000.0*rp.timestamps[nt,3]
-        elseif use_trials == :secondHalf
-            tmin = 1000.0*rp.timestamps[nt+1,trialstart]
-            tmax = 1000.0*rp.timestamps[end,3]
-        else
-            # TODO: This should probably come from rpdata as well
-            tmin = 1000.0*rp.timestamps[1,trialstart]
-            tmax = 1000.0*rp.timestamps[end,3]
-        end
-        sp_r = RandomlyShiftedSpiketrains(sp;nshifts=nshuffles, rseed=rseed, tmin=tmin, tmax=tmax, kwargs...)
+        sp_r = RandomlyShiftedSpiketrains(;nshifts=nshuffles, rseed=rseed, tmin=tmin, tmax=tmax, kwargs...)
 
         jm = JointMap(;use_trials=use_trials, kwargs...)
         unity_gaze_data = cd(DPHT.process_level("session")) do
