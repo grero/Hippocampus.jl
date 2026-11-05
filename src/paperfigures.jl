@@ -174,17 +174,12 @@ function plot_response_field_with_sic!(lg, celldir::String, ::Type{T}) where T <
     else
         ax = LScene(lg12[1,1],show_axis=false)
         #TODO: only hide the ceiling if this cell has no field on the ceiling
-        Hippocampus.plotmesh!(ax, mm;color=Z,indicate_north=true,hide_ceiling=true)
+        Hippocampus.plotmesh!(ax, mm;color=Z,indicate_north=true,hide_ceiling=true, colormap=colormap)
     end
 
-    clusters = Hippocampus.merge_fields(rfs)
-    nclusters = Hippocampus.get_num_fields(rfs)
-    # relative number of times we get cluster of at least length.(clusters) randomly
-    threshold = dropdims(sum(nclusters,dims=2),dims=2)/size(nclusters,2)
-    # only keep fields where the probabilty of getting the same field in the surroages is less than 0.01
-    valid_cluster_idx = findall(threshold .< kwargs.pv_threshold)
-    for cluster in clusters[valid_cluster_idx] 
-        bb = Hippocampus.find_boundary(mm, rfs.binidx[cluster])
+    clusters - rfs.clusters
+    for cluster in clusters
+        bb = Hippocampus.find_boundary(mm, cluster)
         viz!(ax, bb;color=:black)
     end
     Colorbar(lg12[2,1], colorrange=extrema(filter(isfinite, Z)), label="Firing rate [Hz]",vertical=false,tellwidth=false, colormap=colormap)
